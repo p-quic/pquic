@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include <stdlib.h>
+#include <string.h>
 
 plugin_state_t *plugin_push_nxt_state(picoquic_cnx_t *cnx, plugin_id_t state)
 {
@@ -37,11 +38,20 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, plugin_id_t identifier, char *elf_fname
     return 1;
 }
 
-int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, plugin_id_t max_state) {
+int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int argc, uint64_t *argv) {
     int status = PICOQUIC_OK;
     plugin_state_t *tmp;
     cnx->protoop_cur_state = initial_state;
     cnx->protoop_stop = 0;
+    int continue_run = 1;
+
+    /* First save previous args, and update context with new ones */
+    uint64_t old_args[argc];
+    memcpy(old_args, cnx->protoop_args, sizeof(uint64_t) * argc);
+    memcpy(cnx->protoop_args, argv, sizeof(uint64_t) * argc);
+
+    /* We also need to keep track of the current nxt_state, as this function might be reentrant. */
+    plugin_state_t *end_state = cnx->protoop_nxt_state;
 
     do {
         DBG_PLUGIN_PRINTF("Run operation 0x%x", cnx->protoop_cur_state);
@@ -52,26 +62,32 @@ int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, plugin
         status = cnx->ops[cnx->protoop_cur_state](cnx);
 
         /* Do we still have states to explore ? */
-        if (cnx->protoop_nxt_state) {
+        if (cnx->protoop_nxt_state != end_state) {
             tmp = cnx->protoop_nxt_state;
             cnx->protoop_nxt_state = tmp->nxt;
             cnx->protoop_cur_state = tmp->val;
             /* Keep free, as malloc was used for states */
             free(tmp);
         } else {
-            cnx->protoop_cur_state = max_state;
+            continue_run = 0;
         }
-    } while (cnx->protoop_cur_state < max_state && cnx->protoop_stop == 0);
+    } while (continue_run && cnx->protoop_stop == 0);
 
     /* Perform clean-up, as abrupt terminations might leave some unfree memory */
-    while (cnx->protoop_nxt_state) {
+    while (cnx->protoop_nxt_state != end_state) {
         tmp = cnx->protoop_nxt_state;
         cnx->protoop_nxt_state = cnx->protoop_nxt_state->nxt;
         /* Keep free, as malloc was used for states */
         free(tmp);
     }
 
-    DBG_PLUGIN_PRINTF("Return status is 0x%x, stopped is %d", status, cnx->protoop_stop);
+    DBG_PLUGIN_PRINTF("Return status of initial operation 0x%x is 0x%x, stopped is %d", initial_state, status, cnx->protoop_stop);
+
+    /* We want to be reentrant, so stop must be reset now */
+    cnx->protoop_stop = 0;
+
+    /* And restore the previous arguments */
+    memcpy(cnx->protoop_args, old_args, sizeof(uint64_t) * argc);
 
     return status;
 }

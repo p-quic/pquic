@@ -419,6 +419,8 @@ typedef uint16_t plugin_id_t;
 /* Definition of operation return values */
 #define PICOQUIC_OK 0
 
+#define PROTOOPARGS_MAX 8
+
 /* Declare protocol operations here */
 /* incoming_encrypted */
 #define PROTOOPID_INCOMING_ENCRYPTED_START 0x0000
@@ -433,9 +435,6 @@ typedef uint16_t plugin_id_t;
 
 /* Register functions */
 void incoming_encrypted_register(picoquic_cnx_t *cnx);
-
-/* Needed for compilation for the connection context */
-typedef struct _picoquic_packet_header picoquic_packet_header;
 
 /* 
  * Per connection context.
@@ -566,12 +565,11 @@ typedef struct st_picoquic_cnx_t {
     plugin_t *plugins[PROTOOPID_MAX];
     unsigned int protoop_stop:1;
 
-    /* Due to uBPF constraints, all needed info must be contained in the context */
-    /* picoquic_incoming_encrypted */
-    uint8_t* rcv_bytes;
-    picoquic_packet_header* rcv_ph;
-    struct sockaddr* rcv_addr_from;
-    uint64_t current_time;
+    /* Due to uBPF constraints, all needed info must be contained in the context.
+     * Furthermore, the arguments might have different types...
+     * Fortunately, if arguments are either integers or pointers, this is simple.
+     */
+    uint64_t protoop_args[PROTOOPARGS_MAX];
 } picoquic_cnx_t;
 
 /* Init of transport parameters */

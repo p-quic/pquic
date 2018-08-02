@@ -11,7 +11,9 @@ int incoming_encrypted_check_cid(picoquic_cnx_t *cnx)
 {
     int ret = 0;
 
-    if (picoquic_compare_connection_id(&cnx->rcv_ph->dest_cnx_id, &cnx->local_cnxid) != 0) {
+    picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_args[1];
+
+    if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) != 0) {
         ret = PICOQUIC_ERROR_CNXID_CHECK;
     } else if (cnx->cnx_state < picoquic_state_client_almost_ready) {
         /* handshake is not complete. Just ignore the packet */
@@ -36,7 +38,7 @@ int incoming_encrypted_check_cid(picoquic_cnx_t *cnx)
 
 int incoming_encrypted_handle_spinbit(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_header* ph = cnx->rcv_ph;
+    picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_args[1];
     picoquic_packet_context_enum pc = ph->pc;
 
     if (ph->pn64 > cnx->pkt_ctx[pc].first_sack_item.end_of_sack_range) {
@@ -56,10 +58,10 @@ int incoming_encrypted_handle_spinbit(picoquic_cnx_t *cnx)
 int incoming_encrypted_process_correct(picoquic_cnx_t *cnx)
 {
     int ret = 0;
-    uint8_t *bytes = cnx->rcv_bytes;
-    picoquic_packet_header* ph = cnx->rcv_ph;
-    struct sockaddr *addr_from = cnx->rcv_addr_from;
-    uint64_t current_time = cnx->current_time;
+    uint8_t *bytes = (uint8_t *) cnx->protoop_args[0];
+    picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_args[1];
+    struct sockaddr *addr_from = (struct sockaddr *) cnx->protoop_args[2];
+    uint64_t current_time = (uint64_t) cnx->protoop_args[3];
 
     /* Do not process data in closing or draining modes */
     if (cnx->cnx_state >= picoquic_state_closing_received) {

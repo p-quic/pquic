@@ -22,9 +22,14 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, plugin_id_t identifier, char *elf_fname
 
 /**
  * Function allowing running operations, either built-in or plugged.
- * @pre initial_state < max_state
+ * Notice that this function is reentrant, i.e., a plugin might use an
+ * external function that call this one under the hood without any
+ * interference.
+ * Arguments can be provided to the operations. It ensures that they will
+ * be safely passed to them without corrupting previous arguments due to
+ * reentrant calls. There are as many arguments in argv as the value of argc.
  */
-int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, plugin_id_t max_state);
+int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int argc, uint64_t *argv);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
