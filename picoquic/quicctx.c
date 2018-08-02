@@ -873,6 +873,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
+    incoming_encrypted_register(cnx);
+
     return cnx;
 }
 

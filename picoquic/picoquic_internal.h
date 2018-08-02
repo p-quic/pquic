@@ -416,8 +416,26 @@ typedef struct state plugin_state_t;
 typedef int (*protocol_operation)(picoquic_cnx_t *);
 typedef uint16_t plugin_id_t;
 
+/* Definition of operation return values */
+#define PICOQUIC_OK 0
+
 /* Declare protocol operations here */
+/* incoming_encrypted */
+#define PROTOOPID_INCOMING_ENCRYPTED_START 0x0000
+#define PROTOOPID_HANDLE_SPINBIT 0x0001
+#define PROTOOPID_PROCESS_CORRECT_PACKET 0x0002
+#define PROTOOPID_DECODE_FRAME 0x0003
+
+#define PROTOOPID_TLS_STREAM_PROCESS 0x0040
+
+
 #define PROTOOPID_MAX 0x0500
+
+/* Register functions */
+void incoming_encrypted_register(picoquic_cnx_t *cnx);
+
+/* Needed for compilation for the connection context */
+typedef struct _picoquic_packet_header picoquic_packet_header;
 
 /* 
  * Per connection context.
@@ -542,10 +560,18 @@ typedef struct st_picoquic_cnx_t {
 
     /* FIXME Move me in a safe place */
     /* Management of states */
-    plugin_id_t cur_state;
-    plugin_state_t *nxt_state;
+    plugin_id_t protoop_cur_state;
+    plugin_state_t *protoop_nxt_state;
     protocol_operation ops[PROTOOPID_MAX];
     plugin_t *plugins[PROTOOPID_MAX];
+    unsigned int protoop_stop:1;
+
+    /* Due to uBPF constraints, all needed info must be contained in the context */
+    /* picoquic_incoming_encrypted */
+    uint8_t* rcv_bytes;
+    picoquic_packet_header* rcv_ph;
+    struct sockaddr* rcv_addr_from;
+    uint64_t current_time;
 } picoquic_cnx_t;
 
 /* Init of transport parameters */
