@@ -27,12 +27,14 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/picohash.c
     picoquic/picosocks.c
     picoquic/picosplay.c
+    picoquic/plugin.c
     picoquic/quicctx.c
     picoquic/sacks.c
     picoquic/sender.c
     picoquic/ticket_store.c
     picoquic/tls_api.c
     picoquic/transport.c
+    picoquic/ubpf.c
     picoquic/util.c
 )
 
@@ -68,6 +70,9 @@ MESSAGE(STATUS "Found picotls-crypto at : ${PTLS_MINICRYPTO} " )
 FIND_LIBRARY(PTLS_OPENSSL picotls-openssl PATH ../picotls)
 MESSAGE(STATUS "Found picotls-openssl at : ${PTLS_OPENSSL} " )
 
+FIND_LIBRARY(UBPF ubpf PATH ubpf/vm)
+MESSAGE(STATUS "Found ubpf at : ${UBPF} " )
+
 FIND_PACKAGE(OpenSSL )
 MESSAGE("root: ${OPENSSL_ROOT_DIR}")
 MESSAGE("OpenSSL_VERSION: ${OPENSSL_VERSION}")
@@ -86,6 +91,7 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${PTLS_OPENSSL}    
     ${PTLS_MINICRYPTO}
     ${OPENSSL_LIBRARIES}
+    ${UBPF}
     ${CMAKE_DL_LIBS}
 )
 
@@ -98,6 +104,7 @@ TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
     ${PTLS_OPENSSL}
     ${PTLS_CORE}
     ${OPENSSL_LIBRARIES}
+    ${UBPF}
     ${CMAKE_DL_LIBS}
 )
 

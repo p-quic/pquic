@@ -26,6 +26,7 @@
 #include "picoquic.h"
 #include "picotlsapi.h"
 #include "util.h"
+#include "ubpf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -411,8 +412,16 @@ typedef struct st_picoquic_packet_context_t {
 } picoquic_packet_context_t;
 
 
+typedef struct state plugin_state_t;
+typedef int (*protocol_operation)(picoquic_cnx_t *);
+typedef uint16_t plugin_id_t;
+
+/* Declare protocol operations here */
+#define PROTOOPID_MAX 0x0500
+
 /* 
  * Per connection context.
+ * This is the structure that will be passed to plugins.
  */
 typedef struct st_picoquic_cnx_t {
     picoquic_quic_t* quic;
@@ -530,6 +539,13 @@ typedef struct st_picoquic_cnx_t {
     picoquic_path_t ** path;
     int nb_paths;
     int nb_path_alloc;
+
+    /* FIXME Move me in a safe place */
+    /* Management of states */
+    plugin_id_t cur_state;
+    plugin_state_t *nxt_state;
+    protocol_operation ops[PROTOOPID_MAX];
+    plugin_t *plugins[PROTOOPID_MAX];
 } picoquic_cnx_t;
 
 /* Init of transport parameters */
