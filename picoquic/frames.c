@@ -2146,15 +2146,42 @@ static uint8_t* picoquic_skip_0len_frame(uint8_t* bytes, const uint8_t* bytes_ma
     return bytes;
 }
 
-int decode_frames_check_type(picoquic_cnx_t *cnx)
+int decode_frames_start(picoquic_cnx_t *cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_args[0];
     size_t bytes_maxsize = (size_t) cnx->protoop_args[1];
+
+    /* Is argc at the right value? */
+    if (cnx->protoop_argc != 4) {
+        printf("Not matching number of arguments: %d != %d\n", cnx->protoop_argc, 4);
+        cnx->protoop_stop = 1;
+        return PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC;
+    }
+
+    /* Do we have enough argument space ? */
+    if (cnx->protoop_argc + 2 > PROTOOPARGS_MAX) {
+        printf("Too many arguments!\n");
+        cnx->protoop_stop = 1;
+        return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
+    }
+
+    /* We store a constant and a variable in the arguments */
+    cnx->protoop_args[cnx->protoop_argc] = (uint64_t) (bytes + bytes_maxsize);
+    cnx->protoop_args[cnx->protoop_argc + 1] = 0;
+
+    /* We are now ready to check frame types */
+    plugin_push_nxt_state(cnx, PROTOOPID_DECODE_FRAMES_CHECK_TYPE);
+    return 0;
+}
+
+int decode_frames_check_type(picoquic_cnx_t *cnx)
+{
+    uint8_t* bytes = (uint8_t *) cnx->protoop_args[0];
     int epoch = (int) cnx->protoop_args[2];
     uint64_t current_time = (uint64_t) cnx->protoop_args[3];
 
-    const uint8_t *bytes_max = bytes + bytes_maxsize;
-    int ack_needed = 0;
+    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_args[cnx->protoop_argc];
+    int ack_needed = (int) cnx->protoop_args[cnx->protoop_argc + 1];
     picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
     picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
 
@@ -2289,12 +2316,13 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     args[2] = (uint64_t) epoch;
     args[3] = (uint64_t) current_time;
 
-    return plugin_run_operations(cnx, PROTOOPID_DECODE_FRAME_CHECK_TYPE, 4, args);
+    return plugin_run_operations(cnx, PROTOOPID_DECODE_FRAMES_START, 4, args);
 }
 
 void decode_frames_register(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_DECODE_FRAME_CHECK_TYPE] = &decode_frames_check_type;
+    cnx->ops[PROTOOPID_DECODE_FRAMES_START] = &decode_frames_start;
+    cnx->ops[PROTOOPID_DECODE_FRAMES_CHECK_TYPE] = &decode_frames_check_type;
 }
 
 /*

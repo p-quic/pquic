@@ -11,6 +11,13 @@ int incoming_encrypted_check_cid(picoquic_cnx_t *cnx)
 {
     int ret = 0;
 
+    /* Is argc at the right value? */
+    if (cnx->protoop_argc != 4) {
+        printf("Not matching number of arguments: %d != %d\n", cnx->protoop_argc, 4);
+        cnx->protoop_stop = 1;
+        return PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC;
+    }
+
     picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_args[1];
 
     if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) != 0) {
