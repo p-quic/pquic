@@ -23,6 +23,7 @@
 #include "picoquic_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include "plugin.h"
 
 /* ****************************************************
  * Frames private declarations
@@ -1490,7 +1491,7 @@ static int picoquic_process_ack_range(
 }
 
 uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, uint64_t current_time, int epoch, int is_ecn)
+    const uint8_t* bytes_max, int epoch, uint64_t current_time, int is_ecn)
 {
     uint64_t num_block;
     uint64_t largest;
@@ -1575,15 +1576,15 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
 }
 
 uint8_t* picoquic_decode_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, uint64_t current_time, int epoch)
+    const uint8_t* bytes_max, int epoch, uint64_t current_time)
 {
-    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 0);
+    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, epoch, current_time, 0);
 }
 
 uint8_t* picoquic_decode_ack_ecn_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, uint64_t current_time, int epoch)
+    const uint8_t* bytes_max, int epoch, uint64_t current_time)
 {
-    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 1);
+    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, epoch, current_time, 1);
 }
 
 
@@ -2145,16 +2146,13 @@ static uint8_t* picoquic_skip_0len_frame(uint8_t* bytes, const uint8_t* bytes_ma
     return bytes;
 }
 
-
-/*
- * Decoding of the received frames.
- *
- * In some cases, the expected frames are "restricted" to only ACK, STREAM 0 and PADDING.
- */
-
-int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_maxsize, int epoch, uint64_t current_time)
+int decode_frames_check_type(picoquic_cnx_t *cnx)
 {
+    uint8_t* bytes = (uint8_t *) cnx->protoop_args[0];
+    size_t bytes_maxsize = (size_t) cnx->protoop_args[1];
+    int epoch = (int) cnx->protoop_args[2];
+    uint64_t current_time = (uint64_t) cnx->protoop_args[3];
+
     const uint8_t *bytes_max = bytes + bytes_maxsize;
     int ack_needed = 0;
     picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
@@ -2175,9 +2173,9 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
             ack_needed = 1;
 
         } else if (first_byte == picoquic_frame_type_ack) {
-            bytes = picoquic_decode_ack_frame(cnx, bytes, bytes_max, current_time, epoch);
+            bytes = picoquic_decode_ack_frame(cnx, bytes, bytes_max, epoch, current_time);
         } else if (first_byte == picoquic_frame_type_ack_ecn) {
-            bytes = picoquic_decode_ack_ecn_frame(cnx, bytes, bytes_max, current_time, epoch);
+            bytes = picoquic_decode_ack_ecn_frame(cnx, bytes, bytes_max, epoch, current_time);
         } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
                                             && first_byte != picoquic_frame_type_path_challenge
                                             && first_byte != picoquic_frame_type_path_response
@@ -2273,6 +2271,30 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     }
 
     return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
+}
+
+
+/*
+ * Decoding of the received frames.
+ *
+ * In some cases, the expected frames are "restricted" to only ACK, STREAM 0 and PADDING.
+ */
+
+int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
+    size_t bytes_maxsize, int epoch, uint64_t current_time)
+{
+    uint64_t args[4];
+    args[0] = (uint64_t) bytes;
+    args[1] = (uint64_t) bytes_maxsize;
+    args[2] = (uint64_t) epoch;
+    args[3] = (uint64_t) current_time;
+
+    return plugin_run_operations(cnx, PROTOOPID_DECODE_FRAME_CHECK_TYPE, 4, args);
+}
+
+void decode_frames_register(picoquic_cnx_t *cnx)
+{
+    cnx->ops[PROTOOPID_DECODE_FRAME_CHECK_TYPE] = &decode_frames_check_type;
 }
 
 /*

@@ -426,15 +426,17 @@ typedef uint16_t plugin_id_t;
 #define PROTOOPID_INCOMING_ENCRYPTED_START 0x0000
 #define PROTOOPID_HANDLE_SPINBIT 0x0001
 #define PROTOOPID_PROCESS_CORRECT_PACKET 0x0002
-#define PROTOOPID_DECODE_FRAME 0x0003
 
 #define PROTOOPID_TLS_STREAM_PROCESS 0x0040
+
+#define PROTOOPID_DECODE_FRAME_CHECK_TYPE 0x0100
 
 
 #define PROTOOPID_MAX 0x0500
 
 /* Register functions */
 void incoming_encrypted_register(picoquic_cnx_t *cnx);
+void decode_frames_register(picoquic_cnx_t *cnx);
 
 /* 
  * Per connection context.
@@ -569,6 +571,7 @@ typedef struct st_picoquic_cnx_t {
      * Furthermore, the arguments might have different types...
      * Fortunately, if arguments are either integers or pointers, this is simple.
      */
+    int protoop_argc;
     uint64_t protoop_args[PROTOOPARGS_MAX];
 } picoquic_cnx_t;
 

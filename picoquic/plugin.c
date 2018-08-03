@@ -55,15 +55,17 @@ int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int ar
      * Notice that we store ALL array of protoop_args. This allows using some of them as accumulator
      * without causing issues to caller arguments.
      */
+    int old_argc = cnx->protoop_argc;
     uint64_t old_args[PROTOOPARGS_MAX];
     memcpy(old_args, cnx->protoop_args, sizeof(uint64_t) * PROTOOPARGS_MAX);
     memcpy(cnx->protoop_args, argv, sizeof(uint64_t) * argc);
+    cnx->protoop_argc = argc;
 
     /* We also need to keep track of the current nxt_state, as this function might be reentrant. */
     plugin_state_t *end_state = cnx->protoop_nxt_state;
 
     do {
-        DBG_PLUGIN_PRINTF("Run operation 0x%x", cnx->protoop_cur_state);
+        DBG_PLUGIN_PRINTF("With initial 0x%x, run operation 0x%x", initial_state, cnx->protoop_cur_state);
         if (!cnx->ops[cnx->protoop_cur_state]) {
             printf("FATAL ERROR: no function for state 0x%x\n", cnx->protoop_cur_state);
             exit(1);
@@ -97,6 +99,7 @@ int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int ar
 
     /* And restore ALL the previous arguments */
     memcpy(cnx->protoop_args, old_args, sizeof(uint64_t) * PROTOOPARGS_MAX);
+    cnx->protoop_argc = old_argc;
 
     return status;
 }
