@@ -20,6 +20,7 @@
 */
 
 #include "../picoquic/picoquic_internal.h"
+#include "../picoquic/plugin.h"
 
 /*
  * Testing Arrival of Frame for Stream Zero
@@ -133,14 +134,23 @@ static int StreamZeroFrameOneTest(struct test_case_st* test)
 
     picoquic_cnx_t cnx = { 0 };
     uint64_t current_time = 0;
+    uint64_t args[3];
+    uint64_t outs[1];
+    uint8_t *bytes;
+
+    register_protocol_operations(&cnx);
     
     cnx.local_parameters.initial_max_stream_data = 0x10000;
     cnx.remote_parameters.initial_max_stream_data = 0x10000;
     cnx.maxdata_local = 0x10000;
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
-        if (NULL == picoquic_decode_stream_frame(&cnx, test->list[i].packet,
-                       test->list[i].packet + test->list[i].packet_length, current_time)) {
+        args[0] = (uint64_t) test->list[i].packet;
+        args[1] = (uint64_t) test->list[i].packet + test->list[i].packet_length;
+        args[2] = (uint64_t) current_time;
+        plugin_run_protoop(&cnx, PROTOOPID_DECODE_FRAMES_STREAM, 3, args, outs);
+        bytes = (uint8_t *) outs[0];
+        if (NULL == bytes) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;
         }

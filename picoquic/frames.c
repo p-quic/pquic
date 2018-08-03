@@ -685,8 +685,18 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
     return ret;
 }
 
-uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
+int picoquic_decode_stream_frame(picoquic_cnx_t* cnx)
 {
+    /* Is argc at the right value? */
+    if (cnx->protoop_inputc != 3) {
+        printf("Not matching number of arguments: %d != %d\n", cnx->protoop_inputc, 3);
+        return PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC;
+    }
+
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    uint64_t current_time = cnx->protoop_inputv[2];
+
     uint64_t stream_id;
     size_t   data_length;
     uint64_t offset;
@@ -701,7 +711,11 @@ uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const
         bytes += data_length;
     }
 
-    return bytes;
+    /* Put bytes in the output */
+    cnx->protoop_outputv[0] = (uint64_t) bytes;
+    cnx->protoop_outputc_callee = 1;
+
+    return 0;
 }
 
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
@@ -2181,7 +2195,16 @@ int decode_frames_start(picoquic_cnx_t *cnx)
                 break;
             }
 
-            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time);
+            uint64_t args[3];
+            uint64_t outs[1];
+
+            args[0] = (uint64_t) bytes;
+            args[1] = (uint64_t) bytes_max;
+            args[2] = (uint64_t) current_time;
+
+            plugin_run_protoop(cnx, PROTOOPID_DECODE_FRAMES_STREAM, 3, args, outs);
+
+            bytes = (uint8_t *) outs[0];
             ack_needed = 1;
 
         } else if (first_byte == picoquic_frame_type_ack) {
@@ -2306,7 +2329,8 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
 
 void decode_frames_register(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_DECODE_FRAMES_START] = &decode_frames_start;;
+    cnx->ops[PROTOOPID_DECODE_FRAMES_START] = &decode_frames_start;
+    cnx->ops[PROTOOPID_DECODE_FRAMES_STREAM] = &picoquic_decode_stream_frame;
 }
 
 /*

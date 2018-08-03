@@ -873,8 +873,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
-    incoming_encrypted_register(cnx);
-    decode_frames_register(cnx);
+    register_protocol_operations(cnx);
 
     return cnx;
 }
@@ -901,6 +900,12 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
     }
 
     return cnx;
+}
+
+void register_protocol_operations(picoquic_cnx_t *cnx)
+{
+    incoming_encrypted_register(cnx);
+    decode_frames_register(cnx);
 }
 
 int picoquic_start_client_cnx(picoquic_cnx_t * cnx)
