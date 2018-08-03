@@ -1505,7 +1505,7 @@ static int picoquic_process_ack_range(
 }
 
 uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, int epoch, uint64_t current_time, int is_ecn)
+    const uint8_t* bytes_max, uint64_t current_time, int epoch, int is_ecn)
 {
     uint64_t num_block;
     uint64_t largest;
@@ -1590,15 +1590,15 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
 }
 
 uint8_t* picoquic_decode_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, int epoch, uint64_t current_time)
+    const uint8_t* bytes_max, uint64_t current_time, int epoch)
 {
-    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, epoch, current_time, 0);
+    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 0);
 }
 
 uint8_t* picoquic_decode_ack_ecn_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, int epoch, uint64_t current_time)
+    const uint8_t* bytes_max, uint64_t current_time, int epoch)
 {
-    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, epoch, current_time, 1);
+    return picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 1);
 }
 
 
@@ -2208,7 +2208,7 @@ int decode_frames_start(picoquic_cnx_t *cnx)
             ack_needed = 1;
 
         } else if (first_byte == picoquic_frame_type_ack) {
-            bytes = picoquic_decode_ack_frame(cnx, bytes, bytes_max, epoch, current_time);
+            bytes = picoquic_decode_ack_frame(cnx, bytes, bytes_max, current_time, epoch);
         } else if (first_byte == picoquic_frame_type_ack_ecn) {
             bytes = picoquic_decode_ack_ecn_frame(cnx, bytes, bytes_max, epoch, current_time);
         } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
