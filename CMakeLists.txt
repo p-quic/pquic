@@ -20,7 +20,6 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/fnv1a.c
     picoquic/frames.c
     picoquic/http0dot9.c
-    picoquic/incoming_encrypted.c
     picoquic/intformat.c
     picoquic/logger.c
     picoquic/newreno.c

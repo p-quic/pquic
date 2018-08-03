@@ -414,26 +414,12 @@ typedef struct st_picoquic_packet_context_t {
 
 typedef struct state plugin_state_t;
 typedef int (*protocol_operation)(picoquic_cnx_t *);
-typedef uint16_t plugin_id_t;
+typedef uint16_t protoop_id_t;
 
 /* Definition of operation return values */
 #define PICOQUIC_OK 0
 
 #define PROTOOPARGS_MAX 8
-
-/* Declare protocol operations here */
-/* incoming_encrypted */
-#define PROTOOPID_INCOMING_ENCRYPTED_START 0x0000
-#define PROTOOPID_HANDLE_SPINBIT 0x0001
-#define PROTOOPID_PROCESS_CORRECT_PACKET 0x0002
-
-#define PROTOOPID_TLS_STREAM_PROCESS 0x0040
-
-#define PROTOOPID_DECODE_FRAMES_START 0x0100
-#define PROTOOPID_DECODE_FRAMES_CHECK_TYPE 0x0101
-
-
-#define PROTOOPID_MAX 0x0500
 
 /* Register functions */
 void incoming_encrypted_register(picoquic_cnx_t *cnx);
@@ -562,18 +548,19 @@ typedef struct st_picoquic_cnx_t {
 
     /* FIXME Move me in a safe place */
     /* Management of states */
-    plugin_id_t protoop_cur_state;
-    plugin_state_t *protoop_nxt_state;
+    protoop_id_t protoop_id;
     protocol_operation ops[PROTOOPID_MAX];
     plugin_t *plugins[PROTOOPID_MAX];
-    unsigned int protoop_stop:1;
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...
      * Fortunately, if arguments are either integers or pointers, this is simple.
      */
-    int protoop_argc;
-    uint64_t protoop_args[PROTOOPARGS_MAX];
+    int protoop_inputc;
+    uint64_t protoop_inputv[PROTOOPARGS_MAX];
+    uint64_t protoop_outputv[PROTOOPARGS_MAX];
+
+    int protoop_outputc_callee; /* Modified by the callee */
 } picoquic_cnx_t;
 
 /* Init of transport parameters */

@@ -8,28 +8,23 @@
 
 #include "picoquic_internal.h"
 
-/* Struct defining which is the next operation to perform */
-typedef struct state {
-    plugin_id_t val;
-    struct state *nxt;
-} plugin_state_t;
-
-/* Insert state as the next one in the context */
-plugin_state_t *plugin_push_nxt_state(picoquic_cnx_t *cnx, plugin_id_t state);
-
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, plugin_id_t identifier, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
 
 /**
  * Function allowing running operations, either built-in or plugged.
+ * It runs at invocation time, and returns to the caller the status of the callee.
  * Notice that this function is reentrant, i.e., a plugin might use an
  * external function that call this one under the hood without any
  * interference.
  * Arguments can be provided to the operations. It ensures that they will
  * be safely passed to them without corrupting previous arguments due to
- * reentrant calls. There are as many arguments in argv as the value of argc.
+ * reentrant calls. There are as many arguments in inputv as the value of inputc.
+ * Both inputv and outputv are provided by the caller.
+ * The size of the output is stored in cnx->protoop_outputc.
+ * outputv can be set to NULL if no output is required.
  */
-int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int argc, uint64_t *argv);
+int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

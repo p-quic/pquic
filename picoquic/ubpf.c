@@ -23,7 +23,7 @@ register_functions(struct ubpf_vm *vm)
     /* We only have 64 values ... (so far) */
 
     /* specific API related */
-    ubpf_register(vm, 0x00, "plugin_push_nxt_state", plugin_push_nxt_state);
+    ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

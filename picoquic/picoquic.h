@@ -95,6 +95,14 @@ extern "C" {
 #define PICOQUIC_MAX_PACKET_SIZE 1536
 #define PICOQUIC_RESET_SECRET_SIZE 16
 
+/* Declare protocol operations here */
+/* incoming_encrypted */
+#define PROTOOPID_INCOMING_ENCRYPTED_START 0x0000
+#define PROTOOPID_DECODE_FRAMES_START 0x0100
+
+
+#define PROTOOPID_MAX 0x0500
+
 /*
 * Connection states, useful to expose the state to the application.
 */
