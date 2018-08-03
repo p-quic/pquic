@@ -45,9 +45,18 @@ int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int ar
     cnx->protoop_stop = 0;
     int continue_run = 1;
 
-    /* First save previous args, and update context with new ones */
-    uint64_t old_args[argc];
-    memcpy(old_args, cnx->protoop_args, sizeof(uint64_t) * argc);
+    if (argc > PROTOOPARGS_MAX) {
+        printf("Too many arguments for protocol operation with initial_state 0x%x : %d > %d\n",
+            initial_state, argc, PROTOOPARGS_MAX);
+        return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
+    }
+
+    /* First save previous args, and update context with new ones
+     * Notice that we store ALL array of protoop_args. This allows using some of them as accumulator
+     * without causing issues to caller arguments.
+     */
+    uint64_t old_args[PROTOOPARGS_MAX];
+    memcpy(old_args, cnx->protoop_args, sizeof(uint64_t) * PROTOOPARGS_MAX);
     memcpy(cnx->protoop_args, argv, sizeof(uint64_t) * argc);
 
     /* We also need to keep track of the current nxt_state, as this function might be reentrant. */
@@ -86,8 +95,8 @@ int plugin_run_operations(picoquic_cnx_t *cnx, plugin_id_t initial_state, int ar
     /* We want to be reentrant, so stop must be reset now */
     cnx->protoop_stop = 0;
 
-    /* And restore the previous arguments */
-    memcpy(cnx->protoop_args, old_args, sizeof(uint64_t) * argc);
+    /* And restore ALL the previous arguments */
+    memcpy(cnx->protoop_args, old_args, sizeof(uint64_t) * PROTOOPARGS_MAX);
 
     return status;
 }
