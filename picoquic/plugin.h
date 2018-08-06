@@ -7,6 +7,8 @@
 #define PLUGIN_H
 
 #include "picoquic_internal.h"
+#include <stdio.h>
+#include <stdarg.h>
 
 /* Function to insert plugins */
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
@@ -43,5 +45,50 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
 #define DBG_PLUGIN_PRINTF(fmt, ...)
 
 #endif // #ifdef DEBUG_PLUGIN_PRINTF
+
+/* Helper macros */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+
+/* C99-style: anonymous argument referenced by __VA_ARGS__, empty arg not OK */
+
+# define N_ARGS(...) N_ARGS_HELPER1(__VA_ARGS__, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+# define N_ARGS_HELPER1(...) N_ARGS_HELPER2(__VA_ARGS__)
+# define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
+
+# define protoop_prepare_and_run(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+
+#elif defined(__GNUC__)
+
+/* GCC-style: named argument, empty arg is OK */
+
+# define N_ARGS(args...) N_ARGS_HELPER1(args, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+# define N_ARGS_HELPER1(args...) N_ARGS_HELPER2(args)
+# define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, x...) n
+
+# define foo(args...) foo_helper(N_ARGS(args), args)
+
+#else
+
+#error variadic macros for your compiler here
+
+#endif
+
+static inline int protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, uint64_t *outputv, unsigned int n_args, ...)
+{
+  uint64_t i, arg;
+  va_list ap;
+
+  va_start(ap, n_args);
+  uint64_t args[n_args];
+  DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
+  for (i = 0; i < n_args; i++) {
+    arg = va_arg(ap, uint64_t);
+    args[i] = arg;
+    DBG_PLUGIN_PRINTF("  %lu\n", arg);
+  }
+  va_end(ap);
+  return plugin_run_protoop(cnx, pid, n_args, args, outputv);
+}
+
 
 #endif // #ifndef PLUGIN_H

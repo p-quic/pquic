@@ -1218,13 +1218,8 @@ int picoquic_incoming_encrypted(
     struct sockaddr* addr_from,
     uint64_t current_time)
 {
-    uint64_t args[4];
-    args[0] = (uint64_t) bytes;
-    args[1] = (uint64_t) ph;
-    args[2] = (uint64_t) addr_from;
-    args[3] = (uint64_t) current_time;
-
-    return plugin_run_protoop(cnx, PROTOOPID_INCOMING_ENCRYPTED_START, 4, args, NULL);
+    return protoop_prepare_and_run(cnx, PROTOOPID_INCOMING_ENCRYPTED_START, NULL,
+        bytes, ph, addr_from, current_time);
 }
 
 /*
