@@ -1180,7 +1180,7 @@ int incoming_encrypted(picoquic_cnx_t *cnx)
                 cnx->path[0]->challenge_time = current_time + cnx->path[0]->retransmit_timer;
                 cnx->path[0]->challenge_repeat_count = 0;
                 /* Create a path challenge misc frame */
-                if (picoquic_prepare_path_challenge_frame(buffer, sizeof(buffer),
+                if (picoquic_prepare_path_challenge_frame(cnx, buffer, sizeof(buffer),
                     &challenge_length, cnx->path[0]) == 0) {
                     if (picoquic_queue_misc_frame(cnx, buffer, challenge_length)) {
                         /* if we cannot send the challenge, just accept packets */

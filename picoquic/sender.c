@@ -1579,7 +1579,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t * p
         if (path_x->challenge_verified == 0) {
             if (path_x->challenge_time + path_x->retransmit_timer <= current_time || path_x->challenge_time == 0) {
                 /* When blocked, repeat the path challenge or wait */
-                if (picoquic_prepare_path_challenge_frame(&bytes[length],
+                if (picoquic_prepare_path_challenge_frame(cnx, &bytes[length],
                     send_buffer_max - checksum_overhead - length, &data_bytes, path_x) == 0) {
                     length += (uint32_t)data_bytes;
                     path_x->challenge_time = current_time;
@@ -1981,7 +1981,7 @@ int prepare_packet_ready(picoquic_cnx_t *cnx)
             }
             else {
                 if (path_x->challenge_verified == 0 && current_time >= (path_x->challenge_time + path_x->retransmit_timer)) {
-                    if (picoquic_prepare_path_challenge_frame(&bytes[length],
+                    if (picoquic_prepare_path_challenge_frame(cnx, &bytes[length],
                         send_buffer_min_max - checksum_overhead - length, &data_bytes, path_x) == 0) {
                         length += (uint32_t)data_bytes;
                         path_x->challenge_time = current_time;

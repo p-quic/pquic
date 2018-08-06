@@ -1049,14 +1049,26 @@ uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes, co
     return (uint8_t *) outs[0];
 }
 
-int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+/**
+ * cnx->protoop_inputv[0] = int epoch
+ * cnx->protoop_inputv[1] = uint8_t* bytes
+ * cnx->protoop_inputv[2] = size_t bytes_max
+ * cnx->protoop_inputv[3] = size_t consumed
+ * 
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+int prepare_crypto_hs_frame(picoquic_cnx_t *cnx)
 {
+    int epoch = (int) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
+
     int ret = 0;
     picoquic_stream_head* stream = &cnx->tls_stream;
 
     if ((stream->send_queue == NULL || stream->send_queue->length <= stream->send_queue->offset) && ((stream->stream_flags & picoquic_stream_flag_fin_notified) == 0 || (stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)) {
-        *consumed = 0;
+        consumed = 0;
     } else {
         size_t byte_index = 0;
         size_t l_off = 0;
@@ -1072,7 +1084,7 @@ int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
         }
 
         if (byte_index > bytes_max || (stream->sent_offset > 0 && l_off == 0)) {
-            *consumed = 0;
+            consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         }
         else {
@@ -1101,7 +1113,7 @@ int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
                 if (length + l_len >= space) {
                     if (space < l_len) {
                         /* Will not try a silly encoding */
-                        *consumed = 0;
+                        consumed = 0;
                         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                     }
                     else {
@@ -1128,15 +1140,28 @@ int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
                 }
 
                 stream->sent_offset += length;
-                *consumed = byte_index;
+                consumed = byte_index;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
-                *consumed = 0;
+                consumed = 0;
                 ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
             }
         }
     }
 
+    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_CRYPTO_HS_FRAME, outs,
+        epoch, bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
     return ret;
 }
 
@@ -2114,9 +2139,21 @@ uint8_t* picoquic_decode_application_close_frame(picoquic_cnx_t* cnx, uint8_t* b
 #define PICOQUIC_MAX_MAXDATA_1K (PICOQUIC_MAX_MAXDATA >> 10)
 #define PICOQUIC_MAX_MAXDATA_1K_MASK (PICOQUIC_MAX_MAXDATA << 10)
 
-int picoquic_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increase,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+/**
+ * cnx->protoop_inputv[0] = uint64_t maxdata_increase
+ * cnx->protoop_inputv[1] = uint8_t* bytes
+ * cnx->protoop_inputv[2] = size_t bytes_max
+ * cnx->protoop_inputv[3] = size_t consumed
+ *
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+int prepare_max_data_frame(picoquic_cnx_t *cnx)
 {
+    uint64_t maxdata_increase = (uint64_t) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
+
     int ret = 0;
     size_t l1 = 0;
 
@@ -2132,9 +2169,22 @@ int picoquic_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increa
             cnx->maxdata_local = (cnx->maxdata_local + maxdata_increase);
         }
 
-        *consumed = 1 + l1;
+        consumed = 1 + l1;
     }
 
+    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+int picoquic_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increase,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_MAX_DATA_FRAME, outs,
+        maxdata_increase, bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
     return ret;
 }
 
@@ -2341,7 +2391,7 @@ uint8_t* picoquic_decode_max_stream_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes
 int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed)
 {
-    int ret = picoquic_prepare_misc_frame(cnx->first_misc_frame, bytes, bytes_max, consumed);
+    int ret = picoquic_prepare_misc_frame(cnx, cnx->first_misc_frame, bytes, bytes_max, consumed);
 
     if (ret == 0) {
         picoquic_misc_frame_header_t* misc_frame = cnx->first_misc_frame;
@@ -2352,20 +2402,45 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     return ret;
 }
 
-int picoquic_prepare_misc_frame(picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
-                                size_t bytes_max, size_t* consumed)
+/**
+ * cnx->protoop_inputv[0] = picoquic_misc_frame_header_t* misc_frame
+ * cnx->protoop_inputv[1] = uint8_t* bytes
+ * cnx->protoop_inputv[2] = size_t bytes_max
+ * cnx->protoop_inputv[3] = size_t consumed
+ *
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+int prepare_misc_frame(picoquic_cnx_t *cnx)
 {
+    picoquic_misc_frame_header_t* misc_frame = (picoquic_misc_frame_header_t *) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
+
     int ret = 0;
 
     if (misc_frame->length > bytes_max) {
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-        *consumed = 0;
+        consumed = 0;
     } else {
         uint8_t* frame = ((uint8_t*)misc_frame) + sizeof(picoquic_misc_frame_header_t);
         memcpy(bytes, frame, misc_frame->length);
-        *consumed = misc_frame->length;
+        consumed = misc_frame->length;
     }
 
+    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
+                                size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_MISC_FRAME, outs,
+        misc_frame, bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
     return ret;
 }
 
@@ -2373,19 +2448,43 @@ int picoquic_prepare_misc_frame(picoquic_misc_frame_header_t* misc_frame, uint8_
  * Path Challenge and Response frames
  */
 
-int picoquic_prepare_path_challenge_frame(uint8_t* bytes,
-    size_t bytes_max, size_t* consumed, picoquic_path_t * path)
+/**
+ * cnx->protoop_inputv[0] = uint8_t* bytes
+ * cnx->protoop_inputv[1] = size_t bytes_max
+ * cnx->protoop_inputv[2] = size_t consumed
+ * cnx->protoop_inputv[3] = picoquic_path_t * path
+ * 
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+int prepare_path_challenge_frame(picoquic_cnx_t *cnx)
 {
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    size_t consumed = (size_t) cnx->protoop_inputv[2];
+    picoquic_path_t * path = (picoquic_path_t *) cnx->protoop_inputv[3];
     int ret = 0;
     if (bytes_max < (1 + 8)) {
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-        *consumed = 0;
+        consumed = 0;
     } else {
         bytes[0] = picoquic_frame_type_path_challenge;
         picoformat_64(bytes + 1, path->challenge);
-        *consumed = 1 + 8;
+        consumed = 1 + 8;
     }
 
+    cnx->protoop_outputv[0] = consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+int picoquic_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* bytes,
+    size_t bytes_max, size_t* consumed, picoquic_path_t * path)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PATH_CHALLENGE_FRAME, outs,
+        bytes, bytes_max, *consumed, path);
+    *consumed = (size_t) outs[0];
     return ret;
 }
 
@@ -3006,5 +3105,9 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     /* Preparing */
     cnx->ops[PROTOOPID_PREPARE_ACK_FRAME] = &prepare_ack_frame;
     cnx->ops[PROTOOPID_PREPARE_ACK_ECN_FRAME] = &prepare_ack_ecn_frame;
+    cnx->ops[PROTOOPID_PREPARE_PATH_CHALLENGE_FRAME] = &prepare_path_challenge_frame;
+    cnx->ops[PROTOOPID_PREPARE_CRYPTO_HS_FRAME] = &prepare_crypto_hs_frame;
+    cnx->ops[PROTOOPID_PREPARE_MISC_FRAME] = &prepare_misc_frame;
+    cnx->ops[PROTOOPID_PREPARE_MAX_DATA_FRAME] = &prepare_max_data_frame;
 }
 
