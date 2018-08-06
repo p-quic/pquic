@@ -727,7 +727,7 @@ int decode_stream_frame(picoquic_cnx_t *cnx)
 
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
 {
-    uint64_t outs[1];
+    protoop_arg_t outs[1];
     protoop_prepare_and_run(cnx, PROTOOPID_DECODE_FRAMES_STREAM, outs,
         bytes, bytes_max, current_time);
 

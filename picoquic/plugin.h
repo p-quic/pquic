@@ -73,16 +73,16 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
 
 #endif
 
-static inline int protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, uint64_t *outputv, unsigned int n_args, ...)
+static inline int protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
-  uint64_t i, arg;
+  protoop_arg_t i, arg;
   va_list ap;
 
   va_start(ap, n_args);
-  uint64_t args[n_args];
+  protoop_arg_t args[n_args];
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
-    arg = va_arg(ap, uint64_t);
+    arg = va_arg(ap, protoop_arg_t);
     args[i] = arg;
     DBG_PLUGIN_PRINTF("  %lu\n", arg);
   }

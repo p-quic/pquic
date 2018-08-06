@@ -415,6 +415,7 @@ typedef struct st_picoquic_packet_context_t {
 typedef struct state plugin_state_t;
 typedef int (*protocol_operation)(picoquic_cnx_t *);
 typedef uint16_t protoop_id_t;
+typedef uint64_t protoop_arg_t;
 
 /* Definition of operation return values */
 #define PICOQUIC_OK 0
@@ -559,8 +560,8 @@ typedef struct st_picoquic_cnx_t {
      * Fortunately, if arguments are either integers or pointers, this is simple.
      */
     int protoop_inputc;
-    uint64_t protoop_inputv[PROTOOPARGS_MAX];
-    uint64_t protoop_outputv[PROTOOPARGS_MAX];
+    protoop_arg_t protoop_inputv[PROTOOPARGS_MAX];
+    protoop_arg_t protoop_outputv[PROTOOPARGS_MAX];
 
     int protoop_outputc_callee; /* Modified by the callee */
 } picoquic_cnx_t;
