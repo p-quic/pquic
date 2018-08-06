@@ -614,11 +614,30 @@ static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
     return should_retransmit;
 }
 
-int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
-    picoquic_packet_context_enum pc,
-    picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length)
+/**
+ * cnx->protoop_inputv[0] = picoquic_packet_context_enum pc
+ * cnx->protoop_inputv[1] = picoquic_path_t * path_x
+ * cnx->protoop_inputv[2] = uint64_t current_time
+ * cnx->protoop_inputv[3] = picoquic_packet* packet
+ * cnx->protoop_inputv[4] = size_t send_buffer_max
+ * cnx->protoop_inputv[5] = int is_cleartext_mode
+ * cnx->protoop_inputv[6] = uint32_t header_length
+ *
+ * cnx->protoop_outputv[0] = int is_cleartext_mode
+ * cnx->protoop_outputv[1] = uint32_t header_length
+ *
+ * Regular output: int length
+ */
+int retransmit_needed(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
+    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    picoquic_packet* packet = (picoquic_packet *) cnx->protoop_inputv[3];
+    size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
+    int is_cleartext_mode = (int) cnx->protoop_inputv[5];
+    uint32_t header_length = (uint32_t) cnx->protoop_inputv[6];
+
     picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
     uint32_t length = 0;
 
@@ -660,7 +679,7 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
             /* TODO: should be the path on which the packet was transmitted */
             picoquic_path_t * old_path = p->send_path;
 
-            *header_length = 0;
+            header_length = 0;
 
             if (p->ptype == picoquic_packet_0rtt_protected) {
                 /* Only retransmit as 0-RTT if contains crypto data */
@@ -701,12 +720,12 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
                 packet->send_path = path_x;
                 packet->pc = pc;
 
-                *header_length = length;
+                header_length = length;
 
                 if (p->ptype == picoquic_packet_1rtt_protected_phi0 || p->ptype == picoquic_packet_1rtt_protected_phi1 || p->ptype == picoquic_packet_0rtt_protected) {
-                    *is_cleartext_mode = 0;
+                    is_cleartext_mode = 0;
                 } else {
-                    *is_cleartext_mode = 1;
+                    is_cleartext_mode = 1;
                 }
 
                 if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
@@ -717,7 +736,7 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
                     packet_is_pure_ack = 1;
                     do_not_detect_spurious = 0;
                 } else {
-                    checksum_length = picoquic_get_checksum_length(cnx, *is_cleartext_mode);
+                    checksum_length = picoquic_get_checksum_length(cnx, is_cleartext_mode);
 
                     /* Copy the relevant bytes from one packet to the next */
                     byte_index = p->offset;
@@ -813,7 +832,24 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
         p = p_next;
     }
 
-    return (int)length;
+    cnx->protoop_outputv[0] = (protoop_arg_t) is_cleartext_mode;
+    cnx->protoop_outputv[1] = (protoop_arg_t) header_length;
+    cnx->protoop_outputc_callee = 2;
+
+    return (int) length;
+}
+
+int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
+    picoquic_packet_context_enum pc,
+    picoquic_path_t * path_x, uint64_t current_time,
+    picoquic_packet* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_RETRANSMIT_NEEDED, outs,
+        pc, path_x, current_time, packet, send_buffer_max, *is_cleartext_mode, *header_length);
+    *is_cleartext_mode = (int) outs[0];
+    *header_length = (uint32_t) outs[1];
+    return ret;
 }
 
 /*
@@ -1844,10 +1880,28 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t * path_
     return ret;
 }
 
-/*  Prepare the next packet to send when in one the ready states */
-int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet* packet,
-    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
+/**
+ * cnx->protoop_inputv[0] = picoquic_path_t *path_x
+ * cnx->protoop_inputv[1] = picoquic_packet* packet
+ * cnx->protoop_inputv[2] = uint64_t current_time
+ * cnx->protoop_inputv[3] = uint8_t* send_buffer
+ * cnx->protoop_inputv[4] = size_t send_buffer_max
+ * cnx->protoop_inputv[5] = size_t send_length
+ *
+ * cnx->protoop_outputv[0] = size_t send_length
+ */
+int prepare_packet_ready(picoquic_cnx_t *cnx)
 {
+    picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[0];
+    picoquic_packet* packet = (picoquic_packet *) cnx->protoop_inputv[1];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    uint8_t* send_buffer = (uint8_t *) cnx->protoop_inputv[3];
+    size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
+    /* Why do we keep this as regular int and not pointer? Because if we provide this to
+     * an eBPF VM, there is no guarantee that this pointer will be part of context memory...
+     */
+    size_t send_length = (size_t) cnx->protoop_inputv[5];
+
     int ret = 0;
     /* TODO: manage multiple streams. */
     picoquic_stream_head* stream = NULL;
@@ -2065,10 +2119,24 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
 
     picoquic_finalize_and_protect_packet(cnx, packet,
         ret, length, header_length, checksum_overhead,
-        send_length, send_buffer, path_x, current_time);
+        &send_length, send_buffer, path_x, current_time);
 
     picoquic_cnx_set_next_wake_time(cnx, current_time);
 
+    cnx->protoop_outputv[0] = (protoop_arg_t) send_length;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+/*  Prepare the next packet to send when in one the ready states */
+int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet* packet,
+    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PACKET_READY, outs,
+        path_x, packet, current_time, send_buffer, send_buffer_max, *send_length);
+    *send_length = (size_t) outs[0];
     return ret;
 }
 
@@ -2215,4 +2283,6 @@ int picoquic_close(picoquic_cnx_t* cnx, uint16_t reason_code)
 void sender_register_protoops(picoquic_cnx_t *cnx)
 {
     cnx->ops[PROTOOPID_SET_NEXT_WAKE_TIME] = &set_nxt_wake_time;
+    cnx->ops[PROTOOPID_PREPARE_PACKET_READY] = &prepare_packet_ready;
+    cnx->ops[PROTOOPID_RETRANSMIT_NEEDED] = &retransmit_needed;
 }
