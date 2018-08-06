@@ -783,15 +783,7 @@ void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
-
-/**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
- * cnx->protoop_inputv[2] = uint64_t current_time
- * 
- * cnx->protoop_outputv[0] = uint8_t* bytes
- */
-int picoquic_decode_stream_frame(picoquic_cnx_t* cnx);
+uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time);
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,

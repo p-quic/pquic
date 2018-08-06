@@ -685,7 +685,14 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
     return ret;
 }
 
-int picoquic_decode_stream_frame(picoquic_cnx_t* cnx)
+/**
+ * cnx->protoop_inputv[0] = uint8_t* bytes
+ * cnx->protoop_inputv[1] = const uint8_t* bytes_max
+ * cnx->protoop_inputv[2] = uint64_t current_time
+ *
+ * cnx->protoop_outputv[0] = uint8_t* bytes
+ */
+int decode_stream_frame(picoquic_cnx_t *cnx)
 {
     /* Is argc at the right value? */
     if (cnx->protoop_inputc != 3) {
@@ -716,6 +723,19 @@ int picoquic_decode_stream_frame(picoquic_cnx_t* cnx)
     cnx->protoop_outputc_callee = 1;
 
     return 0;
+}
+
+uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
+{
+    uint64_t args[3];
+    args[0] = (uint64_t) bytes;
+    args[1] = (uint64_t) bytes_max;
+    args[2] = (uint64_t) current_time;
+
+    uint64_t outs[1];
+    plugin_run_protoop(cnx, PROTOOPID_DECODE_FRAMES_STREAM, 3, args, outs);
+
+    return (uint8_t *) outs[0];
 }
 
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
@@ -2330,7 +2350,7 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
 void decode_frames_register(picoquic_cnx_t *cnx)
 {
     cnx->ops[PROTOOPID_DECODE_FRAMES_START] = &decode_frames_start;
-    cnx->ops[PROTOOPID_DECODE_FRAMES_STREAM] = &picoquic_decode_stream_frame;
+    cnx->ops[PROTOOPID_DECODE_FRAMES_STREAM] = &decode_stream_frame;
 }
 
 /*
