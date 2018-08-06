@@ -291,6 +291,8 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
 
     picoquic_cnx_t cnx = { 0 };
 
+    register_protocol_operations(&cnx);
+
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
         if (NULL == picoquic_decode_crypto_hs_frame(&cnx, test->list[i].packet,
                 test->list[i].packet + test->list[i].packet_length, 2 /* epoch = 2 for handshake */)) {
