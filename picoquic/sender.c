@@ -24,6 +24,7 @@
 #include "tls_api.h"
 #include <stdlib.h>
 #include <string.h>
+#include "plugin.h"
 
 /*
  * Sending logic.
@@ -1018,10 +1019,12 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
 }
 
-/* Decide the next time at which the connection should send data */
-/* TODO: tie with per path scheduling */
-void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
+/**
+ * cnx->protoop_inputv[0] = uint64_t current_time
+ */
+int set_nxt_wake_time(picoquic_cnx_t *cnx)
 {
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
     uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX;
     picoquic_stream_head* stream = NULL;
     int timer_based = 0;
@@ -1034,7 +1037,7 @@ void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
     if (cnx->cnx_state < picoquic_state_client_ready)
     {
         picoquic_cnx_set_next_wake_time_init(cnx, current_time);
-        return;
+        return 0;
     }
 
     if (cnx->cnx_state == picoquic_state_disconnecting || cnx->cnx_state == picoquic_state_handshake_failure || cnx->cnx_state == picoquic_state_closing_received) {
@@ -1127,6 +1130,16 @@ void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
 
     /* reset the connection at its new logical position */
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
+
+    return 0;
+}
+
+/* Decide the next time at which the connection should send data */
+/* TODO: tie with per path scheduling */
+void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
+{
+    protoop_prepare_and_run(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, NULL,
+        current_time);
 }
 
 /* Prepare the next packet to 0-RTT packet to send in the client initial
@@ -2197,4 +2210,9 @@ int picoquic_close(picoquic_cnx_t* cnx, uint16_t reason_code)
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
 
     return ret;
+}
+
+void sender_register_protoops(picoquic_cnx_t *cnx)
+{
+    cnx->ops[PROTOOPID_SET_NEXT_WAKE_TIME] = &set_nxt_wake_time;
 }

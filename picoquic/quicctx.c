@@ -904,8 +904,9 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
 
 void register_protocol_operations(picoquic_cnx_t *cnx)
 {
-    incoming_encrypted_register(cnx);
-    decode_frames_register(cnx);
+    packet_register_protoops(cnx);
+    frames_register_protoops(cnx);
+    sender_register_protoops(cnx);
 }
 
 int picoquic_start_client_cnx(picoquic_cnx_t * cnx)

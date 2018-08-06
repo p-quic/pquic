@@ -1202,12 +1202,6 @@ int incoming_encrypted(picoquic_cnx_t *cnx)
     return ret;
 }
 
-
-void incoming_encrypted_register(picoquic_cnx_t *cnx)
-{
-    cnx->ops[PROTOOPID_INCOMING_ENCRYPTED] = &incoming_encrypted;
-}
-
 /*
  * Processing of client encrypted packet.
  */
@@ -1410,4 +1404,9 @@ int picoquic_incoming_packet(
     }
 
     return ret;
+}
+
+void packet_register_protoops(picoquic_cnx_t *cnx)
+{
+    cnx->ops[PROTOOPID_INCOMING_ENCRYPTED] = &incoming_encrypted;
 }

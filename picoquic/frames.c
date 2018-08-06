@@ -2672,29 +2672,6 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
         bytes, bytes_maxsize, epoch, current_time);
 }
 
-void decode_frames_register(picoquic_cnx_t *cnx)
-{
-    cnx->ops[PROTOOPID_DECODE_FRAMES] = &decode_frames;
-    cnx->ops[PROTOOPID_DECODE_STREAM_FRAME] = &decode_stream_frame;
-    cnx->ops[PROTOOPID_DECODE_ACK_FRAME] = &decode_ack_frame;
-    cnx->ops[PROTOOPID_DECODE_ACK_ECN_FRAME] = &decode_ack_ecn_frame;
-    cnx->ops[PROTOOPID_DECODE_STREAM_RESET_FRAME] = &decode_stream_reset_frame;
-    cnx->ops[PROTOOPID_DECODE_CONNECTION_CLOSE_FRAME] = &decode_connection_close_frame;
-    cnx->ops[PROTOOPID_DECODE_APPLICATION_CLOSE_FRAME] = &decode_application_close_frame;
-    cnx->ops[PROTOOPID_DECODE_MAX_DATA_FRAME] = &decode_max_data_frame;
-    cnx->ops[PROTOOPID_DECODE_MAX_STREAM_DATA_FRAME] = &decode_max_stream_data_frame;
-    cnx->ops[PROTOOPID_DECODE_MAX_STREAM_ID_FRAME] = &decode_max_stream_id_frame;
-    cnx->ops[PROTOOPID_DECODE_BLOCKED_FRAME] = &decode_blocked_frame;
-    cnx->ops[PROTOOPID_DECODE_STREAM_BLOCKED_FRAME] = &decode_stream_blocked_frame;
-    cnx->ops[PROTOOPID_DECODE_STREAM_ID_NEEDED_FRAME] = &decode_stream_id_needed_frame;
-    cnx->ops[PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME] = &decode_new_connection_id_frame;
-    cnx->ops[PROTOOPID_DECODE_STOP_SENDING_FRAME] = &decode_stop_sending_frame;
-    cnx->ops[PROTOOPID_DECODE_PATH_CHALLENGE_FRAME] = &decode_path_challenge_frame;
-    cnx->ops[PROTOOPID_DECODE_PATH_RESPONSE_FRAME] = &decode_path_response_frame;
-    cnx->ops[PROTOOPID_DECODE_CRYPTO_HS_FRAME] = &decode_crypto_hs_frame;
-    cnx->ops[PROTOOPID_DECODE_NEW_TOKEN_FRAME] = &decode_new_token_frame;
-}
-
 /*
 * The STREAM skipping function only supports the varint format.
 * The old "fixed int" versions are supported by code in the skip_frame function
@@ -2938,3 +2915,27 @@ int picoquic_decode_closing_frames(uint8_t* bytes, size_t bytes_max, int* closin
 
     return ret;
 }
+
+void frames_register_protoops(picoquic_cnx_t *cnx)
+{
+    cnx->ops[PROTOOPID_DECODE_FRAMES] = &decode_frames;
+    cnx->ops[PROTOOPID_DECODE_STREAM_FRAME] = &decode_stream_frame;
+    cnx->ops[PROTOOPID_DECODE_ACK_FRAME] = &decode_ack_frame;
+    cnx->ops[PROTOOPID_DECODE_ACK_ECN_FRAME] = &decode_ack_ecn_frame;
+    cnx->ops[PROTOOPID_DECODE_STREAM_RESET_FRAME] = &decode_stream_reset_frame;
+    cnx->ops[PROTOOPID_DECODE_CONNECTION_CLOSE_FRAME] = &decode_connection_close_frame;
+    cnx->ops[PROTOOPID_DECODE_APPLICATION_CLOSE_FRAME] = &decode_application_close_frame;
+    cnx->ops[PROTOOPID_DECODE_MAX_DATA_FRAME] = &decode_max_data_frame;
+    cnx->ops[PROTOOPID_DECODE_MAX_STREAM_DATA_FRAME] = &decode_max_stream_data_frame;
+    cnx->ops[PROTOOPID_DECODE_MAX_STREAM_ID_FRAME] = &decode_max_stream_id_frame;
+    cnx->ops[PROTOOPID_DECODE_BLOCKED_FRAME] = &decode_blocked_frame;
+    cnx->ops[PROTOOPID_DECODE_STREAM_BLOCKED_FRAME] = &decode_stream_blocked_frame;
+    cnx->ops[PROTOOPID_DECODE_STREAM_ID_NEEDED_FRAME] = &decode_stream_id_needed_frame;
+    cnx->ops[PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME] = &decode_new_connection_id_frame;
+    cnx->ops[PROTOOPID_DECODE_STOP_SENDING_FRAME] = &decode_stop_sending_frame;
+    cnx->ops[PROTOOPID_DECODE_PATH_CHALLENGE_FRAME] = &decode_path_challenge_frame;
+    cnx->ops[PROTOOPID_DECODE_PATH_RESPONSE_FRAME] = &decode_path_response_frame;
+    cnx->ops[PROTOOPID_DECODE_CRYPTO_HS_FRAME] = &decode_crypto_hs_frame;
+    cnx->ops[PROTOOPID_DECODE_NEW_TOKEN_FRAME] = &decode_new_token_frame;
+}
+

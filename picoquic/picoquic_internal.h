@@ -425,8 +425,9 @@ typedef uint64_t protoop_arg_t;
 /* Register functions */
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
-void incoming_encrypted_register(picoquic_cnx_t *cnx);
-void decode_frames_register(picoquic_cnx_t *cnx);
+void packet_register_protoops(picoquic_cnx_t *cnx);
+void frames_register_protoops(picoquic_cnx_t *cnx);
+void sender_register_protoops(picoquic_cnx_t *cnx);
 
 /* 
  * Per connection context.
