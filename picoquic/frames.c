@@ -1902,16 +1902,80 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
     return ret;
 }
 
-int picoquic_prepare_ack_frame(picoquic_cnx_t* cnx, uint64_t current_time,
-    picoquic_packet_context_enum pc,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed) {
-    return picoquic_prepare_ack_frame_maybe_ecn(cnx, current_time, pc, bytes, bytes_max, consumed, 0);
+/**
+ * cnx->protoop_inputv[0] = uint64_t current_time
+ * cnx->protoop_inputv[1] = picoquic_packet_context_enum pc
+ * cnx->protoop_inputv[2] = uint8_t* bytes
+ * cnx->protoop_inputv[3] = size_t bytes_max
+ * cnx->protoop_inputv[4] = size_t consumed
+ *
+ * cnx->protoop_outputv[0] = size_t consumed
+ *
+ * Regular output: error code
+ */
+int prepare_ack_frame(picoquic_cnx_t *cnx)
+{
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[2];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[3];
+    size_t consumed = (size_t) cnx->protoop_inputv[4];
+
+    int ret = picoquic_prepare_ack_frame_maybe_ecn(cnx, current_time, pc, bytes, bytes_max, &consumed, 0);
+
+    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
 }
 
-int picoquic_prepare_ack__ecn_frame(picoquic_cnx_t* cnx, uint64_t current_time,
+int picoquic_prepare_ack_frame(picoquic_cnx_t* cnx, uint64_t current_time,
     picoquic_packet_context_enum pc,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed) {
-    return picoquic_prepare_ack_frame_maybe_ecn(cnx, current_time, pc, bytes, bytes_max, consumed, 1);
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_ACK_FRAME, outs,
+        current_time, pc, bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
+/**
+ * cnx->protoop_inputv[0] = uint64_t current_time
+ * cnx->protoop_inputv[1] = picoquic_packet_context_enum pc
+ * cnx->protoop_inputv[2] = uint8_t* bytes
+ * cnx->protoop_inputv[3] = size_t bytes_max
+ * cnx->protoop_inputv[4] = size_t consumed
+ *
+ * cnx->protoop_outputv[0] = size_t consumed
+ *
+ * Regular output: error code
+ */
+int prepare_ack_ecn_frame(picoquic_cnx_t *cnx)
+{
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[2];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[3];
+    size_t consumed = (size_t) cnx->protoop_inputv[4];
+
+    int ret = picoquic_prepare_ack_frame_maybe_ecn(cnx, current_time, pc, bytes, bytes_max, &consumed, 1);
+
+    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    cnx->protoop_outputc_callee = 1;
+
+    return ret;
+}
+
+int picoquic_prepare_ack_ecn_frame(picoquic_cnx_t* cnx, uint64_t current_time,
+    picoquic_packet_context_enum pc,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_ACK_ECN_FRAME, outs,
+        current_time, pc, bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
+    return ret;
 }
 
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc)
@@ -2918,6 +2982,7 @@ int picoquic_decode_closing_frames(uint8_t* bytes, size_t bytes_max, int* closin
 
 void frames_register_protoops(picoquic_cnx_t *cnx)
 {
+    /* Decoding */
     cnx->ops[PROTOOPID_DECODE_FRAMES] = &decode_frames;
     cnx->ops[PROTOOPID_DECODE_STREAM_FRAME] = &decode_stream_frame;
     cnx->ops[PROTOOPID_DECODE_ACK_FRAME] = &decode_ack_frame;
@@ -2937,5 +3002,9 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_DECODE_PATH_RESPONSE_FRAME] = &decode_path_response_frame;
     cnx->ops[PROTOOPID_DECODE_CRYPTO_HS_FRAME] = &decode_crypto_hs_frame;
     cnx->ops[PROTOOPID_DECODE_NEW_TOKEN_FRAME] = &decode_new_token_frame;
+
+    /* Preparing */
+    cnx->ops[PROTOOPID_PREPARE_ACK_FRAME] = &prepare_ack_frame;
+    cnx->ops[PROTOOPID_PREPARE_ACK_ECN_FRAME] = &prepare_ack_ecn_frame;
 }
 
