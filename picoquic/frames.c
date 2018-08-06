@@ -728,7 +728,7 @@ int decode_stream_frame(picoquic_cnx_t *cnx)
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
 {
     protoop_arg_t outs[1];
-    protoop_prepare_and_run(cnx, PROTOOPID_DECODE_FRAMES_STREAM, outs,
+    protoop_prepare_and_run(cnx, PROTOOPID_DECODE_STREAM_FRAME, outs,
         bytes, bytes_max, current_time);
 
     return (uint8_t *) outs[0];
@@ -2182,7 +2182,7 @@ static uint8_t* picoquic_skip_0len_frame(uint8_t* bytes, const uint8_t* bytes_ma
  * cnx->protoop_inputv[2] = int epoch
  * cnx->protoop_inputv[3] = uint64_t current_time
  */
-int decode_frames_start(picoquic_cnx_t *cnx)
+int decode_frames(picoquic_cnx_t *cnx)
 {
     /* Is argc at the right value? */
     if (cnx->protoop_inputc != 4) {
@@ -2211,16 +2211,7 @@ int decode_frames_start(picoquic_cnx_t *cnx)
                 break;
             }
 
-            uint64_t args[3];
-            uint64_t outs[1];
-
-            args[0] = (uint64_t) bytes;
-            args[1] = (uint64_t) bytes_max;
-            args[2] = (uint64_t) current_time;
-
-            plugin_run_protoop(cnx, PROTOOPID_DECODE_FRAMES_STREAM, 3, args, outs);
-
-            bytes = (uint8_t *) outs[0];
+            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time);
             ack_needed = 1;
 
         } else if (first_byte == picoquic_frame_type_ack) {
@@ -2334,19 +2325,14 @@ int decode_frames_start(picoquic_cnx_t *cnx)
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_maxsize, int epoch, uint64_t current_time)
 {
-    uint64_t args[4];
-    args[0] = (uint64_t) bytes;
-    args[1] = (uint64_t) bytes_maxsize;
-    args[2] = (uint64_t) epoch;
-    args[3] = (uint64_t) current_time;
-
-    return plugin_run_protoop(cnx, PROTOOPID_DECODE_FRAMES_START, 4, args, NULL);
+    return protoop_prepare_and_run(cnx, PROTOOPID_DECODE_FRAMES, NULL,
+        bytes, bytes_maxsize, epoch, current_time);
 }
 
 void decode_frames_register(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_DECODE_FRAMES_START] = &decode_frames_start;
-    cnx->ops[PROTOOPID_DECODE_FRAMES_STREAM] = &decode_stream_frame;
+    cnx->ops[PROTOOPID_DECODE_FRAMES] = &decode_frames;
+    cnx->ops[PROTOOPID_DECODE_STREAM_FRAME] = &decode_stream_frame;
 }
 
 /*

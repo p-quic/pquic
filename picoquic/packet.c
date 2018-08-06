@@ -1098,7 +1098,7 @@ int picoquic_incoming_0rtt(
     return ret;
 }
 
-int incoming_encrypted_start(picoquic_cnx_t *cnx)
+int incoming_encrypted(picoquic_cnx_t *cnx)
 {
     /* Is argc at the right value? */
     if (cnx->protoop_inputc != 4) {
@@ -1205,7 +1205,7 @@ int incoming_encrypted_start(picoquic_cnx_t *cnx)
 
 void incoming_encrypted_register(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_INCOMING_ENCRYPTED_START] = &incoming_encrypted_start;
+    cnx->ops[PROTOOPID_INCOMING_ENCRYPTED] = &incoming_encrypted;
 }
 
 /*
@@ -1218,7 +1218,7 @@ int picoquic_incoming_encrypted(
     struct sockaddr* addr_from,
     uint64_t current_time)
 {
-    return protoop_prepare_and_run(cnx, PROTOOPID_INCOMING_ENCRYPTED_START, NULL,
+    return protoop_prepare_and_run(cnx, PROTOOPID_INCOMING_ENCRYPTED, NULL,
         bytes, ph, addr_from, current_time);
 }
 
