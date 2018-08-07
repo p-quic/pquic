@@ -552,18 +552,20 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet *
     }
 }
 
-/*
- * If a retransmit is needed, fill the packet with the required
- * retransmission. Also, prune the retransmit queue as needed.
- *
- * TODO: consider that the retransmit timer is per path, from the path on
- * which the packet was first sent, but the retransmission may be on 
- * a different path, with different MTU.
+/**
+ * cnx->protoop_inputv[0] = picoquic_packet *p
+ * cnx->protoop_inputv[1] = uint64_t current_time
+ * cnx->protoop_inputv[2] = int timer_based
+ * 
+ * Output: should retransmit (int)
+ * cnx->protoop_outputv[0] = int timer_based
  */
-
-static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
-    picoquic_packet* p, uint64_t current_time, int* timer_based)
+protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 {
+    picoquic_packet *p = (picoquic_packet *) cnx->protoop_inputv[0];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
+    int timer_based = (int) cnx->protoop_inputv[2];
+
     picoquic_packet_context_enum pc = p->pc;
     int64_t delta_seq = cnx->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
@@ -606,11 +608,32 @@ static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
                 should_retransmit = 0;
             } else {
                 should_retransmit = 1;
-                *timer_based = 1;
+                timer_based = 1;
             }
         }
     }
 
+    protoop_save_outputs(cnx, timer_based);
+
+    return (protoop_arg_t) should_retransmit;
+}
+
+/*
+ * If a retransmit is needed, fill the packet with the required
+ * retransmission. Also, prune the retransmit queue as needed.
+ *
+ * TODO: consider that the retransmit timer is per path, from the path on
+ * which the packet was first sent, but the retransmission may be on 
+ * a different path, with different MTU.
+ */
+
+static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
+    picoquic_packet* p, uint64_t current_time, int* timer_based)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int should_retransmit = (int) protoop_prepare_and_run(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, outs,
+        p, current_time, *timer_based);
+    *timer_based = (int) outs[0];
     return should_retransmit;
 }
 
@@ -623,12 +646,11 @@ static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
  * cnx->protoop_inputv[5] = int is_cleartext_mode
  * cnx->protoop_inputv[6] = uint32_t header_length
  *
+ * Regular output: int length
  * cnx->protoop_outputv[0] = int is_cleartext_mode
  * cnx->protoop_outputv[1] = uint32_t header_length
- *
- * Regular output: int length
  */
-int retransmit_needed(picoquic_cnx_t *cnx)
+protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 {
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
     picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
@@ -834,7 +856,7 @@ int retransmit_needed(picoquic_cnx_t *cnx)
 
     protoop_save_outputs(cnx, is_cleartext_mode, header_length);
 
-    return (int) length;
+    return (protoop_arg_t) ((int) length);
 }
 
 int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
@@ -843,7 +865,7 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = protoop_prepare_and_run(cnx, PROTOOPID_RETRANSMIT_NEEDED, outs,
+    int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_RETRANSMIT_NEEDED, outs,
         pc, path_x, current_time, packet, send_buffer_max, *is_cleartext_mode, *header_length);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
@@ -1055,8 +1077,10 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
 
 /**
  * cnx->protoop_inputv[0] = uint64_t current_time
+ * 
+ * No output (currently 0)
  */
-int set_nxt_wake_time(picoquic_cnx_t *cnx)
+protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
     uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX;
@@ -1886,9 +1910,10 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t * path_
  * cnx->protoop_inputv[4] = size_t send_buffer_max
  * cnx->protoop_inputv[5] = size_t send_length
  *
+ * Output: error code (int)
  * cnx->protoop_outputv[0] = size_t send_length
  */
-int prepare_packet_ready(picoquic_cnx_t *cnx)
+protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 {
     picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[0];
     picoquic_packet* packet = (picoquic_packet *) cnx->protoop_inputv[1];
@@ -2123,7 +2148,7 @@ int prepare_packet_ready(picoquic_cnx_t *cnx)
 
     protoop_save_outputs(cnx, send_length);
 
-    return ret;
+    return (protoop_arg_t) ret;
 }
 
 /*  Prepare the next packet to send when in one the ready states */
@@ -2131,7 +2156,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t * path_x,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PACKET_READY, outs,
+    int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PACKET_READY, outs,
         path_x, packet, current_time, send_buffer, send_buffer_max, *send_length);
     *send_length = (size_t) outs[0];
     return ret;
@@ -2282,4 +2307,5 @@ void sender_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_SET_NEXT_WAKE_TIME] = &set_nxt_wake_time;
     cnx->ops[PROTOOPID_PREPARE_PACKET_READY] = &prepare_packet_ready;
     cnx->ops[PROTOOPID_RETRANSMIT_NEEDED] = &retransmit_needed;
+    cnx->ops[PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET] = &retransmit_needed_by_packet;
 }

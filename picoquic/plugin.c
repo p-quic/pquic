@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-int plugin_run_plugged_code(picoquic_cnx_t *cnx) {
+protoop_arg_t plugin_run_plugged_code(picoquic_cnx_t *cnx) {
     if (cnx->plugins[cnx->protoop_id]) {
         DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", cnx->protoop_id);
-        return exec_loaded_code(cnx->plugins[cnx->protoop_id], (void *)cnx, sizeof(picoquic_cnx_t));
+        return (protoop_arg_t) exec_loaded_code(cnx->plugins[cnx->protoop_id], (void *)cnx, sizeof(picoquic_cnx_t));
     }
 
     printf("Cannot find plugin with proto op id 0x%x\n", cnx->protoop_id);
@@ -26,7 +26,7 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname) {
     return 1;
 }
 
-int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
     cnx->protoop_id = pid;
 
     if (inputc > PROTOOPARGS_MAX) {
@@ -56,7 +56,7 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
     memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
-    int status = cnx->ops[pid](cnx);
+    protoop_arg_t status = cnx->ops[pid](cnx);
     int outputc = cnx->protoop_outputc_callee;
 
     DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns %d outputs", pid, outputc);

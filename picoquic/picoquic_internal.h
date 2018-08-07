@@ -413,9 +413,9 @@ typedef struct st_picoquic_packet_context_t {
 
 
 typedef struct state plugin_state_t;
-typedef int (*protocol_operation)(picoquic_cnx_t *);
 typedef uint16_t protoop_id_t;
 typedef uint64_t protoop_arg_t;
+typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
 /* Definition of operation return values */
 #define PICOQUIC_OK 0

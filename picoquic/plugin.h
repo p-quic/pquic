@@ -25,8 +25,9 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
  * Both inputv and outputv are provided by the caller.
  * The size of the output is stored in cnx->protoop_outputc.
  * outputv can be set to NULL if no output is required.
+ * One output is always guaranteed: the return value of this call.
  */
-int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv);
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -75,7 +76,7 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
 
 #endif
 
-static inline int protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, protoop_arg_t *outputv, unsigned int n_args, ...)
+static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
   protoop_arg_t i, arg;
   va_list ap;

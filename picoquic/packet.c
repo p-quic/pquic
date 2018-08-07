@@ -1098,7 +1098,16 @@ int picoquic_incoming_0rtt(
     return ret;
 }
 
-int incoming_encrypted(picoquic_cnx_t *cnx)
+
+/**
+ * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+ * picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_inputv[1];
+ * struct sockaddr* addr_from = (struct sockaddr *) cnx->protoop_inputv[2];
+ * uint64_t current_time = (uint64_t) cnx->protoop_inputv[3];
+ *
+ * Output: return code (int)
+ */
+protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
 {
     /* Is argc at the right value? */
     if (cnx->protoop_inputc != 4) {
@@ -1199,7 +1208,7 @@ int incoming_encrypted(picoquic_cnx_t *cnx)
         }
     }
 
-    return ret;
+    return (protoop_arg_t) ret;
 }
 
 /*
@@ -1212,7 +1221,7 @@ int picoquic_incoming_encrypted(
     struct sockaddr* addr_from,
     uint64_t current_time)
 {
-    return protoop_prepare_and_run(cnx, PROTOOPID_INCOMING_ENCRYPTED, NULL,
+    return (int) protoop_prepare_and_run(cnx, PROTOOPID_INCOMING_ENCRYPTED, NULL,
         bytes, ph, addr_from, current_time);
 }
 
