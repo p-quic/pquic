@@ -1151,7 +1151,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
             if (cnx->cnx_state == picoquic_state_closing) {
                 int closing_received = 0;
 
-                ret = picoquic_decode_closing_frames(
+                ret = picoquic_decode_closing_frames(cnx,
                     bytes + ph->offset, ph->payload_length, &closing_received);
 
                 if (ret == 0) {

@@ -428,6 +428,7 @@ void register_protocol_operations(picoquic_cnx_t *cnx);
 void packet_register_protoops(picoquic_cnx_t *cnx);
 void frames_register_protoops(picoquic_cnx_t *cnx);
 void sender_register_protoops(picoquic_cnx_t *cnx);
+void quicctx_register_protoops(picoquic_cnx_t *cnx);
 
 /* 
  * Per connection context.
@@ -817,9 +818,9 @@ int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max, int epoch, uint64_t current_time);
 
-int picoquic_skip_frame(uint8_t* bytes, size_t bytes_max, size_t* consumed, int* pure_ack);
+int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed, int* pure_ack);
 
-int picoquic_decode_closing_frames(uint8_t* bytes,
+int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes,
     size_t bytes_max, int* closing_received);
 
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,

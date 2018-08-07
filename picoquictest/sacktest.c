@@ -287,14 +287,12 @@ int sendacktest()
         if (ret == 0) {
             consumed = 0;
             ret = picoquic_prepare_ack_frame(&cnx, 0, pc, bytes, sizeof(bytes), &consumed);
-            DBG_PRINTF("first ret is %d, consumed is %d", ret, consumed);
 
             received_mask |= 1ull << (test_pn64[i] & 63);
 
             if (ret == 0) {
                 ret = basic_ack_parse(bytes, consumed, &expected_ack[i], received_mask,
                     picoquic_supported_versions[cnx.version_index].version_flags);
-                DBG_PRINTF("second ret is %d", ret);
             }
 
             if (ret != 0) {

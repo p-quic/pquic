@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include "plugin.h"
+#include "memcpy.h"
 
 #define JIT true  /* putting to false show out of memory access */
 
@@ -26,6 +27,8 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
+    /* for memory */
+    ubpf_register(vm, 0x10, "my_memcpy", my_memcpy);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

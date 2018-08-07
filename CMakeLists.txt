@@ -22,6 +22,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/http0dot9.c
     picoquic/intformat.c
     picoquic/logger.c
+    picoquic/memcpy.c
     picoquic/newreno.c
     picoquic/packet.c
     picoquic/picohash.c

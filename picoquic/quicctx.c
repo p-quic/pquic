@@ -907,6 +907,7 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
     packet_register_protoops(cnx);
     frames_register_protoops(cnx);
     sender_register_protoops(cnx);
+    quicctx_register_protoops(cnx);
 }
 
 int picoquic_start_client_cnx(picoquic_cnx_t * cnx)
@@ -1487,6 +1488,52 @@ void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_
     }
 }
 
+/**
+ * picoquic_path_t* path_x = input 0
+ * picoquic_congestion_notification_t notification = input 1
+ * uint64_t rtt_measurement = input 2
+ * uint64_t nb_bytes_acknowledged = input 3
+ * uint64_t lost_packet_number = input 4
+ * uint64_t current_time = input 5
+ */
+protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
+{
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[0];
+    picoquic_congestion_notification_t notification = (picoquic_congestion_notification_t) cnx->protoop_inputv[1];
+    uint64_t rtt_measurement = (uint64_t) cnx->protoop_inputv[2];
+    uint64_t nb_bytes_acknowledged = (uint64_t) cnx->protoop_inputv[3];
+    uint64_t lost_packet_number = (uint64_t) cnx->protoop_inputv[4];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[5];
+
+    if (cnx->congestion_alg != NULL) {
+        cnx->congestion_alg->alg_notify(path_x, notification, rtt_measurement,
+            nb_bytes_acknowledged, lost_packet_number, current_time);
+    }
+    return 0;
+}
+
+/**
+ * uint64_t stream_id = input 0
+ * uint8_t* bytes = input 1
+ * size_t length = input 2
+ * picoquic_call_back_event_t fin_or_event = input 3
+ * void* callback_ctx = input 4
+ */
+protoop_arg_t callback_function(picoquic_cnx_t *cnx)
+{
+    uint64_t stream_id = (uint64_t) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t length = (size_t) cnx->protoop_inputv[2];
+    picoquic_call_back_event_t fin_or_event = (picoquic_call_back_event_t) cnx->protoop_inputv[3];
+    void* callback_ctx = (void *) cnx->protoop_inputv[4];
+
+    if (cnx->callback_fn) {
+        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, callback_ctx);
+    }
+
+    return 0;
+}
+
 void picoquic_enable_keep_alive(picoquic_cnx_t* cnx, uint64_t interval)
 {
     if (interval == 0) {
@@ -1538,4 +1585,10 @@ int picoquic_get_remote_error(picoquic_cnx_t* cnx)
 
 void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authentication) {
     picoquic_tls_set_client_authentication(quic, client_authentication);
+}
+
+void quicctx_register_protoops(picoquic_cnx_t *cnx)
+{
+    cnx->ops[PROTOOPID_CONGESTION_ALGORITHM_NOTIFY] = &congestion_algorithm_notify;
+    cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
 }

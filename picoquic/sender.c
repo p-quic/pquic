@@ -318,10 +318,15 @@ uint32_t picoquic_create_packet_header(
     return length;
 }
 
-uint32_t picoquic_predict_packet_header_length(
-    picoquic_cnx_t* cnx,
-    picoquic_packet_type_enum packet_type)
+/**
+ * picoquic_packet_type_enum packet_type = input 0
+ *
+ * Output: header_length (uint32_t)
+ */
+protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_type_enum packet_type = (picoquic_packet_type_enum) cnx->protoop_inputv[0];
+
     uint32_t header_length = 0;
 
     if (packet_type == picoquic_packet_1rtt_protected_phi0 || 
@@ -357,14 +362,25 @@ uint32_t picoquic_predict_packet_header_length(
         }
     }
 
-    return header_length;
+    return (protoop_arg_t) header_length;
 }
 
-/*
- * Management of packet protection
- */
-uint32_t picoquic_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
+uint32_t picoquic_predict_packet_header_length(
+    picoquic_cnx_t* cnx,
+    picoquic_packet_type_enum packet_type)
 {
+    return (uint32_t) protoop_prepare_and_run(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, NULL,
+        packet_type);
+}
+
+/**
+ * int is_cleartext_mode = input 0
+ *
+ * Output: checksum_length (uint32_t)
+ */
+protoop_arg_t get_checksum_length(picoquic_cnx_t *cnx)
+{
+    int is_cleartext_mode = (int) cnx->protoop_inputv[0];
     uint32_t ret = 16;
 
     if (is_cleartext_mode || cnx->crypto_context[2].aead_encrypt == NULL) {
@@ -373,7 +389,16 @@ uint32_t picoquic_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode
         ret = picoquic_aead_get_checksum_length(cnx->crypto_context[2].aead_encrypt);
     }
 
-    return ret;
+    return (protoop_arg_t) ret;
+}
+
+/*
+ * Management of packet protection
+ */
+uint32_t picoquic_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
+{
+    return (uint32_t) protoop_prepare_and_run(cnx, PROTOOPID_GET_CHECKSUM_LENGTH, NULL,
+        is_cleartext_mode);
 }
 
 uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx, 
@@ -714,7 +739,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         packet_is_pure_ack = 0;
                         break;
                     }
-                    ret = picoquic_skip_frame(&p->bytes[byte_index],
+                    ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
                         p->length - byte_index, &frame_length, &frame_is_pure_ack);
                     byte_index += frame_length;
                 }
@@ -764,7 +789,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     byte_index = p->offset;
 
                     while (ret == 0 && byte_index < p->length) {
-                        ret = picoquic_skip_frame(&p->bytes[byte_index],
+                        ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
                             p->length - byte_index, &frame_length, &frame_is_pure_ack);
 
                         /* Check whether the data was already acked, which may happen in 
@@ -897,7 +922,7 @@ int picoquic_is_cnx_backlog_empty(picoquic_cnx_t* cnx)
 
 
             while (ret == 0 && byte_index < p->length) {
-                ret = picoquic_skip_frame(&p->bytes[byte_index],
+                ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
                     p->length - p->offset, &frame_length, &frame_is_pure_ack);
 
                 if (!frame_is_pure_ack) {
@@ -2308,4 +2333,6 @@ void sender_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_PREPARE_PACKET_READY] = &prepare_packet_ready;
     cnx->ops[PROTOOPID_RETRANSMIT_NEEDED] = &retransmit_needed;
     cnx->ops[PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET] = &retransmit_needed_by_packet;
+    cnx->ops[PROTOOPID_PREDICT_PACKET_HEADER_LENGTH] = &predict_packet_header_length;
+    cnx->ops[PROTOOPID_GET_CHECKSUM_LENGTH] = &get_checksum_length;
 }
