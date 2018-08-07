@@ -87,7 +87,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   for (i = 0; i < n_args; i++) {
     arg = va_arg(ap, protoop_arg_t);
     args[i] = arg;
-    DBG_PLUGIN_PRINTF("  %lu\n", arg);
+    DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   va_end(ap);
   return plugin_run_protoop(cnx, pid, n_args, args, outputv);
@@ -103,7 +103,7 @@ static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int
   for (i = 0; i < n_args; i++) {
     arg = va_arg(ap, protoop_arg_t);
     cnx->protoop_outputv[i] = arg;
-    DBG_PLUGIN_PRINTF("  %lu\n", arg);
+    DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   cnx->protoop_outputc_callee = n_args;
   va_end(ap);

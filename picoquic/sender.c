@@ -553,7 +553,7 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet *
 }
 
 /**
- * cnx->protoop_inputv[0] = picoquic_packet *p
+ * cnx->protoop_inputv[0] = picoquic_packet *p NOT NULL
  * cnx->protoop_inputv[1] = uint64_t current_time
  * cnx->protoop_inputv[2] = int timer_based
  * 

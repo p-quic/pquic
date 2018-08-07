@@ -779,9 +779,10 @@ uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const
         bytes, bytes_max, current_time);
 }
 
-}
-
-picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
+/**
+ * Output: picoquic_stream_head* stream
+ */
+protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
 {
     picoquic_stream_head* stream = cnx->first_stream;
 
@@ -816,7 +817,12 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
         }
     }
 
-    return stream;
+    return (protoop_arg_t) stream;
+}
+
+picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
+{
+    return (picoquic_stream_head *) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
@@ -944,7 +950,10 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
  * Crypto HS frames
  */
 
-int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
+/**
+ * Output: ready (int)
+ */
+protoop_arg_t is_tls_stream_ready(picoquic_cnx_t *cnx)
 {
     int ret = 0;
     picoquic_stream_head* stream = &cnx->tls_stream;
@@ -961,7 +970,12 @@ int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
         }
     }
 
-    return ret;
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
+{
+    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_TLS_STREAM_READY, 0, NULL, NULL);
 }
 
 /**
@@ -1952,8 +1966,17 @@ int picoquic_prepare_ack_ecn_frame(picoquic_cnx_t* cnx, uint64_t current_time,
     return ret;
 }
 
-int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc)
+/**
+ * uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
+ * picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+ *
+ * Output: is ack needed (int)
+ */
+protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
 {
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+
     int ret = 0;
     picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
 
@@ -1962,7 +1985,13 @@ int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_
         ret = pkt_ctx->ack_needed;
     }
 
-    return ret;
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc)
+{
+    return (int) protoop_prepare_and_run(cnx, PROTOOPID_IS_ACK_NEEDED, NULL,
+        current_time, pc);
 }
 
 /*
@@ -3012,5 +3041,8 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_PREPARE_CRYPTO_HS_FRAME] = &prepare_crypto_hs_frame;
     cnx->ops[PROTOOPID_PREPARE_MISC_FRAME] = &prepare_misc_frame;
     cnx->ops[PROTOOPID_PREPARE_MAX_DATA_FRAME] = &prepare_max_data_frame;
+    cnx->ops[PROTOOPID_FIND_READY_STREAM] = &find_ready_stream;
+    cnx->ops[PROTOOPID_IS_ACK_NEEDED] = &is_ack_needed;
+    cnx->ops[PROTOOPID_IS_TLS_STREAM_READY] = &is_tls_stream_ready;
 }
 

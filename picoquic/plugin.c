@@ -56,6 +56,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
+    DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
+
     protoop_arg_t status = cnx->ops[pid](cnx);
     int outputc = cnx->protoop_outputc_callee;
 
