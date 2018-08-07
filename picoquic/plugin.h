@@ -56,6 +56,7 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
 
 # define protoop_prepare_and_run(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
 #elif defined(__GNUC__)
 
@@ -65,7 +66,8 @@ int plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64
 # define N_ARGS_HELPER1(args...) N_ARGS_HELPER2(args)
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, x...) n
 
-# define foo(args...) foo_helper(N_ARGS(args), args)
+# define protoop_prepare_and_run(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, outputv, N_ARGS(args), args)
+# define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(args), args)
 
 #else
 
@@ -90,5 +92,20 @@ static inline int protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id
   return plugin_run_protoop(cnx, pid, n_args, args, outputv);
 }
 
+static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int n_args, ...)
+{
+  protoop_arg_t i, arg;
+  va_list ap;
+
+  va_start(ap, n_args);
+  DBG_PLUGIN_PRINTF("%u saved:", n_args);
+  for (i = 0; i < n_args; i++) {
+    arg = va_arg(ap, protoop_arg_t);
+    cnx->protoop_outputv[i] = arg;
+    DBG_PLUGIN_PRINTF("  %lu\n", arg);
+  }
+  cnx->protoop_outputc_callee = n_args;
+  va_end(ap);
+}
 
 #endif // #ifndef PLUGIN_H

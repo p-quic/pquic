@@ -832,9 +832,7 @@ int retransmit_needed(picoquic_cnx_t *cnx)
         p = p_next;
     }
 
-    cnx->protoop_outputv[0] = (protoop_arg_t) is_cleartext_mode;
-    cnx->protoop_outputv[1] = (protoop_arg_t) header_length;
-    cnx->protoop_outputc_callee = 2;
+    protoop_save_outputs(cnx, is_cleartext_mode, header_length);
 
     return (int) length;
 }
@@ -2123,8 +2121,7 @@ int prepare_packet_ready(picoquic_cnx_t *cnx)
 
     picoquic_cnx_set_next_wake_time(cnx, current_time);
 
-    cnx->protoop_outputv[0] = (protoop_arg_t) send_length;
-    cnx->protoop_outputc_callee = 1;
+    protoop_save_outputs(cnx, send_length);
 
     return ret;
 }
