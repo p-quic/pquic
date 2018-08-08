@@ -96,7 +96,7 @@ void debug_printf(const char* fmt, ...)
     if (debug_suspended == 0) {
         va_list args;
         va_start(args, fmt);
-        vfprintf(debug_out ? debug_out : stderr, fmt, args);
+        vfprintf(debug_out ? debug_out : stdout, fmt, args);
         va_end(args);
     }
 }

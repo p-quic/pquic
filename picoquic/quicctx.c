@@ -23,6 +23,7 @@
 #include "tls_api.h"
 #include <stdlib.h>
 #include <string.h>
+#include "plugin.h"
 #ifndef _WINDOWS
 #include <sys/time.h>
 #endif
@@ -874,6 +875,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     register_protocol_operations(cnx);
+    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
+    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
+    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
 
     return cnx;
 }
@@ -1134,8 +1138,15 @@ void picoquic_enqueue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p)
     cnx->path[0]->bytes_in_transit += p->length;
 }
 
-void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p, int should_free)
+/**
+ * picoquic_packet* p = input 0
+ * int should_free = input 1
+ */
+protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
 {
+    picoquic_packet *p = (picoquic_packet *) cnx->protoop_inputv[0];
+    int should_free = (int) cnx->protoop_inputv[1];
+
     size_t dequeued_length = p->length + p->checksum_overhead;
     picoquic_packet_context_enum pc = p->pc;
 
@@ -1177,6 +1188,14 @@ void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p,
             cnx->pkt_ctx[pc].retransmitted_oldest = p;
         }
     }
+
+    return 0;
+}
+
+void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p, int should_free)
+{
+    protoop_prepare_and_run(cnx, PROTOOPID_DEQUEUE_RETRANSMIT_PACKET, NULL,
+        p, should_free);
 }
 
 void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
@@ -1587,8 +1606,19 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
     picoquic_tls_set_client_authentication(quic, client_authentication);
 }
 
+protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
+{
+    printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
+    for (int i = 0; i < cnx->protoop_inputc; i++) {
+        printf("\tInput %d: 0x%lx\n", i, cnx->protoop_inputv[i]);
+    }
+    return 0;
+}
+
 void quicctx_register_protoops(picoquic_cnx_t *cnx)
 {
     cnx->ops[PROTOOPID_CONGESTION_ALGORITHM_NOTIFY] = &congestion_algorithm_notify;
     cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
+    cnx->ops[PROTOOPID_DEQUEUE_RETRANSMIT_PACKET] = &dequeue_retransmit_packet;
+    cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
 }

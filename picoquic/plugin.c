@@ -52,6 +52,13 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     memcpy(caller_outputv, cnx->protoop_outputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
     memcpy(cnx->protoop_inputv, inputv, sizeof(uint64_t) * inputc);
     cnx->protoop_inputc = inputc;
+
+#ifdef DBG_PLUGIN_PRINTF
+    for (int i = 0; i < inputc; i++) {
+        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, inputv[i]);
+    }
+#endif
+
     /* Also set protoop_outputv to 0, to prevent callee to see caller state */
     memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
@@ -61,11 +68,16 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     protoop_arg_t status = cnx->ops[pid](cnx);
     int outputc = cnx->protoop_outputc_callee;
 
-    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns %d outputs", pid, outputc);
+    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
     if (outputv) {
         memcpy(outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
+#ifdef DBG_PLUGIN_PRINTF
+        for (int i = 0; i < outputc; i++) {
+            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
+        }
+#endif
     }
 
     /* ... and restore ALL the previous inputs and outputs */
