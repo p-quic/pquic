@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "plugin.h"
+#include "memory.h"
 
 /*
  * Sending logic.
@@ -173,9 +174,9 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
  * Packet management
  */
 
-picoquic_packet* picoquic_create_packet()
+picoquic_packet* picoquic_create_packet(picoquic_cnx_t *cnx)
 {
-    picoquic_packet* packet = (picoquic_packet*)malloc(sizeof(picoquic_packet));
+    picoquic_packet* packet = (picoquic_packet*)my_malloc(cnx, sizeof(picoquic_packet));
 
     if (packet != NULL) {
         memset(packet, 0, sizeof(picoquic_packet));
@@ -2276,7 +2277,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
             }
         }
 
-        packet = picoquic_create_packet();
+        packet = picoquic_create_packet(cnx);
 
         if (packet == NULL) {
             ret = PICOQUIC_ERROR_MEMORY;
@@ -2292,7 +2293,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi1) {
                     if (packet->length == 0) {
-                        free(packet);
+                        my_free(cnx, packet);
                     }
                     break;
                 }

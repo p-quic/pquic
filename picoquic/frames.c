@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "plugin.h"
+#include "memory.h"
 
 /* ****************************************************
  * Frames private declarations
@@ -1256,7 +1257,7 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
                 should_delete->next_packet->previous_packet = should_delete->previous_packet;
             }
 
-            free(should_delete);
+            my_free(cnx, should_delete);
         }
     }
 }

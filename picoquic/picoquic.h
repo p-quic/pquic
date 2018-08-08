@@ -444,7 +444,7 @@ int picoquic_incoming_packet(
     int if_index_to,
     uint64_t current_time);
 
-picoquic_packet* picoquic_create_packet();
+picoquic_packet* picoquic_create_packet(picoquic_cnx_t *cnx);
 
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length);

@@ -15,8 +15,9 @@
 #include <sys/types.h>
 #include "plugin.h"
 #include "memcpy.h"
+#include "memory.h"
 
-#define JIT true  /* putting to false show out of memory access */
+#define JIT false  /* putting to false show out of memory access */
 
 static void
 register_functions(struct ubpf_vm *vm)
@@ -28,7 +29,12 @@ register_functions(struct ubpf_vm *vm)
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
     /* for memory */
-    ubpf_register(vm, 0x10, "my_memcpy", my_memcpy);
+    ubpf_register(vm, 0x10, "my_malloc", my_malloc);
+    ubpf_register(vm, 0x11, "my_free", my_free);
+    ubpf_register(vm, 0x12, "my_realloc", my_realloc);
+
+    ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
+    ubpf_register(vm, 0x19, "my_memset", my_memset);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

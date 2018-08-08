@@ -430,6 +430,8 @@ void frames_register_protoops(picoquic_cnx_t *cnx);
 void sender_register_protoops(picoquic_cnx_t *cnx);
 void quicctx_register_protoops(picoquic_cnx_t *cnx);
 
+#define CONTEXT_MEMORY (1024 * 1024) /* In bytes */
+
 /* 
  * Per connection context.
  * This is the structure that will be passed to plugins.
@@ -566,6 +568,15 @@ typedef struct st_picoquic_cnx_t {
     protoop_arg_t protoop_outputv[PROTOOPARGS_MAX];
 
     int protoop_outputc_callee; /* Modified by the callee */
+
+    /* With uBPF, we don't want the VM it corrupts the memory of another context.
+     * Therefore, each context has its own memory space that should contain everything
+     * needed for the given connection.
+     */
+    void *heap_start;
+    void *heap_end; /* used to implement my_sbrk */
+    void *heap_last_block; /* keeps track of the last block used when extending heap. */
+    char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
 
 /* Init of transport parameters */

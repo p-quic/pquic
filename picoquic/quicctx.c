@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "plugin.h"
+#include "memory.h"
 #ifndef _WINDOWS
 #include <sys/time.h>
 #endif
@@ -609,7 +610,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
     if (cnx->nb_paths >= cnx->nb_path_alloc)
     {
         int new_alloc = (cnx->nb_path_alloc == 0) ? 1 : 2 * cnx->nb_path_alloc;
-        picoquic_path_t ** new_path = (picoquic_path_t **)malloc(new_alloc * sizeof(picoquic_path_t *));
+        picoquic_path_t ** new_path = (picoquic_path_t **)my_malloc(cnx, new_alloc * sizeof(picoquic_path_t *));
 
         if (new_path != NULL)
         {
@@ -619,7 +620,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 {
                     memcpy(new_path, cnx->path, cnx->nb_paths * sizeof(picoquic_path_t *));
                 }
-                free(cnx->path);
+                my_free(cnx, cnx->path);
             }
             cnx->path = new_path;
             cnx->nb_path_alloc = new_alloc;
@@ -628,7 +629,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
     if (cnx->nb_paths < cnx->nb_path_alloc)
     {
-        picoquic_path_t * path_x = (picoquic_path_t *)malloc(sizeof(picoquic_path_t));
+        picoquic_path_t * path_x = (picoquic_path_t *)my_malloc(cnx, sizeof(picoquic_path_t));
 
         if (path_x != NULL)
         {
@@ -694,6 +695,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         int ret;
 
         memset(cnx, 0, sizeof(picoquic_cnx_t));
+        /* First initialize the memory management */
+        init_memory_management(cnx);
+
         /* Should return 0, since this is the first path */
         ret = picoquic_create_path(cnx, start_time, addr);
 
@@ -875,7 +879,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     register_protocol_operations(cnx);
-    // plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
+    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
     // plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
     // plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
 
@@ -1174,7 +1178,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
     }
         
     if (should_free) {
-        free(p);
+        my_free(cnx, p);
     } else {
         p->next_packet = NULL;
 
@@ -1211,7 +1215,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     while (pkt_ctx->retransmitted_newest != NULL) {
         picoquic_packet* p = pkt_ctx->retransmitted_newest;
         pkt_ctx->retransmitted_newest = p->next_packet;
-        free(p);
+        my_free(cnx, p);
     }
 
     pkt_ctx->retransmitted_oldest = NULL;
@@ -1431,12 +1435,19 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     cnx->congestion_alg->alg_delete(cnx->path[i]);
                 }
 
-                free(cnx->path[i]);
+                my_free(cnx, cnx->path[i]);
                 cnx->path[i] = NULL;
             }
 
-            free(cnx->path);
+            my_free(cnx, cnx->path);
             cnx->path = NULL;
+        }
+
+        /* Also free plugins */
+        for (int i = 0; i < PROTOOPID_MAX; i++) {
+            if (cnx->plugins[i]) {
+                release_elf(cnx->plugins[i]);
+            }
         }
 
         free(cnx);
