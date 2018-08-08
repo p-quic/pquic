@@ -78,6 +78,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
             DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
         }
 #endif
+    } else if (outputc > 0) {
+        printf("WARNING: no output value provided for protocol operation with id 0x%x that returns %d additional outputs\n", pid, outputc);
+        printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
 
     /* ... and restore ALL the previous inputs and outputs */
