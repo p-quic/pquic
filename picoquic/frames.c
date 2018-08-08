@@ -2374,7 +2374,7 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     if (ret == 0) {
         picoquic_misc_frame_header_t* misc_frame = cnx->first_misc_frame;
         cnx->first_misc_frame = misc_frame->next_misc_frame;
-        free(misc_frame);
+        my_free(cnx, misc_frame);
     }
 
     return ret;

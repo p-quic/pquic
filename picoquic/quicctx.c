@@ -880,8 +880,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 
     register_protocol_operations(cnx);
     plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
-    // plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
-    // plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
+    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
+    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
 
     return cnx;
 }
@@ -1074,8 +1074,8 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
     return cnx->callback_ctx;
 }
 
-picoquic_misc_frame_header_t* picoquic_create_misc_frame(const uint8_t* bytes, size_t length) {
-    uint8_t* misc_frame = (uint8_t*)malloc(sizeof(picoquic_misc_frame_header_t) + length);
+picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length) {
+    uint8_t* misc_frame = (uint8_t*)my_malloc(cnx, sizeof(picoquic_misc_frame_header_t) + length);
 
     if (misc_frame == NULL) {
         return NULL;
@@ -1091,7 +1091,7 @@ picoquic_misc_frame_header_t* picoquic_create_misc_frame(const uint8_t* bytes, s
 int picoquic_queue_misc_frame(picoquic_cnx_t* cnx, const uint8_t* bytes, size_t length)
 {
     int ret = 0;
-    picoquic_misc_frame_header_t* misc_frame = picoquic_create_misc_frame(bytes, length);
+    picoquic_misc_frame_header_t* misc_frame = picoquic_create_misc_frame(cnx, bytes, length);
 
     if (misc_frame == NULL) {
         ret = PICOQUIC_ERROR_MEMORY;
@@ -1291,7 +1291,7 @@ int picoquic_reset_cnx(picoquic_cnx_t* cnx, uint64_t current_time)
     }
 
     /* Reset the TLS context, Re-initialize the tls connection */
-    picoquic_tlscontext_free(cnx->tls_ctx);
+    picoquic_tlscontext_free(cnx, cnx->tls_ctx);
     cnx->tls_ctx = NULL;
     ret = picoquic_tlscontext_create(cnx->quic, cnx, current_time);
     if (ret == 0) {
@@ -1411,7 +1411,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         while ((misc_frame = cnx->first_misc_frame) != NULL) {
             cnx->first_misc_frame = misc_frame->next_misc_frame;
-            free(misc_frame);
+            my_free(cnx, misc_frame);
         }
 
         picoquic_clear_stream(&cnx->tls_stream);
@@ -1423,7 +1423,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         if (cnx->tls_ctx != NULL) {
-            picoquic_tlscontext_free(cnx->tls_ctx);
+            picoquic_tlscontext_free(cnx, cnx->tls_ctx);
             cnx->tls_ctx = NULL;
         }
 

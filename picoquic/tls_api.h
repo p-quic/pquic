@@ -42,7 +42,7 @@ void picoquic_master_tlscontext_free(picoquic_quic_t* quic);
 
 int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint64_t current_time);
 
-void picoquic_tlscontext_free(void* ctx);
+void picoquic_tlscontext_free(picoquic_cnx_t *cnx, void* ctx);
 
 void picoquic_tlscontext_remove_ticket(picoquic_cnx_t* cnx);
 

@@ -847,7 +847,7 @@ void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
     unsigned long if_index_to,
     uint64_t current_time);
 
-picoquic_misc_frame_header_t* picoquic_create_misc_frame(const uint8_t* bytes, size_t length);
+picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length);
 
 #ifdef __cplusplus
 }

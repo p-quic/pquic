@@ -33,6 +33,7 @@
 #include <openssl/engine.h>
 #include <stdio.h>
 #include <string.h>
+#include "memory.h"
 
 #define container_of(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
 
@@ -1010,7 +1011,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
 {
     int ret = 0;
     /* allocate a context structure */
-    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)malloc(sizeof(picoquic_tls_ctx_t));
+    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)my_malloc(cnx, sizeof(picoquic_tls_ctx_t));
 
     /* Create the TLS context */
     if (ctx == NULL) {
@@ -1029,7 +1030,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
         *ptls_get_data_ptr(ctx->tls) = cnx;
 
         if (ctx->tls == NULL) {
-            free(ctx);
+            my_free(cnx, ctx);
             ctx = NULL;
             ret = -1;
         } else if (ctx->client_mode) {
@@ -1067,7 +1068,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
             /* A server side connection, but no cert/key where given for the master context */
             if (((ptls_context_t*)quic->tls_master_ctx)->encrypt_ticket == NULL) {
                 ret = PICOQUIC_ERROR_TLS_SERVER_CON_WITHOUT_CERT;
-                picoquic_tlscontext_free(ctx);
+                picoquic_tlscontext_free(cnx, ctx);
                 ctx = NULL;
             }
 
@@ -1198,14 +1199,14 @@ void picoquic_tlscontext_remove_ticket(picoquic_cnx_t* cnx)
     ctx->handshake_properties.client.session_ticket.len = 0;
 }
 
-void picoquic_tlscontext_free(void* vctx)
+void picoquic_tlscontext_free(picoquic_cnx_t *cnx, void* vctx)
 {
     picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)vctx;
     if (ctx->tls != NULL) {
         ptls_free((ptls_t*)ctx->tls);
         ctx->tls = NULL;
     }
-    free(ctx);
+    my_free(cnx, ctx);
 }
 
 char const* picoquic_tls_get_negotiated_alpn(picoquic_cnx_t* cnx)
