@@ -88,5 +88,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_inputc = caller_inputc;
 
+    /* Also reset outputc to zero; if this protoop was called by another one that does not have any output,
+     * it will likely not specify the outputc value, as it expects it to remain 0...
+     */
+    cnx->protoop_outputc_callee = 0;
+
     return status;
 }
