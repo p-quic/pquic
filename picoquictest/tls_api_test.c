@@ -969,6 +969,7 @@ static int tls_api_attempt_to_close(
     }
 
     if (ret == 0 && (test_ctx->cnx_client->cnx_state != picoquic_state_disconnected || test_ctx->cnx_server->cnx_state != picoquic_state_disconnected)) {
+        printf("TLS session not closed...\n");
         ret = -1;
     }
 

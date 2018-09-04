@@ -1,6 +1,7 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "memcpy.h"
+#include "bpf.h"
 
 static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
 {
@@ -9,7 +10,7 @@ static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
     plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
 }
 
-static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet *p, uint64_t current_time, int *timer_based_retransmit)
+static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
@@ -90,12 +91,19 @@ static int is_stream_frame_unlimited(const uint8_t* bytes)
     return PICOQUIC_BITS_CLEAR_IN_RANGE(bytes[0], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max, 0x02);
 }
 
-static void dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p, int should_free)
+static void dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free)
 {
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) should_free;
     plugin_run_protoop(cnx, PROTOOPID_DEQUEUE_RETRANSMIT_PACKET, 2, args, NULL);
+}
+
+static void dbg_print(picoquic_cnx_t *cnx, uint64_t val)
+{
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) val;
+    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
 }
 
 /**
@@ -116,12 +124,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
     picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet* packet = (picoquic_packet *) cnx->protoop_inputv[3];
+    picoquic_packet_t* packet = (picoquic_packet_t *) cnx->protoop_inputv[3];
     size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
     int is_cleartext_mode = (int) cnx->protoop_inputv[5];
     uint32_t header_length = (uint32_t) cnx->protoop_inputv[6];
 
-    picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
+    picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
     uint32_t length = 0;
 
     /* TODO: while packets are pure ACK, drop them from retransmit queue */
@@ -129,7 +137,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         int should_retransmit = 0;
         int timer_based_retransmit = 0;
         uint64_t lost_packet_number = p->sequence_number;
-        picoquic_packet* p_next = p->next_packet;
+        picoquic_packet_t* p_next = p->next_packet;
         //picoquic_packet_header ph;
         int ret = 0;
         //picoquic_cnx_t* pcnx = cnx;
@@ -138,6 +146,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         /* Get the packet type */
 
         should_retransmit = retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
+        //dbg_print(cnx, should_retransmit);
 
         if (should_retransmit == 0) {
             /*
@@ -261,6 +270,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 /* If not pure ack, the packet will be placed in the "retransmitted" queue,
                  * in order to enable detection of spurious restransmissions */
                 dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
+                dbg_print(cnx, current_time);
+                bpf_data *bpfd = (bpf_data *) cnx->opaque;
+                bpfd->print = 1;
 
                 /* If we have a good packet, return it */
                 if (packet_is_pure_ack) {
@@ -285,14 +297,16 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     }
 
                     if (should_retransmit != 0) {
-                        /*
+
                         if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
                             // protoop_printf(cnx, (protoop_arg_t) p->pc);
+                            dbg_print(cnx, p->ptype);
+                            /*
                             DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
                                 p->ptype, p->pc,
                                 (unsigned long long)p->sequence_number, cnx->client_mode);
+                                */
                         }
-                        */
 
                         /* special case for the client initial */
                         if (p->ptype == picoquic_packet_initial && cnx->client_mode != 0) {
@@ -306,6 +320,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         congestion_algorithm_notify(cnx, old_path,
                             (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
                             0, 0, lost_packet_number, current_time);
+
+                        dbg_print(cnx, 1234);
 
                         break;
                     }

@@ -88,7 +88,10 @@ void *extend(picoquic_cnx_t *cnx, unsigned int size) {
 	meta_data *new_block = (meta_data*) my_sbrk(cnx, 0);
 	if ((char*) new_block - (char*) cnx->heap_start > MEM_BUFFER) return NULL;
 	int *flag = (int *) my_sbrk(cnx, size + METADATA_SIZE);
-	if (!flag) return NULL;
+	if (!flag) {
+		printf("Out of memory!\n");
+		return NULL;
+	}
 	new_block->size = size;
 	new_block->available = 0;
 	new_block->next_block = NULL;
