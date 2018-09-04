@@ -70,8 +70,9 @@ extern "C" {
 #define PICOQUIC_ERROR_NO_SUCH_FILE (PICOQUIC_ERROR_CLASS + 29)
 #define PICOQUIC_ERROR_STATELESS_RESET (PICOQUIC_ERROR_CLASS + 30)
 #define PICOQUIC_ERROR_CONNECTION_DELETED (PICOQUIC_ERROR_CLASS + 31)
-#define PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS (PICOQUIC_ERROR_CLASS + 32)
-#define PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC (PICOQUIC_ERROR_CLASS + 33)
+#define PICOQUIC_ERROR_CNXID_SEGMENT (PICOQUIC_ERROR_CLASS + 32)
+#define PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS (PICOQUIC_ERROR_CLASS + 40)
+#define PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC (PICOQUIC_ERROR_CLASS + 41)
 
 /*
  * Protocol errors defined in the QUIC spec
@@ -83,17 +84,18 @@ extern "C" {
 #define PICOQUIC_TRANSPORT_STREAM_STATE_ERROR (0x5)
 #define PICOQUIC_TRANSPORT_FINAL_OFFSET_ERROR (0x6)
 #define PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR (0x7)
-#define PICOQUIC_TRANSPORT_TRANSPORT_PARAMETER_ERROR (0x8)
+#define PICOQUIC_TRANSPORT_PARAMETER_ERROR (0x8)
 #define PICOQUIC_TRANSPORT_VERSION_NEGOTIATION_ERROR (0x9)
 #define PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION (0xA)
-#define PICOQUIC_TRANSPORT_UNSOLICITED_PATH_RESPONSE (0xB)
-#define PICOQUIC_TRANSPORT_CRYPTO_ERROR(Alert) (0x100 | ((int)((Alert)&0xFF))
+#define PICOQUIC_TRANSPORT_CRYPTO_ERROR(Alert) (((uint16_t)0x100) | ((uint16_t)((Alert)&0xFF)))
 #define PICOQUIC_TLS_HANDSHAKE_FAILED (0x201)
 #define PICOQUIC_TLS_FATAL_ALERT_GENERATED (0x202)
 #define PICOQUIC_TLS_FATAL_ALERT_RECEIVED (0x203)
 
 #define PICOQUIC_MAX_PACKET_SIZE 1536
 #define PICOQUIC_RESET_SECRET_SIZE 16
+#define PICOQUIC_RESET_PACKET_MIN_SIZE (1 + 20 + 16)
+
 
 /* Declare protocol operations here */
 /* incoming_encrypted */
@@ -140,6 +142,7 @@ extern "C" {
 #define PROTOOPID_PREDICT_PACKET_HEADER_LENGTH (PROTOOPID_SENDER + 0x0e)
 #define PROTOOPID_GET_CHECKSUM_LENGTH (PROTOOPID_SENDER + 0x0f)
 #define PROTOOPID_DEQUEUE_RETRANSMIT_PACKET (PROTOOPID_SENDER + 0x10)
+#define PROTOOPID_DEQUEUE_RETRANSMITTED_PACKET (PROTOOPID_SENDER + 0x11)
 
 #define PROTOOPID_CALLBACK_FUNCTION 0x0380
 
@@ -194,6 +197,9 @@ typedef struct st_picoquic_connection_id_t {
     uint8_t id_len;
 } picoquic_connection_id_t;
 
+/* Detect whether error occured in TLS
+ */
+int picoquic_is_handshake_error(uint16_t error_code);
 /*
 * The stateless packet structure is used to temporarily store
 * stateless packets before they can be sent by servers.
@@ -239,9 +245,9 @@ typedef enum {
  * The checksum length is the difference between encrypted and unencrypted.
  */
 
-typedef struct _picoquic_packet {
-    struct _picoquic_packet* previous_packet;
-    struct _picoquic_packet* next_packet;
+typedef struct st_picoquic_packet_t {
+    struct st_picoquic_packet_t* previous_packet;
+    struct st_picoquic_packet_t* next_packet;
     struct st_picoquic_path_t * send_path;
     uint64_t sequence_number;
     uint64_t send_time;
@@ -250,9 +256,12 @@ typedef struct _picoquic_packet {
     uint32_t offset;
     picoquic_packet_type_enum ptype;
     picoquic_packet_context_enum pc;
+    unsigned int is_evaluated : 1;
+    unsigned int is_pure_ack : 1;
+    unsigned int contains_crypto : 1;
 
     uint8_t bytes[PICOQUIC_MAX_PACKET_SIZE];
-} picoquic_packet;
+} picoquic_packet_t;
 
 typedef struct st_picoquic_quic_t picoquic_quic_t;
 typedef struct st_picoquic_cnx_t picoquic_cnx_t;
@@ -263,6 +272,7 @@ typedef enum {
     picoquic_callback_stream_fin,
     picoquic_callback_stream_reset,
     picoquic_callback_stop_sending,
+    picoquic_callback_stateless_reset,
     picoquic_callback_close,
     picoquic_callback_application_close,
     picoquic_callback_challenge_response,
@@ -322,6 +332,14 @@ typedef void (*picoquic_stream_data_cb_fn)(picoquic_cnx_t* cnx,
 typedef void (*cnx_id_cb_fn)(picoquic_connection_id_t cnx_id_local,
     picoquic_connection_id_t cnx_id_remote, void* cnx_id_cb_data, picoquic_connection_id_t * cnx_id_returned);
 
+/* The fuzzer function is used to inject error in packets randomly.
+ * It is called just prior to sending a packet, and can randomly
+ * change the content or length of the packet.
+ */
+typedef uint32_t(*picoquic_fuzz_fn)(void * fuzz_ctx, picoquic_cnx_t* cnx, uint8_t * bytes, 
+    size_t bytes_max, size_t length, uint32_t header_length);
+void picoquic_set_fuzz(picoquic_quic_t* quic, picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx);
+
 /* Will be called to verify that the given data corresponds to the given signature.
  * This callback and the `verify_ctx` will be set by the `verify_certificate_cb_fn`.
  * If `data` and `sign` are empty buffers, an error occurred and `verify_ctx` should be freed.
@@ -367,6 +385,9 @@ void picoquic_set_tls_certificate_chain(picoquic_quic_t* quic, ptls_iovec_t* cer
  * Returns `0` on success, `-1` on error while loading X509 certificate or `-2` on error while adding a cert to the certificate store.
  */
 int picoquic_set_tls_root_certificates(picoquic_quic_t* quic, ptls_iovec_t* certs, size_t count);
+
+/* Tell the TLS stack to not attempt verifying certificates */
+void picoquic_set_null_verifier(picoquic_quic_t* quic);
 
 /* Set the TLS private key(DER format) for the QUIC context. The caller is responsible for cleaning up the pointer. */
 int picoquic_set_tls_key(picoquic_quic_t* quic, const uint8_t* data, size_t len);
@@ -444,7 +465,7 @@ int picoquic_incoming_packet(
     int if_index_to,
     uint64_t current_time);
 
-picoquic_packet* picoquic_create_packet(picoquic_cnx_t *cnx);
+picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
 
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length);

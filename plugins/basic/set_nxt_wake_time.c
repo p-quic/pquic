@@ -43,7 +43,7 @@ static int is_tls_stream_ready(picoquic_cnx_t *cnx)
 }
 
 /* For a very strange reason, we absolutely need to put calls into static functions, otherwise clang might bug... o_O */
-static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet *p, uint64_t current_time, int *timer_based)
+static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based)
 {
     protoop_arg_t args[3], outs[PROTOOPARGS_MAX];
     args[0] = (protoop_arg_t) p;
@@ -75,7 +75,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     else
     {
         for (picoquic_packet_context_enum pc = 0; blocked == 0 && pc < picoquic_nb_packet_context; pc++) {
-            picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
+            picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
 
             while (p != NULL)
             {
@@ -120,7 +120,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         }
         else {
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
-                picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
+                picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
                 /* Consider delayed ACK */
                 if (cnx->pkt_ctx[pc].ack_needed) {
                     next_time = cnx->pkt_ctx[pc].highest_ack_time + cnx->pkt_ctx[pc].ack_delay_local;
@@ -162,7 +162,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
-    uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX;
+    uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - cnx->client_mode);
     picoquic_stream_head* stream = NULL;
     int timer_based = 0;
     int blocked = 1;
@@ -187,7 +187,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     }
     else {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
-            picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
+            picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
 
             if (p != NULL && ret == 0 && retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
                 blocked = 0;
@@ -220,7 +220,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         next_time = path_x->next_pacing_time;
     } else {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
-            picoquic_packet* p = cnx->pkt_ctx[pc].retransmit_oldest;
+            picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
             /* Consider delayed ACK */
             if (cnx->pkt_ctx[pc].ack_needed) {
                 uint64_t ack_time = cnx->pkt_ctx[pc].highest_ack_time + cnx->pkt_ctx[pc].ack_delay_local;

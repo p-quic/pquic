@@ -41,6 +41,9 @@ extern "C" {
 #define PICOQUIC_RETRY_SECRET_SIZE 64
 #define PICOQUIC_DEFAULT_0RTT_WINDOW 4096
 
+#define PICOQUIC_NUMBER_OF_EPOCHS 4
+#define PICOQUIC_NUMBER_OF_EPOCH_OFFSETS (PICOQUIC_NUMBER_OF_EPOCHS+1)
+
 #define PICOQUIC_INITIAL_RTT 250000 /* 250 ms */
 #define PICOQUIC_INITIAL_RETRANSMIT_TIMER 1000000 /* one second */
 #define PICOQUIC_MIN_RETRANSMIT_TIMER 50000 /* 50 ms */
@@ -82,7 +85,7 @@ typedef enum {
     picoquic_frame_type_stream_range_max = 0x17,
     picoquic_frame_type_crypto_hs = 0x18,
     picoquic_frame_type_new_token = 0x19,
-    picoquic_frame_type_ack_ecn = 0x20
+    picoquic_frame_type_ack_ecn = 0x1a
 } picoquic_frame_type_enum_t;
 
 /*
@@ -105,6 +108,7 @@ typedef enum {
 #define PICOQUIC_FIFTH_INTEROP_VERSION 0xFF00000B
 #define PICOQUIC_SIXTH_INTEROP_VERSION 0xFF00000C
 #define PICOQUIC_SEVENTH_INTEROP_VERSION 0xFF00000D
+#define PICOQUIC_EIGHT_INTEROP_VERSION 0xFF00000E
 #define PICOQUIC_INTERNAL_TEST_VERSION_1 0x50435130
 
 #define PICOQUIC_INTEROP_VERSION_INDEX 1
@@ -117,12 +121,11 @@ typedef enum {
     picoquic_version_no_flag = 0
 } picoquic_version_feature_flags;
 
-/*
-     * Codes used for representing the various types of packet encodings
-     */
+/* 
+ * Codes used for representing the various types of packet encodings
+ */
 typedef enum {
-    picoquic_version_header_11,
-    picoquic_version_header_12
+    picoquic_version_header_13
 } picoquic_version_header_encoding;
 
 typedef struct st_picoquic_version_parameters_t {
@@ -209,6 +212,9 @@ typedef struct st_picoquic_quic_t {
     picoquic_free_verify_certificate_ctx free_verify_certificate_callback_fn;
     void* verify_certificate_ctx;
     uint8_t local_ctx_length;
+
+    picoquic_fuzz_fn fuzz_fn;
+    void* fuzz_ctx;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -218,28 +224,32 @@ picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
  */
 
 typedef enum {
-    picoquic_transport_parameter_initial_max_stream_data = 0,
-    picoquic_transport_parameter_initial_max_data = 1,
-    picoquic_transport_parameter_initial_max_stream_id_bidir = 2,
-    picoquic_transport_parameter_idle_timeout = 3,
-    picoquic_transport_parameter_server_prefered_address = 4,
-    picoquic_transport_parameter_max_packet_size = 5,
-    picoquic_transport_parameter_reset_secret = 6,
-    picoquic_transport_parameter_ack_delay_exponent = 7,
-    picoquic_transport_parameter_initial_max_stream_id_unidir = 8,
-    picoquic_transport_parameter_disable_migration = 9,
-} picoquic_transport_parameter_enum;
+    picoquic_tp_initial_max_stream_data_bidi_local = 0,
+    picoquic_tp_initial_max_data = 1,
+    picoquic_tp_initial_max_bidi_streams = 2,
+    picoquic_tp_idle_timeout = 3,
+    picoquic_tp_server_preferred_address = 4,
+    picoquic_tp_max_packet_size = 5,
+    picoquic_tp_reset_secret = 6,
+    picoquic_tp_ack_delay_exponent = 7,
+    picoquic_tp_initial_max_uni_streams = 8,
+    picoquic_tp_disable_migration = 9,
+    picoquic_tp_initial_max_stream_data_bidi_remote = 10,
+    picoquic_tp_initial_max_stream_data_uni = 11
+} picoquic_tp_enum;
 
-typedef struct st_picoquic_transport_parameters_prefered_address_t {
+typedef struct st_picoquic_tp_prefered_address_t {
     uint8_t ipVersion; /* enum { IPv4(4), IPv6(6), (15) } -- 0 if no parameter specified */
     uint8_t ipAddress[16]; /* opaque ipAddress<4..2 ^ 8 - 1> */
     uint16_t port;
     picoquic_connection_id_t connection_id; /*  opaque connectionId<0..18>; */
     uint8_t statelessResetToken[16];
-} picoquic_transport_parameters_prefered_address_t;
+} picoquic_tp_prefered_address_t;
 
-typedef struct _picoquic_transport_parameters {
-    uint32_t initial_max_stream_data;
+typedef struct st_picoquic_tp_t {
+    uint32_t initial_max_stream_data_bidi_local;
+    uint32_t initial_max_stream_data_bidi_remote;
+    uint32_t initial_max_stream_data_uni;
     uint32_t initial_max_data;
     uint32_t initial_max_stream_id_bidir;
     uint32_t initial_max_stream_id_unidir;
@@ -247,8 +257,8 @@ typedef struct _picoquic_transport_parameters {
     uint32_t max_packet_size;
     uint8_t ack_delay_exponent;
     unsigned int migration_disabled; 
-    picoquic_transport_parameters_prefered_address_t prefered_address;
-} picoquic_transport_parameters;
+    picoquic_tp_prefered_address_t prefered_address;
+} picoquic_tp_t;
 
 /*
  * SACK dashboard item, part of connection context.
@@ -309,6 +319,7 @@ typedef struct _picoquic_stream_head {
 
 #define IS_CLIENT_STREAM_ID(id) (unsigned int)(((id) & 1) == 0)
 #define IS_BIDIR_STREAM_ID(id)  (unsigned int)(((id) & 2) == 0)
+#define IS_LOCAL_STREAM_ID(id, client_mode)  (unsigned int)(((id)^(client_mode)) & 1)
 
 /*
      * Frame queue. This is used for miscellaneous packets, such as the PONG
@@ -403,10 +414,10 @@ typedef struct st_picoquic_packet_context_t {
     uint64_t latest_retransmit_time;
     uint64_t highest_acknowledged;
     uint64_t latest_time_acknowledged; /* time at which the highest acknowledged was sent */
-    picoquic_packet* retransmit_newest;
-    picoquic_packet* retransmit_oldest;
-    picoquic_packet* retransmitted_newest;
-    picoquic_packet* retransmitted_oldest;
+    picoquic_packet_t* retransmit_newest;
+    picoquic_packet_t* retransmit_oldest;
+    picoquic_packet_t* retransmitted_newest;
+    picoquic_packet_t* retransmitted_oldest;
 
     unsigned int ack_needed : 1;
 } picoquic_packet_context_t;
@@ -462,8 +473,8 @@ typedef struct st_picoquic_cnx_t {
 
 
     /* Local and remote parameters */
-    picoquic_transport_parameters local_parameters;
-    picoquic_transport_parameters remote_parameters;
+    picoquic_tp_t local_parameters;
+    picoquic_tp_t remote_parameters;
     /* On clients, document the SNI and ALPN expected from the server */
     /* TODO: there may be a need to propose multiple ALPN */
     char const* sni;
@@ -483,9 +494,9 @@ typedef struct st_picoquic_cnx_t {
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     uint16_t application_error;
     uint16_t local_error;
-    uint16_t crypto_error;
     uint16_t remote_application_error;
     uint16_t remote_error;
+    uint64_t offending_frame_type;
     uint32_t retry_token_length;
     uint8_t * retry_token;
 
@@ -499,15 +510,13 @@ typedef struct st_picoquic_cnx_t {
     void* tls_ctx;
     struct st_ptls_buffer_t* tls_sendbuf;
     uint16_t psk_cipher_suite_id;
-    picoquic_stream_head tls_stream;
-    size_t epoch_offsets[5]; /* documents the offset for the sending side of the tls_stream */
-    size_t epoch_received[5]; /* documents the offset for the sending side of the tls_stream */
-    
+
+    picoquic_stream_head tls_stream[PICOQUIC_NUMBER_OF_EPOCHS]; /* Separate input/output from each epoch */
+    picoquic_crypto_context_t crypto_context[PICOQUIC_NUMBER_OF_EPOCHS]; /* Encryption and decryption objects */
+
     /* Liveness detection */
     uint64_t latest_progress_time; /* last local time at which the connection progressed */
 
-    /* Encryption and decryption objects */
-    picoquic_crypto_context_t crypto_context[4];
 
     /* Sequence and retransmission state */
     picoquic_packet_context_t pkt_ctx[picoquic_nb_packet_context];
@@ -582,7 +591,7 @@ typedef struct st_picoquic_cnx_t {
 } picoquic_cnx_t;
 
 /* Init of transport parameters */
-void picoquic_init_transport_parameters(picoquic_transport_parameters* tp, int client_mode);
+void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode);
 
 /* Handling of stateless packets */
 picoquic_stateless_packet_t* picoquic_create_stateless_packet(picoquic_quic_t* quic);
@@ -592,8 +601,8 @@ void picoquic_queue_stateless_packet(picoquic_quic_t* quic, picoquic_stateless_p
 int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, picoquic_connection_id_t cnx_id);
 
 /* handling of retransmission queue */
-void picoquic_enqueue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p);
-void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet* p, int should_free);
+void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free);
+void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p);
 
 /* Reset connection after receiving version negotiation */
 int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t length, uint64_t current_time);
@@ -606,10 +615,10 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc);
 
 /* Notify error on connection */
-int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error);
+int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type);
 
 /* Set the transport parameters */
-void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_transport_parameters * tp);
+void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp);
 
 /* Connection context retrieval functions */
 picoquic_cnx_t* picoquic_cnx_by_id(picoquic_quic_t* quic, picoquic_connection_id_t cnx_id);
@@ -722,13 +731,13 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     picoquic_packet_type_enum ptype,
     uint8_t * bytes, uint64_t sequence_number,
     uint32_t length, uint32_t header_length,
-    uint8_t* send_buffer,
+    uint8_t* send_buffer, uint32_t send_buffer_max,
     void * aead_context, void* pn_enc);
 
-void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet * packet, int ret,
+void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t * packet, int ret,
     uint32_t length, uint32_t header_length, uint32_t checksum_overhead,
-    size_t * send_length, uint8_t * send_buffer, picoquic_path_t * path_x,
-    uint64_t current_time);
+    size_t * send_length, uint8_t * send_buffer, uint32_t send_buffer_max,
+    picoquic_path_t * path_x, uint64_t current_time);
 
 int picoquic_parse_header_and_decrypt(
     picoquic_quic_t* quic,
@@ -739,7 +748,8 @@ int picoquic_parse_header_and_decrypt(
     uint64_t current_time,
     picoquic_packet_header* ph,
     picoquic_cnx_t** pcnx,
-    uint32_t * consumed);
+    uint32_t * consumed,
+    int * new_context_created);
 
 /* Handling of packet logging */
 void picoquic_log_decrypted_segment(void* F_log, int log_cnxid, picoquic_cnx_t* cnx,
@@ -748,7 +758,7 @@ void picoquic_log_decrypted_segment(void* F_log, int log_cnxid, picoquic_cnx_t* 
 void picoquic_log_outgoing_segment(void* F_log, int log_cnxid, picoquic_cnx_t* cnx,
     uint8_t * bytes,
     uint64_t sequence_number,
-    uint32_t length, uint32_t header_length,
+    uint32_t length,
     uint8_t* send_buffer, uint32_t send_length);
 
 void picoquic_log_packet_address(FILE* F, uint64_t log_cnxid64, picoquic_cnx_t* cnx,
@@ -850,6 +860,17 @@ void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
     uint64_t current_time);
 
 picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length);
+
+#define STREAM_RESET_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_reset_sent) != 0)
+#define STREAM_RESET_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_reset_requested) != 0)
+#define STREAM_SEND_RESET(stream) (STREAM_RESET_REQUESTED(stream) && !STREAM_RESET_SENT(stream))
+#define STREAM_STOP_SENDING_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) != 0)
+#define STREAM_STOP_SENDING_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_sent) != 0)
+#define STREAM_STOP_SENDING_RECEIVED(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_received) != 0)
+#define STREAM_SEND_STOP_SENDING(stream) (STREAM_STOP_SENDING_REQUESTED(stream) && !STREAM_STOP_SENDING_SENT(stream))
+#define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
+#define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
+#define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
 
 #ifdef __cplusplus
 }

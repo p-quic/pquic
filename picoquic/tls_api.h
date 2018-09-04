@@ -70,9 +70,9 @@ size_t picoquic_aead_decrypt_generic(uint8_t* output, uint8_t* input, size_t inp
 
 void picoquic_aead_free(void* aead_context);
 
-void picoquic_pn_encrypt(void *pn_enc, const void * iv, void *output, const void *input, size_t len);
+size_t picoquic_pn_iv_size(void *pn_enc);
 
-void picoquic_pn_enc_free(void * pn_enc);
+void picoquic_pn_encrypt(void *pn_enc, const void * iv, void *output, const void *input, size_t len);
 
 typedef const struct st_ptls_cipher_suite_t ptls_cipher_suite_t;
 
@@ -116,8 +116,6 @@ void picoquic_dispose_verify_certificate_callback(picoquic_quic_t* quic, int cus
 void picoquic_tls_set_client_authentication(picoquic_quic_t* quic, int client_authentication);
 
 int picoquic_tls_client_authentication_activated(picoquic_quic_t* quic);
-
-int picoquic_does_ticket_allow_early_data(uint8_t* ticket, uint16_t ticket_length);
 
 int picoquic_get_retry_token(picoquic_quic_t* quic, uint8_t * base, size_t len,
     uint8_t * token, uint8_t token_length);

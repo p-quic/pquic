@@ -118,7 +118,9 @@ static void stress_server_callback(picoquic_cnx_t* cnx,
     int ret = 0;
     picoquic_stress_server_callback_ctx_t* ctx = (picoquic_stress_server_callback_ctx_t*)callback_ctx;
 
-    if (fin_or_event == picoquic_callback_close || fin_or_event == picoquic_callback_application_close) {
+    if (fin_or_event == picoquic_callback_close || 
+        fin_or_event == picoquic_callback_stateless_reset ||
+        fin_or_event == picoquic_callback_application_close) {
         if (ctx != NULL) {
             free(ctx);
             picoquic_set_callback(cnx, stress_server_callback, NULL);
@@ -298,7 +300,9 @@ static void stress_client_callback(picoquic_cnx_t* cnx,
     ctx->last_interaction_time = picoquic_current_time();
     ctx->progress_observed = 1;
 
-    if (fin_or_event == picoquic_callback_close || fin_or_event == picoquic_callback_application_close) {
+    if (fin_or_event == picoquic_callback_close || 
+        fin_or_event == picoquic_callback_application_close ||
+        fin_or_event == picoquic_callback_stateless_reset) {
         /* Free per connection resource */
         if (ctx != NULL) {
             free(ctx);
@@ -574,6 +578,10 @@ static int stress_handle_packet_prepare(picoquic_stress_ctx_t * ctx, picoquic_qu
             if (target_link != NULL) {
                 picoquictest_sim_link_submit(target_link, packet, ctx->simulated_time);
             }
+            else {
+                stress_debug_break();
+                ret = -1;
+            }
         }
         else {
             free(packet);
@@ -835,8 +843,17 @@ static int stress_create_client_context(int client_index, picoquic_stress_ctx_t 
 static void stress_delete_client_context(int client_index, picoquic_stress_ctx_t * stress_ctx)
 {
     picoquic_stress_client_t * ctx = stress_ctx->c_ctx[client_index];
+    picoquic_stress_client_callback_ctx_t* cb_ctx;
 
     if (ctx != NULL) {
+        while (ctx->qclient->cnx_list != NULL) {
+            cb_ctx = (picoquic_stress_client_callback_ctx_t*)
+                picoquic_get_callback_context(ctx->qclient->cnx_list);
+            free(cb_ctx);
+            picoquic_set_callback(ctx->qclient->cnx_list, NULL, NULL);
+            picoquic_delete_cnx(ctx->qclient->cnx_list);
+        }
+
         if (ctx->qclient != NULL) {
             picoquic_free(ctx->qclient);
             ctx->qclient = NULL;
@@ -857,11 +874,12 @@ static void stress_delete_client_context(int client_index, picoquic_stress_ctx_t
     }
 }
 
-int stress_test()
+static int stress_or_fuzz_test(picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx)
 {
     int ret = 0;
     picoquic_stress_ctx_t stress_ctx;
     double run_time_seconds = 0;
+    double target_seconds = 0;
     double wall_time_seconds = 0;
     uint64_t wall_time_start = picoquic_current_time();
     uint64_t wall_time_max = wall_time_start + picoquic_stress_test_duration;
@@ -891,6 +909,9 @@ int stress_test()
         else {
             for (int i = 0; ret == 0 && i < stress_ctx.nb_clients; i++) {
                 ret = stress_create_client_context(i, &stress_ctx);
+                if (ret == 0 && fuzz_fn != NULL) {
+                    picoquic_set_fuzz(stress_ctx.c_ctx[i]->qclient, fuzz_fn, fuzz_ctx);
+                }
             }
         }
     }
@@ -942,9 +963,216 @@ int stress_test()
 
     /* Report */
     run_time_seconds = ((double)stress_ctx.simulated_time) / 1000000.0;
+    target_seconds = ((double)picoquic_stress_test_duration) / 1000000.0;
     wall_time_seconds = ((double)(picoquic_current_time() - wall_time_start)) / 1000000.0;
-    DBG_PRINTF("Stress complete after simulating %3f s. in %3f s., returns %d\n",
-        run_time_seconds, wall_time_seconds, ret);
+
+    if (stress_ctx.simulated_time < picoquic_stress_test_duration) {
+        DBG_PRINTF("Stress incomplete after simulating %3fs instead of %3fs in %3f s., returns %d\n",
+            run_time_seconds, target_seconds, wall_time_seconds, ret);
+        ret = -1;
+    }
+    else {
+        DBG_PRINTF("Stress complete after simulating %3f s. in %3f s., returns %d\n",
+            run_time_seconds, wall_time_seconds, ret);
+    }
+
+    return ret;
+}
+
+int stress_test()
+{
+    return stress_or_fuzz_test(NULL, NULL);
+}
+
+/*
+ * Basic fuzz test just tries to flip some bits in random packets
+ */
+
+typedef struct st_basic_fuzzer_ctx_t {
+    uint32_t nb_packets;
+    uint32_t nb_fuzzed;
+    uint32_t nb_fuzzed_length;
+    uint64_t random_context;
+    picoquic_state_enum highest_state_fuzzed;
+} basic_fuzzer_ctx_t;
+
+static uint32_t basic_fuzzer(void * fuzz_ctx, picoquic_cnx_t* cnx, 
+    uint8_t * bytes, size_t bytes_max, size_t length, uint32_t header_length)
+{
+    basic_fuzzer_ctx_t * ctx = (basic_fuzzer_ctx_t *)fuzz_ctx;
+    uint64_t fuzz_pilot = picoquic_test_random(&ctx->random_context);
+    int should_fuzz = 0;
+    uint32_t fuzz_index = 0;
+
+    ctx->nb_packets++;
+
+    if (cnx->cnx_state > ctx->highest_state_fuzzed) {
+        should_fuzz = 1;
+        ctx->highest_state_fuzzed = cnx->cnx_state;
+    } else {
+        /* if already fuzzed this state, fuzz one packet in 16 */
+        should_fuzz = ((fuzz_pilot & 0xF) == 0xD);
+        fuzz_pilot >>= 4;
+    }
+
+    if (should_fuzz) {
+        /* Once in 16, fuzz by changing the length */
+        if ((fuzz_pilot & 0xF) == 0xD) {
+            uint32_t fuzz_length_max = (uint32_t)(length + 16);
+            if (fuzz_length_max > bytes_max) {
+                fuzz_length_max = (uint32_t)bytes_max;
+            }
+            fuzz_pilot >>= 4;
+            length = 16 + (uint32_t)((fuzz_pilot&0xFFFF) % length);
+            fuzz_pilot >>= 16;
+            if (length < header_length) {
+                length = header_length;
+            }
+            ctx->nb_fuzzed_length++;
+        }
+        /* Find the position that shall be fuzzed */
+        fuzz_index = (uint32_t)((fuzz_pilot & 0xFFFF) % length);
+        fuzz_pilot >>= 16;
+        while (fuzz_pilot != 0 && fuzz_index < length) {
+            /* flip one byte */
+            bytes[fuzz_index++] = (uint8_t)(fuzz_pilot & 0xFF);
+            fuzz_pilot >>= 8;
+            ctx->nb_fuzzed++;
+        }
+    }
+
+    return (uint32_t)length;
+}
+
+int fuzz_test()
+{
+    basic_fuzzer_ctx_t fuzz_ctx;
+    int ret = 0;
+
+    fuzz_ctx.nb_packets = 0;
+    fuzz_ctx.nb_fuzzed = 0;
+    fuzz_ctx.nb_fuzzed_length = 0;
+    fuzz_ctx.highest_state_fuzzed = 0;
+    /* Random seed depends on duration, so different durations do not all start 
+     * with exactly the same message sequences. */
+    fuzz_ctx.random_context = 0xDEADBEEFBABACAFEull;
+    fuzz_ctx.random_context ^= picoquic_stress_test_duration;
+
+    ret = stress_or_fuzz_test(basic_fuzzer, &fuzz_ctx);
+
+    DBG_PRINTF("Fuzzed %d packets out of %d, changed %d lengths, ret = %d\n",
+        fuzz_ctx.nb_fuzzed, fuzz_ctx.nb_packets, fuzz_ctx.nb_fuzzed_length, ret);
+
+    return ret;
+}
+
+/*
+* Test that the random generation works the same on every platform. This is meant to
+* give us assurance that the stress and fuzz tests behave identically on all platforms.
+*
+* A test sequence is defined by:
+*   - A test seed value;
+*   - The result to three successive calls to "picoquic_test_random"
+*   - The result of 4 tests to "picoquic_test_uniform_random" with ranges 31, 32, 100, 1000.
+* We run several such sequences, and check that the results match expectation
+*/
+
+typedef struct st_test_random_tester_t {
+    uint64_t seed;
+    uint64_t trials[3];
+    int uniform[4];
+} test_random_tester_t;
+
+static int uniform_test[4] = { 31, 32, 100, 1000 };
+
+static test_random_tester_t random_cases[] = {
+#if 1
+    { 0xdeadbeefbabac001ull,
+        { 0x5e15223d01b20defull, 0x9ede0d895c9bd2a6ull, 0xe3a0ed91f612c17full },
+        { 0, 0, 70, 197 } },
+    { 0x56df77dd5d6000efull,
+        { 0xdfccc8d428187e18ull, 0x7d7552fd225a16d7ull, 0x32dabe642e7390cull },
+        { 30, 5, 34, 751 } },
+    { 0x6fbbeeaeb00077abull,
+        { 0x43131e190d5c97full, 0x42fb1ccc58b906dull, 0x610a3b5abef97be4ull },
+        { 26, 16, 12, 939 } },
+    { 0xddf75758003bd5b7ull,
+        { 0x3a8d9a1a727aba2dull, 0xe9279c9bb67c725cull, 0x1acf0953978b79e8ull },
+        { 3, 11, 41, 82 } },
+    { 0xfbabac001deadbeeull,
+        { 0x5112b0a7de31f1b7ull, 0xd691b591d3598619ull, 0xf1b42dc66cf4f215ull },
+        { 17, 10, 44, 527 } },
+    { 0xd5d6000ef56df77dull,
+        { 0xb699f9cadcb2a474ull, 0xc2213dfa4ec1c973ull, 0x843f0e6573dda32eull },
+        { 9, 30, 52, 680 } },
+    { 0xeb00077ab6fbbeeaull,
+        { 0x6dd0c0b399bae357ull, 0xa5a6b1ec22fa894bull, 0x85f25e84ba0843a0ull },
+        { 16, 5, 5, 899 } },
+    { 0x8003bd5b7ddf7575ull,
+        { 0xf7745169aa75f266ull, 0x551964d08e2c25e0ull, 0x17b86c9be72f96bbull },
+        { 4, 24, 48, 21 } },
+    { 0x1deadbeefbabac0ull,
+        { 0xc51696cc9c124ff9ull, 0x1b9d1372c2f72058ull, 0xe539681abb702c48ull },
+        { 20, 21, 96, 865 } },
+    { 0xef56df77dd5d6000ull,
+        { 0xf40b816f8efc0ec8ull, 0xd8a949c49d03c01cull, 0x170902fde977c269ull },
+        { 2, 30, 55, 720 } }
+#else
+    /* Dummy value used when computing the table */
+    { 0, { 0, 0, 0}, { 0, 0, 0, 0}}
+#endif
+};
+
+static size_t nb_random_cases = sizeof(random_cases) / sizeof(test_random_tester_t);
+
+int random_tester_test()
+{
+    /* This is the initial run, so we merely write the expected value */
+    uint64_t t_seed = 0xDEADBEEFBABAC001ull;
+    int ret = 0;
+
+    if (nb_random_cases < 2) {
+        /* This code was used to generate the table of random cases */
+        for (int i = 0; i < 10; i++)
+        {
+            /* Rotate the seed */
+            uint64_t ctx = t_seed;
+            /* Generate the values */
+            printf("{ 0x%llxull, \n{ ", t_seed);
+            for (int j = 0; j < 3; j++) {
+                printf("0x%llxull%s", picoquic_test_random(&ctx), (j < 2) ? ", " : "},\n{ ");
+            }
+            for (int j = 0; j < 4; j++) {
+                printf("%d%s", (int)picoquic_test_uniform_random(&ctx, uniform_test[j]),
+                    (j < 3) ? ", " : "}},\n");
+            }
+            t_seed = (t_seed << 7) | (t_seed >> 57);
+        }
+    }
+    else {
+        for (int i = 0; ret == 0 && i < (int)nb_random_cases; i++)
+        {
+            uint64_t ctx = random_cases[i].seed;
+            for (int j = 0; ret == 0 && j < 3; j++) {
+                uint64_t r = picoquic_test_random(&ctx);
+                if (r != random_cases[i].trials[j]) {
+                    DBG_PRINTF("Case %d, seed %llx, trial[%d] = %llx, expected %llx\n",
+                        i, (unsigned long long)random_cases[i].seed, j,
+                        (unsigned long long)r, (unsigned long long)random_cases[i].trials[j]);
+                    ret = -1;
+                }
+            }
+            for (int j = 0; ret == 0 && j < 4; j++) {
+                int r = (int)picoquic_test_uniform_random(&ctx, uniform_test[j]);
+                if (r != random_cases[i].uniform[j]) {
+                    DBG_PRINTF("Case %d, seed %llx, uniform(%d) = %d, expected %d\n",
+                        i, (unsigned long long)random_cases[i].seed, uniform_test[j],
+                        (unsigned long long)r, (unsigned long long)random_cases[i].uniform[j]);
+                    ret = -1;
+                }
+            }
+        }
+    }
 
     return ret;
 }

@@ -11,7 +11,7 @@
  */
 protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 {
-    picoquic_packet *p = (picoquic_packet *) cnx->protoop_inputv[0];
+    picoquic_packet_t *p = (picoquic_packet_t *) cnx->protoop_inputv[0];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
     int timer_based = (int) cnx->protoop_inputv[2];
 

@@ -53,11 +53,9 @@
 #ifdef _WINDOWS64
 static const char* default_server_cert_file = "..\\..\\certs\\cert.pem";
 static const char* default_server_key_file = "..\\..\\certs\\key.pem";
-static const char* default_root_trust_file = "..\\..\\certs\\test-ca.crt";
 #else
 static const char* default_server_cert_file = "..\\certs\\cert.pem";
 static const char* default_server_key_file = "..\\certs\\key.pem";
-static const char* default_root_trust_file = "..\\certs\\test-ca.crt";
 #endif
 
 #else /* Linux */
@@ -97,7 +95,6 @@ static const char* default_root_trust_file = "..\\certs\\test-ca.crt";
 
 static const char* default_server_cert_file = "certs/cert.pem";
 static const char* default_server_key_file = "certs/key.pem";
-static const char* default_root_trust_file = "certs/test-ca.crt";
 
 #endif
 
@@ -111,8 +108,6 @@ static const char* bad_request_message = "<html><head><title>Bad Request</title>
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/picosocks.h"
 #include "../picoquic/util.h"
-
-int picoquic_does_ticket_allow_early_data(uint8_t* ticket, uint16_t ticket_length);
 
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
@@ -216,7 +211,9 @@ static void first_server_callback(picoquic_cnx_t* cnx,
     printf("Server CB, Stream: %" PRIu64 ", %" PRIst " bytes, fin=%d (%s)\n",
         stream_id, length, fin_or_event, picoquic_log_fin_or_event_name(fin_or_event));
 
-    if (fin_or_event == picoquic_callback_close || fin_or_event == picoquic_callback_application_close) {
+    if (fin_or_event == picoquic_callback_close || 
+        fin_or_event == picoquic_callback_application_close ||
+        fin_or_event == picoquic_callback_stateless_reset) {
         if (ctx != NULL) {
             first_server_callback_delete_context(ctx);
             picoquic_set_callback(cnx, first_server_callback, NULL);
@@ -564,18 +561,18 @@ typedef struct st_demo_stream_desc_t {
 
 static const demo_stream_desc_t test_scenario[] = {
 #ifdef PICOQUIC_TEST_AGAINST_ATS
-    { 4, 0, "", "slash.html", 0 },
+    { 0, 0xFFFFFFFF, "", "slash.html", 0 },
     { 8, 4, "en/latest/", "slash_en_slash_latest.html", 0 }
 #else
 #ifdef PICOQUIC_TEST_AGAINST_QUICKLY
-    { 4, 0, "123.txt", "123.txt", 0 }
+    { 0, 0xFFFFFFFF, "123.txt", "123.txt", 0 }
 #else
-    { 4, 0, "index.html", "index.html", 0 },
-    { 8, 4, "test.html", "test.html", 0 },
-    { 12, 4, "doc-123456.html", "doc-123456.html", 0 },
-    { 16, 4, "main.jpg", "main.jpg", 1 },
-    { 20, 4, "war-and-peace.txt", "war-and-peace.txt", 0 },
-    { 24, 4, "en/latest/", "slash_en_slash_latest.html", 0 }
+    { 0, 0xFFFFFFFF, "index.html", "index.html", 0 },
+    { 4, 0, "test.html", "test.html", 0 },
+    { 8, 0, "doc-123456.html", "doc-123456.html", 0 },
+    { 12, 0, "main.jpg", "main.jpg", 1 },
+    { 16, 0, "war-and-peace.txt", "war-and-peace.txt", 0 },
+    { 20, 0, "en/latest/", "slash_en_slash_latest.html", 0 }
 #endif
 #endif
 };
@@ -681,7 +678,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx)
 {
-    uint64_t fin_stream_id = 0;
+    uint64_t fin_stream_id = 0xFFFFFFFF;
 
     picoquic_first_client_callback_ctx_t* ctx = (picoquic_first_client_callback_ctx_t*)callback_ctx;
     picoquic_first_client_stream_ctx_t* stream_ctx = ctx->first_stream;
@@ -689,9 +686,13 @@ static void first_client_callback(picoquic_cnx_t* cnx,
     ctx->last_interaction_time = picoquic_current_time();
     ctx->progress_observed = 1;
 
-    if (fin_or_event == picoquic_callback_close || fin_or_event == picoquic_callback_application_close) {
+    if (fin_or_event == picoquic_callback_close || 
+        fin_or_event == picoquic_callback_application_close ||
+        fin_or_event == picoquic_callback_stateless_reset) {
         if (fin_or_event == picoquic_callback_application_close) {
             fprintf(stdout, "Received a request to close the application.\n");
+        } else if (fin_or_event == picoquic_callback_stateless_reset) {
+            fprintf(stdout, "Received a stateless reset.\n");
         } else {
             fprintf(stdout, "Received a request to close the connection.\n");
         }
@@ -770,21 +771,11 @@ static void first_client_callback(picoquic_cnx_t* cnx,
         }
     }
 
-    if (fin_stream_id != 0) {
+    if (fin_stream_id != 0xFFFFFFFF) {
         demo_client_start_streams(cnx, ctx, fin_stream_id);
     }
 
     /* that's it */
-}
-
-void quic_client_launch_scenario(picoquic_cnx_t* cnx_client,
-    picoquic_first_client_callback_ctx_t* callback_ctx)
-{
-    /* Start the download scenario */
-    callback_ctx->demo_stream = test_scenario;
-    callback_ctx->nb_demo_streams = test_scenario_nb;
-
-    demo_client_start_streams(cnx_client, callback_ctx, 0);
 }
 
 #define PICOQUIC_DEMO_CLIENT_MAX_RECEIVE_BATCH 4
@@ -819,7 +810,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int64_t delay_max = 10000000;
     int64_t delta_t = 0;
     int notified_ready = 0;
-    const char* alpn = (proposed_version == 0xFF00000C)?"hq-12":"hq-11";
+    const char* alpn = (proposed_version == 0xFF00000D)?"hq-13":"hq-14";
     int zero_rtt_available = 0;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
@@ -852,8 +843,29 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 qclient->flags |= picoquic_context_client_zero_share;
             }
             qclient->mtu_max = mtu_max;
+
+            PICOQUIC_SET_LOG(qclient, F_log);
+
+            if (sni == NULL) {
+                /* Standard verifier would crash */
+                fprintf(stdout, "No server name specified, certificate will not be verified.\n");
+                if (F_log != stdout && F_log != stderr)
+                {
+                    fprintf(F_log, "No server name specified, certificate will not be verified.\n");
+                }
+                picoquic_set_null_verifier(qclient);
+            }
+            else if (root_crt == NULL) {
+
+                /* Standard verifier would crash */
+                fprintf(stdout, "No root crt list specified, certificate will not be verified.\n");
+                if (F_log != stdout && F_log != stderr)
+                {
+                    fprintf(F_log, "No root crt list specified, certificate will not be verified.\n");
+                }
+                picoquic_set_null_verifier(qclient);
+            }
         }
-        PICOQUIC_SET_LOG(qclient, F_log);
     }
 
     /* Create the client connection */
@@ -867,40 +879,26 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
+            picoquic_set_callback(cnx_client, first_client_callback, &callback_ctx);
+
             ret = picoquic_start_client_cnx(cnx_client);
 
             if (ret == 0) {
+                if (picoquic_is_0rtt_available(cnx_client) && (proposed_version & 0x0a0a0a0a) != 0x0a0a0a0a) {
+                    zero_rtt_available = 1;
 
-                picoquic_set_callback(cnx_client, first_client_callback, &callback_ctx);
+                    /* Queue a simple frame to perform 0-RTT test */
+                    /* Start the download scenario */
+                    callback_ctx.demo_stream = test_scenario;
+                    callback_ctx.nb_demo_streams = test_scenario_nb;
+
+                    demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
+                }
 
                 ret = picoquic_prepare_packet(cnx_client, current_time,
                     send_buffer, sizeof(send_buffer), &send_length);
 
                 if (ret == 0 && send_length > 0) {
-
-                    if (picoquic_is_0rtt_available(cnx_client) && (proposed_version & 0x0a0a0a0a) != 0x0a0a0a0a) {
-#if 0
-                        /* check of the content of the ticket is disabled, because ticket parsing is not reliable. */
-                        uint8_t* ticket;
-                        uint16_t ticket_length;
-
-                        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, current_time, sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length)) {
-                            zero_rtt_available = picoquic_does_ticket_allow_early_data(ticket, ticket_length);
-                        }
-#else
-                        zero_rtt_available = 1;
-#endif
-
-                        if (zero_rtt_available) {
-                            /* Queue a simple frame to perform 0-RTT test */
-                            /* Start the download scenario */
-                            callback_ctx.demo_stream = test_scenario;
-                            callback_ctx.nb_demo_streams = test_scenario_nb;
-
-                            demo_client_start_streams(cnx_client, &callback_ctx, 0);
-                        }
-                    }
-
                     bytes_sent = sendto(fd, send_buffer, (int)send_length, 0,
                         (struct sockaddr*)&server_address, server_addr_length);
 
@@ -1002,7 +1000,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                             callback_ctx.demo_stream = test_scenario;
                             callback_ctx.nb_demo_streams = test_scenario_nb;
 
-                            demo_client_start_streams(cnx_client, &callback_ctx, 0);
+                            demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
                         }
                     }
 
@@ -1173,7 +1171,7 @@ int main(int argc, char** argv)
     const char* log_file = NULL;
     const char * sni = NULL;
     int server_port = default_server_port;
-    const char* root_trust_file = default_root_trust_file;
+    const char* root_trust_file = NULL;
     uint32_t proposed_version = 0xff00000b;
     int is_client = 0;
     int just_once = 0;

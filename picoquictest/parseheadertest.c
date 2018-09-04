@@ -417,13 +417,14 @@ int test_packet_decrypt_one(
     picoquic_packet_header received_ph;
     picoquic_cnx_t* server_cnx = NULL;
     uint32_t consumed = 0;
+    int new_context_created = 0;
 
     /* Decrypt the packet */
     decoding_return = picoquic_parse_header_and_decrypt(q_server,
-        send_buffer, send_length, packet_length,
+        send_buffer, (uint32_t)send_length, (uint32_t)packet_length,
         addr_from,
         current_time, &received_ph, &server_cnx,
-        &consumed);
+        &consumed, &new_context_created);
 
     /* verify that decryption matches original value */
     if (decoding_return != expected_return) {
@@ -482,7 +483,7 @@ int test_packet_encrypt_one(
     picoquic_path_t * path_x = cnx_client->path[0];
     uint64_t current_time = 0;
     picoquic_packet_header expected_header;
-    picoquic_packet * packet = (picoquic_packet *) malloc(sizeof(picoquic_packet));
+    picoquic_packet_t * packet = (picoquic_packet_t *) malloc(sizeof(picoquic_packet_t));
     picoquic_packet_context_enum pc = 0;
 
     if (packet == NULL) {
@@ -490,7 +491,7 @@ int test_packet_encrypt_one(
         ret = -1;
     }
     else {
-        memset(packet, 0, sizeof(picoquic_packet));
+        memset(packet, 0, sizeof(picoquic_packet_t));
         memset(packet->bytes, 0xbb, length);
         header_length = picoquic_predict_packet_header_length(cnx_client, ptype);
         packet->ptype = ptype;
@@ -502,7 +503,7 @@ int test_packet_encrypt_one(
         /* Create a packet with specified parameters */
         picoquic_finalize_and_protect_packet(cnx_client, packet,
             ret, length, header_length, checksum_overhead,
-            &send_length, send_buffer, path_x, current_time);
+            &send_length, send_buffer, PICOQUIC_MAX_PACKET_SIZE, path_x, current_time);
 
         expected_header.ptype = packet->ptype;
         expected_header.offset = packet->offset;

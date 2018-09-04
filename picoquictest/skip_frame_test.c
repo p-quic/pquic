@@ -41,7 +41,7 @@ static uint8_t test_frame_type_reset_stream[] = {
 
 static uint8_t test_type_connection_close[] = {
     picoquic_frame_type_connection_close,
-    0xcf, 0xff,
+    0xcf, 0xff, 0x00,
     9,
     '1', '2', '3', '4', '5', '6', '7', '8', '9'
 };
@@ -223,7 +223,7 @@ uint64_t picoquic_test_uniform_random(uint64_t * random_context, uint64_t rnd_ma
     uint64_t rnd_min = ((uint64_t)((int64_t)-1)) % rnd_max;
 
     do {
-        rnd = picoquic_public_random_64();
+        rnd = picoquic_test_random(random_context);
     } while (rnd < rnd_min);
 
     return rnd % rnd_max;
@@ -341,7 +341,7 @@ int skip_frame_test()
             DBG_PRINTF("Skip packet <%d> fails, ret = %d\n", i, ret);
         } else {
             /* do the actual fuzz test */
-            debug_printf_suspend();
+            int suspended = debug_printf_reset(1);
             for (size_t j = 0; j < 100; j++) {
                 skip_test_fuzz_packet(fuzz_buffer, buffer, bytes_max, &random_context);
                 if (skip_test_packet(fuzz_buffer, bytes_max) != 0) {
@@ -349,7 +349,7 @@ int skip_frame_test()
                 }
                 fuzz_count++;
             }
-            debug_printf_resume();
+            (void)debug_printf_reset(suspended);
         }
     }
 
@@ -404,6 +404,8 @@ int parse_frame_test()
                 }
 
                 pc = picoquic_context_from_epoch(test_skip_list[i].epoch);
+
+                cnx->pkt_ctx[0].send_sequence = 0x0102030406;
 
                 t_ret = picoquic_decode_frames(cnx, buffer, byte_max, test_skip_list[i].epoch, simulated_time);
 

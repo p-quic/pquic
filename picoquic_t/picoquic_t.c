@@ -126,7 +126,9 @@ static const picoquic_test_def_t test_table[] = {
     { "pn_vector", cleartext_pn_vector_test },
     { "zero_rtt_spurious", zero_rtt_spurious_test },
     { "zero_rtt_retry", zero_rtt_retry_test },
-    { "stress", stress_test }
+    { "random_tester", random_tester_test},
+    { "stress", stress_test },
+    { "fuzz", fuzz_test }
 };
 
 static size_t const nb_tests = sizeof(test_table) / sizeof(picoquic_test_def_t);
@@ -174,6 +176,8 @@ int usage(char const * argv0)
     fprintf(stderr, "Options: \n");
     fprintf(stderr, "  -x test        Do not run the specified test.\n");
     fprintf(stderr, "  -s nnn         Run stress for nnn minutes.\n");
+    fprintf(stderr, "  -f nnn         Run fuzz for nnn minutes.\n");
+    fprintf(stderr, "  -n             Disable debug prints.\n");
     fprintf(stderr, "  -h             Print this help message\n");
 
     return -1;
@@ -201,6 +205,9 @@ int main(int argc, char** argv)
     int found_exclusion = 0;
     test_status_t * test_status = (test_status_t *) calloc(nb_tests, sizeof(test_status_t));
     int opt;
+    int do_fuzz = 0;
+    int do_stress = 0;
+    int disable_debug = 0;
 
     if (test_status == NULL)
     {
@@ -209,7 +216,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        while (ret == 0 && (opt = getopt(argc, argv, "s:x:h")) != -1) {
+        while (ret == 0 && (opt = getopt(argc, argv, "f:s:x:nh")) != -1) {
             switch (opt) {
             case 'x': {
                 int test_number = get_test_number(optarg);
@@ -224,12 +231,24 @@ int main(int argc, char** argv)
                 }
                 break;
             }
-            case 's':
+            case 'f':
+                do_fuzz = 1;
                 stress_minutes = atoi(optarg);
                 if (stress_minutes <= 0) {
                     fprintf(stderr, "Incorrect stress minutes: %s\n", optarg);
                     ret = usage(argv[0]);
                 }
+                break;
+            case 's':
+                do_stress = 1;
+                stress_minutes = atoi(optarg);
+                if (stress_minutes <= 0) {
+                    fprintf(stderr, "Incorrect stress minutes: %s\n", optarg);
+                    ret = usage(argv[0]);
+                }
+                break;
+            case 'n':
+                disable_debug = 1;
                 break;
             case 'h':
                 usage(argv[0]);
@@ -241,10 +260,24 @@ int main(int argc, char** argv)
             }
         }
 
+        if (disable_debug) {
+            debug_printf_suspend();
+        }
+
         if (ret == 0 && stress_minutes > 0) {
             if (optind >= argc && found_exclusion == 0) {
                 for (size_t i = 0; i < nb_tests; i++) {
-                    if (strcmp(test_table[i].test_name, "stress") != 0) {
+                    if (strcmp(test_table[i].test_name, "stress") == 0)
+                    {
+                        if (do_stress == 0){
+                            test_status[i] = test_excluded;
+                        }
+                    }
+                    else if (strcmp(test_table[i].test_name, "fuzz") == 0) {
+                        if (do_fuzz == 0) {
+                            test_status[i] = test_excluded;
+                        }
+                    } else {
                         test_status[i] = test_excluded;
                     }
                 }
