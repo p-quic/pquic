@@ -736,7 +736,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
             }
         }
 
-        if (packet->length > 0) {
+        if (packet->length > 0 && ret == 0) {
             picoquictest_sim_link_submit(target_link, packet, *simulated_time);
             *was_active |= 1;
         } else {

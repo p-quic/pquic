@@ -42,7 +42,7 @@ unsigned int align_size(unsigned int size) {
 void *my_sbrk(picoquic_cnx_t *cnx, intptr_t increment) {
     if (cnx->heap_end + increment - cnx->heap_start > MEM_BUFFER) {
         /* Out of memory */
-        return (void *) -1;
+        return NULL;
     }
 
     cnx->heap_end += increment;
@@ -88,7 +88,7 @@ void *extend(picoquic_cnx_t *cnx, unsigned int size) {
 	meta_data *new_block = (meta_data*) my_sbrk(cnx, 0);
 	if ((char*) new_block - (char*) cnx->heap_start > MEM_BUFFER) return NULL;
 	int *flag = (int *) my_sbrk(cnx, size + METADATA_SIZE);
-	if (*flag == -1) return NULL;
+	if (!flag) return NULL;
 	new_block->size = size;
 	new_block->available = 0;
 	new_block->next_block = NULL;

@@ -430,7 +430,8 @@ void frames_register_protoops(picoquic_cnx_t *cnx);
 void sender_register_protoops(picoquic_cnx_t *cnx);
 void quicctx_register_protoops(picoquic_cnx_t *cnx);
 
-#define CONTEXT_MEMORY (1024 * 1024) /* In bytes */
+#define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
+#define OPAQUE_SIZE 200 /* In bytes */
 
 /* 
  * Per connection context.
@@ -558,6 +559,7 @@ typedef struct st_picoquic_cnx_t {
     protoop_id_t protoop_id;
     protocol_operation ops[PROTOOPID_MAX];
     plugin_t *plugins[PROTOOPID_MAX];
+    char opaque[OPAQUE_SIZE];
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...
