@@ -20,6 +20,7 @@
 */
 
 #include "picoquic_internal.h"
+#include "picosocks.h"
 #include "tls_api.h"
 #include <stdlib.h>
 #include <string.h>
@@ -1578,6 +1579,11 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
     picoquic_tls_set_client_authentication(quic, client_authentication);
 }
 
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
+    protoop_prepare_and_run(cnx, PROTOOPID_RECEIVED_PACKET, NULL,
+        socket);
+}
+
 protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
 {
     printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
@@ -1588,9 +1594,17 @@ protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
     return 0;
 }
 
+/* A simple no-op */
+protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
+{
+    /* Do nothing! */
+    return 0;
+}
+
 void quicctx_register_protoops(picoquic_cnx_t *cnx)
 {
     cnx->ops[PROTOOPID_CONGESTION_ALGORITHM_NOTIFY] = &congestion_algorithm_notify;
     cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
     cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
+    cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
 }

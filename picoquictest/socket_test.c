@@ -53,7 +53,7 @@ static int socket_ping_pong(SOCKET_TYPE fd, struct sockaddr* server_addr, int se
 
         bytes_recv = picoquic_select(server_sockets->s_socket, PICOQUIC_NB_SERVER_SOCKETS,
             &addr_from, &from_length, &addr_dest, &dest_length, &dest_if,
-            buffer, sizeof(buffer), 1000000, &current_time);
+            buffer, sizeof(buffer), 1000000, &current_time, NULL);
 
         if (bytes_recv != bytes_sent) {
             ret = -1;
@@ -82,7 +82,8 @@ static int socket_ping_pong(SOCKET_TYPE fd, struct sockaddr* server_addr, int se
         back_length = (socklen_t)sizeof(addr_back);
         bytes_recv = picoquic_select(&fd, 1,
             &addr_back, &back_length, NULL, NULL, NULL,
-            buffer, sizeof(buffer), 1000000, &current_time);
+            buffer, sizeof(buffer), 1000000, &current_time,
+            NULL);
 
         if (bytes_recv != bytes_sent) {
             ret = -1;

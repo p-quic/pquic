@@ -548,7 +548,8 @@ int picoquic_select(SOCKET_TYPE* sockets,
     unsigned long* dest_if,
     uint8_t* buffer, int buffer_max,
     int64_t delta_t,
-    uint64_t* current_time)
+    uint64_t* current_time,
+    picoquic_quic_t* quic)
 {
     fd_set readfds;
     struct timeval tv;
@@ -607,6 +608,9 @@ int picoquic_select(SOCKET_TYPE* sockets,
 
                     break;
                 } else {
+                    if (quic) {
+                        quic->rcv_socket = sockets[i];
+                    }
                     break;
                 }
             }

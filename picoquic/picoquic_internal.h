@@ -27,6 +27,7 @@
 #include "picotlsapi.h"
 #include "util.h"
 #include "ubpf.h"
+#include "picosocks.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -212,6 +213,9 @@ typedef struct st_picoquic_quic_t {
     picoquic_free_verify_certificate_ctx free_verify_certificate_callback_fn;
     void* verify_certificate_ctx;
     uint8_t local_ctx_length;
+
+    /* Which was the socket used to receive the last packet? */
+    SOCKET_TYPE rcv_socket;
 
     picoquic_fuzz_fn fuzz_fn;
     void* fuzz_ctx;
@@ -851,6 +855,9 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
 int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
+
+/* Hooks for reception and sending of packets */
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,

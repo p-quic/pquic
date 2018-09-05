@@ -123,7 +123,8 @@ int picoquic_select(SOCKET_TYPE* sockets, int nb_sockets,
     unsigned long* dest_if,
     uint8_t* buffer, int buffer_max,
     int64_t delta_t,
-    uint64_t* current_time);
+    uint64_t* current_time,
+    picoquic_quic_t* quic);
 
 int picoquic_send_through_server_sockets(
     picoquic_server_sockets_t* sockets,

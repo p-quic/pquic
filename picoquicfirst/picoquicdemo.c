@@ -424,7 +424,8 @@ int quic_server(const char* server_name, int server_port,
             &addr_from, &from_length,
             &addr_to, &to_length, &if_index_to,
             buffer, sizeof(buffer),
-            delta_t, &current_time);
+            delta_t, &current_time,
+            qserver);
 
         if (just_once != 0) {
             if (bytes_recv > 0) {
@@ -933,7 +934,8 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             &packet_to, &to_length, &if_index_to,
             buffer, sizeof(buffer),
             delta_t,
-            &current_time);
+            &current_time,
+            qclient);
 
         if (bytes_recv != 0) {
             fprintf(F_log, "Select returns %d, from length %d\n", bytes_recv, from_length);

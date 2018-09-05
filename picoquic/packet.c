@@ -1244,6 +1244,8 @@ int picoquic_incoming_segment(
         else {
             /* TO DO: Find the incoming path */
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
+            /* Hook for performing action when connection received new packet */
+            picoquic_received_packet(cnx, quic->rcv_socket);
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
                 if (cnx->cnx_state == picoquic_state_client_init_sent) {
