@@ -1,102 +1,7 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "memcpy.h"
-
-static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
-{
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) arg;
-    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
-}
-
-static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit)
-{
-    protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
-    args[0] = (protoop_arg_t) p;
-    args[1] = (protoop_arg_t) current_time;
-    args[2] = (protoop_arg_t) *timer_based_retransmit;
-    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    *timer_based_retransmit = (int) outs[0];
-    return ret;
-}
-
-static void congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
-    picoquic_congestion_notification_t notification, uint64_t rtt_measurement, uint64_t nb_bytes_acknowledged,
-    uint64_t lost_packet_number, uint64_t current_time)
-{
-    protoop_arg_t args[6];
-    args[0] = (protoop_arg_t) path_x;
-    args[1] = (protoop_arg_t) notification;
-    args[2] = (protoop_arg_t) rtt_measurement;
-    args[3] = (protoop_arg_t) nb_bytes_acknowledged;
-    args[4] = (protoop_arg_t) lost_packet_number;
-    args[5] = (protoop_arg_t) current_time;
-    plugin_run_protoop(cnx, PROTOOPID_CONGESTION_ALGORITHM_NOTIFY, 6, args, NULL);
-}
-
-static void callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes,
-    size_t length, picoquic_call_back_event_t fin_or_event, void* callback_ctx)
-{
-    protoop_arg_t args[5];
-    args[0] = (protoop_arg_t) stream_id;
-    args[1] = (protoop_arg_t) bytes;
-    args[2] = (protoop_arg_t) length;
-    args[3] = (protoop_arg_t) fin_or_event;
-    args[4] = (protoop_arg_t) callback_ctx;
-    plugin_run_protoop(cnx, PROTOOPID_CALLBACK_FUNCTION, 5, args, NULL);
-}
-
-static int skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed, int* pure_ack)
-{
-    protoop_arg_t args[4], outs[PROTOOPARGS_MAX];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *consumed;
-    args[3] = (protoop_arg_t) *pure_ack;
-    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_SKIP_FRAME, 4, args, outs);
-    *consumed = (size_t) outs[0];
-    *pure_ack = (int) outs[1];
-    return ret;
-}
-
-static int check_stream_frame_already_acked(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_max, int* no_need_to_repeat)
-{
-    protoop_arg_t args[3], outs[PROTOOPARGS_MAX];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *no_need_to_repeat;
-    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_CHECK_STREAM_FRAME_ALREADY_ACKED, 3, args, outs);
-    *no_need_to_repeat = (int) outs[0];
-    return ret;
-}
-
-static uint32_t predict_packet_header_length(picoquic_cnx_t *cnx, picoquic_packet_type_enum packet_type)
-{
-    protoop_arg_t args[1], outs[PROTOOPARGS_MAX];
-    args[0] = (protoop_arg_t) packet_type;
-    return (uint32_t) plugin_run_protoop(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, 1, args, NULL);
-}
-
-static uint32_t get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
-{
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) is_cleartext_mode;
-    return (uint32_t) plugin_run_protoop(cnx, PROTOOPID_GET_CHECKSUM_LENGTH, 1, args, NULL);
-}
-
-static int is_stream_frame_unlimited(const uint8_t* bytes)
-{
-    return PICOQUIC_BITS_CLEAR_IN_RANGE(bytes[0], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max, 0x02);
-}
-
-static void dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free)
-{
-    protoop_arg_t args[2];
-    args[0] = (protoop_arg_t) p;
-    args[1] = (protoop_arg_t) should_free;
-    plugin_run_protoop(cnx, PROTOOPID_DEQUEUE_RETRANSMIT_PACKET, 2, args, NULL);
-}
+#include "helpers.h"
 
 /**
  * cnx->protoop_inputv[0] = picoquic_packet_context_enum pc
@@ -137,7 +42,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         length = 0;
         /* Get the packet type */
 
-        should_retransmit = retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
+        should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
 
         if (should_retransmit == 0) {
             /*
@@ -175,25 +80,25 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         packet_is_pure_ack = 0;
                         break;
                     }
-                    ret = skip_frame(cnx, &p->bytes[byte_index],
+                    ret = helper_skip_frame(cnx, &p->bytes[byte_index],
                         p->length - byte_index, &frame_length, &frame_is_pure_ack);
                     byte_index += frame_length;
                 }
                 byte_index = 0;
 
                 if (contains_crypto) {
-                    length = predict_packet_header_length(cnx, picoquic_packet_0rtt_protected);
+                    length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected);
                     packet->ptype = picoquic_packet_0rtt_protected;
                     packet->offset = length;
                 } else if (cnx->cnx_state < picoquic_state_client_ready) {
                     should_retransmit = 0;
                 } else {
-                    length = predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0);
+                    length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0);
                     packet->ptype = picoquic_packet_1rtt_protected_phi0;
                     packet->offset = length;
                 }
             } else {
-                length = predict_packet_header_length(cnx, p->ptype);
+                length = helper_predict_packet_header_length(cnx, p->ptype);
                 packet->ptype = p->ptype;
                 packet->offset = length;
             }
@@ -219,25 +124,25 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     packet_is_pure_ack = 1;
                     do_not_detect_spurious = 0;
                 } else {
-                    checksum_length = get_checksum_length(cnx, is_cleartext_mode);
+                    checksum_length = helper_get_checksum_length(cnx, is_cleartext_mode);
 
                     /* Copy the relevant bytes from one packet to the next */
                     byte_index = p->offset;
 
                     while (ret == 0 && byte_index < p->length) {
-                        ret = skip_frame(cnx, &p->bytes[byte_index],
+                        ret = helper_skip_frame(cnx, &p->bytes[byte_index],
                             p->length - byte_index, &frame_length, &frame_is_pure_ack);
 
                         /* Check whether the data was already acked, which may happen in 
                          * case of spurious retransmissions */
                         if (ret == 0 && frame_is_pure_ack == 0) {
-                            ret = check_stream_frame_already_acked(cnx, &p->bytes[byte_index],
+                            ret = helper_check_stream_frame_already_acked(cnx, &p->bytes[byte_index],
                                 frame_length, &frame_is_pure_ack);
                         }
 
                         /* Prepare retransmission if needed */
                         if (ret == 0 && !frame_is_pure_ack) {
-                            if (is_stream_frame_unlimited(&p->bytes[byte_index])) {
+                            if (helper_is_stream_frame_unlimited(&p->bytes[byte_index])) {
                                 /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                 while (checksum_length + length + frame_length < send_buffer_max) {
                                     bytes[length] = picoquic_frame_type_padding;
@@ -255,7 +160,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 /* Update the number of bytes in transit and remove old packet from queue */
                 /* If not pure ack, the packet will be placed in the "retransmitted" queue,
                  * in order to enable detection of spurious restransmissions */
-                dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
+                helper_dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
 
                 /* If we have a good packet, return it */
                 if (packet_is_pure_ack) {
@@ -269,7 +174,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                              */
                             /* DBG_PRINTF("%s\n", "Too many retransmits, disconnect"); */
                             cnx->cnx_state = picoquic_state_disconnected;
-                            callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
+                            helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
                             length = 0;
                             should_retransmit = 0;
                             break;
@@ -298,7 +203,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         packet->length = length;
                         cnx->nb_retransmission_total++;
 
-                        congestion_algorithm_notify(cnx, old_path,
+                        helper_congestion_algorithm_notify(cnx, old_path,
                             (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
                             0, 0, lost_packet_number, current_time);
 

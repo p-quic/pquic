@@ -1,46 +1,6 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
-
-/* Decide whether MAX data need to be sent or not */
-static int should_send_max_data(picoquic_cnx_t* cnx)
-{
-    int ret = 0;
-
-    if (2 * cnx->data_received > cnx->maxdata_local)
-        ret = 1;
-
-    return ret;
-}
-
-/* Decide whether to send an MTU probe */
-static int is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
-{
-    int ret = 0;
-
-    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
-        ret = 1;
-    }
-
-    return ret;
-}
-
-static picoquic_stream_head *find_ready_stream(picoquic_cnx_t *cnx)
-{
-    return (picoquic_stream_head *) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 0, NULL, NULL);
-}
-
-static int is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc)
-{
-    protoop_arg_t args[2];
-    args[0] = (protoop_arg_t) current_time;
-    args[1] = (protoop_arg_t) pc;
-    return (int) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 2, args, NULL);
-}
-
-static int is_tls_stream_ready(picoquic_cnx_t *cnx)
-{
-    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_TLS_STREAM_READY, 0, NULL, NULL);
-}
+#include "helpers.h"
 
 /* For a very strange reason, we absolutely need to put calls into static functions, otherwise clang might bug... o_O */
 static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based)
@@ -80,7 +40,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             while (p != NULL)
             {
                 if (p->ptype < picoquic_packet_0rtt_protected) {
-                    if (retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
+                    if (helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
                         blocked = 0;
                     }
                     break;
@@ -90,7 +50,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
             if (blocked != 0)
             {
-                if (is_ack_needed(cnx, current_time, pc)) {
+                if (helper_is_ack_needed(cnx, current_time, pc)) {
                     blocked = 0;
                 }
             }
@@ -99,9 +59,9 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         if (blocked != 0)
         {
             if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
-                if (should_send_max_data(cnx) ||
-                    is_tls_stream_ready(cnx) ||
-                    (cnx->crypto_context[1].aead_encrypt != NULL && (stream = find_ready_stream(cnx)) != NULL)) {
+                if (helper_should_send_max_data(cnx) ||
+                    helper_is_tls_stream_ready(cnx) ||
+                    (cnx->crypto_context[1].aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
                     if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                         blocked = 0;
                     }
@@ -182,27 +142,27 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     if (cnx->cnx_state == picoquic_state_disconnecting || cnx->cnx_state == picoquic_state_handshake_failure || cnx->cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
-    else if (path_x->cwin > path_x->bytes_in_transit && is_mtu_probe_needed(cnx, path_x)) {
+    else if (path_x->cwin > path_x->bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
         blocked = 0;
     }
     else {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
 
-            if (p != NULL && ret == 0 && retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
+            if (p != NULL && ret == 0 && helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
                 blocked = 0;
             }
-            else if (is_ack_needed(cnx, current_time, pc)) {
+            else if (helper_is_ack_needed(cnx, current_time, pc)) {
                 blocked = 0;
             }
         }
 
         if (blocked != 0) {
             if (path_x->cwin > path_x->bytes_in_transit) {
-                if (should_send_max_data(cnx) ||
-                    is_tls_stream_ready(cnx) ||
+                if (helper_should_send_max_data(cnx) ||
+                    helper_is_tls_stream_ready(cnx) ||
                     ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
-                    (stream = find_ready_stream(cnx)) != NULL)) {
+                    (stream = helper_find_ready_stream(cnx)) != NULL)) {
                     if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                         blocked = 0;
                     }
