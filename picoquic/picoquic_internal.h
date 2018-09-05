@@ -433,7 +433,7 @@ typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
-#define PROTOOPARGS_MAX 8
+#define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
 /* Register functions */
 void register_protocol_operations(picoquic_cnx_t *cnx);
