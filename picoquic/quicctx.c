@@ -911,6 +911,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/tlp/retransmit_needed.o");
 */
 
+    plugin_plug_elf(cnx, PROTOOPID_BEFORE_SENDING_PACKET, "plugins/ecn/before_sending_packet.o");
+    plugin_plug_elf(cnx, PROTOOPID_RECEIVED_PACKET, "plugins/ecn/received_packet.o");
+
     return cnx;
 }
 

@@ -36,6 +36,10 @@ register_functions(struct ubpf_vm *vm)
 
     ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
     ubpf_register(vm, 0x19, "my_memset", my_memset);
+
+    /* Network with linux */
+    ubpf_register(vm, 0x20, "getsockopt", getsockopt);
+    ubpf_register(vm, 0x21, "setsockopt", setsockopt);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
