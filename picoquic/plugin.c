@@ -2,27 +2,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-protoop_arg_t plugin_run_plugged_code(picoquic_cnx_t *cnx) {
-    if (cnx->plugins[cnx->protoop_id]) {
-        DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", cnx->protoop_id);
-        return (protoop_arg_t) exec_loaded_code(cnx->plugins[cnx->protoop_id], (void *)cnx, sizeof(picoquic_cnx_t));
-    }
-
-    printf("Cannot find plugin with proto op id 0x%x\n", cnx->protoop_id);
-    exit(-1);
-    return -1;
-}
-
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname) {
     cnx->plugins[pid] = load_elf_file(elf_fname);
 
     if (cnx->plugins[pid]) {
-        cnx->ops[pid] = &plugin_run_plugged_code;
         return 0;
     }
 
     printf("Failed to insert %s for proto op id 0x%x\n", elf_fname, pid);
 
+    return 1;
+}
+
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
+    if (cnx->plugins[pid]) {
+        release_elf(cnx->plugins[pid]);
+        cnx->plugins[pid] = NULL;
+        return 0;
+    }
+
+    printf("Trying to unplug plugin for proto op id 0x%x, but no plugin inserted...\n", pid);
     return 1;
 }
 
@@ -65,7 +64,14 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 
     DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
 
-    protoop_arg_t status = cnx->ops[pid](cnx);
+    /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
+    protoop_arg_t status;
+    if (cnx->plugins[pid]) {
+        DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", cnx->protoop_id);
+        status = (protoop_arg_t) exec_loaded_code(cnx->plugins[cnx->protoop_id], (void *)cnx, sizeof(picoquic_cnx_t));
+    } else {
+        status = cnx->ops[pid](cnx);
+    }
     int outputc = cnx->protoop_outputc_callee;
 
     DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
