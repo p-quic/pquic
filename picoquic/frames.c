@@ -861,22 +861,39 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
     return (picoquic_stream_head *) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
-int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+/**
+ * picoquic_stream_head* stream = cnx->protoop_inputv[0]
+ * uint8_t* bytes = cnx->protoop_inputv[1]
+ * size_t bytes_max = cnx->protoop_inputv[2]
+ * size_t consumed = cnx->protoop_inputv[3]
+ *
+ * Output: int ret
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
 {
+    picoquic_stream_head* stream = (picoquic_stream_head*) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
+
     int ret = 0;
 
     if (STREAM_SEND_RESET(stream)) {
-        return picoquic_prepare_stream_reset_frame(stream, bytes, bytes_max, consumed);
+        ret = picoquic_prepare_stream_reset_frame(stream, bytes, bytes_max, &consumed);
+        protoop_save_outputs(cnx, consumed);
+        return ret;
     }
 
     if (STREAM_SEND_STOP_SENDING(stream)) {
-        return picoquic_prepare_stop_sending_frame(stream, bytes, bytes_max, consumed);
+        ret = picoquic_prepare_stop_sending_frame(stream, bytes, bytes_max, &consumed);
+        protoop_save_outputs(cnx, consumed);
+        return ret;
     }
 
     if ((stream->send_queue == NULL || stream->send_queue->length <= stream->send_queue->offset) &&
         (!STREAM_FIN_NOTIFIED(stream) || STREAM_FIN_SENT(stream))) {
-        *consumed = 0;
+        consumed = 0;
     } else {
         size_t byte_index = 0;
         size_t l_stream = 0;
@@ -897,7 +914,7 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
         }
 
         if (byte_index > bytes_max || l_stream == 0 || (stream->sent_offset > 0 && l_off == 0)) {
-            *consumed = 0;
+            consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         } else {
             /* Compute the length */
@@ -934,7 +951,7 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
                         (uint64_t)length);
                     if (l_len == 0 || (l_len == space && length > 0)) {
                         /* Will not try a silly encoding */
-                        *consumed = 0;
+                        consumed = 0;
                         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                     } else if (length + l_len > space) {
                         /* try a shorter packet */
@@ -965,7 +982,7 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
                 if (stream->stream_id != 0) {
                     cnx->data_sent += length;
                 }
-                *consumed = byte_index;
+                consumed = byte_index;
             }
 
             if (ret == 0 && STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0) {
@@ -974,12 +991,24 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
                 bytes[0] |= 1;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
-                *consumed = 0;
+                consumed = 0;
                 ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
             }
         }
     }
 
+    protoop_save_outputs(cnx, consumed);
+
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_STREAM_FRAME, outs,
+        stream, bytes, bytes_max, *consumed);
+    *consumed = (protoop_arg_t) outs[0];
     return ret;
 }
 
@@ -3209,6 +3238,7 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_IS_TLS_STREAM_READY] = &is_tls_stream_ready;
     cnx->ops[PROTOOPID_PREPARE_FIRST_MISC_FRAME] = &prepare_first_misc_frame;
     cnx->ops[PROTOOPID_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAMES] = &prepare_required_max_stream_data_frames;
+    cnx->ops[PROTOOPID_PREPARE_STREAM_FRAME] = &prepare_stream_frame;
 
     /* Skipping */
     cnx->ops[PROTOOPID_SKIP_FRAME] = &skip_frame;
