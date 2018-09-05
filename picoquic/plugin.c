@@ -26,8 +26,6 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
 }
 
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
-    cnx->protoop_id = pid;
-
     if (inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id 0x%x : %d > %d\n",
             pid, inputc, PROTOOPARGS_MAX);
@@ -67,8 +65,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     if (cnx->plugins[pid]) {
-        DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", cnx->protoop_id);
-        status = (protoop_arg_t) exec_loaded_code(cnx->plugins[cnx->protoop_id], (void *)cnx, sizeof(picoquic_cnx_t));
+        DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", pid);
+        status = (protoop_arg_t) exec_loaded_code(cnx->plugins[pid], (void *)cnx, sizeof(picoquic_cnx_t));
     } else {
         status = cnx->ops[pid](cnx);
     }

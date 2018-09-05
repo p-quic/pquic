@@ -568,10 +568,12 @@ typedef struct st_picoquic_cnx_t {
     int nb_path_alloc;
 
     /* FIXME Move me in a safe place */
-    /* Management of states */
-    protoop_id_t protoop_id;
+    /* Management of default protocol operations and plugins */
     protocol_operation ops[PROTOOPID_MAX];
     plugin_t *plugins[PROTOOPID_MAX];
+
+    /* Opaque field for free use by plugins */
+    /* TODO find a mechanism to allow different plugins to safely share opaque field */
     char opaque[OPAQUE_SIZE];
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
