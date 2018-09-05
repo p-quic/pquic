@@ -1114,12 +1114,21 @@ int picoquic_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
     return ret;
 }
 
-/* Prepare an MTU probe packet */
-uint32_t picoquic_prepare_mtu_probe(picoquic_cnx_t* cnx,
-    picoquic_path_t * path_x,
-    uint32_t header_length, uint32_t checksum_length,
-    uint8_t* bytes)
+/**
+ * picoquic_path_t * path_x = cnx->protoop_inputv[0]
+ * uint32_t header_length = cnx->protoop_inputv[1]
+ * uint32_t checksum_length = cnx->protoop_inputv[2]
+ * uint8_t* bytes = cnx->protoop_inputv[3]
+ *
+ * Output: probe_length - checksum_length
+ */
+protoop_arg_t prepare_mtu_probe(picoquic_cnx_t* cnx)
 {
+    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[0];
+    uint32_t header_length = (uint32_t) cnx->protoop_inputv[1];
+    uint32_t checksum_length = (uint32_t) cnx->protoop_inputv[2];
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[3];
+
     uint32_t probe_length;
     uint32_t length = header_length;
     
@@ -1149,7 +1158,17 @@ uint32_t picoquic_prepare_mtu_probe(picoquic_cnx_t* cnx,
     bytes[length++] = 0;
     memset(&bytes[length], 0, probe_length - checksum_length - length);
 
-    return probe_length - checksum_length;
+    return (protoop_arg_t) probe_length - checksum_length;
+}
+
+/* Prepare an MTU probe packet */
+uint32_t picoquic_prepare_mtu_probe(picoquic_cnx_t* cnx,
+    picoquic_path_t * path_x,
+    uint32_t header_length, uint32_t checksum_length,
+    uint8_t* bytes)
+{
+    return (uint32_t) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_MTU_PROBE, NULL,
+        path_x, header_length, checksum_length, bytes);   
 }
 
 /* Special wake up decision logic in initial state */
@@ -1511,21 +1530,37 @@ picoquic_packet_type_enum picoquic_packet_type_from_epoch(int epoch)
     return ptype;
 }
 
-/* Prepare a required repetition or ack  in a previous context */
-uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packet_context_enum pc,
-    picoquic_path_t * path_x, picoquic_packet_t* packet, size_t send_buffer_max, uint64_t current_time, uint32_t * header_length)
+/**
+ * picoquic_packet_context_enum pc = cnx->protoop_inputv[0]
+ * picoquic_path_t * path_x = cnx->protoop_inputv[1]
+ * picoquic_packet_t* packet = cnx->protoop_inputv[2]
+ * size_t send_buffer_max = cnx->protoop_inputv[3]
+ * uint64_t current_time = cnx->protoop_inputv[4]
+ * uint32_t header_length = cnx->protoop_inputv[5]
+ * 
+ * Output: uint32_t length
+ * cnx->protoop_outputv[0] = uint32_t header_length
+ */
+protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
 {
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
+    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
+    picoquic_packet_t* packet = (picoquic_packet_t *) cnx->protoop_inputv[2];
+    size_t send_buffer_max = (size_t) cnx->protoop_inputv[3];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
+    uint32_t header_length = (uint32_t) cnx->protoop_inputv[5];
+
     int is_cleartext_mode = (pc == picoquic_packet_context_initial) ? 1 : 0;
     uint32_t length = 0;
     size_t data_bytes = 0;
     uint32_t checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
 
-    *header_length = 0;
+    header_length = 0;
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
     length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max,
-        &is_cleartext_mode, header_length);
+        &is_cleartext_mode, &header_length);
     
     if (length == 0 && cnx->pkt_ctx[pc].ack_needed != 0 &&
         pc != picoquic_packet_context_application) {
@@ -1535,7 +1570,7 @@ uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packe
                 picoquic_packet_0rtt_protected;
         length = picoquic_predict_packet_header_length(cnx, packet->ptype);
         packet->offset = length;
-        *header_length = length;
+        header_length = length;
         packet->sequence_number = cnx->pkt_ctx[pc].send_sequence;
         packet->send_time = current_time;
         packet->send_path = path_x;
@@ -1557,6 +1592,19 @@ uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packe
         packet->pc = pc;
     }
 
+    protoop_save_outputs(cnx, header_length);    
+
+    return (protoop_arg_t) length;
+}
+
+/* Prepare a required repetition or ack  in a previous context */
+uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packet_context_enum pc,
+    picoquic_path_t * path_x, picoquic_packet_t* packet, size_t send_buffer_max, uint64_t current_time, uint32_t * header_length)
+{
+    protoop_arg_t outs[1];
+    uint32_t length = (uint32_t) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PACKET_OLD_CONTEXT, outs,
+        pc, path_x, packet, send_buffer_max, current_time, *header_length);
+    *header_length = (uint32_t) outs[0];
     return length;
 }
 
@@ -2568,4 +2616,6 @@ void sender_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_GET_CHECKSUM_LENGTH] = &get_checksum_length;
     cnx->ops[PROTOOPID_DEQUEUE_RETRANSMIT_PACKET] = &dequeue_retransmit_packet;
     cnx->ops[PROTOOPID_DEQUEUE_RETRANSMITTED_PACKET] = &dequeue_retransmitted_packet;
+    cnx->ops[PROTOOPID_PREPARE_PACKET_OLD_CONTEXT] = &prepare_packet_old_context;
+    cnx->ops[PROTOOPID_PREPARE_MTU_PROBE] = &prepare_mtu_probe;
 }

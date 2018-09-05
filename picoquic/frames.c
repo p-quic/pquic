@@ -2317,9 +2317,20 @@ uint8_t* picoquic_decode_max_stream_data_frame(picoquic_cnx_t* cnx, uint8_t* byt
         bytes, bytes_max);
 }
 
-int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+/**
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * size_t bytes_max = cnx->protoop_inputv[1]
+ * size_t consumed = cnx->protoop_inputv[2]
+ *
+ * Output: int ret
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+protoop_arg_t prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx)
 {
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    size_t consumed = (size_t) cnx->protoop_inputv[2];
+ 
     int ret = 0;
     size_t byte_index = 0;
     picoquic_stream_head* stream = cnx->first_stream;
@@ -2346,11 +2357,23 @@ int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     }
 
     if (ret == 0) {
-        *consumed = byte_index;
+        consumed = byte_index;
     } else {
-        *consumed = 0;
+        consumed = 0;
     }
 
+    protoop_save_outputs(cnx, consumed);
+
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAMES, outs,
+        bytes, bytes_max, *consumed);
+    *consumed = (size_t)outs[0];
     return ret;
 }
 
@@ -2414,10 +2437,21 @@ uint8_t* picoquic_decode_max_stream_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes
  * Sending of miscellaneous frames
  */
 
-int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-                                      size_t bytes_max, size_t* consumed)
+/**
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * size_t bytes_max = cnx->protoop_inputv[1]
+ * size_t consumed = cnx->protoop_inputv[2]
+ * 
+ * Output: ret (success of misc frame preparation)
+ * cnx->protoop_outputv[0] = size_t consumed
+ */
+protoop_arg_t prepare_first_misc_frame(picoquic_cnx_t* cnx)
 {
-    int ret = picoquic_prepare_misc_frame(cnx, cnx->first_misc_frame, bytes, bytes_max, consumed);
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[0];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    size_t consumed = (size_t) cnx->protoop_inputv[2];
+ 
+    int ret = picoquic_prepare_misc_frame(cnx, cnx->first_misc_frame, bytes, bytes_max, &consumed);
 
     if (ret == 0) {
         picoquic_misc_frame_header_t* misc_frame = cnx->first_misc_frame;
@@ -2425,6 +2459,18 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
         my_free(cnx, misc_frame);
     }
 
+    protoop_save_outputs(cnx, consumed);
+
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
+                                      size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_FIRST_MISC_FRAME, outs,
+        bytes, bytes_max, *consumed);
+    *consumed = (size_t) outs[0];
     return ret;
 }
 
@@ -3161,6 +3207,8 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_FIND_READY_STREAM] = &find_ready_stream;
     cnx->ops[PROTOOPID_IS_ACK_NEEDED] = &is_ack_needed;
     cnx->ops[PROTOOPID_IS_TLS_STREAM_READY] = &is_tls_stream_ready;
+    cnx->ops[PROTOOPID_PREPARE_FIRST_MISC_FRAME] = &prepare_first_misc_frame;
+    cnx->ops[PROTOOPID_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAMES] = &prepare_required_max_stream_data_frames;
 
     /* Skipping */
     cnx->ops[PROTOOPID_SKIP_FRAME] = &skip_frame;
