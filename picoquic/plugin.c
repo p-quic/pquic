@@ -25,6 +25,30 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
     return 1;
 }
 
+void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size) {
+    picoquic_opaque_meta_t *ometas = cnx->opaque_metas;
+    if (oid >= OPAQUE_ID_MAX) {
+        /* Invalid ID */
+        return NULL;
+    }
+    if (ometas[oid].start_ptr) {
+        if (ometas[oid].size != size) {
+            /* The size requested is not correct */
+            return NULL;
+        }
+        return ometas[oid].start_ptr;
+    }
+    if (ometas[oid].start_ptr == NULL && cnx->opaque_size_taken + size > OPAQUE_SIZE) {
+        /* Trying to allocate space, but no enough space left */
+        return NULL;
+    }
+    /* Allocate some space on the opaque stack and returns the pointer */
+    ometas[oid].start_ptr = cnx->opaque + cnx->opaque_size_taken;
+    ometas[oid].size = size;
+    cnx->opaque_size_taken += size;
+    return ometas[oid].start_ptr;
+}
+
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
     if (inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id 0x%x : %d > %d\n",

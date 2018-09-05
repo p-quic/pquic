@@ -8,7 +8,6 @@ static void dbg_print(picoquic_cnx_t *cnx, uint64_t val1, uint64_t val2, uint64_
     args[0] = (protoop_arg_t) val1;
     args[1] = (protoop_arg_t) val2;
     args[2] = (protoop_arg_t) val3;
-    bpf_data *bpfd = (bpf_data *) cnx->opaque;
     //if (bpfd->print) plugin_run_protoop(cnx, PROTOOPID_PRINTF, 3, args, NULL);
 }
 
@@ -26,7 +25,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_packet_t *p = (picoquic_packet_t *) cnx->protoop_inputv[0];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
     int timer_based = (int) cnx->protoop_inputv[2];
-    bpf_data *bpfd = (bpf_data *)cnx->opaque;
+    bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, TLP_OPAQUE_ID, sizeof(bpf_data));
 
     picoquic_packet_context_enum pc = p->pc;
     int64_t delta_seq = cnx->pkt_ctx[pc].highest_acknowledged - p->sequence_number;

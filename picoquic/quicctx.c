@@ -899,6 +899,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
+
 /*
     plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);
     plugin_unplug(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET);

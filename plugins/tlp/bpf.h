@@ -1,5 +1,7 @@
 #include "picoquic_internal.h"
 
+#define TLP_OPAQUE_ID 0x00
+
 typedef struct {
     /* TLP Data */
     uint8_t tlp_nb;

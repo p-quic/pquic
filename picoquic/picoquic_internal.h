@@ -429,6 +429,7 @@ typedef struct st_picoquic_packet_context_t {
 
 typedef struct state plugin_state_t;
 typedef uint16_t protoop_id_t;
+typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
@@ -444,6 +445,13 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
 #define OPAQUE_SIZE 200 /* In bytes */
+#define OPAQUE_ID_MAX 0x80
+
+/* Structure keeping track of the start pointer of the opaque data and its size */
+typedef struct st_picoquic_opaque_meta_t {
+    void *start_ptr;
+    size_t size;
+} picoquic_opaque_meta_t;
 
 /* 
  * Per connection context.
@@ -570,7 +578,8 @@ typedef struct st_picoquic_cnx_t {
     plugin_t *plugins[PROTOOPID_MAX];
 
     /* Opaque field for free use by plugins */
-    /* TODO find a mechanism to allow different plugins to safely share opaque field */
+    size_t opaque_size_taken;
+    picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
     char opaque[OPAQUE_SIZE];
 
     /* Due to uBPF constraints, all needed info must be contained in the context.

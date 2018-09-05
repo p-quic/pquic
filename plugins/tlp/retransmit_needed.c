@@ -271,7 +271,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                  * in order to enable detection of spurious restransmissions */
                 dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
                 dbg_print(cnx, current_time);
-                bpf_data *bpfd = (bpf_data *) cnx->opaque;
+                bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, TLP_OPAQUE_ID, sizeof(bpf_data));
                 bpfd->print = 1;
 
                 /* If we have a good packet, return it */

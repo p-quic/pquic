@@ -61,8 +61,7 @@ static void dbg_print(picoquic_cnx_t *cnx, uint64_t val1, uint64_t val2)
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) val1;
     args[1] = (protoop_arg_t) val2;
-    bpf_data *bpfd = (bpf_data *) cnx->opaque;
-    //if (bpfd->print) plugin_run_protoop(cnx, PROTOOPID_PRINTF, 2, args, NULL);
+    //plugin_run_protoop(cnx, PROTOOPID_PRINTF, 2, args, NULL);
 }
 
 /* Special wake up decision logic in initial state */
@@ -250,7 +249,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 }
 
                 /* Begin TLP code */
-                bpf_data *bpfd = (bpf_data *) cnx->opaque;
+                bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, TLP_OPAQUE_ID, sizeof(bpf_data));
                 picoquic_packet_t *p_last = cnx->pkt_ctx[pc].retransmit_newest;
                 
                 if (bpfd->tlp_nb < 3) {

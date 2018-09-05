@@ -16,6 +16,16 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
 int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid);
 
 /**
+ * Function allowing a plugin to access its opaque data space.
+ * Given an ID, the function allocates the required space (if possible) the
+ * first time the ID is requested, otherwise it just returns the corresponding
+ * memory area.
+ * If no additional memory could be allocated, or if the size requested does not
+ * match the allocated space, returns NULL
+ */
+void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size);
+
+/**
  * Function allowing running operations, either built-in or plugged.
  * It runs at invocation time, and returns to the caller the status of the callee.
  * Notice that this function is reentrant, i.e., a plugin might use an
