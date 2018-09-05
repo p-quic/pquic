@@ -432,9 +432,6 @@ typedef uint16_t protoop_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
-/* Definition of operation return values */
-#define PICOQUIC_OK 0
-
 #define PROTOOPARGS_MAX 8
 
 /* Register functions */
