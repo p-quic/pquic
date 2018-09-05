@@ -866,6 +866,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
 /* Hooks for reception and sending of packets */
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
+void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,

@@ -525,6 +525,11 @@ int quic_server(const char* server_name, int server_port,
                             picoquic_get_peer_addr(cnx_next, &peer_addr, &peer_addr_len);
                             picoquic_get_local_addr(cnx_next, &local_addr, &local_addr_len);
 
+                            /* QDC: I hate having those lines here... But it is the only place to hook before sending... */
+                            /* Both Linux and Windows use separate sockets for V4 and V6 */
+                            int socket_index = (peer_addr->sa_family == AF_INET) ? 1 : 0;
+                            picoquic_before_sending_packet(cnx_next, server_sockets.s_socket[socket_index]);
+
                             (void)picoquic_send_through_server_sockets(&server_sockets,
                                 peer_addr, peer_addr_len, local_addr, local_addr_len,
                                 picoquic_get_local_if_index(cnx_next),
@@ -900,6 +905,8 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     send_buffer, sizeof(send_buffer), &send_length);
 
                 if (ret == 0 && send_length > 0) {
+                    /* QDC: I hate having this line here... But it is the only place to hook before sending... */
+                    picoquic_before_sending_packet(cnx_client, fd);
                     bytes_sent = sendto(fd, send_buffer, (int)send_length, 0,
                         (struct sockaddr*)&server_address, server_addr_length);
 
@@ -1045,6 +1052,8 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         send_buffer, sizeof(send_buffer), &send_length);
 
                     if (ret == 0 && send_length > 0) {
+                        /* QDC: I hate having this line here... But it is the only place to hook before sending... */
+                        picoquic_before_sending_packet(cnx_client, fd);
                         bytes_sent = sendto(fd, send_buffer, (int)send_length, 0,
                             (struct sockaddr*)&server_address, server_addr_length);
 

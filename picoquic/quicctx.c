@@ -1589,6 +1589,11 @@ void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
         socket);
 }
 
+void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
+    protoop_prepare_and_run(cnx, PROTOOPID_BEFORE_SENDING_PACKET, NULL,
+        socket);
+}
+
 protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
 {
     printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
@@ -1612,4 +1617,5 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
     cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
     cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
+    cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
 }
