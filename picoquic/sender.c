@@ -658,11 +658,33 @@ void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_
  * Final steps of encoding and protecting the packet before sending
  */
 
-void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t * packet, int ret, 
-    uint32_t length, uint32_t header_length, uint32_t checksum_overhead,
-    size_t * send_length, uint8_t * send_buffer, uint32_t send_buffer_max, 
-    picoquic_path_t * path_x, uint64_t current_time)
+/**
+ * picoquic_packet_t * packet = cnx->protoop_inputv[0]
+ * int ret = cnx->protoop_inputv[1]
+ * uint32_t length = cnx->protoop_inputv[2]
+ * uint32_t header_length = cnx->protoop_inputv[3]
+ * uint32_t checksum_overhead = cnx->protoop_inputv[4]
+ * size_t send_length = cnx->protoop_inputv[5]
+ * uint8_t * send_buffer = cnx->protoop_inputv[6]
+ * uint32_t send_buffer_max = cnx->protoop_inputv[7]
+ * picoquic_path_t * path_x = cnx->protoop_inputv[8]
+ * uint64_t current_time = cnx->protoop_inputv[9]
+ * 
+ * Output: size_t send_length
+ */
+protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_t * packet = (picoquic_packet_t *) cnx->protoop_inputv[0];
+    int ret = (int) cnx->protoop_inputv[1];
+    uint32_t length = (uint32_t) cnx->protoop_inputv[2];
+    uint32_t header_length = (uint32_t) cnx->protoop_inputv[3];
+    uint32_t checksum_overhead = (uint32_t) cnx->protoop_inputv[4];
+    size_t send_length = (size_t) cnx->protoop_inputv[5];
+    uint8_t * send_buffer = (uint8_t *) cnx->protoop_inputv[6];
+    uint32_t send_buffer_max = (uint32_t) cnx->protoop_inputv[7];
+    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[8];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[9];
+
     if (length != 0 && length < header_length) {
         length = 0;
     }
@@ -707,18 +729,40 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
             break;
         }
 
-        *send_length = length;
+        send_length = length;
 
         if (length > 0) {
             packet->checksum_overhead = checksum_overhead;
             picoquic_queue_for_retransmit(cnx, path_x, packet, length, current_time);
         } else {
-            *send_length = 0;
+            send_length = 0;
         }
     }
     else {
-        *send_length = 0;
+        send_length = 0;
     }
+
+    return (protoop_arg_t) send_length;
+}
+
+void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t * packet, int ret, 
+    uint32_t length, uint32_t header_length, uint32_t checksum_overhead,
+    size_t * send_length, uint8_t * send_buffer, uint32_t send_buffer_max, 
+    picoquic_path_t * path_x, uint64_t current_time)
+{
+    /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
+    protoop_arg_t args [10];
+    args[0] = (protoop_arg_t) packet;
+    args[1] = (protoop_arg_t) ret;
+    args[2] = (protoop_arg_t) length;
+    args[3] = (protoop_arg_t) header_length;
+    args[4] = (protoop_arg_t) checksum_overhead;
+    args[5] = (protoop_arg_t) *send_length;
+    args[6] = (protoop_arg_t) send_buffer;
+    args[7] = (protoop_arg_t) send_buffer_max;
+    args[8] = (protoop_arg_t) path_x;
+    args[9] = (protoop_arg_t) current_time;
+    *send_length  = (size_t) plugin_run_protoop(cnx, PROTOOPID_FINALIZE_AND_PROTECT_PACKET, 10, args, NULL);
 }
 
 /**
@@ -2618,4 +2662,5 @@ void sender_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_DEQUEUE_RETRANSMITTED_PACKET] = &dequeue_retransmitted_packet;
     cnx->ops[PROTOOPID_PREPARE_PACKET_OLD_CONTEXT] = &prepare_packet_old_context;
     cnx->ops[PROTOOPID_PREPARE_MTU_PROBE] = &prepare_mtu_probe;
+    cnx->ops[PROTOOPID_FINALIZE_AND_PROTECT_PACKET] = &finalize_and_protect_packet;
 }
