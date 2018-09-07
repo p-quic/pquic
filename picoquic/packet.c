@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "plugin.h"
+#include "memory.h"
 
 /*
  * The new packet header parsing is version dependent
@@ -1246,6 +1247,14 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
+            /* Ensure bytes are in the context */
+            uint8_t *cnx_bytes = my_malloc(cnx, packet_length);
+            if (!cnx_bytes) {
+                ret = PICOQUIC_ERROR_DETECTED;
+                return ret;
+            }
+            memcpy(cnx_bytes, bytes, packet_length);
+            bytes = cnx_bytes;
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
                 if (cnx->cnx_state == picoquic_state_client_init_sent) {
@@ -1319,6 +1328,7 @@ int picoquic_incoming_segment(
                 ret = PICOQUIC_ERROR_DETECTED;
                 break;
             }
+            if (cnx) my_free(cnx, cnx_bytes);
         }
     } else if (ret == PICOQUIC_ERROR_STATELESS_RESET) {
         ret = picoquic_incoming_stateless_reset(cnx);

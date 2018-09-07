@@ -900,6 +900,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/basic/prepare_packet_ready.o");
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/basic/decode_frames.o");
 
 /*
     plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);
@@ -1294,8 +1295,17 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
     return ret;
 }
 
-int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+/**
+ * uint16_t local_error = cnx->protoop_inputv[0]
+ * uint64_t frame_type = cnx->protoop_inputv[1]
+ *
+ * Output: int error_code
+ */
+protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 {
+    uint16_t local_error = (uint16_t) cnx->protoop_inputv[0];
+    uint64_t frame_type = (uint64_t) cnx->protoop_inputv[1];
+
     if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
         cnx->local_error = local_error;
         cnx->cnx_state = picoquic_state_disconnecting;
@@ -1310,7 +1320,13 @@ int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_
 
     cnx->offending_frame_type = frame_type;
 
-    return PICOQUIC_ERROR_DETECTED;
+    return (protoop_arg_t) PICOQUIC_ERROR_DETECTED;
+}
+
+int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+{
+    return (int) protoop_prepare_and_run(cnx, PROTOOPID_CONNECTION_ERROR, NULL,
+        local_error, frame_type);
 }
 
 void picoquic_delete_cnx(picoquic_cnx_t* cnx)
@@ -1622,4 +1638,5 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
     cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
     cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
+    cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
 }

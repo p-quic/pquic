@@ -23,6 +23,7 @@
 #include "../picoquic/picoquic_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include "memory.h"
 
 /*
  * Test of the skip frame API.
@@ -365,7 +366,6 @@ int skip_frame_test()
 int parse_frame_test()
 {
     int ret = 0;
-    uint8_t buffer[PICOQUIC_MAX_PACKET_SIZE];
     const uint8_t extra_bytes[4] = { 0, 0, 0, 0 };
     uint64_t simulated_time = 0;
     struct sockaddr_in saddr;
@@ -394,6 +394,11 @@ int parse_frame_test()
                 ret = -1;
             }
             else {
+                uint8_t *buffer = (uint8_t *) my_malloc(cnx, PICOQUIC_MAX_PACKET_SIZE);
+                if (!buffer) {
+                    ret = -1;
+                    return ret;
+                }
 
                 memcpy(buffer, test_skip_list[i].val, test_skip_list[i].len);
                 byte_max = test_skip_list[i].len;
@@ -419,6 +424,8 @@ int parse_frame_test()
                         test_skip_list[i].name, (int)cnx->pkt_ctx[pc].ack_needed, (int)test_skip_list[i].is_pure_ack);
                     ret = -1;
                 }
+
+                my_free(cnx, buffer);
 
                 picoquic_delete_cnx(cnx);
             }

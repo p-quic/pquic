@@ -347,6 +347,9 @@ int transport_param_fuzz_test(int mode, uint32_t version, uint32_t proposed_vers
     test_cnx.version_index = picoquic_get_version_index(version);
     test_cnx.proposed_version = proposed_version;
 
+    /* Initialize protocol operations */
+    register_protocol_operations(&test_cnx);
+
     /* add computation of the proof argument to make sure the compiler 
 	 * will not optimize the loop to nothing */
 
