@@ -1,7 +1,7 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "memcpy.h"
-#include "helpers.h"
+#include "../helpers.h"
 
 /**
  * cnx->protoop_inputv[0] = picoquic_packet_context_enum pc

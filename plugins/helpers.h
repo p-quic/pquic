@@ -132,7 +132,7 @@ static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, pico
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) current_time;
     args[1] = (protoop_arg_t) pc;
-    return (int) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 2, args, NULL);
+    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_ACK_NEEDED, 2, args, NULL);
 }
 
 static int helper_is_tls_stream_ready(picoquic_cnx_t *cnx)
