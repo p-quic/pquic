@@ -73,9 +73,19 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     int timer_based = 0;
     int blocked = 1;
     int pacing = 0;
-    int retransmit_needed = 0;
-    protoop_arg_t outs[PROTOOPARGS_MAX], args[PROTOOPARGS_MAX];
     picoquic_path_t * path_x = cnx->path[0];
+    int pc_ready_flag = 1 << picoquic_packet_context_initial;
+
+    if (cnx->tls_stream[0].send_queue == NULL) {
+        if (cnx->crypto_context[1].aead_encrypt != NULL &&
+            cnx->tls_stream[1].send_queue != NULL) {
+            pc_ready_flag |= 1 << picoquic_packet_context_application;
+        }
+        else if (cnx->crypto_context[2].aead_encrypt != NULL &&
+            cnx->tls_stream[1].send_queue == NULL) {
+            pc_ready_flag |= 1 << picoquic_packet_context_handshake;
+        }
+    }
 
     if (next_time < current_time)
     {
@@ -87,10 +97,14 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         for (picoquic_packet_context_enum pc = 0; blocked == 0 && pc < picoquic_nb_packet_context; pc++) {
             picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
 
+            if ((pc_ready_flag & (1 << pc)) == 0) {
+                continue;
+            }
+
             while (p != NULL)
             {
                 if (p->ptype < picoquic_packet_0rtt_protected) {
-                    if (retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
+                    if (helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
                         blocked = 0;
                     }
                     break;
@@ -100,7 +114,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
             if (blocked != 0)
             {
-                if (is_ack_needed(cnx, current_time, pc)) {
+                if (helper_is_ack_needed(cnx, current_time, pc)) {
                     blocked = 0;
                 }
             }
@@ -109,9 +123,9 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         if (blocked != 0)
         {
             if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
-                if (should_send_max_data(cnx) ||
-                    is_tls_stream_ready(cnx) ||
-                    (cnx->crypto_context[1].aead_encrypt != NULL && (stream = find_ready_stream(cnx)) != NULL)) {
+                if (helper_should_send_max_data(cnx) ||
+                    helper_is_tls_stream_ready(cnx) ||
+                    (cnx->crypto_context[1].aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
                     if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                         blocked = 0;
                     }
@@ -131,9 +145,21 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         else {
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
+                
+                if ((pc_ready_flag & (1 << pc)) == 0) {
+                    continue;
+                }
+                
                 /* Consider delayed ACK */
                 if (cnx->pkt_ctx[pc].ack_needed) {
                     next_time = cnx->pkt_ctx[pc].highest_ack_time + cnx->pkt_ctx[pc].ack_delay_local;
+                }
+
+                while (p != NULL &&
+                    p->ptype == picoquic_packet_0rtt_protected &&
+                    p->is_evaluated == 1 &&
+                    p->contains_crypto == 0) {
+                    p = p->next_packet;
                 }
 
                 if (p != NULL) {
@@ -153,7 +179,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     }
 
     /* Consider path challenges */
-    if (path_x->challenge_verified == 0) {
+    if (blocked != 0 && path_x->challenge_verified == 0) {
         uint64_t next_challenge_time = path_x->challenge_time + path_x->retransmit_timer;
         if (next_challenge_time <= current_time) {
             next_time = current_time;

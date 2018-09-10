@@ -2,18 +2,6 @@
 #include "plugin.h"
 #include "../helpers.h"
 
-/* For a very strange reason, we absolutely need to put calls into static functions, otherwise clang might bug... o_O */
-static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based)
-{
-    protoop_arg_t args[3], outs[PROTOOPARGS_MAX];
-    args[0] = (protoop_arg_t) p;
-    args[1] = (protoop_arg_t) current_time;
-    args[2] = (protoop_arg_t) *timer_based;
-    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    *timer_based = (int) outs[0];
-    return (int) ret;
-}
-
 /* Special wake up decision logic in initial state */
 /* TODO: tie with per path scheduling */
 static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_time)
@@ -23,9 +11,19 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     int timer_based = 0;
     int blocked = 1;
     int pacing = 0;
-    int retransmit_needed = 0;
-    protoop_arg_t outs[PROTOOPARGS_MAX], args[PROTOOPARGS_MAX];
     picoquic_path_t * path_x = cnx->path[0];
+    int pc_ready_flag = 1 << picoquic_packet_context_initial;
+
+    if (cnx->tls_stream[0].send_queue == NULL) {
+        if (cnx->crypto_context[1].aead_encrypt != NULL &&
+            cnx->tls_stream[1].send_queue != NULL) {
+            pc_ready_flag |= 1 << picoquic_packet_context_application;
+        }
+        else if (cnx->crypto_context[2].aead_encrypt != NULL &&
+            cnx->tls_stream[1].send_queue == NULL) {
+            pc_ready_flag |= 1 << picoquic_packet_context_handshake;
+        }
+    }
 
     if (next_time < current_time)
     {
@@ -36,6 +34,10 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     {
         for (picoquic_packet_context_enum pc = 0; blocked == 0 && pc < picoquic_nb_packet_context; pc++) {
             picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
+
+            if ((pc_ready_flag & (1 << pc)) == 0) {
+                continue;
+            }
 
             while (p != NULL)
             {
@@ -81,9 +83,21 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         else {
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
+                
+                if ((pc_ready_flag & (1 << pc)) == 0) {
+                    continue;
+                }
+                
                 /* Consider delayed ACK */
                 if (cnx->pkt_ctx[pc].ack_needed) {
                     next_time = cnx->pkt_ctx[pc].highest_ack_time + cnx->pkt_ctx[pc].ack_delay_local;
+                }
+
+                while (p != NULL &&
+                    p->ptype == picoquic_packet_0rtt_protected &&
+                    p->is_evaluated == 1 &&
+                    p->contains_crypto == 0) {
+                    p = p->next_packet;
                 }
 
                 if (p != NULL) {
@@ -103,7 +117,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     }
 
     /* Consider path challenges */
-    if (path_x->challenge_verified == 0) {
+    if (blocked != 0 && path_x->challenge_verified == 0) {
         uint64_t next_challenge_time = path_x->challenge_time + path_x->retransmit_timer;
         if (next_challenge_time <= current_time) {
             next_time = current_time;
@@ -129,8 +143,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     int pacing = 0;
     picoquic_path_t * path_x = cnx->path[0];
     int ret = 0;
-    int retransmit_needed = 0;
-    protoop_arg_t outs[PROTOOPARGS_MAX], args[PROTOOPARGS_MAX];
 
 
     if (cnx->cnx_state < picoquic_state_client_ready)
