@@ -497,14 +497,12 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
 
         if (byte_index >= bytes_max) {
             fprintf(F, "    Malformed ACK RANGE, %d blocks remain.\n", (int)num_block);
-            ret = -1;
             break;
         }
 
         size_t l_range = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &range);
         if (l_range == 0) {
             byte_index = bytes_max;
-            ret = -1;
             fprintf(F, "    Malformed ACK RANGE, requires %d bytes out of %d", (int)picoquic_varint_skip(bytes),
                 (int)(bytes_max - byte_index));
             break;
@@ -517,7 +515,6 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
         if (largest + 1 < range) {
             fprintf(F, "ack range error: largest=%" PRIx64 ", range=%" PRIx64, largest, range);
             byte_index = bytes_max;
-            ret = -1;
             break;
         }
 
@@ -538,13 +535,11 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
             }
             fprintf(F, "    Malformed ACK GAP, %d blocks remain.", (int)num_block);
             byte_index = bytes_max;
-            ret = -1;
             break;
         } else {
             size_t l_gap = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &block_to_block);
             if (l_gap == 0) {
                 byte_index = bytes_max;
-                ret = -1;
                 fprintf(F, "\n");
                 if (cnx_id64 != 0) {
                     fprintf(F, "%" PRIx64 ": ", cnx_id64);
@@ -567,7 +562,6 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
             fprintf(F, "    ack gap error: largest=%" PRIx64 ", range=%" PRIx64 ", gap=%" PRIu64,
                 largest, range, block_to_block - range);
             byte_index = bytes_max;
-            ret = -1;
             break;
         }
 
@@ -641,7 +635,6 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
     uint64_t offending_frame_type = 0;
     size_t lf = 0;
     size_t l1 = 0;
-    size_t required = 4;
 
     if (bytes_max >= 4) {
         error_code = PICOPARSE_16(bytes + byte_index);
@@ -649,7 +642,6 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
         if (ftype == picoquic_frame_type_connection_close) {
             lf = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offending_frame_type);
             if (lf == 0) {
-                required += picoquic_varint_skip(bytes + byte_index);
                 byte_index = bytes_max;
             }
             else {
@@ -658,9 +650,6 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
         }
         if (ftype != picoquic_frame_type_connection_close || lf != 0) {
             l1 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &string_length);
-            if (l1 == 0) {
-                required = byte_index + picoquic_varint_skip(bytes + byte_index);
-            }
         }
     }
 
@@ -1129,12 +1118,19 @@ void picoquic_log_outgoing_segment(void* F_log, int log_cnxid, picoquic_cnx_t* c
     picoquic_cnx_t* pcnx = cnx;
     picoquic_packet_header ph;
     uint32_t checksum_length = (cnx != NULL)? picoquic_get_checksum_length(cnx, 0):16;
-    int ret = picoquic_parse_packet_header(cnx->quic, send_buffer, send_length,
-        (struct sockaddr *)&cnx->path[0]->dest_addr, &ph, &pcnx, 0);
+    struct sockaddr_in default_addr;
+    int ret;  
 
     if (F_log == NULL) {
         return;
     }
+
+    memset(&default_addr, 0, sizeof(struct sockaddr_in));
+    default_addr.sin_family = AF_INET;
+
+    ret = picoquic_parse_packet_header((cnx == NULL) ? NULL : cnx->quic, send_buffer, send_length,
+        ((cnx==NULL || cnx->path[0] == NULL)?(struct sockaddr *)&default_addr: 
+        (struct sockaddr *)&cnx->path[0]->dest_addr), &ph, &pcnx, 0);
 
     ph.pn64 = sequence_number;
     ph.pn = (uint32_t)ph.pn64;
@@ -1582,14 +1578,11 @@ void picoquic_log_picotls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
             byte_index += (uint16_t) tls_ticket_length;
 
             secret_length = PICOPARSE_16(ticket + byte_index);
-            byte_index += 2;
             min_length += secret_length;
             if (ticket_length < min_length) {
                 ret = -1;
             } else {
                 /* secret_ptr = &ticket[byte_index]; */
-                byte_index += secret_length;
-
                 if (min_length > ticket_length) {
                     ret = -2;
                 }
