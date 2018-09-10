@@ -40,6 +40,9 @@ register_functions(struct ubpf_vm *vm)
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);
     ubpf_register(vm, 0x21, "setsockopt", setsockopt);
+
+    /* Specific QUIC functions */
+    ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

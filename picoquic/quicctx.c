@@ -901,6 +901,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/basic/prepare_packet_ready.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/basic/decode_frames.o");
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/basic/decode_ack_frame.o");
 
 /*
     plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);

@@ -520,3 +520,90 @@ static uint8_t* helper_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes
 
     return bytes;
 }
+
+static int helper_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
+    uint64_t* num_block, uint64_t* nb_ecnx3,
+    uint64_t* largest, uint64_t* ack_delay, size_t* consumed,
+    uint8_t ack_delay_exponent)
+{
+    int ret = 0;
+    size_t byte_index = 1;
+    size_t l_largest = 0;
+    size_t l_delay = 0;
+    size_t l_blocks = 0;
+
+    if (bytes_max > byte_index) {
+        l_largest = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, largest);
+        byte_index += l_largest;
+    }
+
+    if (bytes_max > byte_index) {
+        l_delay = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, ack_delay);
+        *ack_delay <<= ack_delay_exponent;
+        byte_index += l_delay;
+    }
+
+    if (nb_ecnx3 != NULL) {
+        for (int ecnx = 0; ecnx < 3; ecnx++) {
+            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &nb_ecnx3[ecnx]);
+
+            if (l_ecnx == 0) {
+                byte_index = bytes_max;
+            }
+            else {
+                byte_index += l_ecnx;
+            }
+        }
+    }
+
+    if (bytes_max > byte_index) {
+        l_blocks = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, num_block);
+        byte_index += l_blocks;
+    }
+
+    if (l_largest == 0 || l_delay == 0 || l_blocks == 0 || bytes_max < byte_index) {
+        // DBG_PRINTF("ack frame fixed header too large: first_byte=0x%02x, bytes_max=%" PRIst,
+        //     bytes[0], bytes_max);
+        byte_index = bytes_max;
+        ret = -1;
+    }
+
+    *consumed = byte_index;
+    return ret;
+}
+
+static picoquic_packet_t* helper_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
+    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc)
+{
+    protoop_arg_t args[4];
+    args[0] = (protoop_arg_t) largest;
+    args[1] = (protoop_arg_t) current_time;
+    args[2] = (protoop_arg_t) ack_delay;
+    args[3] = (protoop_arg_t) pc;
+    return (picoquic_packet_t *) plugin_run_protoop(cnx, PROTOOPID_UPDATE_RTT, 4, args, NULL);
+}
+
+static int helper_process_ack_range(
+    picoquic_cnx_t* cnx, picoquic_packet_context_enum pc, uint64_t highest, uint64_t range, picoquic_packet_t** ppacket,
+    uint64_t current_time)
+{
+    protoop_arg_t args[5];
+    args[0] = (protoop_arg_t) pc;
+    args[1] = (protoop_arg_t) highest;
+    args[2] = (protoop_arg_t) range;
+    args[3] = (protoop_arg_t) ppacket;
+    args[4] = (protoop_arg_t) current_time;
+    return (int) plugin_run_protoop(cnx, PROTOOPID_PROCESS_ACK_RANGE, 5, args, NULL);
+}
+
+static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
+    uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
+    picoquic_packet_context_enum pc)
+{
+    protoop_arg_t args[4];
+    args[0] = (protoop_arg_t) start_of_range;
+    args[1] = (protoop_arg_t) end_of_range;
+    args[2] = (protoop_arg_t) current_time;
+    args[3] = (protoop_arg_t) pc;
+    plugin_run_protoop(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, 4, args, NULL);
+}

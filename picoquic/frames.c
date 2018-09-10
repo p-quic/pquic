@@ -1249,11 +1249,21 @@ int picoquic_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
     return ret;
 }
 
-
-void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
-    uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
-    picoquic_packet_context_enum pc)
+/**
+ * uint64_t start_of_range = cnx->protoop_inputv[0]
+ * uint64_t end_of_range = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
+ *
+ * Output: none
+ */
+protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
 {
+    uint64_t start_of_range = (uint64_t) cnx->protoop_inputv[0];
+    uint64_t end_of_range = (uint64_t) cnx->protoop_inputv[1];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[3];
+
     picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
     picoquic_packet_t* p = pkt_ctx->retransmitted_newest;
 
@@ -1299,11 +1309,34 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
             picoquic_dequeue_retransmitted_packet(cnx, should_delete);
         }
     }
+
+    return 0;
 }
 
-static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
-    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc)
+
+void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
+    uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
+    picoquic_packet_context_enum pc)
 {
+    protoop_prepare_and_run(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, NULL,
+        start_of_range, end_of_range, current_time, pc);
+}
+
+/**
+ * uint64_t largest = cnx->protoop_inputv[0]
+ * uint64_t current_time = cnx->protoop_inputv[1]
+ * uint64_t ack_delay = cnx->protoop_inputv[2]
+ * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
+ *
+ * Output: picoquic_packet_t* packet
+ */
+protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
+{
+    uint64_t largest = (uint64_t) cnx->protoop_inputv[0];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
+    uint64_t ack_delay = (uint64_t) cnx->protoop_inputv[2];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[3];
+
     picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
     picoquic_packet_t* packet = pkt_ctx->retransmit_newest;
 
@@ -1393,7 +1426,14 @@ static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t larg
         }
     }
 
-    return packet;
+    return (protoop_arg_t) packet;
+}
+
+static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
+    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc)
+{
+    return (picoquic_packet_t *) protoop_prepare_and_run(cnx, PROTOOPID_UPDATE_RTT, NULL,
+        largest, current_time, ack_delay, pc);
 }
 
 static void picoquic_process_ack_of_ack_range(picoquic_sack_item_t* first_sack,
@@ -1638,10 +1678,23 @@ void picoquic_process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_pa
     }
 }
 
-static int picoquic_process_ack_range(
-    picoquic_cnx_t* cnx, picoquic_packet_context_enum pc, uint64_t highest, uint64_t range, picoquic_packet_t** ppacket,
-    uint64_t current_time)
+/**
+ * picoquic_packet_context_enum pc = cnx->protoop_inputv[0]
+ * uint64_t highest = cnx->protoop_inputv[1]
+ * uint64_t range = cnx->protoop_inputv[2]
+ * picoquic_packet_t** ppacket = cnx->protoop_inputv[3]
+ * uint64_t current_time = cnx->protoop_inputv[4]
+ *
+ * Output: int ret
+ */
+protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
+    uint64_t highest = (uint64_t) cnx->protoop_inputv[1];
+    uint64_t range = (uint64_t) cnx->protoop_inputv[2];
+    picoquic_packet_t** ppacket = (picoquic_packet_t**) cnx->protoop_inputv[3];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
+
     picoquic_packet_t* p = *ppacket;
     int ret = 0;
     /* Compare the range to the retransmit queue */
@@ -1681,7 +1734,15 @@ static int picoquic_process_ack_range(
     }
 
     *ppacket = p;
-    return ret;
+    return (protoop_arg_t) ret;
+}
+
+static int picoquic_process_ack_range(
+    picoquic_cnx_t* cnx, picoquic_packet_context_enum pc, uint64_t highest, uint64_t range, picoquic_packet_t** ppacket,
+    uint64_t current_time)
+{
+    return (int) protoop_prepare_and_run(cnx, PROTOOPID_PROCESS_ACK_RANGE, NULL,
+        pc, highest, range, ppacket, current_time);
 }
 
 uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes,
@@ -3225,6 +3286,9 @@ void frames_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_DECODE_PATH_RESPONSE_FRAME] = &decode_path_response_frame;
     cnx->ops[PROTOOPID_DECODE_CRYPTO_HS_FRAME] = &decode_crypto_hs_frame;
     cnx->ops[PROTOOPID_DECODE_NEW_TOKEN_FRAME] = &decode_new_token_frame;
+    cnx->ops[PROTOOPID_UPDATE_RTT] = &update_rtt;
+    cnx->ops[PROTOOPID_PROCESS_ACK_RANGE] = &process_ack_range;
+    cnx->ops[PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION] = &check_spurious_retransmission;
 
     /* Preparing */
     cnx->ops[PROTOOPID_PREPARE_ACK_FRAME] = &prepare_ack_frame;
