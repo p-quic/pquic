@@ -895,14 +895,14 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     register_protocol_operations(cnx);
-
+/*
     plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/basic/prepare_packet_ready.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/basic/decode_frames.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/basic/decode_ack_frame.o");
-
+*/
 /*
     plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);
     plugin_unplug(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET);
@@ -913,10 +913,15 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/tlp/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/tlp/retransmit_needed.o");
 */
-/*
+
     plugin_plug_elf(cnx, PROTOOPID_BEFORE_SENDING_PACKET, "plugins/ecn/before_sending_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RECEIVED_PACKET, "plugins/ecn/received_packet.o");
-*/
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/ecn/decode_ack_frame.o");
+    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x38), "plugins/ecn/decode_ecn_frame.o");
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/ecn/decode_frames.o");
+    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x38), "plugins/ecn/prepare_ecn_frame.o");
+    plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/ecn/prepare_packet_ready.o");
+
     return cnx;
 }
 

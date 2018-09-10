@@ -2,6 +2,11 @@
 
 #define ECN_OPAQUE_ID 0x01
 
+#define ECN_FRAME_TYPE 0x28
+
+#define PROTOOPID_DECODE_ECN_FRAME (PROTOOPID_DECODE_FRAMES + 0x38)
+#define PROTOOPID_PREPARE_ECN_FRAME (PROTOOPID_SENDER + 0x38)
+
 typedef struct {
     /* ECN Data */
     uint32_t ecn_val;

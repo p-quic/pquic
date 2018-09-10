@@ -56,11 +56,6 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
 
-    if (!cnx->ops[pid]) {
-        printf("FATAL ERROR: no protocol operation with id 0x%x\n", pid);
-        exit(-1);
-    }
-
     /* First save previous args, and update context with new ones
      * Notice that we store ALL array of protoop_inputv and protoop_outputv.
      * With this, even if the called plugin tried to modify the input arguments,
@@ -91,8 +86,11 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     if (cnx->plugins[pid]) {
         DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", pid);
         status = (protoop_arg_t) exec_loaded_code(cnx->plugins[pid], (void *)cnx, sizeof(picoquic_cnx_t));
-    } else {
+    } else if (cnx->ops[pid]) {
         status = cnx->ops[pid](cnx);
+    } else {
+        printf("FATAL ERROR: no protocol operation with id 0x%x\n", pid);
+        exit(-1);
     }
     int outputc = cnx->protoop_outputc_callee;
 
