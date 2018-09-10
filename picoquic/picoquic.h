@@ -503,14 +503,14 @@ typedef enum {
     picoquic_congestion_notification_rtt_measurement
 } picoquic_congestion_notification_t;
 
-typedef void (*picoquic_congestion_algorithm_init)(picoquic_path_t* path_x);
+typedef void (*picoquic_congestion_algorithm_init)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
 typedef void (*picoquic_congestion_algorithm_notify)(picoquic_path_t* path_x,
     picoquic_congestion_notification_t notification,
     uint64_t rtt_measurement,
     uint64_t nb_bytes_acknowledged,
     uint64_t lost_packet_number,
     uint64_t current_time);
-typedef void (*picoquic_congestion_algorithm_delete)(picoquic_path_t* cnx);
+typedef void (*picoquic_congestion_algorithm_delete)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
 
 typedef struct st_picoquic_congestion_algorithm_t {
     uint32_t congestion_algorithm_id;
