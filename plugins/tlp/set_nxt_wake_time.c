@@ -1,68 +1,15 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "bpf.h"
+#include "../helpers.h"
 
-/* Decide whether MAX data need to be sent or not */
-static int should_send_max_data(picoquic_cnx_t* cnx)
+static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
 {
-    int ret = 0;
-
-    if (2 * cnx->data_received > cnx->maxdata_local)
-        ret = 1;
-
-    return ret;
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) arg;
+    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
 }
 
-/* Decide whether to send an MTU probe */
-static int is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
-{
-    int ret = 0;
-
-    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
-        ret = 1;
-    }
-
-    return ret;
-}
-
-static picoquic_stream_head *find_ready_stream(picoquic_cnx_t *cnx)
-{
-    return (picoquic_stream_head *) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 0, NULL, NULL);
-}
-
-static int is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc)
-{
-    protoop_arg_t args[2];
-    args[0] = (protoop_arg_t) current_time;
-    args[1] = (protoop_arg_t) pc;
-    return (int) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 2, args, NULL);
-}
-
-static int is_tls_stream_ready(picoquic_cnx_t *cnx)
-{
-    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_TLS_STREAM_READY, 0, NULL, NULL);
-}
-
-/* For a very strange reason, we absolutely need to put calls into static functions, otherwise clang might bug... o_O */
-static int retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based)
-{
-    protoop_arg_t args[3], outs[PROTOOPARGS_MAX];
-    args[0] = (protoop_arg_t) p;
-    args[1] = (protoop_arg_t) current_time;
-    args[2] = (protoop_arg_t) *timer_based;
-    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    *timer_based = (int) outs[0];
-    return (int) ret;
-}
-
-
-static void dbg_print(picoquic_cnx_t *cnx, uint64_t val1, uint64_t val2)
-{
-    protoop_arg_t args[2];
-    args[0] = (protoop_arg_t) val1;
-    args[1] = (protoop_arg_t) val2;
-    //plugin_run_protoop(cnx, PROTOOPID_PRINTF, 2, args, NULL);
-}
 
 /* Special wake up decision logic in initial state */
 /* TODO: tie with per path scheduling */
@@ -205,7 +152,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     int pacing = 0;
     picoquic_path_t * path_x = cnx->path[0];
     int ret = 0;
-    int retransmit_needed = 0;
     protoop_arg_t outs[PROTOOPARGS_MAX], args[PROTOOPARGS_MAX];
 
 
@@ -218,27 +164,27 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     if (cnx->cnx_state == picoquic_state_disconnecting || cnx->cnx_state == picoquic_state_handshake_failure || cnx->cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
-    else if (path_x->cwin > path_x->bytes_in_transit && is_mtu_probe_needed(cnx, path_x)) {
+    else if (path_x->cwin > path_x->bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
         blocked = 0;
     }
     else {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
 
-            if (p != NULL && ret == 0 && retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
+            if (p != NULL && ret == 0 && helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based)) {
                 blocked = 0;
             }
-            else if (is_ack_needed(cnx, current_time, pc)) {
+            else if (helper_is_ack_needed(cnx, current_time, pc)) {
                 blocked = 0;
             }
         }
 
         if (blocked != 0) {
             if (path_x->cwin > path_x->bytes_in_transit) {
-                if (should_send_max_data(cnx) ||
-                    is_tls_stream_ready(cnx) ||
+                if (helper_should_send_max_data(cnx) ||
+                    helper_is_tls_stream_ready(cnx) ||
                     ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
-                    (stream = find_ready_stream(cnx)) != NULL)) {
+                    (stream = helper_find_ready_stream(cnx)) != NULL)) {
                     if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                         blocked = 0;
                     }
@@ -275,13 +221,14 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 }
 
                 /* Begin TLP code */
-                bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, TLP_OPAQUE_ID, sizeof(bpf_data));
+                bpf_data *bpfd = (bpf_data *) get_bpf_data(cnx);
                 picoquic_packet_t *p_last = cnx->pkt_ctx[pc].retransmit_newest;
                 
-                if (bpfd->tlp_nb < 3) {
+                if (bpfd->tlp_nb < 3 && bpfd->tlp_time > 0) {
                     /* Does it have multiple outstanding packets? */
                     if (p != p_last) {
                         /* max(2*SRTT, 10ms) */
+                        
                         bpfd->tlp_time = p_last->send_time + 2 * path_x->smoothed_rtt;
                         if (p_last->send_time + 10000 > bpfd->tlp_time) {
                             bpfd->tlp_time = p_last->send_time + 10000;
@@ -332,8 +279,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             next_time = cnx->latest_progress_time + cnx->keep_alive_interval;
         }
     }
-
-    dbg_print(cnx, current_time, next_time);
 
     /* reset the connection at its new logical position */
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);

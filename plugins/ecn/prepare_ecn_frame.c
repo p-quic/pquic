@@ -18,7 +18,7 @@ protoop_arg_t prepare_ecn_frame(picoquic_cnx_t *cnx)
     size_t consumed = (size_t) cnx->protoop_inputv[2];
 
     int ret = 0;
-    bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, ECN_OPAQUE_ID, sizeof(bpf_data));
+    bpf_data *bpfd = get_bpf_data(cnx);
 
     if (bytes_max < 25) {
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;

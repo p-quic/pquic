@@ -443,7 +443,7 @@ protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
 uint8_t* picoquic_decode_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max)
 {
     return (uint8_t *) protoop_prepare_and_run(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, NULL,
-        bytes, bytes_max);;
+        bytes, bytes_max);
 }
 
 /*

@@ -23,7 +23,7 @@ protoop_arg_t decode_ecn_frame(picoquic_cnx_t *cnx)
     uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (uint8_t *) cnx->protoop_inputv[1];
     
-    bpf_data *bpfd = (bpf_data *)get_opaque_data(cnx, ECN_OPAQUE_ID, sizeof(bpf_data));
+    bpf_data *bpfd = get_bpf_data(cnx);
 
     uint8_t first_byte = bytes[0];
     uint64_t ect0, ect1, ectce;

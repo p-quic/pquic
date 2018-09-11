@@ -11,7 +11,7 @@ protoop_arg_t received_packet(picoquic_cnx_t *cnx)
 {
     /* FIXME only for Linux! */
     int socket = (int) cnx->protoop_inputv[0];
-    bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, ECN_OPAQUE_ID, sizeof(bpf_data));
+    bpf_data *bpfd = get_bpf_data(cnx);
 
     /* FIXME what if the socket is IPv6? */
     socklen_t ecn_val_len = sizeof(bpfd->ecn_val);

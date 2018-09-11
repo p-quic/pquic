@@ -53,7 +53,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
 
     picoquic_path_t *path_x = cnx->path[0];
     picoquic_newreno_state_t *nrs = path_x->congestion_alg_state;
-    bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, ECN_OPAQUE_ID, sizeof(bpf_data));
+    bpf_data *bpfd = get_bpf_data(cnx);
 
     uint64_t num_block;
     uint64_t largest;

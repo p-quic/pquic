@@ -1,16 +1,7 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "bpf.h"
-
-static void dbg_print(picoquic_cnx_t *cnx, uint64_t val1, uint64_t val2, uint64_t val3)
-{
-    protoop_arg_t args[3];
-    args[0] = (protoop_arg_t) val1;
-    args[1] = (protoop_arg_t) val2;
-    args[2] = (protoop_arg_t) val3;
-    //if (bpfd->print) plugin_run_protoop(cnx, PROTOOPID_PRINTF, 3, args, NULL);
-}
-
+#include "../helpers.h"
 
 /**
  * cnx->protoop_inputv[0] = picoquic_packet *p NOT NULL
@@ -25,13 +16,11 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_packet_t *p = (picoquic_packet_t *) cnx->protoop_inputv[0];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
     int timer_based = (int) cnx->protoop_inputv[2];
-    bpf_data *bpfd = (bpf_data *) get_opaque_data(cnx, TLP_OPAQUE_ID, sizeof(bpf_data));
+    bpf_data *bpfd = (bpf_data *) get_bpf_data(cnx);
 
     picoquic_packet_context_enum pc = p->pc;
     int64_t delta_seq = cnx->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
-
-    dbg_print(cnx, 0, delta_seq, 3);
 
     if (delta_seq > 3) {
         /*
@@ -42,7 +31,6 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     } else {
         int64_t delta_t = cnx->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
 
-        dbg_print(cnx, 1, delta_t, PICOQUIC_RACK_DELAY);
         /* TODO: out of order delivery time ought to be dynamic */
         if (delta_t > PICOQUIC_RACK_DELAY && p->ptype != picoquic_packet_0rtt_protected) {
             /*
@@ -55,7 +43,6 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             * last ACK was received. If that is larger than the inter packet
             * time, consider that there is a loss */
             uint64_t time_from_last_ack = current_time - cnx->pkt_ctx[pc].latest_time_acknowledged + delta_t;
-            dbg_print(cnx, 2, time_from_last_ack, 10000);
             if (time_from_last_ack > 10000) {
                 should_retransmit = 1;
             }
@@ -67,7 +54,6 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             uint64_t retransmit_timer = (cnx->pkt_ctx[pc].nb_retransmit == 0) ?
                 cnx->path[0]->retransmit_timer : (1000000ull << (cnx->pkt_ctx[pc].nb_retransmit - 1));
 
-            dbg_print(cnx, 3, time_out, retransmit_timer);
             if ((uint64_t)time_out < retransmit_timer) {
                 /* Do not retransmit if the timer has not yet elapsed */
                 should_retransmit = 0;

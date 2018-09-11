@@ -25,7 +25,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
     return 1;
 }
 
-void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size) {
+void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {
     picoquic_opaque_meta_t *ometas = cnx->opaque_metas;
     if (oid >= OPAQUE_ID_MAX) {
         /* Invalid ID */
@@ -36,6 +36,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size) {
             /* The size requested is not correct */
             return NULL;
         }
+        *allocated = 0;
         return ometas[oid].start_ptr;
     }
     if (ometas[oid].start_ptr == NULL && cnx->opaque_size_taken + size > OPAQUE_SIZE) {
@@ -46,6 +47,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size) {
     ometas[oid].start_ptr = cnx->opaque + cnx->opaque_size_taken;
     ometas[oid].size = size;
     cnx->opaque_size_taken += size;
+    *allocated = 1;
     return ometas[oid].start_ptr;
 }
 
