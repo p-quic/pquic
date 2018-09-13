@@ -16,6 +16,7 @@
 #include "plugin.h"
 #include "memcpy.h"
 #include "memory.h"
+#include "tls_api.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -43,6 +44,10 @@ register_functions(struct ubpf_vm *vm)
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
+    ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
+    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id", picoquic_create_random_cnx_id);
+    ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret", picoquic_create_cnxid_reset_secret);
+    ubpf_register(vm, 0x34, "picoquic_register_cnx_id", picoquic_register_cnx_id);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

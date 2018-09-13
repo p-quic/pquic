@@ -607,3 +607,16 @@ static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
     args[3] = (protoop_arg_t) pc;
     plugin_run_protoop(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, 4, args, NULL);
 }
+
+static int helper_prepare_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
+    size_t *consumed, uint64_t path_id)
+{
+    protoop_arg_t args[4], outs[1];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) *consumed;
+    args[3] = (protoop_arg_t) path_id;
+    int ret = (int) plugin_run_protoop(cnx, (PROTOOPID_SENDER + 0x48), 4, args, outs);
+    *consumed = (size_t) cnx->protoop_outputv[0];
+    return ret;
+}

@@ -645,6 +645,8 @@ void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, 
 
 void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time);
 
+void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t * cnx_id, uint8_t id_length);
+
 /* Integer parsing macros */
 #define PICOPARSE_16(b) ((((uint16_t)(b)[0]) << 8) | (b)[1])
 #define PICOPARSE_24(b) ((((uint32_t)PICOPARSE_16(b)) << 16) | ((b)[2]))

@@ -683,7 +683,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
     return ret;
 }
 
-static void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t * cnx_id, uint8_t id_length)
+void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t * cnx_id, uint8_t id_length)
 {
     if (id_length > 0) {
         picoquic_crypto_random(quic, cnx_id->id, id_length);
@@ -914,7 +914,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/tlp/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/tlp/retransmit_needed.o");
 */
-
+/*
     plugin_plug_elf(cnx, PROTOOPID_BEFORE_SENDING_PACKET, "plugins/ecn/before_sending_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RECEIVED_PACKET, "plugins/ecn/received_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/ecn/decode_ack_frame.o");
@@ -922,6 +922,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/ecn/decode_frames.o");
     plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x38), "plugins/ecn/prepare_ecn_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/ecn/prepare_packet_ready.o");
+*/
+
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, "plugins/multipath/decode_new_connection_id_frame.o");
 
     return cnx;
 }
