@@ -363,7 +363,7 @@ picoquic_stateless_packet_t* picoquic_dequeue_stateless_packet(picoquic_quic_t* 
 }
 
 /* Connection context creation and registration */
-int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, picoquic_connection_id_t cnx_id)
+int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id)
 {
     int ret = 0;
     picohash_item* item;
@@ -372,7 +372,7 @@ int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, picoqui
     if (key == NULL) {
         ret = -1;
     } else {
-        key->cnx_id = cnx_id;
+        key->cnx_id = *cnx_id;
         key->cnx = cnx;
         key->next_cnx_id = NULL;
 
@@ -812,7 +812,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
                 quic->cnx_id_callback_fn(cnx->local_cnxid, cnx->initial_cnxid,
                     quic->cnx_id_callback_ctx, &cnx->local_cnxid);
 
-            (void)picoquic_create_cnxid_reset_secret(quic, cnx->local_cnxid,
+            (void)picoquic_create_cnxid_reset_secret(quic, &cnx->local_cnxid,
                 cnx->reset_secret);
 
             cnx->version_index = picoquic_get_version_index(preferred_version);
@@ -886,7 +886,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 
     if (cnx != NULL) {
         if (!picoquic_is_connection_id_null(cnx->local_cnxid)) {
-            (void)picoquic_register_cnx_id(quic, cnx, cnx->local_cnxid);
+            (void)picoquic_register_cnx_id(quic, cnx, &cnx->local_cnxid);
         }
 
         if (addr != NULL) {
@@ -925,6 +925,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 */
 
     plugin_plug_elf(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, "plugins/multipath/decode_new_connection_id_frame.o");
+    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_new_connection_id_frame.o");
+    plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/multipath/prepare_packet_ready.o");
+    plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/multipath/update_rtt.o");
 
     return cnx;
 }

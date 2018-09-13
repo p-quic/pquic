@@ -610,7 +610,7 @@ picoquic_stateless_packet_t* picoquic_create_stateless_packet(picoquic_quic_t* q
 void picoquic_queue_stateless_packet(picoquic_quic_t* quic, picoquic_stateless_packet_t* sp);
 
 /* Registration of connection ID in server context */
-int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, picoquic_connection_id_t cnx_id);
+int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id);
 
 /* handling of retransmission queue */
 void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free);
@@ -849,6 +849,9 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed);
 int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
                                 size_t bytes_max, size_t* consumed);
+
+
+int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr);
 
 /* send/receive */
 

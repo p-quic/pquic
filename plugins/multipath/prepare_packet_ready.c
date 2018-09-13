@@ -3,6 +3,12 @@
 #include "../helpers.h"
 #include "bpf.h"
 
+static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) num;
+    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
+}
+
 
 /**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
@@ -146,12 +152,14 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                         /* Try to send two CIDs for 2 paths IDS */
                         bpf_data *bpfd = get_bpf_data(cnx);
-                        if (bpfd->paths[0].local_cnxid.id_len == 0) {
-                            helper_prepare_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 1);
-                            length += (uint32_t)data_bytes;
-                        } else if (bpfd->paths[1].local_cnxid.id_len == 0) {
+                        if (bpfd->nb_proposed == 0) {
                             helper_prepare_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 2);
                             length += (uint32_t)data_bytes;
+                            print_num_text(cnx, data_bytes);
+                            helper_prepare_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 4);
+                            length += (uint32_t)data_bytes;
+                            print_num_text(cnx, data_bytes);
+                            
                         }
                         /* If present, send misc frame */
                         while (cnx->first_misc_frame != NULL) {

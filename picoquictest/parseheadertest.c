@@ -321,7 +321,7 @@ int parseheadertest()
         } else {
             /* Update the local cnx_id so it be predictable in tests */
             cnx_10->local_cnxid = test_cnxid_local;
-            (void)picoquic_register_cnx_id(quic, cnx_10, cnx_10->local_cnxid);
+            (void)picoquic_register_cnx_id(quic, cnx_10, &cnx_10->local_cnxid);
         }
     }
 

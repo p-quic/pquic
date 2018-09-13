@@ -678,7 +678,7 @@ void picoquic_process_unexpected_cnxid(
             picoquic_public_random(bytes + byte_index, pad_size);
             byte_index += pad_size;
             /* Add the public reset secret */
-            (void)picoquic_create_cnxid_reset_secret(quic, ph->dest_cnx_id, bytes + byte_index);
+            (void)picoquic_create_cnxid_reset_secret(quic, &ph->dest_cnx_id, bytes + byte_index);
             byte_index += PICOQUIC_RESET_SECRET_SIZE;
             sp->length = byte_index;
             memset(&sp->addr_to, 0, sizeof(sp->addr_to));
