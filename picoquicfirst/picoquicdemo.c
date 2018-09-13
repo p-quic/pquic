@@ -369,6 +369,7 @@ int quic_server(const char* server_name, int server_port,
     picoquic_quic_t* qserver = NULL;
     picoquic_cnx_t* cnx_server = NULL;
     picoquic_cnx_t* cnx_next = NULL;
+    picoquic_path_t* path = NULL;
     picoquic_server_sockets_t server_sockets;
     struct sockaddr_storage addr_from;
     struct sockaddr_storage addr_to;
@@ -487,7 +488,7 @@ int quic_server(const char* server_name, int server_port,
 
                 while (ret == 0 && (cnx_next = picoquic_get_earliest_cnx_to_wake(qserver, loop_time)) != NULL) {
                     ret = picoquic_prepare_packet(cnx_next, current_time,
-                        send_buffer, sizeof(send_buffer), &send_length);
+                        send_buffer, sizeof(send_buffer), &send_length, &path);
 
                     if (ret == PICOQUIC_ERROR_DISCONNECTED) {
                         ret = 0;
@@ -522,8 +523,8 @@ int quic_server(const char* server_name, int server_port,
                                     picoquic_get_cnx_state(cnx_next));
                             }
 
-                            picoquic_get_peer_addr(cnx_next, &peer_addr, &peer_addr_len);
-                            picoquic_get_local_addr(cnx_next, &local_addr, &local_addr_len);
+                            picoquic_get_peer_addr(path, &peer_addr, &peer_addr_len);
+                            picoquic_get_local_addr(path, &local_addr, &local_addr_len);
 
                             /* QDC: I hate having those lines here... But it is the only place to hook before sending... */
                             /* Both Linux and Windows use separate sockets for V4 and V6 */
@@ -532,7 +533,7 @@ int quic_server(const char* server_name, int server_port,
 
                             (void)picoquic_send_through_server_sockets(&server_sockets,
                                 peer_addr, peer_addr_len, local_addr, local_addr_len,
-                                picoquic_get_local_if_index(cnx_next),
+                                picoquic_get_local_if_index(path),
                                 (const char*)send_buffer, (int)send_length);
 
                             /* TODO: log sending packet. */
@@ -793,6 +794,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int ret = 0;
     picoquic_quic_t* qclient = NULL;
     picoquic_cnx_t* cnx_client = NULL;
+    picoquic_path_t* path = NULL;
     picoquic_first_client_callback_ctx_t callback_ctx;
     SOCKET_TYPE fd = INVALID_SOCKET;
     struct sockaddr_storage server_address;
@@ -901,11 +903,12 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 }
 
                 ret = picoquic_prepare_packet(cnx_client, current_time,
-                    send_buffer, sizeof(send_buffer), &send_length);
+                    send_buffer, sizeof(send_buffer), &send_length, &path);
 
                 if (ret == 0 && send_length > 0) {
                     /* QDC: I hate having this line here... But it is the only place to hook before sending... */
                     picoquic_before_sending_packet(cnx_client, fd);
+                    /* The first packet must be a sendto, next ones, not necessarily! */
                     bytes_sent = sendto(fd, send_buffer, (int)send_length, 0,
                         (struct sockaddr*)&server_address, server_addr_length);
 
@@ -1048,13 +1051,22 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     send_length = PICOQUIC_MAX_PACKET_SIZE;
 
                     ret = picoquic_prepare_packet(cnx_client, current_time,
-                        send_buffer, sizeof(send_buffer), &send_length);
+                        send_buffer, sizeof(send_buffer), &send_length, &path);
 
                     if (ret == 0 && send_length > 0) {
+                        int peer_addr_len = 0;
+                        struct sockaddr* peer_addr;
+                        int local_addr_len = 0;
+                        struct sockaddr* local_addr;
+
                         /* QDC: I hate having this line here... But it is the only place to hook before sending... */
                         picoquic_before_sending_packet(cnx_client, fd);
-                        bytes_sent = sendto(fd, send_buffer, (int)send_length, 0,
-                            (struct sockaddr*)&server_address, server_addr_length);
+
+                        picoquic_get_peer_addr(path, &peer_addr, &peer_addr_len);
+                        picoquic_get_local_addr(path, &local_addr, &local_addr_len);
+                        bytes_sent = picoquic_sendmsg(fd, peer_addr, peer_addr_len, local_addr,
+                            local_addr_len, picoquic_get_local_if_index(path),
+                            (const char *) send_buffer, (int) send_length);
 
                         picoquic_log_packet_address(F_log,
                             picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)),

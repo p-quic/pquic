@@ -2568,11 +2568,12 @@ int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t * path_x, pico
 
 /* Prepare next packet to send, or nothing.. */
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
-    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
+    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t **path)
 {
     int ret = 0;
-    picoquic_path_t * path_x = cnx->path[0];
+    *path = cnx->path[0];
     picoquic_packet_t * packet = NULL;
+    picoquic_path_t* path_x = *path;
 
     *send_length = 0;
 

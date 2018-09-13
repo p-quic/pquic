@@ -441,9 +441,9 @@ picoquic_state_enum picoquic_get_cnx_state(picoquic_cnx_t* cnx);
 
 int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx);
 
-void picoquic_get_peer_addr(picoquic_cnx_t* cnx, struct sockaddr** addr, int* addr_len);
-void picoquic_get_local_addr(picoquic_cnx_t* cnx, struct sockaddr** addr, int* addr_len);
-unsigned long picoquic_get_local_if_index(picoquic_cnx_t* cnx);
+void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len);
+void picoquic_get_local_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len);
+unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x);
 
 picoquic_connection_id_t picoquic_get_local_cnxid(picoquic_cnx_t* cnx);
 picoquic_connection_id_t picoquic_get_remote_cnxid(picoquic_cnx_t* cnx);
@@ -482,7 +482,7 @@ int picoquic_incoming_packet(
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
 
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
-    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length);
+    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t** path);
 
 /* send and receive data on streams */
 int picoquic_add_to_stream(picoquic_cnx_t* cnx,

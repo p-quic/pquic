@@ -986,21 +986,21 @@ void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp)
     cnx->max_stream_id_unidir_local = cnx->local_parameters.initial_max_stream_id_unidir;
 }
 
-void picoquic_get_peer_addr(picoquic_cnx_t* cnx, struct sockaddr** addr, int* addr_len)
+void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len)
 {
-    *addr = (struct sockaddr*)&cnx->path[0]->peer_addr;
-    *addr_len = cnx->path[0]->peer_addr_len;
+    *addr = (struct sockaddr*)&path_x->peer_addr;
+    *addr_len = path_x->peer_addr_len;
 }
 
-void picoquic_get_local_addr(picoquic_cnx_t* cnx, struct sockaddr** addr, int* addr_len)
+void picoquic_get_local_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len)
 {
-    *addr = (struct sockaddr*)&cnx->path[0]->dest_addr;
-    *addr_len = cnx->path[0]->dest_addr_len;
+    *addr = (struct sockaddr*)&path_x->dest_addr;
+    *addr_len = path_x->dest_addr_len;
 }
 
-unsigned long picoquic_get_local_if_index(picoquic_cnx_t* cnx)
+unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x)
 {
-    return cnx->path[0]->if_index_dest;
+    return path_x->if_index_dest;
 }
 
 picoquic_connection_id_t picoquic_get_local_cnxid(picoquic_cnx_t* cnx)

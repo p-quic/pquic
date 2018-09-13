@@ -528,6 +528,7 @@ static int stress_handle_packet_prepare(picoquic_stress_ctx_t * ctx, picoquic_qu
     picoquictest_sim_packet_t* packet = picoquictest_sim_link_create_packet();
     picoquic_cnx_t* cnx = picoquic_get_earliest_cnx_to_wake(q, 0);
     picoquictest_sim_link_t* target_link = NULL;
+    picoquic_path_t *path;
     int simulate_disconnect = 0;
 
     if (packet != NULL && cnx != NULL) {
@@ -552,7 +553,7 @@ static int stress_handle_packet_prepare(picoquic_stress_ctx_t * ctx, picoquic_qu
         if (c_ctx == NULL || cnx->cnx_state == picoquic_state_disconnected 
             || simulate_disconnect == 0) { 
             ret = picoquic_prepare_packet(cnx, ctx->simulated_time,
-                packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length);
+                packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length, &path);
         }
 
         if (ret == 0 && packet->length > 0) {

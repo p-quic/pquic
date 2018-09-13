@@ -680,6 +680,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
 {
     int ret = 0;
     picoquictest_sim_link_t* target_link = NULL;
+    picoquic_path_t *path;
 
     /* If one of the sources can send a packet, send it, keep time as it */
 
@@ -711,7 +712,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
             /* check whether the client has something to send */
             if (test_ctx->cnx_client->cnx_state != picoquic_state_disconnected) {
                 ret = picoquic_prepare_packet(test_ctx->cnx_client, *simulated_time,
-                    packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length);
+                    packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length, &path);
                 if (ret != 0)
                 {
                     /* useless test, but makes it easier to add a breakpoint under debugger */
@@ -731,7 +732,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                 }
                 else if (test_ctx->cnx_server != NULL && test_ctx->cnx_server->cnx_state != picoquic_state_disconnected) {
                     ret = picoquic_prepare_packet(test_ctx->cnx_server, *simulated_time,
-                        packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length);
+                        packet->bytes, PICOQUIC_MAX_PACKET_SIZE, &packet->length, &path);
                     if (ret == 0 && packet->length > 0) {
                         /* copy and queue in s to c */
                         memcpy(&packet->addr_from, &test_ctx->server_addr, sizeof(struct sockaddr_in));
