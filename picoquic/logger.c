@@ -934,6 +934,64 @@ size_t picoquic_log_crypto_hs_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
     return byte_index;
 }
 
+size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    size_t byte_index = 1;
+    size_t min_size = 1 + 8 + 16;
+    picoquic_connection_id_t new_cnx_id;
+    size_t l_seq = 0;
+    uint8_t l_cid = 0;
+    uint64_t path_id = 0;
+    size_t l_path_id = 0;
+
+    l_path_id = picoquic_varint_decode(&bytes[byte_index], bytes_max, &path_id);
+
+    min_size += l_path_id;
+
+    if (min_size > bytes_max) {
+        fprintf(F, "    Malformed MP NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
+        return bytes_max;
+    }
+
+    byte_index += l_path_id;
+
+    l_seq = picoquic_varint_skip(&bytes[byte_index]);
+
+    min_size += l_seq;
+
+    if (min_size > bytes_max) {
+        fprintf(F, "    Malformed MP NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
+        return bytes_max;
+    }
+
+    byte_index += l_seq;
+
+    if (byte_index < bytes_max) {
+        l_cid = bytes[byte_index++];
+    }
+
+    if (byte_index + l_cid + 16 > bytes_max) {
+        fprintf(F, "    Malformed MP NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
+        byte_index = bytes_max;
+    }
+    else {
+        byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
+        fprintf(F, "    MP NEW CONNECTION ID for Path 0x");
+        fprintf(F, "%02lx", path_id);
+        fprintf(F, " CID: 0x");
+        for (int x = 0; x < new_cnx_id.id_len; x++) {
+            fprintf(F, "%02x", new_cnx_id.id[x]);
+        }
+        fprintf(F, ", ");
+        for (int x = 0; x < 16; x++) {
+            fprintf(F, "%02x", bytes[byte_index++]);
+        }
+        fprintf(F, "\n");
+    }
+
+    return byte_index;
+}
+
 void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
     size_t byte_index = 0;
@@ -1030,6 +1088,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             break;
         case picoquic_frame_type_new_token:
             byte_index += picoquic_log_new_token_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case 0x26: /* MP_NEW_CONNECTION_ID */
+            byte_index += picoquic_log_mp_new_connection_id_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
         default: {
