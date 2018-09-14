@@ -924,8 +924,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/ecn/prepare_packet_ready.o");
 */
 
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, "plugins/multipath/decode_new_connection_id_frame.o");
-    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_new_connection_id_frame.o");
+    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), "plugins/multipath/decode_mp_new_connection_id_frame.o");
+    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/multipath/decode_frames.o");
+    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_mp_new_connection_id_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/multipath/prepare_packet_ready.o");
     plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/multipath/update_rtt.o");
 

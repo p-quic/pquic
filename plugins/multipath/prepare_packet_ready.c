@@ -152,11 +152,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                         /* Try to send two CIDs for 2 paths IDS */
                         bpf_data *bpfd = get_bpf_data(cnx);
-                        if (bpfd->nb_proposed == 0) {
-                            helper_prepare_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 2);
+                        if (bpfd->nb_proposed_snt == 0) {
+                            helper_prepare_mp_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 2);
                             length += (uint32_t)data_bytes;
                             print_num_text(cnx, data_bytes);
-                            helper_prepare_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 4);
+                            helper_prepare_mp_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 4);
                             length += (uint32_t)data_bytes;
                             print_num_text(cnx, data_bytes);
                             

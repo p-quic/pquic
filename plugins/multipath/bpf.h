@@ -7,6 +7,8 @@
 
 #define PREPARE_NEW_CONNECTION_ID_FRAME (PROTOOPID_SENDER + 0x48)
 
+#define MP_NEW_CONNECTION_ID_TYPE 0x26
+
 typedef struct {
     picoquic_path_t *path;
     uint64_t path_id;
@@ -19,6 +21,8 @@ typedef struct {
 
 typedef struct {
     uint8_t nb_proposed;
+    uint8_t nb_proposed_snt;
+    uint8_t nb_proposed_rcv;
     path_data_t paths[MAX_PATHS];
 } bpf_data;
 

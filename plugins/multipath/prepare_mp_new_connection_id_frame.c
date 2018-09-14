@@ -19,7 +19,7 @@ static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
  * Output: int ret
  * cnx->protoop_outputv[0] = size_t consumed
  */
-protoop_arg_t prepare_new_connection_id_frame(picoquic_cnx_t* cnx)
+protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
@@ -69,7 +69,7 @@ protoop_arg_t prepare_new_connection_id_frame(picoquic_cnx_t* cnx)
         size_t seq_l = 0;
 
         /* Encode the first byte */
-        bytes[byte_index++] = picoquic_frame_type_new_connection_id;
+        bytes[byte_index++] = MP_NEW_CONNECTION_ID_TYPE;
 
         if (byte_index < bytes_max) {
             /* Path ID */
@@ -91,6 +91,7 @@ protoop_arg_t prepare_new_connection_id_frame(picoquic_cnx_t* cnx)
 
         consumed = byte_index;
 
+        bpfd->nb_proposed_snt++;
         /* If we previously received a connection ID for the path ID, it is now ready */
         if (new_path_index) {
             p->state = 0;

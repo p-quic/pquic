@@ -19,7 +19,7 @@ static uint8_t* frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_max, ui
  *
  * Output: uint8_t* bytes
  */
-protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
+protoop_arg_t decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
@@ -64,6 +64,8 @@ protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
         }
         byte_index += 16;
     }
+
+    bpfd->nb_proposed_rcv++;
 
     if (!new_path_index && bpfd->paths[path_index].local_cnxid.id_len > 0) {
         bpfd->paths[path_index].state = 1;

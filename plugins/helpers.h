@@ -615,7 +615,7 @@ static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
 }
 
 
-static int helper_prepare_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
+static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
     size_t *consumed, uint64_t path_id)
 {
     protoop_arg_t args[4], outs[1];
@@ -627,4 +627,12 @@ static int helper_prepare_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* 
     *consumed = (size_t) outs[0];
     print_num_text_2(cnx,  outs[0]);
     return ret;
+}
+
+static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max)
+{
+    protoop_arg_t args[2];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    return (uint8_t *) plugin_run_protoop(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), 2, args, NULL);
 }
