@@ -19,7 +19,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     bpf_data *bpfd = (bpf_data *) get_bpf_data(cnx);
 
     picoquic_packet_context_enum pc = p->pc;
-    int64_t delta_seq = cnx->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
+    picoquic_path_t* send_path = p->send_path;
+    int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
 
     if (delta_seq > 3) {
@@ -29,7 +30,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
          */
         should_retransmit = 1;
     } else {
-        int64_t delta_t = cnx->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
+        int64_t delta_t = send_path->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
 
         /* TODO: out of order delivery time ought to be dynamic */
         if (delta_t > PICOQUIC_RACK_DELAY && p->ptype != picoquic_packet_0rtt_protected) {
@@ -42,7 +43,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             /* If the delta-t is larger than zero, add the time since the
             * last ACK was received. If that is larger than the inter packet
             * time, consider that there is a loss */
-            uint64_t time_from_last_ack = current_time - cnx->pkt_ctx[pc].latest_time_acknowledged + delta_t;
+            uint64_t time_from_last_ack = current_time - send_path->pkt_ctx[pc].latest_time_acknowledged + delta_t;
+
             if (time_from_last_ack > 10000) {
                 should_retransmit = 1;
             }
@@ -51,8 +53,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
         if (should_retransmit == 0) {
             /* Don't fire yet, because of possible out of order delivery */
             int64_t time_out = current_time - p->send_time;
-            uint64_t retransmit_timer = (cnx->pkt_ctx[pc].nb_retransmit == 0) ?
-                cnx->path[0]->retransmit_timer : (1000000ull << (cnx->pkt_ctx[pc].nb_retransmit - 1));
+            uint64_t retransmit_timer = (send_path->pkt_ctx[pc].nb_retransmit == 0) ?
+                send_path->retransmit_timer : (1000000ull << (send_path->pkt_ctx[pc].nb_retransmit - 1));
 
             if ((uint64_t)time_out < retransmit_timer) {
                 /* Do not retransmit if the timer has not yet elapsed */
