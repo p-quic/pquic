@@ -898,7 +898,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     register_protocol_operations(cnx);
-/*
+
     plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
     plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
@@ -906,7 +906,10 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/basic/decode_frames.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/basic/decode_ack_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, "plugins/basic/decode_new_connection_id_frame.o");
-*/
+    plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/basic/update_rtt.o");
+    plugin_plug_elf(cnx, PROTOOPID_PROCESS_ACK_RANGE, "plugins/basic/process_ack_range.o");
+    plugin_plug_elf(cnx, PROTOOPID_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, "plugins/basic/process_possible_ack_of_ack_frame.o");
+
 /*
     plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);
     plugin_unplug(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET);
@@ -931,7 +934,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/multipath/decode_frames.o");
     plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_mp_new_connection_id_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/multipath/prepare_packet_ready.o");
-    plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/multipath/update_rtt.o");
 */
     return cnx;
 }
@@ -1200,7 +1202,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     while (pkt_ctx->first_sack_item.next_sack != NULL) {
         picoquic_sack_item_t * next = pkt_ctx->first_sack_item.next_sack;
         pkt_ctx->first_sack_item.next_sack = next->next_sack;
-        free(next);
+        my_free(cnx, next);
     }
 
     pkt_ctx->first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);

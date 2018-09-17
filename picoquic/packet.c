@@ -1346,7 +1346,7 @@ int picoquic_incoming_segment(
         if (cnx != NULL && cnx->cnx_state != picoquic_state_disconnected &&
             ph.ptype != picoquic_packet_version_negotiation) {
             /* Mark the sequence number as received */
-            ret = picoquic_record_pn_received(cnx->path[0], ph.pc, ph.pn64, current_time);
+            ret = picoquic_record_pn_received(cnx, cnx->path[0], ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
             picoquic_cnx_set_next_wake_time(cnx, current_time);

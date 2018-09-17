@@ -591,13 +591,15 @@ static int helper_process_ack_range(
     picoquic_cnx_t* cnx, picoquic_packet_context_enum pc, uint64_t highest, uint64_t range, picoquic_packet_t** ppacket,
     uint64_t current_time)
 {
-    protoop_arg_t args[5];
+    protoop_arg_t args[5], outs[1];
     args[0] = (protoop_arg_t) pc;
     args[1] = (protoop_arg_t) highest;
     args[2] = (protoop_arg_t) range;
-    args[3] = (protoop_arg_t) ppacket;
+    args[3] = (protoop_arg_t) *ppacket;
     args[4] = (protoop_arg_t) current_time;
-    return (int) plugin_run_protoop(cnx, PROTOOPID_PROCESS_ACK_RANGE, 5, args, NULL);
+    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_PROCESS_ACK_RANGE, 5, args, outs);
+    *ppacket = (picoquic_packet_t*) outs[0];
+    return ret;
 }
 
 static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
@@ -613,12 +615,32 @@ static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
     plugin_run_protoop(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, 5, args, NULL);
 }
 
+static void helper_process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_t* p)
+{
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) p;
+    plugin_run_protoop(cnx, PROTOOPID_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, 1, args, NULL);
+}
+
+static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
+    size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t args[3], outs[1];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) *consumed;
+    int ret = (int) plugin_run_protoop(cnx, PROTOOPID_PROCESS_ACK_OF_STREAM_FRAME, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
 static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) num;
     plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
 }
 
+/* Multipath functions */
 
 static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
     size_t *consumed, uint64_t path_id)
@@ -640,4 +662,14 @@ static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, ui
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     return (uint8_t *) plugin_run_protoop(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), 2, args, NULL);
+}
+
+static uint8_t* helper_decode_mp_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
+    const uint8_t* bytes_max, uint64_t current_time)
+{
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) current_time;
+    return (uint8_t *) plugin_run_protoop(cnx, (PROTOOPID_DECODE_FRAMES + 0x27), 3, args, NULL);
 }

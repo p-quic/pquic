@@ -20,6 +20,7 @@
 */
 
 #include "picoquic_internal.h"
+#include "memory.h"
 #include <stdlib.h>
 
 /*
@@ -62,7 +63,7 @@ int picoquic_is_pn_already_received(picoquic_path_t* path_x,
  * Record it in the chain.
  */
 
-int picoquic_update_sack_list(picoquic_sack_item_t* sack,
+int picoquic_update_sack_list(picoquic_cnx_t* cnx, picoquic_sack_item_t* sack,
     uint64_t pn64_min, uint64_t pn64_max)
 {
     int ret = 1; /* duplicate by default, reset to 0 if update found */
@@ -83,7 +84,7 @@ int picoquic_update_sack_list(picoquic_sack_item_t* sack,
                     if (previous != NULL && pn64_max + 1 >= previous->start_of_sack_range) {
                         previous->start_of_sack_range = sack->start_of_sack_range;
                         previous->next_sack = sack->next_sack;
-                        free(sack);
+                        my_free(cnx, sack);
                         sack = previous;
                     } else {
                         /* add at end of range */
@@ -109,7 +110,7 @@ int picoquic_update_sack_list(picoquic_sack_item_t* sack,
                     break;
                 } else {
                     /* Found a new hole */
-                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)malloc(sizeof(picoquic_sack_item_t));
+                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)my_malloc(cnx, sizeof(picoquic_sack_item_t));
                     if (new_hole == NULL) {
                         /* memory error. That's infortunate */
                         ret = -1;
@@ -150,7 +151,7 @@ int picoquic_update_sack_list(picoquic_sack_item_t* sack,
                 } else {
                     /* this is an old packet, beyond the current range of SACK */
                     /* Found a new hole */
-                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)malloc(sizeof(picoquic_sack_item_t));
+                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)my_malloc(cnx, sizeof(picoquic_sack_item_t));
                     if (new_hole == NULL) {
                         /* memory error. That's infortunate */
                         ret = -1;
@@ -173,7 +174,7 @@ int picoquic_update_sack_list(picoquic_sack_item_t* sack,
     return ret;
 }
 
-int picoquic_record_pn_received(picoquic_path_t* path_x,
+int picoquic_record_pn_received(picoquic_cnx_t* cnx, picoquic_path_t* path_x,
     picoquic_packet_context_enum pc, uint64_t pn64,
     uint64_t current_microsec)
 {
@@ -191,7 +192,7 @@ int picoquic_record_pn_received(picoquic_path_t* path_x,
             path_x->pkt_ctx[pc].time_stamp_largest_received = current_microsec;
         }
 
-        ret = picoquic_update_sack_list(sack, pn64, pn64);
+        ret = picoquic_update_sack_list(cnx, sack, pn64, pn64);
     }
 
     return ret;

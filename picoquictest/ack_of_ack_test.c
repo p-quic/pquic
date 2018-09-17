@@ -20,6 +20,7 @@
 */
 
 #include "../picoquic/picoquic_internal.h"
+#include "memory.h"
 #include <stdlib.h>
 
 /*
@@ -215,12 +216,16 @@ static int ack_of_ack_do_one_test(test_ack_of_ack_t const* sample)
     uint8_t ack[1024];
     size_t ack_length;
     size_t consumed;
+    picoquic_cnx_t cnx;
+
+    memset(&cnx, 0, sizeof(picoquic_cnx_t));
+    init_memory_management(&cnx);
 
     fill_test_sack_list(&sack_head, sample->initial, sample->nb_initial);
     ack_length = build_test_ack(sample->ack, sample->nb_ack, ack, sizeof(ack),
         sample->version_flags);
 
-    ret = picoquic_process_ack_of_ack_frame(&sack_head, ack, ack_length, &consumed, 0);
+    ret = picoquic_process_ack_of_ack_frame(&cnx, &sack_head, ack, ack_length, &consumed, 0);
 
     if (ret == 0) {
         ret = cmp_test_sack_list(&sack_head, sample->result, sample->nb_result);
