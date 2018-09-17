@@ -828,21 +828,24 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         if (cnx != NULL) {
             for (picoquic_packet_context_enum pc = 0;
                 pc < picoquic_nb_packet_context; pc++) {
-                cnx->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
-                cnx->pkt_ctx[pc].first_sack_item.end_of_sack_range = 0;
-                cnx->pkt_ctx[pc].first_sack_item.next_sack = NULL;
-                cnx->pkt_ctx[pc].highest_ack_sent = 0;
-                cnx->pkt_ctx[pc].highest_ack_time = start_time;
-                cnx->pkt_ctx[pc].time_stamp_largest_received = (uint64_t)((int64_t)-1);
-                cnx->pkt_ctx[pc].send_sequence = 0;
-                cnx->pkt_ctx[pc].nb_retransmit = 0;
-                cnx->pkt_ctx[pc].latest_retransmit_time = 0;
-                cnx->pkt_ctx[pc].retransmit_newest = NULL;
-                cnx->pkt_ctx[pc].retransmit_oldest = NULL;
-                cnx->pkt_ctx[pc].highest_acknowledged = cnx->pkt_ctx[pc].send_sequence - 1;
-                cnx->pkt_ctx[pc].latest_time_acknowledged = start_time;
-                cnx->pkt_ctx[pc].ack_needed = 0;
-                cnx->pkt_ctx[pc].ack_delay_local = 10000;
+                for (int i = 0; i < cnx->nb_paths; i++) {
+                    picoquic_path_t* path_x = cnx->path[i];
+                    path_x->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
+                    path_x->pkt_ctx[pc].first_sack_item.end_of_sack_range = 0;
+                    path_x->pkt_ctx[pc].first_sack_item.next_sack = NULL;
+                    path_x->pkt_ctx[pc].highest_ack_sent = 0;
+                    path_x->pkt_ctx[pc].highest_ack_time = start_time;
+                    path_x->pkt_ctx[pc].time_stamp_largest_received = (uint64_t)((int64_t)-1);
+                    path_x->pkt_ctx[pc].send_sequence = 0;
+                    path_x->pkt_ctx[pc].nb_retransmit = 0;
+                    path_x->pkt_ctx[pc].latest_retransmit_time = 0;
+                    path_x->pkt_ctx[pc].retransmit_newest = NULL;
+                    path_x->pkt_ctx[pc].retransmit_oldest = NULL;
+                    path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
+                    path_x->pkt_ctx[pc].latest_time_acknowledged = start_time;
+                    path_x->pkt_ctx[pc].ack_needed = 0;
+                    path_x->pkt_ctx[pc].ack_delay_local = 10000;
+                }
             }
 
             cnx->latest_progress_time = start_time;
@@ -923,13 +926,13 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x38), "plugins/ecn/prepare_ecn_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/ecn/prepare_packet_ready.o");
 */
-
+/*
     plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), "plugins/multipath/decode_mp_new_connection_id_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/multipath/decode_frames.o");
     plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_mp_new_connection_id_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/multipath/prepare_packet_ready.o");
     plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/multipath/update_rtt.o");
-
+*/
     return cnx;
 }
 
@@ -1179,10 +1182,10 @@ void picoquic_clear_stream(picoquic_stream_head* stream)
 }
 
 void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
-    picoquic_packet_context_enum pc)
+    picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
     /* TODO: special case for 0-RTT packets! */
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
 
     while (pkt_ctx->retransmit_newest != NULL) {
         picoquic_dequeue_retransmit_packet(cnx, pkt_ctx->retransmit_newest, 1);
@@ -1230,7 +1233,7 @@ int picoquic_reset_cnx(picoquic_cnx_t* cnx, uint64_t current_time)
          * packets, and to keep using the same sequence number space in
          * the new connection */
         if (pc != picoquic_packet_context_application) {
-            picoquic_reset_packet_context(cnx, pc);
+            picoquic_reset_packet_context(cnx, pc, cnx->path[0]);
         }
     }
 
@@ -1404,7 +1407,9 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         for (picoquic_packet_context_enum pc = 0;
             pc < picoquic_nb_packet_context; pc++) {
-            picoquic_reset_packet_context(cnx, pc);
+            for (int i = 0; i < cnx->nb_paths; i++) {
+                picoquic_reset_packet_context(cnx, pc, cnx->path[i]);
+            }
         }
 
         while ((misc_frame = cnx->first_misc_frame) != NULL) {

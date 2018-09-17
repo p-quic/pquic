@@ -1254,6 +1254,7 @@ int picoquic_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
  * uint64_t end_of_range = cnx->protoop_inputv[1]
  * uint64_t current_time = cnx->protoop_inputv[2]
  * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
+ * picoquic_path_t* path_x = cnx->protoop_inputv[4]
  *
  * Output: none
  */
@@ -1263,8 +1264,9 @@ protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
     uint64_t end_of_range = (uint64_t) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[3];
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[4];
 
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) &path_x->pkt_ctx[pc];
     picoquic_packet_t* p = pkt_ctx->retransmitted_newest;
 
     while (p != NULL) {
@@ -1316,10 +1318,10 @@ protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
 
 void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
     uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
-    picoquic_packet_context_enum pc)
+    picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
     protoop_prepare_and_run(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, NULL,
-        start_of_range, end_of_range, current_time, pc);
+        start_of_range, end_of_range, current_time, pc, path_x);
 }
 
 /**
@@ -1327,6 +1329,7 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
  * uint64_t current_time = cnx->protoop_inputv[1]
  * uint64_t ack_delay = cnx->protoop_inputv[2]
  * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
+ * picoquic_path_t* path_x = cnx->protoop_inputv[4]
  *
  * Output: picoquic_packet_t* packet
  */
@@ -1336,8 +1339,9 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
     uint64_t ack_delay = (uint64_t) cnx->protoop_inputv[2];
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[3];
+    picoquic_path_t* path_x = (picoquic_path_t *) cnx->protoop_inputv[4];
 
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
     picoquic_packet_t* packet = pkt_ctx->retransmit_newest;
 
     /* Check whether this is a new acknowledgement */
@@ -1430,10 +1434,10 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 }
 
 static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
-    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc)
+    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
     return (picoquic_packet_t *) protoop_prepare_and_run(cnx, PROTOOPID_UPDATE_RTT, NULL,
-        largest, current_time, ack_delay, pc);
+        largest, current_time, ack_delay, pc, path_x);
 }
 
 static void picoquic_process_ack_of_ack_range(picoquic_sack_item_t* first_sack,
@@ -1660,11 +1664,11 @@ void picoquic_process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_pa
 
     while (ret == 0 && byte_index < p->length) {
         if (p->bytes[byte_index] == picoquic_frame_type_ack) {
-            ret = picoquic_process_ack_of_ack_frame(&cnx->pkt_ctx[p->pc].first_sack_item,
+            ret = picoquic_process_ack_of_ack_frame(&p->send_path->pkt_ctx[p->pc].first_sack_item,
                 &p->bytes[byte_index], p->length - byte_index, &frame_length, 0);
             byte_index += frame_length;
         } else if (p->bytes[byte_index] == picoquic_frame_type_ack_ecn) {
-            ret = picoquic_process_ack_of_ack_frame(&cnx->pkt_ctx[p->pc].first_sack_item,
+            ret = picoquic_process_ack_of_ack_frame(&p->send_path->pkt_ctx[p->pc].first_sack_item,
                 &p->bytes[byte_index], p->length - byte_index, &frame_length, 1);
             byte_index += frame_length;
         } else if (PICOQUIC_IN_RANGE(p->bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
@@ -1722,10 +1726,11 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                     old_path->mtu_probe_sent = 0;
                 }
 
+                /* Any acknowledgement shows progress */
+                p->send_path->pkt_ctx[pc].nb_retransmit = 0;
+
                 picoquic_dequeue_retransmit_packet(cnx, p, 1);
                 p = next;
-                /* Any acknowledgement shows progress */
-                cnx->pkt_ctx[pc].nb_retransmit = 0;
             }
 
             range--;
@@ -1755,6 +1760,7 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
     picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
     uint64_t ecnx3[3];
     uint8_t first_byte = bytes[0];
+    picoquic_path_t* path_x = cnx->path[0];
 
     if (picoquic_parse_ack_header(bytes, bytes_max-bytes, &num_block, 
         (is_ecn)? ecnx3:NULL,
@@ -1762,7 +1768,7 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
         cnx->remote_parameters.ack_delay_exponent) != 0) {
         bytes = NULL;
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
-    } else if (largest >= cnx->pkt_ctx[pc].send_sequence) {
+    } else if (largest >= path_x->pkt_ctx[pc].send_sequence) {
         bytes = NULL;
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
     } else {
@@ -1775,7 +1781,7 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
         }
 
         /* Attempt to update the RTT */
-        picoquic_packet_t* top_packet = picoquic_update_rtt(cnx, largest, current_time, ack_delay, pc);
+        picoquic_packet_t* top_packet = picoquic_update_rtt(cnx, largest, current_time, ack_delay, pc, path_x);
 
         while (bytes != NULL) {
             uint64_t range;
@@ -1802,7 +1808,7 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
             }
 
             if (range > 0) {
-                picoquic_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc);
+                picoquic_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc, path_x);
             }
 
             if (num_block-- == 0)
@@ -1895,7 +1901,8 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_first_range = 0;
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_path_t* path_x = cnx->path[0];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
     picoquic_sack_item_t* next_sack = pkt_ctx->first_sack_item.next_sack;
     uint64_t ack_delay = 0;
     uint64_t ack_range = 0;
@@ -2096,6 +2103,7 @@ int picoquic_prepare_ack_ecn_frame(picoquic_cnx_t* cnx, uint64_t current_time,
 /**
  * uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
  * picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+ * picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[2];
  *
  * Output: is ack needed (int)
  */
@@ -2103,9 +2111,10 @@ protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[2];
 
     int ret = 0;
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
 
     if (pkt_ctx->highest_ack_sent + 2 <= pkt_ctx->first_sack_item.end_of_sack_range ||
         pkt_ctx->highest_ack_time + pkt_ctx->ack_delay_local <= current_time) {
@@ -2115,10 +2124,11 @@ protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
     return (protoop_arg_t) ret;
 }
 
-int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc)
+int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc,
+    picoquic_path_t* path_x)
 {
     return (int) protoop_prepare_and_run(cnx, PROTOOPID_IS_ACK_NEEDED, NULL,
-        current_time, pc);
+        current_time, pc, path_x);
 }
 
 /*
@@ -2827,13 +2837,14 @@ static uint8_t* picoquic_skip_0len_frame(uint8_t* bytes, const uint8_t* bytes_ma
  * cnx->protoop_inputv[1] = size_t bytes_maxsize
  * cnx->protoop_inputv[2] = int epoch
  * cnx->protoop_inputv[3] = uint64_t current_time
+ * picoquic_path_t* path_x = cnx->protoop_inputv[4]
  *
  * Output: error code (int)
  */
 protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
 {
     /* Is argc at the right value? */
-    if (cnx->protoop_inputc != 4) {
+    if (cnx->protoop_inputc != 5) {
         printf("Not matching number of arguments: %d != %d\n", cnx->protoop_inputc, 4);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC;
     }
@@ -2842,11 +2853,12 @@ protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
     size_t bytes_maxsize = (size_t) cnx->protoop_inputv[1];
     int epoch = (int) cnx->protoop_inputv[2];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[3];
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[4];
 
     const uint8_t *bytes_max = bytes + bytes_maxsize;
     int ack_needed = 0;
     picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
 
     while (bytes != NULL && bytes < bytes_max) {
         uint8_t first_byte = bytes[0];
@@ -2983,10 +2995,10 @@ protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
  */
 
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_maxsize, int epoch, uint64_t current_time)
+    size_t bytes_maxsize, int epoch, uint64_t current_time, picoquic_path_t* path_x)
 {
     return (int) protoop_prepare_and_run(cnx, PROTOOPID_DECODE_FRAMES, NULL,
-        bytes, bytes_maxsize, epoch, current_time);
+        bytes, bytes_maxsize, epoch, current_time, path_x);
 }
 
 /*

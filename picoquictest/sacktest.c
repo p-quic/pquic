@@ -20,6 +20,7 @@
 */
 
 #include "../picoquic/picoquic_internal.h"
+#include "../picoquic/memory.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -67,38 +68,38 @@ static struct expected_ack_t expected_ack[] = {
 int sacktest()
 {
     int ret = 0;
-    picoquic_cnx_t cnx;
+    picoquic_path_t path_x;
     uint64_t current_time = 0;
     uint64_t highest_seen = 0;
     uint64_t highest_seen_time = 0;
     picoquic_packet_context_enum pc = 0;
 
-    memset(&cnx, 0, sizeof(cnx));
-    cnx.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
+    memset(&path_x, 0, sizeof(path_x));
+    path_x.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
 
     /* Do a basic test with packet zero */
 
-    if (picoquic_is_pn_already_received(&cnx, pc, 0) != 0) {
+    if (picoquic_is_pn_already_received(&path_x, pc, 0) != 0) {
         ret = -1;
     }
 
-    if (picoquic_record_pn_received(&cnx, pc, 0, current_time) != 0) {
+    if (picoquic_record_pn_received(&path_x, pc, 0, current_time) != 0) {
         ret = -1;
     }
 
-    if (picoquic_is_pn_already_received(&cnx, pc, 0) == 0) {
+    if (picoquic_is_pn_already_received(&path_x, pc, 0) == 0) {
         ret = -1;
     }
 
-    if (cnx.pkt_ctx[pc].first_sack_item.start_of_sack_range != 0 ||
-        cnx.pkt_ctx[pc].first_sack_item.end_of_sack_range != 0 ||
-        cnx.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
+    if (path_x.pkt_ctx[pc].first_sack_item.start_of_sack_range != 0 ||
+        path_x.pkt_ctx[pc].first_sack_item.end_of_sack_range != 0 ||
+        path_x.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
         ret = -1;
     }
     else {
         /* reset for the next test */
-        memset(&cnx, 0, sizeof(cnx));
-        cnx.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
+        memset(&path_x, 0, sizeof(path_x));
+        path_x.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
     }
 
     for (size_t i = 0; ret == 0 && i < nb_test_pn64; i++) {
@@ -109,40 +110,40 @@ int sacktest()
             highest_seen_time = current_time;
         }
 
-        if (picoquic_record_pn_received(&cnx, pc, test_pn64[i], current_time) != 0) {
+        if (picoquic_record_pn_received(&path_x, pc, test_pn64[i], current_time) != 0) {
             ret = -1;
         }
 
         for (size_t j = 0; ret == 0 && j <= i; j++) {
-            if (picoquic_is_pn_already_received(&cnx, pc, test_pn64[j]) == 0) {
+            if (picoquic_is_pn_already_received(&path_x, pc, test_pn64[j]) == 0) {
                 ret = -1;
             }
 
-            if (picoquic_record_pn_received(&cnx, pc, test_pn64[j], current_time) != 1) {
+            if (picoquic_record_pn_received(&path_x, pc, test_pn64[j], current_time) != 1) {
                 ret = -1;
             }
         }
 
         for (size_t j = i + 1; ret == 0 && j < nb_test_pn64; j++) {
-            if (picoquic_is_pn_already_received(&cnx, pc, test_pn64[j]) != 0) {
+            if (picoquic_is_pn_already_received(&path_x, pc, test_pn64[j]) != 0) {
                 ret = -1;
             }
         }
     }
 
     if (ret == 0) {
-        if (cnx.pkt_ctx[pc].first_sack_item.end_of_sack_range != 21 || 
-            cnx.pkt_ctx[pc].first_sack_item.start_of_sack_range != 0 || 
-            cnx.pkt_ctx[pc].time_stamp_largest_received != highest_seen_time ||
-            cnx.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
+        if (path_x.pkt_ctx[pc].first_sack_item.end_of_sack_range != 21 || 
+            path_x.pkt_ctx[pc].first_sack_item.start_of_sack_range != 0 || 
+            path_x.pkt_ctx[pc].time_stamp_largest_received != highest_seen_time ||
+            path_x.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
             ret = -1;
         }
     }
 
     /* Reset the sack lists*/
-    while (cnx.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
-        picoquic_sack_item_t * next = cnx.pkt_ctx[pc].first_sack_item.next_sack;
-        cnx.pkt_ctx[pc].first_sack_item.next_sack = next->next_sack;
+    while (path_x.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
+        picoquic_sack_item_t * next = path_x.pkt_ctx[pc].first_sack_item.next_sack;
+        path_x.pkt_ctx[pc].first_sack_item.next_sack = next->next_sack;
         free(next);
     }
 
@@ -274,20 +275,24 @@ int sendacktest()
 {
     int ret = 0;
     picoquic_cnx_t cnx;
-    uint64_t current_time;
+    uint64_t current_time = 79494949;
     uint64_t received_mask = 0;
     uint8_t bytes[256];
     size_t consumed;
     picoquic_packet_context_enum pc = 0;
+    struct sockaddr_in addr;
 
     memset(&cnx, 0, sizeof(cnx));
-    cnx.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
+    init_memory_management(&cnx);
+    picoquic_create_path(&cnx, current_time, (struct sockaddr *) &addr);
+    picoquic_path_t *path_x = cnx.path[0];
+    path_x->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; ret == 0 && i < nb_test_pn64; i++) {
         current_time = i * 100;
 
-        if (picoquic_record_pn_received(&cnx, pc, test_pn64[i], current_time) != 0) {
+        if (picoquic_record_pn_received(path_x, pc, test_pn64[i], current_time) != 0) {
             ret = -1;
         }
 

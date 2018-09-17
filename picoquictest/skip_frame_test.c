@@ -399,6 +399,7 @@ int parse_frame_test()
                 ret = -1;
             }
             else {
+                picoquic_path_t* path_x = cnx->path[0];
                 uint8_t *buffer = (uint8_t *) my_malloc(cnx, PICOQUIC_MAX_PACKET_SIZE);
                 if (!buffer) {
                     ret = -1;
@@ -415,18 +416,18 @@ int parse_frame_test()
 
                 pc = picoquic_context_from_epoch(test_skip_list[i].epoch);
 
-                cnx->pkt_ctx[0].send_sequence = 0x0102030406;
+                path_x->pkt_ctx[0].send_sequence = 0x0102030406;
 
-                t_ret = picoquic_decode_frames(cnx, buffer, byte_max, test_skip_list[i].epoch, simulated_time);
+                t_ret = picoquic_decode_frames(cnx, buffer, byte_max, test_skip_list[i].epoch, simulated_time, path_x);
 
                 if (t_ret != 0) {
                     DBG_PRINTF("Parse frame <%s> fails, ret = %d\n", test_skip_list[i].name, t_ret);
                     ret = t_ret;
                 }
-                else if ((cnx->pkt_ctx[pc].ack_needed != 0 && test_skip_list[i].is_pure_ack != 0) ||
-                    (cnx->pkt_ctx[pc].ack_needed == 0 && test_skip_list[i].is_pure_ack == 0)) {
+                else if ((path_x->pkt_ctx[pc].ack_needed != 0 && test_skip_list[i].is_pure_ack != 0) ||
+                    (path_x->pkt_ctx[pc].ack_needed == 0 && test_skip_list[i].is_pure_ack == 0)) {
                     DBG_PRINTF("Parse frame <%s> fails, ack needed: %d, expected pure ack: %d\n",
-                        test_skip_list[i].name, (int)cnx->pkt_ctx[pc].ack_needed, (int)test_skip_list[i].is_pure_ack);
+                        test_skip_list[i].name, (int)path_x->pkt_ctx[pc].ack_needed, (int)test_skip_list[i].is_pure_ack);
                     ret = -1;
                 }
 

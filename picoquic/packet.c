@@ -344,6 +344,7 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
 {
     size_t decoded;
     size_t length = ph->offset + ph->payload_length; /* this may change after decrypting the PN */
+    picoquic_path_t* path_x = cnx->path[0];
 
     if (already_received != NULL) {
         *already_received = 0;
@@ -420,11 +421,11 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
 
     /* Build a packet number to 64 bits */
     ph->pn64 = picoquic_get_packet_number64(
-        (already_received==NULL)?cnx->pkt_ctx[ph->pc].send_sequence:
-        cnx->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
+        (already_received==NULL)?path_x->pkt_ctx[ph->pc].send_sequence:
+        path_x->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
 
     /* verify that the packet is new */
-    if (already_received != NULL && picoquic_is_pn_already_received(cnx, ph->pc, ph->pn64) != 0) {
+    if (already_received != NULL && picoquic_is_pn_already_received(cnx->path[0], ph->pc, ph->pn64) != 0) {
         /* Set error type: already received */
         *already_received = 1;
     } 
@@ -799,8 +800,9 @@ int picoquic_incoming_initial(
 
     /* decode the incoming frames */
     if (ret == 0) {
+        picoquic_path_t* path_x = (*pcnx)->path[0];
         ret = picoquic_decode_frames(*pcnx,
-            bytes + ph->offset + extra_offset, ph->payload_length - extra_offset, ph->epoch, current_time);
+            bytes + ph->offset + extra_offset, ph->payload_length - extra_offset, ph->epoch, current_time, path_x);
     }
 
     /* processing of client initial packet */
@@ -953,8 +955,9 @@ int picoquic_incoming_server_cleartext(
 
     if (ret == 0) {
         /* Accept the incoming frames */
+        picoquic_path_t* path_x = cnx->path[0];
         ret = picoquic_decode_frames(cnx,
-            bytes + ph->offset, ph->payload_length, ph->epoch, current_time);
+            bytes + ph->offset, ph->payload_length, ph->epoch, current_time, path_x);
     }
 
     /* processing of initial packet */
@@ -989,8 +992,9 @@ int picoquic_incoming_client_cleartext(
             ret = PICOQUIC_ERROR_CNXID_CHECK;
         } else {
             /* Accept the incoming frames */
+            picoquic_path_t* path_x = cnx->path[0];
             ret = picoquic_decode_frames(cnx,
-                bytes + ph->offset, ph->payload_length, ph->epoch, current_time);
+                bytes + ph->offset, ph->payload_length, ph->epoch, current_time, path_x);
 
             /* processing of client clear text packet */
             if (ret == 0) {
@@ -1048,8 +1052,9 @@ int picoquic_incoming_0rtt(
             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, 0);
         } else {
             /* Accept the incoming frames */
+            picoquic_path_t* path_x = cnx->path[0];
             ret = picoquic_decode_frames(cnx,
-                bytes + ph->offset, ph->payload_length, ph->epoch, current_time);
+                bytes + ph->offset, ph->payload_length, ph->epoch, current_time, path_x);
 
             if (ret == 0) {
                 /* Processing of TLS messages -- EOED */
@@ -1088,6 +1093,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
 
     int ret = 0;
     picoquic_packet_context_enum pc = ph->pc;
+    picoquic_path_t* path_x = cnx->path[0];
 
     if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) != 0) {
         ret = PICOQUIC_ERROR_CNXID_CHECK;
@@ -1100,7 +1106,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
     }
     else {
         /* Packet is correct */
-        if (ph->pn64 > cnx->pkt_ctx[pc].first_sack_item.end_of_sack_range) {
+        if (ph->pn64 > path_x->pkt_ctx[pc].first_sack_item.end_of_sack_range) {
             cnx->current_spin = ph->spin ^ cnx->client_mode;
             if (ph->has_spin_bit && cnx->current_spin != cnx->prev_spin) {
                 // got an edge 
@@ -1130,7 +1136,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                         }
                     }
                     else {
-                        cnx->pkt_ctx[ph->pc].ack_needed = 1;
+                        path_x->pkt_ctx[ph->pc].ack_needed = 1;
                     }
                 }
             }
@@ -1165,7 +1171,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
             }
             /* Accept the incoming frames */
             ret = picoquic_decode_frames(cnx,
-                bytes + ph->offset, ph->payload_length, ph->epoch, current_time);
+                bytes + ph->offset, ph->payload_length, ph->epoch, current_time, path_x);
         }
 
         if (ret == 0) {
@@ -1340,7 +1346,7 @@ int picoquic_incoming_segment(
         if (cnx != NULL && cnx->cnx_state != picoquic_state_disconnected &&
             ph.ptype != picoquic_packet_version_negotiation) {
             /* Mark the sequence number as received */
-            ret = picoquic_record_pn_received(cnx, ph.pc, ph.pn64, current_time);
+            ret = picoquic_record_pn_received(cnx->path[0], ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
             picoquic_cnx_set_next_wake_time(cnx, current_time);
@@ -1348,7 +1354,8 @@ int picoquic_incoming_segment(
     } else if (ret == PICOQUIC_ERROR_DUPLICATE) {
         /* Bad packets are dropped silently, but duplicates should be acknowledged */
         if (cnx != NULL) {
-            cnx->pkt_ctx[ph.pc].ack_needed = 1;
+            picoquic_path_t* path_x = cnx->path[0];
+            path_x->pkt_ctx[ph.pc].ack_needed = 1;
         }
         ret = -1;
     } else if (ret == PICOQUIC_ERROR_AEAD_CHECK || ret == PICOQUIC_ERROR_INITIAL_TOO_SHORT ||

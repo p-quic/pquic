@@ -497,7 +497,7 @@ int test_packet_encrypt_one(
         packet->ptype = ptype;
         packet->offset = header_length;
         packet->length = length;
-        packet->sequence_number = cnx_client->pkt_ctx[pc].send_sequence;
+        packet->sequence_number = cnx_client->path[0]->pkt_ctx[pc].send_sequence;
         packet->send_path = cnx_client->path[0];
 
         /* Create a packet with specified parameters */

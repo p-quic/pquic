@@ -540,8 +540,9 @@ static int stress_handle_packet_prepare(picoquic_stress_ctx_t * ctx, picoquic_qu
         if (c_ctx != NULL && cnx->cnx_state == picoquic_state_disconnected &&
             c_ctx->message_disconnect_trigger == 0) {
             uint64_t nb_sent = 0;
+            picoquic_path_t* path_x = cnx->path[0];
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
-                nb_sent += cnx->pkt_ctx[pc].send_sequence;
+                nb_sent += path_x->pkt_ctx[pc].send_sequence;
             }
             if (nb_sent > c_ctx->message_disconnect_trigger) {
                 /* simulate an abrupt disconnect */
