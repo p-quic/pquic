@@ -26,197 +26,212 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
     int is_cleartext_mode = (int) cnx->protoop_inputv[5];
     uint32_t header_length = (uint32_t) cnx->protoop_inputv[6];
 
-    picoquic_packet_t* p = cnx->pkt_ctx[pc].retransmit_oldest;
     uint32_t length = 0;
+    bool stop = false;
 
-    /* TODO: while packets are pure ACK, drop them from retransmit queue */
-    while (p != NULL) {
-        int should_retransmit = 0;
-        int timer_based_retransmit = 0;
-        uint64_t lost_packet_number = p->sequence_number;
-        picoquic_packet_t* p_next = p->next_packet;
-        //picoquic_packet_header ph;
-        int ret = 0;
-        //picoquic_cnx_t* pcnx = cnx;
+    for (int i = 0; i < cnx->nb_paths; i++) {
+        picoquic_path_t* orig_path = cnx->path[i];
+        picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
+        /* TODO: while packets are pure ACK, drop them from retransmit queue */
+        while (p != NULL) {
+            int should_retransmit = 0;
+            int timer_based_retransmit = 0;
+            uint64_t lost_packet_number = p->sequence_number;
+            picoquic_packet_t* p_next = p->next_packet;
+            uint8_t * new_bytes = packet->bytes;
+            int ret = 0;
 
-        length = 0;
-        /* Get the packet type */
+            length = 0;
+            /* Get the packet type */
 
-        should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
+            should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
 
-        if (should_retransmit == 0) {
-            /*
-             * Always retransmit in order. If not this one, then nothing.
-             * But make an exception for 0-RTT packets.
-             */
-            if (p->ptype == picoquic_packet_0rtt_protected) {
-                p = p_next;
-                continue;
-            } else {
-                break;
-            }
-        } else {
-            /* check if this is an ACK only packet */
-            int packet_is_pure_ack = 1;
-            int do_not_detect_spurious = 1;
-            int frame_is_pure_ack = 0;
-            uint8_t* bytes = packet->bytes;
-            size_t frame_length = 0;
-            size_t byte_index = 0; /* Used when parsing the old packet */
-            size_t checksum_length = 0;
-            /* TODO: should be the path on which the packet was transmitted */
-            picoquic_path_t * old_path = p->send_path;
-
-            header_length = 0;
-
-            if (p->ptype == picoquic_packet_0rtt_protected) {
-                /* Only retransmit as 0-RTT if contains crypto data */
-                int contains_crypto = 0;
-                byte_index = p->offset;
-
-                while (ret == 0 && byte_index < p->length) {
-                    if (bytes[byte_index] == picoquic_frame_type_crypto_hs) {
-                        contains_crypto = 1;
-                        packet_is_pure_ack = 0;
-                        break;
-                    }
-                    ret = helper_skip_frame(cnx, &p->bytes[byte_index],
-                        p->length - byte_index, &frame_length, &frame_is_pure_ack);
-                    byte_index += frame_length;
-                }
-                byte_index = 0;
-
-                if (contains_crypto) {
-                    length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected);
-                    packet->ptype = picoquic_packet_0rtt_protected;
-                    packet->offset = length;
-                } else if (cnx->cnx_state < picoquic_state_client_ready) {
-                    should_retransmit = 0;
+            if (should_retransmit == 0) {
+                /*
+                * Always retransmit in order. If not this one, then nothing.
+                * But make an exception for 0-RTT packets.
+                */
+                if (p->ptype == picoquic_packet_0rtt_protected) {
+                    p = p_next;
+                    continue;
                 } else {
-                    length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0);
-                    packet->ptype = picoquic_packet_1rtt_protected_phi0;
-                    packet->offset = length;
+                    break;
                 }
             } else {
-                length = helper_predict_packet_header_length(cnx, p->ptype);
-                packet->ptype = p->ptype;
-                packet->offset = length;
-            }
+                /* check if this is an ACK only packet */
+                int packet_is_pure_ack = 1;
+                int do_not_detect_spurious = 1;
+                int frame_is_pure_ack = 0;
+                uint8_t* old_bytes = p->bytes;
+                size_t frame_length = 0;
+                size_t byte_index = 0; /* Used when parsing the old packet */
+                size_t checksum_length = 0;
+                /* TODO: should be the path on which the packet was transmitted */
+                picoquic_path_t * old_path = p->send_path;
 
-            if (should_retransmit != 0) {
-                packet->sequence_number = cnx->pkt_ctx[pc].send_sequence;
-                packet->send_path = path_x;
-                packet->pc = pc;
+                header_length = 0;
 
-                header_length = length;
-
-                if (p->ptype == picoquic_packet_1rtt_protected_phi0 || p->ptype == picoquic_packet_1rtt_protected_phi1 || p->ptype == picoquic_packet_0rtt_protected) {
-                    is_cleartext_mode = 0;
-                } else {
-                    is_cleartext_mode = 1;
-                }
-
-                if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
-                    /* MTU probe was lost, presumably because of packet too big */
-                    old_path->mtu_probe_sent = 0;
-                    old_path->send_mtu_max_tried = (uint32_t)(p->length + p->checksum_overhead);
-                    /* MTU probes should not be retransmitted */
-                    packet_is_pure_ack = 1;
-                    do_not_detect_spurious = 0;
-                } else {
-                    checksum_length = helper_get_checksum_length(cnx, is_cleartext_mode);
-
-                    /* Copy the relevant bytes from one packet to the next */
+                if (p->ptype == picoquic_packet_0rtt_protected) {
+                    /* Only retransmit as 0-RTT if contains crypto data */
+                    int contains_crypto = 0;
                     byte_index = p->offset;
 
-                    while (ret == 0 && byte_index < p->length) {
-                        ret = helper_skip_frame(cnx, &p->bytes[byte_index],
-                            p->length - byte_index, &frame_length, &frame_is_pure_ack);
-
-                        /* Check whether the data was already acked, which may happen in 
-                         * case of spurious retransmissions */
-                        if (ret == 0 && frame_is_pure_ack == 0) {
-                            ret = helper_check_stream_frame_already_acked(cnx, &p->bytes[byte_index],
-                                frame_length, &frame_is_pure_ack);
-                        }
-
-                        /* Prepare retransmission if needed */
-                        if (ret == 0 && !frame_is_pure_ack) {
-                            if (helper_is_stream_frame_unlimited(&p->bytes[byte_index])) {
-                                /* Need to PAD to the end of the frame to avoid sending extra bytes */
-                                while (checksum_length + length + frame_length < send_buffer_max) {
-                                    bytes[length] = picoquic_frame_type_padding;
-                                    length++;
-                                }
+                    if (p->is_evaluated == 0) {
+                        while (ret == 0 && byte_index < p->length) {
+                            if (old_bytes[byte_index] == picoquic_frame_type_crypto_hs) {
+                                contains_crypto = 1;
+                                packet_is_pure_ack = 0;
+                                break;
                             }
-                            my_memcpy(&bytes[length], &p->bytes[byte_index], frame_length);
-                            length += (uint32_t)frame_length;
-                            packet_is_pure_ack = 0;
+                            ret = helper_skip_frame(cnx, &p->bytes[byte_index],
+                                p->length - byte_index, &frame_length, &frame_is_pure_ack);
+                            byte_index += frame_length;
                         }
-                        byte_index += frame_length;
+                        p->contains_crypto = contains_crypto;
+                        p->is_pure_ack = packet_is_pure_ack;
+                        p->is_evaluated = 1;
+                    } else {
+                        contains_crypto = p->contains_crypto;
+                        packet_is_pure_ack = p->is_pure_ack;
                     }
+
+                    if (contains_crypto) {
+                        length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected);
+                        packet->ptype = picoquic_packet_0rtt_protected;
+                        packet->offset = length;
+                    } else if (cnx->cnx_state < picoquic_state_client_ready) {
+                        should_retransmit = 0;
+                    } else {
+                        length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0);
+                        packet->ptype = picoquic_packet_1rtt_protected_phi0;
+                        packet->offset = length;
+                    }
+                } else {
+                    length = helper_predict_packet_header_length(cnx, p->ptype);
+                    packet->ptype = p->ptype;
+                    packet->offset = length;
                 }
 
-                /* Update the number of bytes in transit and remove old packet from queue */
-                /* If not pure ack, the packet will be placed in the "retransmitted" queue,
-                 * in order to enable detection of spurious restransmissions */
-                helper_dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
+                if (should_retransmit != 0) {
+                    packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
+                    packet->send_path = path_x;
+                    packet->pc = pc;
 
-                /* If we have a good packet, return it */
-                if (packet_is_pure_ack) {
-                    length = 0;
-                    should_retransmit = 0;
-                } else {
-                    if (timer_based_retransmit != 0) {
-                        if (cnx->pkt_ctx[pc].nb_retransmit > 4) {
-                            /*
-                             * Max retransmission count was exceeded. Disconnect.
-                             */
-                            /* DBG_PRINTF("%s\n", "Too many retransmits, disconnect"); */
-                            cnx->cnx_state = picoquic_state_disconnected;
-                            helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
-                            length = 0;
-                            should_retransmit = 0;
-                            break;
-                        } else {
-                            cnx->pkt_ctx[pc].nb_retransmit++;
-                            cnx->pkt_ctx[pc].latest_retransmit_time = current_time;
+                    header_length = length;
+
+                    if (p->ptype == picoquic_packet_1rtt_protected_phi0 || p->ptype == picoquic_packet_1rtt_protected_phi1 || p->ptype == picoquic_packet_0rtt_protected) {
+                        is_cleartext_mode = 0;
+                    } else {
+                        is_cleartext_mode = 1;
+                    }
+
+                    if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
+                        /* MTU probe was lost, presumably because of packet too big */
+                        old_path->mtu_probe_sent = 0;
+                        old_path->send_mtu_max_tried = (uint32_t)(p->length + p->checksum_overhead);
+                        /* MTU probes should not be retransmitted */
+                        packet_is_pure_ack = 1;
+                        do_not_detect_spurious = 0;
+                    } else {
+                        checksum_length = helper_get_checksum_length(cnx, is_cleartext_mode);
+
+                        /* Copy the relevant bytes from one packet to the next */
+                        byte_index = p->offset;
+
+                        while (ret == 0 && byte_index < p->length) {
+                            ret = helper_skip_frame(cnx, &p->bytes[byte_index],
+                                p->length - byte_index, &frame_length, &frame_is_pure_ack);
+
+                            /* Check whether the data was already acked, which may happen in 
+                            * case of spurious retransmissions */
+                            if (ret == 0 && frame_is_pure_ack == 0) {
+                                ret = helper_check_stream_frame_already_acked(cnx, &p->bytes[byte_index],
+                                    frame_length, &frame_is_pure_ack);
+                            }
+
+                            /* Prepare retransmission if needed */
+                            if (ret == 0 && !frame_is_pure_ack) {
+                                if (helper_is_stream_frame_unlimited(&p->bytes[byte_index])) {
+                                    /* Need to PAD to the end of the frame to avoid sending extra bytes */
+                                    while (checksum_length + length + frame_length < send_buffer_max) {
+                                        new_bytes[length] = picoquic_frame_type_padding;
+                                        length++;
+                                    }
+                                }
+                                my_memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
+                                length += (uint32_t)frame_length;
+                                packet_is_pure_ack = 0;
+                            }
+                            byte_index += frame_length;
                         }
                     }
 
-                    if (should_retransmit != 0) {
-                        /*
-                        if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
-                            // protoop_printf(cnx, (protoop_arg_t) p->pc);
-                            DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
-                                p->ptype, p->pc,
-                                (unsigned long long)p->sequence_number, cnx->client_mode);
-                        }
-                        */
+                    /* Update the number of bytes in transit and remove old packet from queue */
+                    /* If not pure ack, the packet will be placed in the "retransmitted" queue,
+                    * in order to enable detection of spurious restransmissions */
+                    helper_dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
 
-                        /* special case for the client initial */
-                        if (p->ptype == picoquic_packet_initial && cnx->client_mode != 0) {
-                            while (length < (send_buffer_max - checksum_length)) {
-                                bytes[length++] = 0;
+                    /* If we have a good packet, return it */
+                    if (packet_is_pure_ack) {
+                        length = 0;
+                    } else {
+                        if (timer_based_retransmit != 0) {
+                            if (orig_path->pkt_ctx[pc].nb_retransmit > 4) {
+                                /*
+                                * Max retransmission count was exceeded. Disconnect.
+                                */
+                                /* DBG_PRINTF("%s\n", "Too many retransmits, disconnect"); */
+                                cnx->cnx_state = picoquic_state_disconnected;
+                                helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
+                                length = 0;
+                                stop = true;
+                                break;
+                            } else {
+                                orig_path->pkt_ctx[pc].nb_retransmit++;
+                                orig_path->pkt_ctx[pc].latest_retransmit_time = current_time;
                             }
                         }
-                        packet->length = length;
-                        cnx->nb_retransmission_total++;
 
-                        helper_congestion_algorithm_notify(cnx, old_path,
-                            (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
-                            0, 0, lost_packet_number, current_time);
+                        if (should_retransmit != 0) {
+                            /*
+                            if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
+                                // protoop_printf(cnx, (protoop_arg_t) p->pc);
+                                DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
+                                    p->ptype, p->pc,
+                                    (unsigned long long)p->sequence_number, cnx->client_mode);
+                            }
+                            */
 
-                        break;
+                            /* special case for the client initial */
+                            if (p->ptype == picoquic_packet_initial && cnx->client_mode != 0) {
+                                while (length < (send_buffer_max - checksum_length)) {
+                                    new_bytes[length++] = 0;
+                                }
+                            }
+                            packet->length = length;
+                            cnx->nb_retransmission_total++;
+
+                            helper_congestion_algorithm_notify(cnx, old_path,
+                                (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
+                                0, 0, lost_packet_number, current_time);
+
+                            stop = true;
+
+                            break;
+                        }
                     }
                 }
             }
+            /*
+            * If the loop is continuing, this means that we need to look
+            * at the next candidate packet.
+            */
+            p = p_next;
         }
-        /*
-         * If the loop is continuing, this means that we need to look
-         * at the next candidate packet.
-         */
-        p = p_next;
+
+        if (stop) {
+            break;
+        }
     }
 
     cnx->protoop_outputv[0] = is_cleartext_mode;

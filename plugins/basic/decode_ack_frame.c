@@ -23,6 +23,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
     size_t   consumed;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     uint8_t first_byte = bytes[0];
+    picoquic_path_t* path_x = cnx->path[0];
 
     if (helper_parse_ack_header(bytes, bytes_max-bytes, &num_block, 
         NULL,
@@ -30,14 +31,14 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
         cnx->remote_parameters.ack_delay_exponent) != 0) {
         bytes = NULL;
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
-    } else if (largest >= cnx->pkt_ctx[pc].send_sequence) {
+    } else if (largest >= path_x->pkt_ctx[pc].send_sequence) {
         bytes = NULL;
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
     } else {
         bytes += consumed;
 
         /* Attempt to update the RTT */
-        picoquic_packet_t* top_packet = helper_update_rtt(cnx, largest, current_time, ack_delay, pc);
+        picoquic_packet_t* top_packet = helper_update_rtt(cnx, largest, current_time, ack_delay, pc, path_x);
 
         while (bytes != NULL) {
             uint64_t range;
@@ -64,7 +65,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
             }
 
             if (range > 0) {
-                helper_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc);
+                helper_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc, path_x);
             }
 
             if (num_block-- == 0)

@@ -7,6 +7,7 @@
  * cnx->protoop_inputv[1] = size_t bytes_maxsize
  * cnx->protoop_inputv[2] = int epoch
  * cnx->protoop_inputv[3] = uint64_t current_time
+ * picoquic_path_t* path_x = cnx->protoop_inputv[4]
  *
  * Output: error code (int)
  */
@@ -16,11 +17,12 @@ protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
     size_t bytes_maxsize = (size_t) cnx->protoop_inputv[1];
     int epoch = (int) cnx->protoop_inputv[2];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[3];
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[4];
 
     const uint8_t *bytes_max = bytes + bytes_maxsize;
     int ack_needed = 0;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
-    picoquic_packet_context_t * pkt_ctx = &cnx->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
 
     while (bytes != NULL && bytes < bytes_max) {
         uint8_t first_byte = bytes[0];

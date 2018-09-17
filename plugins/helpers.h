@@ -127,12 +127,14 @@ static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
     return (picoquic_stream_head *) plugin_run_protoop(cnx, PROTOOPID_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
-static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc)
+static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc,
+    picoquic_path_t* path_x)
 {
-    protoop_arg_t args[2];
+    protoop_arg_t args[3];
     args[0] = (protoop_arg_t) current_time;
     args[1] = (protoop_arg_t) pc;
-    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_ACK_NEEDED, 2, args, NULL);
+    args[2] = (protoop_arg_t) path_x;
+    return (int) plugin_run_protoop(cnx, PROTOOPID_IS_ACK_NEEDED, 3, args, NULL);
 }
 
 static int helper_is_tls_stream_ready(picoquic_cnx_t *cnx)
@@ -573,14 +575,16 @@ static int helper_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
 }
 
 static picoquic_packet_t* helper_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
-    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc)
+    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc,
+    picoquic_path_t* path_x)
 {
-    protoop_arg_t args[4];
+    protoop_arg_t args[5];
     args[0] = (protoop_arg_t) largest;
     args[1] = (protoop_arg_t) current_time;
     args[2] = (protoop_arg_t) ack_delay;
     args[3] = (protoop_arg_t) pc;
-    return (picoquic_packet_t *) plugin_run_protoop(cnx, PROTOOPID_UPDATE_RTT, 4, args, NULL);
+    args[4] = (protoop_arg_t) path_x;
+    return (picoquic_packet_t *) plugin_run_protoop(cnx, PROTOOPID_UPDATE_RTT, 5, args, NULL);
 }
 
 static int helper_process_ack_range(
@@ -598,14 +602,15 @@ static int helper_process_ack_range(
 
 static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
     uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
-    picoquic_packet_context_enum pc)
+    picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
-    protoop_arg_t args[4];
+    protoop_arg_t args[5];
     args[0] = (protoop_arg_t) start_of_range;
     args[1] = (protoop_arg_t) end_of_range;
     args[2] = (protoop_arg_t) current_time;
     args[3] = (protoop_arg_t) pc;
-    plugin_run_protoop(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, 4, args, NULL);
+    args[4] = (protoop_arg_t) path_x;
+    plugin_run_protoop(cnx, PROTOOPID_CHECK_SPURIOUS_RETRANSMISSION, 5, args, NULL);
 }
 
 static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
