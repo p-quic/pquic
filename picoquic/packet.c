@@ -345,6 +345,11 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     size_t decoded;
     size_t length = ph->offset + ph->payload_length; /* this may change after decrypting the PN */
 
+    /* Might happen if the CID is not the one expected */
+    if (!path_from) {
+        path_from = cnx->path[0];
+    }
+
     if (already_received != NULL) {
         *already_received = 0;
     }
@@ -443,8 +448,14 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
  */
 protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
 {
-    /* Don't get the argument here, as we don't need it so far */
-    return (protoop_arg_t) cnx->path[0];
+    picoquic_packet_header* ph = (picoquic_packet_header*) cnx->protoop_inputv[0];
+    picoquic_path_t* path_from = NULL;
+
+    if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) == 0) {
+        path_from = cnx->path[0];
+    }
+
+    return (protoop_arg_t) path_from;
 }
 
 picoquic_path_t* picoquic_get_incoming_path(
@@ -1112,9 +1123,9 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
 
     int ret = 0;
     picoquic_packet_context_enum pc = ph->pc;
-    picoquic_path_t* path_x = cnx->path[0];
+    picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, ph);
 
-    if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) != 0) {
+    if (!path_x) {
         ret = PICOQUIC_ERROR_CNXID_CHECK;
     } else if (cnx->cnx_state < picoquic_state_client_almost_ready) {
         /* handshake is not complete. Just ignore the packet */
@@ -1166,25 +1177,25 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
         }
         else {
             /* Compare the packet address to the current path value */
-            if (picoquic_compare_addr((struct sockaddr *)&cnx->path[0]->peer_addr,
+            if (picoquic_compare_addr((struct sockaddr *)&path_x->peer_addr,
                 (struct sockaddr *)addr_from) != 0)
             {
                 uint8_t buffer[16];
                 size_t challenge_length;
                 /* Address origin different than expected. Update */
-                cnx->path[0]->peer_addr_len = (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
-                memcpy(&cnx->path[0]->peer_addr, addr_from, cnx->path[0]->peer_addr_len);
+                path_x->peer_addr_len = (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+                memcpy(&path_x->peer_addr, addr_from, path_x->peer_addr_len);
                 /* Reset the path challenge */
-                cnx->path[0]->challenge = picoquic_public_random_64();
-                cnx->path[0]->challenge_verified = 0;
-                cnx->path[0]->challenge_time = current_time + cnx->path[0]->retransmit_timer;
-                cnx->path[0]->challenge_repeat_count = 0;
+                path_x->challenge = picoquic_public_random_64();
+                path_x->challenge_verified = 0;
+                path_x->challenge_time = current_time + path_x->retransmit_timer;
+                path_x->challenge_repeat_count = 0;
                 /* Create a path challenge misc frame */
                 if (picoquic_prepare_path_challenge_frame(cnx, buffer, sizeof(buffer),
-                    &challenge_length, cnx->path[0]) == 0) {
+                    &challenge_length, path_x) == 0) {
                     if (picoquic_queue_misc_frame(cnx, buffer, challenge_length)) {
                         /* if we cannot send the challenge, just accept packets */
-                        cnx->path[0]->challenge_verified = 1;
+                        path_x->challenge_verified = 1;
                     }
                 }
             }
