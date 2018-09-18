@@ -934,6 +934,61 @@ size_t picoquic_log_crypto_hs_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
     return byte_index;
 }
 
+size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    size_t byte_index = 1;
+
+    uint8_t has_port = 0;
+    uint8_t ip_vers;
+    uint8_t addr_id;
+
+    uint8_t flags_and_ip_ver = bytes[byte_index++];
+    has_port = (flags_and_ip_ver & 0x10);
+    ip_vers = (flags_and_ip_ver & 0x0f);
+    addr_id = bytes[byte_index++];
+
+    char hostname[256];
+    const char* x;
+
+    struct sockaddr_in sa;
+    struct sockaddr_in6 sa6;
+
+    if (ip_vers == 4) {
+        memcpy(&sa.sin_addr.s_addr, &bytes[byte_index], 4);
+        byte_index += 4;
+        if (has_port) {
+            memcpy(&sa.sin_port, &bytes[byte_index], 2);
+            byte_index += 2;
+        }
+        x = inet_ntop(AF_INET, &sa.sin_addr, hostname, sizeof(hostname));
+
+    } else if (ip_vers == 6) {
+        memcpy(&sa6.sin6_addr, &bytes[byte_index], 16);
+        byte_index += 16;
+        if (has_port) {
+            memcpy(&sa6.sin6_port, &bytes[byte_index], 2);
+            byte_index += 2;
+        }
+        x = inet_ntop(AF_INET6, &sa6.sin6_addr, hostname, sizeof(hostname));
+        
+    } else {
+        fprintf(F, "    Malformed ADD ADDRESS, unknown IP version %d\n", (int)ip_vers);
+        return bytes_max;
+    }
+
+    fprintf(F, "    ADD ADDRESS with ID 0x");
+    fprintf(F, "%02x", addr_id);
+    fprintf(F, " Address: ");
+    fprintf(F, "%s", x);
+    if (has_port) {
+        fprintf(F, " Port: ");
+        fprintf(F, "%d", (ip_vers == 4) ? sa.sin_port : sa6.sin6_port);
+    }
+    fprintf(F, "\n");
+
+    return byte_index;
+}
+
 size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
@@ -1088,6 +1143,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             break;
         case picoquic_frame_type_new_token:
             byte_index += picoquic_log_new_token_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case 0x22: /* ADD_ADDRESS */
+            byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
         case 0x26: /* MP_NEW_CONNECTION_ID */
