@@ -639,37 +639,3 @@ static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
     args[0] = (protoop_arg_t) num;
     plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
 }
-
-/* Multipath functions */
-
-static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
-    size_t *consumed, uint64_t path_id)
-{
-    protoop_arg_t args[4], outs[1];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *consumed;
-    args[3] = (protoop_arg_t) path_id;
-    int ret = (int) plugin_run_protoop(cnx, (PROTOOPID_SENDER + 0x48), 4, args, outs);
-    *consumed = (size_t) outs[0];
-    print_num_text_2(cnx,  outs[0]);
-    return ret;
-}
-
-static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max)
-{
-    protoop_arg_t args[2];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    return (uint8_t *) plugin_run_protoop(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), 2, args, NULL);
-}
-
-static uint8_t* helper_decode_mp_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, uint64_t current_time)
-{
-    protoop_arg_t args[3];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) current_time;
-    return (uint8_t *) plugin_run_protoop(cnx, (PROTOOPID_DECODE_FRAMES + 0x27), 3, args, NULL);
-}

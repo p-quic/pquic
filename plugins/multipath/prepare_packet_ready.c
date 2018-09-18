@@ -48,6 +48,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     uint32_t length = 0;
     uint32_t checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
     uint32_t send_buffer_min_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : (uint32_t)send_buffer_max;
+    picoquic_path_t *path_0 = cnx->path[0];
 
 
     /* Verify first that there is no need for retransmit or ack
@@ -75,11 +76,19 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             /* Check whether it makes sense to add an ACK at the end of the retransmission */
             /* Don't do that if it risks mixing clear text and encrypted ack */
             if (is_cleartext_mode == 0 && packet->ptype != picoquic_packet_0rtt_protected) {
-                if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
+                if (path_x == path_0) {
+                    if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                     send_buffer_min_max - checksum_overhead - length, &data_bytes)
                     == 0) {
-                    length += (uint32_t)data_bytes;
-                    packet->length = length;
+                        length += (uint32_t)data_bytes;
+                        packet->length = length;
+                    }
+                } else {
+                    if (helper_prepare_mp_ack_frame(cnx, current_time, pc, &bytes[length],
+                    send_buffer_min_max - checksum_overhead - length, &data_bytes, path_x) == 0) {
+                        length += (uint32_t)data_bytes;
+                        packet->length = length;
+                    }
                 }
             }
             /* document the send time & overhead */
@@ -130,10 +139,17 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
-                    if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
-                        send_buffer_min_max - checksum_overhead - length, &data_bytes)
-                        == 0) {
-                        length += (uint32_t)data_bytes;
+                    if (path_x == path_0) {
+                        if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
+                            send_buffer_min_max - checksum_overhead - length, &data_bytes)
+                            == 0) {
+                            length += (uint32_t)data_bytes;
+                        }
+                    } else {
+                        if (helper_prepare_mp_ack_frame(cnx, current_time, pc, &bytes[length],
+                        send_buffer_min_max - checksum_overhead - length, &data_bytes, path_x) == 0) {
+                            length += (uint32_t)data_bytes;
+                        }
                     }
 
                     if (path_x->cwin > path_x->bytes_in_transit) {
@@ -159,7 +175,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             helper_prepare_mp_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 4);
                             length += (uint32_t)data_bytes;
                             print_num_text(cnx, data_bytes);
-                            
+                            /* And also send add address by the way */
+                            helper_prepare_add_address_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes);
+                            length += (uint32_t)data_bytes;
+                            print_num_text(cnx, data_bytes);
                         }
                         /* If present, send misc frame */
                         while (cnx->first_misc_frame != NULL) {

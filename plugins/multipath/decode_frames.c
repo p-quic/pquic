@@ -132,6 +132,10 @@ protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
                 ack_needed = 1;
                 break;
             /* Define MP frames as new ones */
+            case ADD_ADDRESS_TYPE:
+                bytes = helper_decode_add_address_frame(cnx, bytes, bytes_max);
+                ack_needed = 1;
+                break;
             case MP_ACK_TYPE:
                 bytes = helper_decode_mp_ack_frame(cnx, bytes, bytes_max, current_time);
                 break;

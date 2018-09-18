@@ -49,6 +49,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret", picoquic_create_cnxid_reset_secret);
     ubpf_register(vm, 0x34, "picoquic_register_cnx_id", picoquic_register_cnx_id);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
+    ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
