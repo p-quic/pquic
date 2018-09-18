@@ -1047,6 +1047,168 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     return byte_index;
 }
 
+static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
+    uint64_t* num_block, uint64_t* nb_ecnx3, uint64_t *path_id,
+    uint64_t* largest, uint64_t* ack_delay, size_t* consumed,
+    uint8_t ack_delay_exponent)
+{
+    int ret = 0;
+    size_t byte_index = 1;
+    size_t l_largest = 0;
+    size_t l_delay = 0;
+    size_t l_blocks = 0;
+    size_t l_path_id = 0;
+
+    if (bytes_max > byte_index) {
+        l_largest = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, path_id);
+        byte_index += l_path_id;
+    }
+
+    if (bytes_max > byte_index) {
+        l_largest = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, largest);
+        byte_index += l_largest;
+    }
+
+    if (bytes_max > byte_index) {
+        l_delay = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, ack_delay);
+        *ack_delay <<= ack_delay_exponent;
+        byte_index += l_delay;
+    }
+
+    if (nb_ecnx3 != NULL) {
+        for (int ecnx = 0; ecnx < 3; ecnx++) {
+            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &nb_ecnx3[ecnx]);
+
+            if (l_ecnx == 0) {
+                byte_index = bytes_max;
+            }
+            else {
+                byte_index += l_ecnx;
+            }
+        }
+    }
+
+    if (bytes_max > byte_index) {
+        l_blocks = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, num_block);
+        byte_index += l_blocks;
+    }
+
+    if (l_path_id == 0 || l_largest == 0 || l_delay == 0 || l_blocks == 0 || bytes_max < byte_index) {
+        // DBG_PRINTF("ack frame fixed header too large: first_byte=0x%02x, bytes_max=%" PRIst,
+        //     bytes[0], bytes_max);
+        byte_index = bytes_max;
+        ret = -1;
+    }
+
+    *consumed = byte_index;
+    return ret;
+}
+
+size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max)
+{
+    size_t byte_index;
+    uint64_t path_id;
+    uint64_t num_block;
+    uint64_t largest;
+    uint64_t ack_delay;
+
+    int suspended = debug_printf_reset(1);
+
+    int ret = parse_mp_ack_header(bytes, bytes_max, &num_block, NULL, &path_id,
+        &largest, &ack_delay, &byte_index, 0);
+
+    (void)debug_printf_reset(suspended);
+
+    if (ret != 0)
+        return bytes_max;
+
+    /* Now that the size is good, print it */
+    fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+
+    /* decoding the acks */
+
+    while (ret == 0) {
+        uint64_t range;
+        uint64_t block_to_block;
+
+        if (byte_index >= bytes_max) {
+            fprintf(F, "    Malformed ACK RANGE, %d blocks remain.\n", (int)num_block);
+            break;
+        }
+
+        size_t l_range = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &range);
+        if (l_range == 0) {
+            byte_index = bytes_max;
+            fprintf(F, "    Malformed ACK RANGE, requires %d bytes out of %d", (int)picoquic_varint_skip(bytes),
+                (int)(bytes_max - byte_index));
+            break;
+        } else {
+            byte_index += l_range;
+        }
+
+        range++;
+
+        if (largest + 1 < range) {
+            fprintf(F, "ack range error: largest=%" PRIx64 ", range=%" PRIx64, largest, range);
+            byte_index = bytes_max;
+            break;
+        }
+
+        if (range <= 1)
+            fprintf(F, ", %" PRIx64, largest);
+        else
+            fprintf(F, ", %" PRIx64 "-%" PRIx64, largest - range + 1, largest);
+
+        if (num_block-- == 0)
+            break;
+
+        /* Skip the gap */
+
+        if (byte_index >= bytes_max) {
+            fprintf(F, "\n");
+            if (cnx_id64 != 0) {
+                fprintf(F, "%" PRIx64 ": ", cnx_id64);
+            }
+            fprintf(F, "    Malformed ACK GAP, %d blocks remain.", (int)num_block);
+            byte_index = bytes_max;
+            break;
+        } else {
+            size_t l_gap = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &block_to_block);
+            if (l_gap == 0) {
+                byte_index = bytes_max;
+                fprintf(F, "\n");
+                if (cnx_id64 != 0) {
+                    fprintf(F, "%" PRIx64 ": ", cnx_id64);
+                }
+                fprintf(F, "    Malformed ACK GAP, requires %d bytes out of %d", (int)picoquic_varint_skip(bytes),
+                    (int)(bytes_max - byte_index));
+                break;
+            } else {
+                byte_index += l_gap;
+                block_to_block += 1;
+                block_to_block += range;
+            }
+        }
+
+        if (largest < block_to_block) {
+            fprintf(F, "\n");
+            if (cnx_id64 != 0) {
+                fprintf(F, "%" PRIx64 ": ", cnx_id64);
+            }
+            fprintf(F, "    ack gap error: largest=%" PRIx64 ", range=%" PRIx64 ", gap=%" PRIu64,
+                largest, range, block_to_block - range);
+            byte_index = bytes_max;
+            break;
+        }
+
+        largest -= block_to_block;
+    }
+
+    fprintf(F, "\n");
+
+    return byte_index;
+}
+
 void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
     size_t byte_index = 0;
@@ -1151,6 +1313,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             break;
         case 0x26: /* MP_NEW_CONNECTION_ID */
             byte_index += picoquic_log_mp_new_connection_id_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case 0x27: /* MP ACK */
+            byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
                 length - byte_index);
             break;
         default: {
