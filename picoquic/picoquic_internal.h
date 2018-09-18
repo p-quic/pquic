@@ -705,6 +705,10 @@ int picoquic_parse_packet_header(
     picoquic_cnx_t** pcnx,
     int receiving);
 
+picoquic_path_t *picoquic_get_incoming_path(
+    picoquic_cnx_t* cnx,
+    picoquic_packet_header* ph);
+
 uint32_t picoquic_create_packet_header(
     picoquic_cnx_t* cnx,
     picoquic_packet_type_enum packet_type,
@@ -741,7 +745,8 @@ uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t 
 
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     uint8_t* bytes, size_t length, picoquic_packet_header* ph,
-    void * pn_enc, void* aead_context, int * already_received);
+    void * pn_enc, void* aead_context, int * already_received,
+    picoquic_path_t* path_from);
 
 uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     picoquic_packet_type_enum ptype,

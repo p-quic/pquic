@@ -340,11 +340,10 @@ uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t 
  */
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph, 
-    void * pn_enc, void* aead_context, int * already_received)
+    void * pn_enc, void* aead_context, int * already_received, picoquic_path_t* path_from)
 {
     size_t decoded;
     size_t length = ph->offset + ph->payload_length; /* this may change after decrypting the PN */
-    picoquic_path_t* path_x = cnx->path[0];
 
     if (already_received != NULL) {
         *already_received = 0;
@@ -421,11 +420,11 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
 
     /* Build a packet number to 64 bits */
     ph->pn64 = picoquic_get_packet_number64(
-        (already_received==NULL)?path_x->pkt_ctx[ph->pc].send_sequence:
-        path_x->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
+        (already_received==NULL)?path_from->pkt_ctx[ph->pc].send_sequence:
+        path_from->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
 
     /* verify that the packet is new */
-    if (already_received != NULL && picoquic_is_pn_already_received(cnx->path[0], ph->pc, ph->pn64) != 0) {
+    if (already_received != NULL && picoquic_is_pn_already_received(path_from, ph->pc, ph->pn64) != 0) {
         /* Set error type: already received */
         *already_received = 1;
     } 
@@ -435,6 +434,25 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
                 bytes + ph->offset, ph->payload_length, ph->pn64, bytes, ph->offset, aead_context);
 
     return decoded;
+}
+
+/**
+ * picoquic_packet_header* ph = cnx->protoop_inputv[0]
+ *
+ * Output: picoquic_path_t* path
+ */
+protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
+{
+    /* Don't get the argument here, as we don't need it so far */
+    return (protoop_arg_t) cnx->path[0];
+}
+
+picoquic_path_t* picoquic_get_incoming_path(
+    picoquic_cnx_t* cnx,
+    picoquic_packet_header* ph)
+{
+    return (picoquic_path_t*) protoop_prepare_and_run(cnx, PROTOOPID_GET_INCOMING_PATH, NULL,
+        ph);
 }
 
 int picoquic_parse_header_and_decrypt(
@@ -475,6 +493,7 @@ int picoquic_parse_header_and_decrypt(
         /* TODO: replace switch by reference to epoch */
 
         if (*pcnx != NULL) {
+            picoquic_path_t* path_from = picoquic_get_incoming_path(*pcnx, ph);
             switch (ph->ptype) {
             case picoquic_packet_version_negotiation:
                 /* Packet is not encrypted */
@@ -482,7 +501,7 @@ int picoquic_parse_header_and_decrypt(
             case picoquic_packet_initial:
                 decoded_length = picoquic_decrypt_packet(*pcnx, bytes, packet_length, ph,
                     (*pcnx)->crypto_context[0].pn_dec,
-                    (*pcnx)->crypto_context[0].aead_decrypt, &already_received);
+                    (*pcnx)->crypto_context[0].aead_decrypt, &already_received, path_from);
                 length = ph->offset + ph->payload_length;
                 *consumed = length;
                 break;
@@ -496,12 +515,12 @@ int picoquic_parse_header_and_decrypt(
             case picoquic_packet_handshake:
                 decoded_length = picoquic_decrypt_packet(*pcnx, bytes, length, ph,
                     (*pcnx)->crypto_context[2].pn_dec,
-                    (*pcnx)->crypto_context[2].aead_decrypt, &already_received);
+                    (*pcnx)->crypto_context[2].aead_decrypt, &already_received, path_from);
                 break;
             case picoquic_packet_0rtt_protected:
                 decoded_length = picoquic_decrypt_packet(*pcnx, bytes, length, ph,
                     (*pcnx)->crypto_context[1].pn_dec,
-                    (*pcnx)->crypto_context[1].aead_decrypt, &already_received);
+                    (*pcnx)->crypto_context[1].aead_decrypt, &already_received, path_from);
                 break;
             case picoquic_packet_1rtt_protected_phi0:
             case picoquic_packet_1rtt_protected_phi1:
@@ -509,7 +528,7 @@ int picoquic_parse_header_and_decrypt(
                 /* AEAD Decrypt, in place */
                 decoded_length = picoquic_decrypt_packet(*pcnx, bytes, length, ph,
                     (*pcnx)->crypto_context[3].pn_dec,
-                    (*pcnx)->crypto_context[3].aead_decrypt, &already_received);
+                    (*pcnx)->crypto_context[3].aead_decrypt, &already_received, path_from);
                 break;
             default:
                 /* Packet type error. Log and ignore */
@@ -1420,4 +1439,5 @@ int picoquic_incoming_packet(
 void packet_register_protoops(picoquic_cnx_t *cnx)
 {
     cnx->ops[PROTOOPID_INCOMING_ENCRYPTED] = &incoming_encrypted;
+    cnx->ops[PROTOOPID_GET_INCOMING_PATH] = &get_incoming_path;
 }

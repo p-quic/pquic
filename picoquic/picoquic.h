@@ -100,6 +100,7 @@ extern "C" {
 /* Declare protocol operations here */
 /* incoming_encrypted */
 #define PROTOOPID_INCOMING_ENCRYPTED 0x0000
+#define PROTOOPID_GET_INCOMING_PATH 0x0001
 
 #define PROTOOPID_DECODE_FRAMES 0x0100
 #define PROTOOPID_DECODE_STREAM_FRAME (PROTOOPID_DECODE_FRAMES + 0x01)
