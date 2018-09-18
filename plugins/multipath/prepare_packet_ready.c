@@ -93,12 +93,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->ptype = packet_type;
             packet->offset = length;
             header_length = length;
-            packet->sequence_number = cnx->pkt_ctx[pc].send_sequence;
+            packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
             packet->send_time = current_time;
             packet->send_path = path_x;
 
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) || path_x->cwin <= path_x->bytes_in_transit)
-                && helper_is_ack_needed(cnx, current_time, pc) == 0
+                && helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
                 && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)) {
                 if (ret == 0 && send_buffer_max > path_x->send_mtu
                     && path_x->cwin > path_x->bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
@@ -255,7 +255,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 packet->pc = pc;
                 packet->offset = length;
                 header_length = length;
-                packet->sequence_number = cnx->pkt_ctx[pc].send_sequence;
+                packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
                 packet->send_path = path_x;
                 packet->send_time = current_time;
                 bytes[length++] = picoquic_frame_type_ping;
