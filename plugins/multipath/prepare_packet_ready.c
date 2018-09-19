@@ -20,6 +20,7 @@ static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
  *
  * Output: error code (int)
  * cnx->protoop_outputv[0] = size_t send_length
+ * cnx->protoop_outputv[1] = picoquic_path_t *path_x
  */
 protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 {
@@ -32,6 +33,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
      * an eBPF VM, there is no guarantee that this pointer will be part of context memory...
      */
     size_t send_length = (size_t) cnx->protoop_inputv[5];
+
+    /* Select the path */
+    path_x = cnx->path[0];
 
     int ret = 0;
     /* TODO: manage multiple streams. */
@@ -290,8 +294,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     helper_cnx_set_next_wake_time(cnx, current_time);
 
-    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputc_callee = 2;
     cnx->protoop_outputv[0] = (protoop_arg_t) send_length;
+    cnx->protoop_outputv[1] = (protoop_arg_t) path_x;
 
     return (protoop_arg_t) ret;
 }

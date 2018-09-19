@@ -1730,7 +1730,7 @@ uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packe
 }
 
 /* Prepare the next packet to send when in one of the client initial states */
-int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet_t* packet,
+int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     int ret = 0;
@@ -1745,6 +1745,9 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t * p
     uint32_t length = 0;
     int epoch = 0;
     picoquic_packet_context_enum pc = picoquic_packet_context_initial;
+    /* This packet MUST be sent on initial path */
+    *path = cnx->path[0];
+    picoquic_path_t* path_x = *path;
 
     if (cnx->tls_stream[0].send_queue == NULL) {
         if (cnx->crypto_context[1].aead_encrypt != NULL &&
@@ -1949,7 +1952,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t * p
 }
 
 /* Prepare the next packet to send when in one the server initial states */
-int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet_t* packet,
+int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     int ret = 0;
@@ -1963,6 +1966,9 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t * p
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
+    /* This packet MUST be sent on initial path */
+    *path = cnx->path[0];
+    picoquic_path_t* path_x = *path;
 
     if (cnx->crypto_context[2].aead_encrypt != NULL &&
         cnx->tls_stream[0].send_queue == NULL) {
@@ -2103,7 +2109,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t * p
 }
 
 /* Prepare the next packet to send when in one the closing states */
-int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet_t* packet,
+int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     int ret = 0;
@@ -2115,6 +2121,10 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t * path_
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
     picoquic_packet_context_enum pc = picoquic_packet_context_application;
+
+    /* TODO: sent on others than initial path */
+    *path = cnx->path[0];
+    picoquic_path_t* path_x = *path;
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
@@ -2322,6 +2332,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t * path_
  *
  * Output: error code (int)
  * cnx->protoop_outputv[0] = size_t send_length
+ * cnx->protoop_outputv[1] = picoquic_path_t *path_x
  */
 protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 {
@@ -2334,6 +2345,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
      * an eBPF VM, there is no guarantee that this pointer will be part of context memory...
      */
     size_t send_length = (size_t) cnx->protoop_inputv[5];
+
+    /* Set the path to be the initial one */
+    path_x = cnx->path[0];
 
     int ret = 0;
     /* TODO: manage multiple streams. */
@@ -2566,24 +2580,25 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     picoquic_cnx_set_next_wake_time(cnx, current_time);
 
-    protoop_save_outputs(cnx, send_length);
+    protoop_save_outputs(cnx, send_length, path_x);
 
     return (protoop_arg_t) ret;
 }
 
 /*  Prepare the next packet to send when in one the ready states */
-int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet_t* packet,
+int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run(cnx, PROTOOPID_PREPARE_PACKET_READY, outs,
-        path_x, packet, current_time, send_buffer, send_buffer_max, *send_length);
+        *path, packet, current_time, send_buffer, send_buffer_max, *send_length);
     *send_length = (size_t) outs[0];
+    *path = (picoquic_path_t*) outs[1];
     return ret;
 }
 
 /* Prepare next packet to send, or nothing.. */
-int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t * path_x, picoquic_packet_t* packet,
+int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     int ret = 0;
@@ -2611,23 +2626,23 @@ int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t * path_x, pico
         case picoquic_state_client_handshake_start:
         case picoquic_state_client_handshake_progress:
         case picoquic_state_client_almost_ready:
-            ret = picoquic_prepare_packet_client_init(cnx, path_x, packet, current_time, send_buffer, send_buffer_max, send_length);
+            ret = picoquic_prepare_packet_client_init(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length);
             break;
         case picoquic_state_server_almost_ready:
         case picoquic_state_server_init:
         case picoquic_state_server_handshake:
-            ret = picoquic_prepare_packet_server_init(cnx, path_x, packet, current_time, send_buffer, send_buffer_max, send_length);
+            ret = picoquic_prepare_packet_server_init(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length);
             break;
         case picoquic_state_client_ready:
         case picoquic_state_server_ready:
-            ret = picoquic_prepare_packet_ready(cnx, path_x, packet, current_time, send_buffer, send_buffer_max, send_length);
+            ret = picoquic_prepare_packet_ready(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length);
             break;
         case picoquic_state_handshake_failure:
         case picoquic_state_disconnecting:
         case picoquic_state_closing_received:
         case picoquic_state_closing:
         case picoquic_state_draining:
-            ret = picoquic_prepare_packet_closing(cnx, path_x, packet, current_time, send_buffer, send_buffer_max, send_length);
+            ret = picoquic_prepare_packet_closing(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length);
             break;
         case picoquic_state_disconnected:
             ret = PICOQUIC_ERROR_DISCONNECTED;
@@ -2652,9 +2667,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t **path)
 {
     int ret = 0;
-    *path = cnx->path[0];
     picoquic_packet_t * packet = NULL;
-    picoquic_path_t* path_x = *path;
 
     *send_length = 0;
 
@@ -2663,6 +2676,8 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
         size_t available = send_buffer_max;
         size_t segment_length = 0;
 
+        /* TODO cope with different path mtus */
+        picoquic_path_t* path_x = cnx->path[0];
         if (*send_length > 0) {
             send_buffer_max = path_x->send_mtu;
 
@@ -2681,7 +2696,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
             break;
         }
         else {
-            ret = picoquic_prepare_segment(cnx, path_x, packet, current_time,
+            ret = picoquic_prepare_segment(cnx, path, packet, current_time,
                 send_buffer + *send_length, available, &segment_length);
 
             if (ret == 0) {
