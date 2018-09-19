@@ -674,6 +674,25 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             /* Initialize the MTU */
             path_x->send_mtu = (addr == NULL || addr->sa_family == AF_INET) ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
 
+            /* Initialize packet contexts */
+            for (picoquic_packet_context_enum pc = 0;
+                pc < picoquic_nb_packet_context; pc++) {
+                path_x->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
+                path_x->pkt_ctx[pc].first_sack_item.end_of_sack_range = 0;
+                path_x->pkt_ctx[pc].first_sack_item.next_sack = NULL;
+                path_x->pkt_ctx[pc].highest_ack_sent = 0;
+                path_x->pkt_ctx[pc].highest_ack_time = start_time;
+                path_x->pkt_ctx[pc].time_stamp_largest_received = (uint64_t)((int64_t)-1);
+                path_x->pkt_ctx[pc].send_sequence = 0;
+                path_x->pkt_ctx[pc].nb_retransmit = 0;
+                path_x->pkt_ctx[pc].latest_retransmit_time = 0;
+                path_x->pkt_ctx[pc].retransmit_newest = NULL;
+                path_x->pkt_ctx[pc].retransmit_oldest = NULL;
+                path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
+                path_x->pkt_ctx[pc].latest_time_acknowledged = start_time;
+                path_x->pkt_ctx[pc].ack_needed = 0;
+                path_x->pkt_ctx[pc].ack_delay_local = 10000;
+            }
 
             /* Record the path */
             cnx->path[cnx->nb_paths] = path_x;
@@ -827,27 +846,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
 
         if (cnx != NULL) {
-            for (picoquic_packet_context_enum pc = 0;
-                pc < picoquic_nb_packet_context; pc++) {
-                for (int i = 0; i < cnx->nb_paths; i++) {
-                    picoquic_path_t* path_x = cnx->path[i];
-                    path_x->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
-                    path_x->pkt_ctx[pc].first_sack_item.end_of_sack_range = 0;
-                    path_x->pkt_ctx[pc].first_sack_item.next_sack = NULL;
-                    path_x->pkt_ctx[pc].highest_ack_sent = 0;
-                    path_x->pkt_ctx[pc].highest_ack_time = start_time;
-                    path_x->pkt_ctx[pc].time_stamp_largest_received = (uint64_t)((int64_t)-1);
-                    path_x->pkt_ctx[pc].send_sequence = 0;
-                    path_x->pkt_ctx[pc].nb_retransmit = 0;
-                    path_x->pkt_ctx[pc].latest_retransmit_time = 0;
-                    path_x->pkt_ctx[pc].retransmit_newest = NULL;
-                    path_x->pkt_ctx[pc].retransmit_oldest = NULL;
-                    path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
-                    path_x->pkt_ctx[pc].latest_time_acknowledged = start_time;
-                    path_x->pkt_ctx[pc].ack_needed = 0;
-                    path_x->pkt_ctx[pc].ack_delay_local = 10000;
-                }
-            }
+            /* Moved packet context initialization into path creation */
 
             cnx->latest_progress_time = start_time;
 
