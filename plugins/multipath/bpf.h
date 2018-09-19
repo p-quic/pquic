@@ -98,6 +98,17 @@ static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
     return pd;
 }
 
+static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+{
+    pd->state = 1;
+    /* By default, create the path with the current peer address of path 0 */
+    int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &cnx->path[0]->peer_addr);
+    /* TODO cope with possible errors */
+    pd->path = cnx->path[cnx_path_index];
+    print_num_text_2(cnx, pd->path_id);
+    print_num_text_2(cnx, cnx_path_index);
+}
+
 /* Other multipath functions */
 
 static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
@@ -191,25 +202,28 @@ static int helper_prepare_mp_ack_frame(
 /* Multipath functions */
 
 static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max,
-    size_t *consumed, uint64_t path_id)
+    size_t *consumed, uint64_t path_id, uint64_t current_time)
 {
-    protoop_arg_t args[4], outs[1];
+    protoop_arg_t args[5], outs[1];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
     args[3] = (protoop_arg_t) path_id;
-    int ret = (int) plugin_run_protoop(cnx, PREPARE_NEW_CONNECTION_ID_FRAME, 4, args, outs);
+    args[4] = (protoop_arg_t) current_time;
+    int ret = (int) plugin_run_protoop(cnx, PREPARE_NEW_CONNECTION_ID_FRAME, 5, args, outs);
     *consumed = (size_t) outs[0];
     print_num_text_2(cnx,  outs[0]);
     return ret;
 }
 
-static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max)
+static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t current_time)
 {
-    protoop_arg_t args[2];
+    protoop_arg_t args[3];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
-    return (uint8_t *) plugin_run_protoop(cnx, DECODE_MP_NEW_CONNECTION_ID_FRAME, 2, args, NULL);
+    args[2] = (protoop_arg_t) current_time;
+    return (uint8_t *) plugin_run_protoop(cnx, DECODE_MP_NEW_CONNECTION_ID_FRAME, 3, args, NULL);
 }
 
 static uint8_t* helper_decode_mp_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,

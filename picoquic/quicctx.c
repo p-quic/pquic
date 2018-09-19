@@ -941,6 +941,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x4a), "plugins/multipath/prepare_add_address_frame.o");
     plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x29), "plugins/multipath/decode_add_address_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_GET_INCOMING_PATH, "plugins/multipath/get_incoming_path.o");
+    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/multipath/set_nxt_wake_time.o");
 
     return cnx;
 }

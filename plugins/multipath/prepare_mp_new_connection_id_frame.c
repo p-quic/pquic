@@ -15,6 +15,7 @@ static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
  * cnx->protoop_inputv[1] = size_t bytes_max
  * size_t consumed = cnx->protoop_inputv[2]
  * uint64_t path_id = cnx->protoop_inputv[3]
+ * uint64_t current_time = cnx->protoop_inputv[4]
  *
  * Output: int ret
  * cnx->protoop_outputv[0] = size_t consumed
@@ -25,6 +26,7 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
     size_t consumed = (size_t) cnx->protoop_inputv[2];
     uint64_t path_id = (uint64_t) cnx->protoop_inputv[3];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
 
     int ret = 0;
     int new_path_index = 0;
@@ -96,7 +98,7 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         if (new_path_index) {
             p->state = 0;
         } else {
-            p->state = 1;
+            mp_path_ready(cnx, p, current_time);
         }
     }
     

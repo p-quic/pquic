@@ -140,7 +140,7 @@ protoop_arg_t decode_frames(picoquic_cnx_t *cnx)
                 bytes = helper_decode_mp_ack_frame(cnx, bytes, bytes_max, current_time);
                 break;
             case MP_NEW_CONNECTION_ID_TYPE:
-                bytes = helper_decode_mp_new_connection_id_frame(cnx, bytes, bytes_max);
+                bytes = helper_decode_mp_new_connection_id_frame(cnx, bytes, bytes_max, current_time);
                 ack_needed = 1;
                 break;
             default: {

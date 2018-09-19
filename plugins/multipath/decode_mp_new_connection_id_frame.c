@@ -16,6 +16,7 @@ static uint8_t* frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_max, ui
 /**
  * cnx->protoop_inputv[0] = uint8_t* bytes
  * cnx->protoop_inputv[1] = const uint8_t* bytes_max
+ * cnx->protoop_inputv[2] = uint64_t current_time
  *
  * Output: uint8_t* bytes
  */
@@ -23,6 +24,7 @@ protoop_arg_t decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
 
     uint64_t path_id, seq;
     size_t path_id_l, seq_l;
@@ -68,7 +70,7 @@ protoop_arg_t decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     bpfd->nb_proposed_rcv++;
 
     if (!new_path_index && bpfd->paths[path_index].local_cnxid.id_len > 0) {
-        bpfd->paths[path_index].state = 1;
+        mp_path_ready(cnx, &bpfd->paths[path_index], current_time);
     } else {
         bpfd->paths[path_index].state = 0;
     }
