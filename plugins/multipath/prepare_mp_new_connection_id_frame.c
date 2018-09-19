@@ -44,7 +44,6 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
          * Create it if it is not present yet.
          */
         int path_index = mp_get_path_index(bpfd, path_id, &new_path_index);
-        print_num_text(cnx, path_index);
         if (path_index < 0) {
             /* Stop sending NEW_CONNECTION_ID frames */
             cnx->protoop_outputc_callee = 1;

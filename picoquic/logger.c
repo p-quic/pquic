@@ -1060,7 +1060,7 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
     size_t l_path_id = 0;
 
     if (bytes_max > byte_index) {
-        l_largest = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, path_id);
+        l_path_id = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, path_id);
         byte_index += l_path_id;
     }
 

@@ -451,7 +451,8 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
     picoquic_packet_header* ph = (picoquic_packet_header*) cnx->protoop_inputv[0];
     picoquic_path_t* path_from = NULL;
 
-    if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) == 0) {
+    if (picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->initial_cnxid) == 0 ||
+        picoquic_compare_connection_id(&ph->dest_cnx_id, &cnx->local_cnxid) == 0) {
         path_from = cnx->path[0];
     }
 
@@ -1377,7 +1378,9 @@ int picoquic_incoming_segment(
         if (cnx != NULL && cnx->cnx_state != picoquic_state_disconnected &&
             ph.ptype != picoquic_packet_version_negotiation) {
             /* Mark the sequence number as received */
-            ret = picoquic_record_pn_received(cnx, cnx->path[0], ph.pc, ph.pn64, current_time);
+            /* FIXME */
+            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, &ph);
+            ret = picoquic_record_pn_received(cnx, path_x, ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
             picoquic_cnx_set_next_wake_time(cnx, current_time);
@@ -1385,7 +1388,8 @@ int picoquic_incoming_segment(
     } else if (ret == PICOQUIC_ERROR_DUPLICATE) {
         /* Bad packets are dropped silently, but duplicates should be acknowledged */
         if (cnx != NULL) {
-            picoquic_path_t* path_x = cnx->path[0];
+            /* FIXME */
+            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, &ph);
             path_x->pkt_ctx[ph.pc].ack_needed = 1;
         }
         ret = -1;

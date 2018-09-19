@@ -44,6 +44,7 @@ protoop_arg_t prepare_mp_ack_frame(picoquic_cnx_t *cnx)
 
     /* Check that there is enough room in the packet, and something to acknowledge */
     if (pkt_ctx->first_sack_item.start_of_sack_range == (uint64_t)((int64_t)-1)) {
+        print_num_text_2(cnx, 0x123456);
         consumed = 0;
     } else if (bytes_max < 14) {
         /* A valid ACK, with our encoding, uses at least 13 bytes.

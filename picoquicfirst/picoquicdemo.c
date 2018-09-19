@@ -537,6 +537,8 @@ int quic_server(const char* server_name, int server_port,
                                 (const char*)send_buffer, (int)send_length);
 
                             /* TODO: log sending packet. */
+                        } else {
+                            break;
                         }
                     } else {
                         break;

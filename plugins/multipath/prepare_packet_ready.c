@@ -36,6 +36,29 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     /* Select the path */
     path_x = cnx->path[0];
+    // print_num_text_2(cnx, path_x);
+
+    bpf_data *bpfd = get_bpf_data(cnx);
+    path_data_t *pd = NULL;
+    uint8_t selected_path_index = 255;
+    for (int i = 0; i < bpfd->nb_proposed; i++) {
+        pd = &bpfd->paths[i];
+        /* If we are the client, activate the path */
+        if (cnx->client_mode && pd->state == 1 && pd->path_id % 2 == 0) {
+            pd->state = 2;
+        }
+        if (pd->state == 2) {
+            if (path_x == cnx->path[0]) {
+                path_x = pd->path;
+                selected_path_index = i;
+            } else if (bpfd->last_path_index_sent != i) {
+                path_x = pd->path;
+                selected_path_index = i;
+            }
+        }
+    }
+    bpfd->last_path_index_sent = selected_path_index;
+    // print_num_text_2(cnx, path_x);
 
     int ret = 0;
     /* TODO: manage multiple streams. */
@@ -171,18 +194,14 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             }
                         }
                         /* Try to send two CIDs for 2 paths IDS */
-                        bpf_data *bpfd = get_bpf_data(cnx);
                         if (bpfd->nb_proposed_snt == 0) {
                             helper_prepare_mp_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 2, current_time);
                             length += (uint32_t)data_bytes;
-                            print_num_text(cnx, data_bytes);
                             helper_prepare_mp_new_connection_id_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes, 4, current_time);
                             length += (uint32_t)data_bytes;
-                            print_num_text(cnx, data_bytes);
                             /* And also send add address by the way */
                             helper_prepare_add_address_frame(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes);
                             length += (uint32_t)data_bytes;
-                            print_num_text(cnx, data_bytes);
                         }
                         /* If present, send misc frame */
                         while (cnx->first_misc_frame != NULL) {
