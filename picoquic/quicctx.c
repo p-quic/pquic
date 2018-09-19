@@ -942,6 +942,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x29), "plugins/multipath/decode_add_address_frame.o");
     plugin_plug_elf(cnx, PROTOOPID_GET_INCOMING_PATH, "plugins/multipath/get_incoming_path.o");
     plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/multipath/set_nxt_wake_time.o");
+    plugin_plug_elf(cnx, PROTOOPID_GET_DESTINATION_CONNECTION_ID, "plugins/multipath/get_destination_connection_id.o");
+    plugin_plug_elf(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, "plugins/multipath/predict_packet_header_length.o");
 
     return cnx;
 }

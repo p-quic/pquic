@@ -96,18 +96,18 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     }
 
                     if (contains_crypto) {
-                        length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected);
+                        length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected, path_x);
                         packet->ptype = picoquic_packet_0rtt_protected;
                         packet->offset = length;
                     } else if (cnx->cnx_state < picoquic_state_client_ready) {
                         should_retransmit = 0;
                     } else {
-                        length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0);
+                        length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0, path_x);
                         packet->ptype = picoquic_packet_1rtt_protected_phi0;
                         packet->offset = length;
                     }
                 } else {
-                    length = helper_predict_packet_header_length(cnx, p->ptype);
+                    length = helper_predict_packet_header_length(cnx, p->ptype, path_x);
                     packet->ptype = p->ptype;
                     packet->offset = length;
                 }

@@ -712,6 +712,7 @@ picoquic_path_t *picoquic_get_incoming_path(
 uint32_t picoquic_create_packet_header(
     picoquic_cnx_t* cnx,
     picoquic_packet_type_enum packet_type,
+    picoquic_path_t* path_x,
     uint64_t sequence_number,
     uint8_t* bytes,
     uint32_t * pn_offset,
@@ -719,7 +720,8 @@ uint32_t picoquic_create_packet_header(
 
 uint32_t  picoquic_predict_packet_header_length(
     picoquic_cnx_t* cnx,
-    picoquic_packet_type_enum packet_type);
+    picoquic_packet_type_enum packet_type,
+    picoquic_path_t* path_x);
 
 void picoquic_update_payload_length(
     uint8_t* bytes, size_t pnum_index, size_t header_length, size_t packet_length);
@@ -750,7 +752,9 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
 
 uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     picoquic_packet_type_enum ptype,
-    uint8_t * bytes, uint64_t sequence_number,
+    uint8_t * bytes, 
+    picoquic_path_t* path_x,
+    uint64_t sequence_number,
     uint32_t length, uint32_t header_length,
     uint8_t* send_buffer, uint32_t send_buffer_max,
     void * aead_context, void* pn_enc);

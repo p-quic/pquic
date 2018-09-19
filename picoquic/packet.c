@@ -750,6 +750,7 @@ void picoquic_queue_stateless_retry(picoquic_cnx_t* cnx,
         cnx->remote_cnxid = ph->srce_cnx_id;
 
         byte_index = header_length = picoquic_create_packet_header(cnx, picoquic_packet_retry,
+            cnx->path[0],
             0, bytes, &pn_offset, &pn_length);
 
         

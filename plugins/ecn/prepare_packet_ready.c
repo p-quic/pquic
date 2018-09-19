@@ -93,7 +93,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
         else if (ret == 0) {
             length = helper_predict_packet_header_length(
-                cnx, packet_type);
+                cnx, packet_type, path_x);
             packet->ptype = packet_type;
             packet->offset = length;
             header_length = length;
@@ -249,7 +249,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 cnx->keep_alive_interval != 0
                 && cnx->latest_progress_time + cnx->keep_alive_interval <= current_time && length == 0) {
                 length = helper_predict_packet_header_length(
-                    cnx, packet_type);
+                    cnx, packet_type, path_x);
                 packet->ptype = packet_type;
                 packet->pc = pc;
                 packet->offset = length;

@@ -21,6 +21,11 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
         for (int i = 0; i < bpfd->nb_proposed; i++) {
             if (picoquic_compare_connection_id(&ph->dest_cnx_id, &bpfd->paths[i].local_cnxid) == 0) {
                 path_from = bpfd->paths[i].path;
+                /* We received a packet on it, the path can be now used */
+                /* TODO: cope with client/server situation with path ID eveness */
+                if (bpfd->paths[i].state == 1) {
+                    bpfd->paths[i].state = 2;
+                }
                 break;
             }
         }

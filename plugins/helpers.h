@@ -79,11 +79,12 @@ static int helper_check_stream_frame_already_acked(picoquic_cnx_t* cnx, uint8_t*
     return ret;
 }
 
-static uint32_t helper_predict_packet_header_length(picoquic_cnx_t *cnx, picoquic_packet_type_enum packet_type)
+static uint32_t helper_predict_packet_header_length(picoquic_cnx_t *cnx, picoquic_packet_type_enum packet_type, picoquic_path_t* path_x)
 {
-    protoop_arg_t args[1];
+    protoop_arg_t args[2];
     args[0] = (protoop_arg_t) packet_type;
-    return (uint32_t) plugin_run_protoop(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, 1, args, NULL);
+    args[1] = (protoop_arg_t) path_x;
+    return (uint32_t) plugin_run_protoop(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, 2, args, NULL);
 }
 
 static int helper_is_stream_frame_unlimited(const uint8_t* bytes)
