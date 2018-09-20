@@ -108,6 +108,7 @@ static const char* bad_request_message = "<html><head><title>Bad Request</title>
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/picosocks.h"
 #include "../picoquic/util.h"
+#include "../picoquic/plugin.h"
 
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
@@ -362,7 +363,7 @@ int quic_server(const char* server_name, int server_port,
     const char* pem_cert, const char* pem_key,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
-    int mtu_max)
+    int mtu_max, const char* plugin_fname)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -455,6 +456,15 @@ int quic_server(const char* server_name, int server_port,
 
                 if (cnx_server != picoquic_get_first_cnx(qserver) && picoquic_get_first_cnx(qserver) != NULL) {
                     cnx_server = picoquic_get_first_cnx(qserver);
+                    if (plugin_fname) {
+                        int plugged = plugin_insert_transaction(cnx_server, plugin_fname);
+                        printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
+                        if (plugged == 0) {
+                            printf("Successfully inserted plugin %s\n", plugin_fname);
+                        } else {
+                            printf("Failed to insert plugin %s\n", plugin_fname);
+                        }
+                    }
                     printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
                     picoquic_log_time(stdout, cnx_server, picoquic_current_time(), "", " : ");
                     printf("Connection established, state = %d, from length: %d\n",
@@ -790,7 +800,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log)
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char* plugin_fname)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -888,6 +898,16 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
+            if (plugin_fname) {
+                ret = plugin_insert_transaction(cnx_client, plugin_fname);
+                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                if (ret == 0) {
+                    printf("Successfully inserted plugin %s\n", plugin_fname);
+                } else {
+                    printf("Failed to insert plugin %s\n", plugin_fname);
+                }
+            }            
+
             picoquic_set_callback(cnx_client, first_client_callback, &callback_ctx);
 
             ret = picoquic_start_client_cnx(cnx_client);
@@ -1142,6 +1162,7 @@ void usage()
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -c file               cert file (default: %s)\n", default_server_cert_file);
     fprintf(stderr, "  -k file               key file (default: %s)\n", default_server_key_file);
+    fprintf(stderr, "  -P file               plugin file (default: NULL)\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
     fprintf(stderr, "  -t file               root trust file");
@@ -1194,6 +1215,7 @@ int main(int argc, char** argv)
     const char* server_key_file = default_server_key_file;
     const char* log_file = NULL;
     const char * sni = NULL;
+    const char * plugin_fname = NULL;
     int server_port = default_server_port;
     const char* root_trust_file = NULL;
     uint32_t proposed_version = 0xff00000b;
@@ -1220,13 +1242,16 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:v:1rhzi:s:l:m:n:t:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:v:1rhzi:s:l:m:n:t:P:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
             break;
         case 'k':
             server_key_file = optarg;
+            break;
+        case 'P':
+            plugin_fname = optarg;
             break;
         case 'p':
             if ((server_port = atoi(optarg)) <= 0) {
@@ -1325,14 +1350,14 @@ int main(int argc, char** argv)
 
     if (is_client == 0) {
         /* Run as server */
-        printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d\n",
-            server_port, server_name, just_once, do_hrr);
+        printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d, plugin = %s\n",
+            server_port, server_name, just_once, do_hrr, plugin_fname);
         ret = quic_server(server_name, server_port,
             server_cert_file, server_key_file, just_once, do_hrr,
             /* TODO: find an alternative to using 64 bit mask. */
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
-            (uint8_t*)reset_seed, mtu_max);
+            (uint8_t*)reset_seed, mtu_max, plugin_fname);
         printf("Server exit with code = %d\n", ret);
     } else {
         FILE* F_log = NULL;
@@ -1359,8 +1384,8 @@ int main(int argc, char** argv)
         }
 
         /* Run as client */
-        printf("Starting PicoQUIC connection to server IP = %s, port = %d\n", server_name, server_port);
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log);
+        printf("Starting PicoQUIC connection to server IP = %s, port = %d, plugin = %s\n", server_name, server_port, plugin_fname);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fname);
 
         printf("Client exit with code = %d\n", ret);
 

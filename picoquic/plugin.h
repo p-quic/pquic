@@ -16,6 +16,15 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
 int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid);
 
 /**
+ * Function that reads a plugin file and insert plugins described in it
+ * in an atomic, transaction style. This means, if one of the plugins
+ * cannot be inserted for any reason, all the previously inserted ones
+ * will be unplugged.
+ * Returns 0 if the plugin insertion succeed, 1 otherwise.
+ */
+int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname);
+
+/**
  * Function allowing a plugin to access its opaque data space.
  * Given an ID, the function allocates the required space (if possible) the
  * first time the ID is requested and set allocated to 1, otherwise it just

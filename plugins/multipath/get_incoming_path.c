@@ -33,5 +33,10 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
 
     }
 
+    if (path_from == NULL) {
+        /* Avoid crashing fuzzing tests, just return path 0*/
+        path_from = cnx->path[0];
+    }
+
     return (protoop_arg_t) path_from;
 }

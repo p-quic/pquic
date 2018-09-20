@@ -1,8 +1,15 @@
 #include "plugin.h"
+#include <libgen.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname) {
+    /* We should not be able to insert twice a plugin to the same pid */
+    if (cnx->plugins[pid] != NULL) {
+        printf("Failed to insert %s for proto op id 0x%x: previously inserted plugin found\n", elf_fname, pid);
+        return 1;
+    }
     cnx->plugins[pid] = load_elf_file(elf_fname);
 
     if (cnx->plugins[pid]) {
@@ -23,6 +30,99 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
 
     printf("Trying to unplug plugin for proto op id 0x%x, but no plugin inserted...\n", pid);
     return 1;
+}
+
+bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
+    char *plugin_dirname, protoop_id_t *inserted_pid)
+{
+    /* Part one: extract protocol operation id */
+    char *token = strsep(&line, " ");
+    if (token == NULL) {
+        printf("No token for protocol operation id extracted!\n");
+        return false;
+    }
+    char *err_msg = NULL;
+    *inserted_pid = (protoop_id_t) strtoul(token, &err_msg, 0);
+    if (strcmp(err_msg, "") != 0) {
+        printf("Invalid protocol operation id: %s due to %s\n", token, err_msg);
+        return false;
+    }
+    /* Part two: insert the plugin */
+    token = strsep(&line, " ");
+    /* Handle end of line */
+    token[strcspn(token, "\r\n")] = 0;
+    if (token == NULL) {
+        printf("No token for ebpf filename extracted!\n");
+        return false;
+    }
+    char abs_path[250];
+    strcpy(abs_path, plugin_dirname);
+    strcat(abs_path, "/");
+    strcat(abs_path, token);
+    return plugin_plug_elf(cnx, *inserted_pid, abs_path) == 0;
+}
+
+typedef struct pid_node {
+    protoop_id_t pid;
+    struct pid_node *next;
+} pid_node_t;
+
+int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
+    FILE *file = fopen(plugin_fname, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+    char buf[250];
+    strcpy(buf, plugin_fname);
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read = 0;
+    bool ok = true;
+    char *plugin_dirname = dirname(buf);
+    protoop_id_t inserted_pid;
+    pid_node_t *pid_stack_top = NULL;
+    pid_node_t *tmp = NULL;
+
+    while (ok && (read = getline(&line, &len, file)) != -1) {
+        /* Skip blank lines */
+        if (len <= 1) {
+            continue;
+        }
+        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, &inserted_pid);
+        if (ok) {
+            /* Keep track of the inserted pids */
+            tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
+            if (!tmp) {
+                printf("No enough memory to allocate stack nodes; abort\n");
+                ok = false;
+                break;
+            }
+            tmp->pid = inserted_pid;
+            tmp->next = pid_stack_top;
+            pid_stack_top = tmp;
+        }
+    }
+
+    while (pid_stack_top != NULL) {
+        if (!ok) {
+            /* Unplug previously plugged code */
+            plugin_unplug(cnx, pid_stack_top->pid);
+        }
+        tmp = pid_stack_top->next;
+        free(pid_stack_top);
+        pid_stack_top = tmp;
+    }
+
+    if (line) {
+        free(line);
+    }
+
+    fclose(file);
+
+    return ok ? 0 : 1;
 }
 
 void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {

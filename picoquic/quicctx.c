@@ -898,52 +898,12 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     register_protocol_operations(cnx);
-/*
-    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/basic/set_nxt_wake_time.o");
-    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/basic/retransmit_needed_by_packet.o");
-    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/basic/retransmit_needed.o");
-    plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/basic/prepare_packet_ready.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/basic/decode_frames.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/basic/decode_ack_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_NEW_CONNECTION_ID_FRAME, "plugins/basic/decode_new_connection_id_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_UPDATE_RTT, "plugins/basic/update_rtt.o");
-    plugin_plug_elf(cnx, PROTOOPID_PROCESS_ACK_RANGE, "plugins/basic/process_ack_range.o");
-    plugin_plug_elf(cnx, PROTOOPID_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, "plugins/basic/process_possible_ack_of_ack_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_PREPARE_ACK_FRAME, "plugins/basic/prepare_ack_frame.o");
-*/
-/*
-    plugin_unplug(cnx, PROTOOPID_SET_NEXT_WAKE_TIME);
-    plugin_unplug(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET);
-    plugin_unplug(cnx, PROTOOPID_RETRANSMIT_NEEDED);
-*/
-/*
-    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/tlp/set_nxt_wake_time.o");
-    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED_BY_PACKET, "plugins/tlp/retransmit_needed_by_packet.o");
-    plugin_plug_elf(cnx, PROTOOPID_RETRANSMIT_NEEDED, "plugins/tlp/retransmit_needed.o");
-*/
-/*
-    plugin_plug_elf(cnx, PROTOOPID_BEFORE_SENDING_PACKET, "plugins/ecn/before_sending_packet.o");
-    plugin_plug_elf(cnx, PROTOOPID_RECEIVED_PACKET, "plugins/ecn/received_packet.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_ACK_FRAME, "plugins/ecn/decode_ack_frame.o");
-    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x38), "plugins/ecn/decode_ecn_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/ecn/decode_frames.o");
-    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x38), "plugins/ecn/prepare_ecn_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/ecn/prepare_packet_ready.o");
-*/
 
-    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x28), "plugins/multipath/decode_mp_new_connection_id_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_DECODE_FRAMES, "plugins/multipath/decode_frames.o");
-    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x48), "plugins/multipath/prepare_mp_new_connection_id_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_PREPARE_PACKET_READY, "plugins/multipath/prepare_packet_ready.o");
-    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x27), "plugins/multipath/decode_mp_ack_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, "plugins/multipath/process_possible_ack_of_ack_frame.o");
-    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x49), "plugins/multipath/prepare_mp_ack_frame.o");
-    plugin_plug_elf(cnx, (PROTOOPID_SENDER + 0x4a), "plugins/multipath/prepare_add_address_frame.o");
-    plugin_plug_elf(cnx, (PROTOOPID_DECODE_FRAMES + 0x29), "plugins/multipath/decode_add_address_frame.o");
-    plugin_plug_elf(cnx, PROTOOPID_GET_INCOMING_PATH, "plugins/multipath/get_incoming_path.o");
-    plugin_plug_elf(cnx, PROTOOPID_SET_NEXT_WAKE_TIME, "plugins/multipath/set_nxt_wake_time.o");
-    plugin_plug_elf(cnx, PROTOOPID_GET_DESTINATION_CONNECTION_ID, "plugins/multipath/get_destination_connection_id.o");
-    plugin_plug_elf(cnx, PROTOOPID_PREDICT_PACKET_HEADER_LENGTH, "plugins/multipath/predict_packet_header_length.o");
+    /* The following lines should be uncommented only for testing purpose */
+    // plugin_insert_transaction(cnx, "plugins/basic/basic.plugin");
+    // plugin_insert_transaction(cnx, "plugins/ecn/ecn.plugin");
+    // plugin_insert_transaction(cnx, "plugins/multipath/multipath.plugin");
+    // plugin_insert_transaction(cnx, "plugins/tlp/tlp.plugin");
 
     return cnx;
 }
