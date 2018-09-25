@@ -1633,13 +1633,16 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, int sas_length)
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        family = ifa->ifa_addr->sa_family;
-        if (family == AF_INET) {
-            struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
-            if (!is_private(sai->sin_addr.s_addr) && count < sas_length) {
-                memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
+        /* What if an interface has no IP address? */
+        if (ifa->ifa_addr) {
+            family = ifa->ifa_addr->sa_family;
+            if (family == AF_INET) {
+                struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
+                if (!is_private(sai->sin_addr.s_addr) && count < sas_length) {
+                    memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
+                }
             }
-        }
+        }   
     }
 
     return count;
