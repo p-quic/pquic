@@ -31,6 +31,7 @@ typedef struct {
 
 typedef struct {
     uint8_t id;
+    uint32_t if_index;
     struct sockaddr *sa;
     bool is_v6;
 } addr_data_t;

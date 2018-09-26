@@ -671,7 +671,7 @@ size_t picoquic_headint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t*
 char* picoquic_string_create(const char* original, size_t len);
 char* picoquic_string_duplicate(const char* original);
 
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, int sas_length);
+int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
 
 /* Packet parsing */
 

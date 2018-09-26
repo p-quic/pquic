@@ -27,6 +27,7 @@
 #include "plugin.h"
 #include "memory.h"
 #include <ifaddrs.h>
+#include <net/if.h>
 #ifndef _WINDOWS
 #include <sys/time.h>
 #endif
@@ -1621,12 +1622,13 @@ bool is_private(in_addr_t t) {
     return ret;
 }
 
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, int sas_length)
+int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length)
 {
     int family;
     struct ifaddrs *ifaddr, *ifa;
     int count = 0;
     struct sockaddr_in *start_ptr = sas;
+    unsigned int if_index;
 
     if (getifaddrs(&ifaddr) == -1) {
         return 0;
@@ -1639,6 +1641,8 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, int sas_length)
             if (family == AF_INET) {
                 struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
                 if (!is_private(sai->sin_addr.s_addr) && count < sas_length) {
+                    if_index = if_nametoindex(ifa->ifa_name);
+                    memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));
                     memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
                 }
             }

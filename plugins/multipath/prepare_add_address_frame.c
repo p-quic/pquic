@@ -21,12 +21,12 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
     picoquic_path_t *path_0 = cnx->path[0];
     uint16_t port;
 
-    if (path_0->dest_addr_len == sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *si = (struct sockaddr_in *) &path_0->dest_addr;
+    if (path_0->local_addr_len == sizeof(struct sockaddr_in)) {
+        struct sockaddr_in *si = (struct sockaddr_in *) &path_0->local_addr;
         my_memcpy(&port, &si->sin_port, 2);
     } else {
         /* v6 */
-        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) &path_0->dest_addr;
+        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) &path_0->local_addr;
         my_memcpy(&port, &si6->sin6_port, 2);
     }
 
@@ -35,7 +35,8 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
 
     /* Only cope with v4 so far, v6 for later */
     struct sockaddr_in sas[4];
-    int nb_addrs = picoquic_getaddrs_v4(sas, 4);
+    uint32_t if_indexes[4];
+    int nb_addrs = picoquic_getaddrs_v4(sas, if_indexes, 4);
 
     int frame_size_v4 = 9;
 
@@ -68,6 +69,7 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
             bpfd->loc_addrs[addr_index].id = addr_id;
             bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
             bpfd->loc_addrs[addr_index].is_v6 = false;
+            bpfd->loc_addrs[addr_index].if_index = if_indexes[i];
 
             /* Encode the first byte */
             bytes[byte_index++] = ADD_ADDRESS_TYPE;
