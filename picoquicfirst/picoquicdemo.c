@@ -842,7 +842,8 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     /* Open a UDP socket */
 
     if (ret == 0) {
-        fd = socket(server_address.ss_family, SOCK_DGRAM, IPPROTO_UDP);
+        /* Make the most possible flexible socket */
+        fd = socket(/*server_address.ss_family*/AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         if (fd == INVALID_SOCKET) {
             ret = -1;
         }
@@ -1086,6 +1087,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                         picoquic_get_peer_addr(path, &peer_addr, &peer_addr_len);
                         picoquic_get_local_addr(path, &local_addr, &local_addr_len);
+
                         bytes_sent = picoquic_sendmsg(fd, peer_addr, peer_addr_len, local_addr,
                             local_addr_len, picoquic_get_local_if_index(path),
                             (const char *) send_buffer, (int) send_length);

@@ -39,6 +39,19 @@ protoop_arg_t decode_add_address_frame(picoquic_cnx_t* cnx)
         }
     }
 
+    /* Get the default port, if needed */
+    struct sockaddr_storage *sa_def = &cnx->path[0]->peer_addr;
+    int sa_def_length = cnx->path[0]->peer_addr_len;
+    uint16_t port_def = 0;
+
+    if (sa_def_length == sizeof(struct sockaddr_in)) {
+        struct sockaddr_in *sai_def = (struct sockaddr_in *) sa_def;
+        port_def = (uint16_t) sai_def->sin_port;
+    } else { /* IPv6 */
+        struct sockaddr_in6 *sai6_def = (struct sockaddr_in6 *) sa_def;
+        port_def = (uint16_t) sai6_def->sin6_port;
+    }
+
     ip_ver = flags_and_ip_ver & 0x0f;
 
     if (ip_ver == 4) {
@@ -53,7 +66,12 @@ protoop_arg_t decode_add_address_frame(picoquic_cnx_t* cnx)
         if (flags_and_ip_ver & 0x10 && bytes_max - bytes > byte_index) {
             my_memcpy(&sai->sin_port, &bytes[byte_index], 2);
             byte_index += 2;
+        } else {
+            /* It is the same port as the initial path */
+            my_memcpy(&sai->sin_port, &port_def, 2);
         }
+        /* Ensure sai is a AF_INET address */
+        sai->sin_family = AF_INET;
         bpfd->rem_addrs[addr_index].sa = (struct sockaddr *) sai;
         bpfd->rem_addrs[addr_index].id = addr_id;
         bpfd->rem_addrs[addr_index].is_v6 = false;
@@ -70,7 +88,12 @@ protoop_arg_t decode_add_address_frame(picoquic_cnx_t* cnx)
         if (flags_and_ip_ver & 0x10 && bytes_max - bytes > byte_index) {
             my_memcpy(&sai6->sin6_port, &bytes[byte_index], 2);
             byte_index += 2;
+        } else {
+            /* It is the same port as the initial path */
+            my_memcpy(&sai6->sin6_port, &port_def, 2);
         }
+        /* Ensure sai6 is a AF_INET6 address */
+        sai6->sin6_family = AF_INET6;
         bpfd->rem_addrs[addr_index].sa = (struct sockaddr *) sai6;
         bpfd->rem_addrs[addr_index].id = addr_id;
         bpfd->rem_addrs[addr_index].is_v6 = true;
