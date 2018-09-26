@@ -973,13 +973,13 @@ void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int
 
 void picoquic_get_local_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len)
 {
-    *addr = (struct sockaddr*)&path_x->dest_addr;
-    *addr_len = path_x->dest_addr_len;
+    *addr = (struct sockaddr*)&path_x->local_addr;
+    *addr_len = path_x->local_addr_len;
 }
 
 unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x)
 {
-    return path_x->if_index_dest;
+    return path_x->if_index_local;
 }
 
 picoquic_connection_id_t picoquic_get_local_cnxid(picoquic_cnx_t* cnx)

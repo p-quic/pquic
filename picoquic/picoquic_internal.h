@@ -386,9 +386,9 @@ typedef struct st_picoquic_path_t {
     /* Peer address. To do: allow for multiple addresses */
     struct sockaddr_storage peer_addr;
     int peer_addr_len;
-    struct sockaddr_storage dest_addr;
-    int dest_addr_len;
-    unsigned long if_index_dest;
+    struct sockaddr_storage local_addr;
+    int local_addr_len;
+    unsigned long if_index_local;
 
     /* Challenge used for this path */
     uint64_t challenge;

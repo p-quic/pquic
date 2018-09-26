@@ -558,7 +558,7 @@ static int stress_handle_packet_prepare(picoquic_stress_ctx_t * ctx, picoquic_qu
         }
 
         if (ret == 0 && packet->length > 0) {
-            memcpy(&packet->addr_from, &cnx->path[0]->dest_addr, sizeof(struct sockaddr_in));
+            memcpy(&packet->addr_from, &cnx->path[0]->local_addr, sizeof(struct sockaddr_in));
             memcpy(&packet->addr_to, &cnx->path[0]->peer_addr, sizeof(struct sockaddr_in));
 
             if (c_index >= 0)
