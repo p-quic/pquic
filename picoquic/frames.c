@@ -196,6 +196,8 @@ picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t strea
         } else {
             previous_stream->next_stream = stream;
         }
+
+        protoop_prepare_and_run(cnx, PROTOOPID_STREAM_OPENED, NULL, stream_id);
     }
 
     return stream;
@@ -262,11 +264,19 @@ picoquic_stream_head* picoquic_find_or_create_stream(picoquic_cnx_t* cnx, uint64
 
         } else if (!IS_BIDIR_STREAM_ID(stream_id)) {
             /* Mark the stream as already finished in our direction */
-            stream->stream_flags |= picoquic_stream_flag_fin_notified | picoquic_stream_flag_fin_sent;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_notified | picoquic_stream_flag_fin_sent);
         }
     }
 
     return stream;
+}
+
+void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags) {
+    bool stream_closed = STREAM_CLOSED(stream);
+    stream->stream_flags |= flags;
+    if (!stream_closed && STREAM_CLOSED(stream)) {
+        protoop_prepare_and_run(cnx, PROTOOPID_STREAM_CLOSED, NULL, stream->stream_id);
+    }
 }
 
 /*
@@ -306,7 +316,7 @@ int picoquic_flow_control_check_stream_offset(picoquic_cnx_t* cnx, picoquic_stre
  * An endpoint may use a RST_STREAM frame (type=0x01) to abruptly terminate a stream.
  */
 
-int picoquic_prepare_stream_reset_frame(picoquic_stream_head* stream,
+int picoquic_prepare_stream_reset_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
     int ret = 0;
@@ -333,7 +343,7 @@ int picoquic_prepare_stream_reset_frame(picoquic_stream_head* stream,
             *consumed = 0;
         } else {
             *consumed = byte_index;
-            stream->stream_flags |= picoquic_stream_flag_reset_sent | picoquic_stream_flag_fin_sent;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_sent | picoquic_stream_flag_fin_sent);
 
             /* Free the queued data */
             while (stream->send_queue != NULL) {
@@ -385,12 +395,12 @@ protoop_arg_t decode_stream_reset_frame(picoquic_cnx_t* cnx)
         bytes = NULL;  // error already signaled
 
     } else if ((stream->stream_flags & picoquic_stream_flag_reset_received) == 0) {
-        stream->stream_flags |= picoquic_stream_flag_reset_received;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_received);
         stream->remote_error  = error_code;
 
         if (cnx->callback_fn != NULL && (stream->stream_flags & picoquic_stream_flag_reset_signalled) == 0) {
             cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_reset, cnx->callback_ctx);
-            stream->stream_flags |= picoquic_stream_flag_reset_signalled;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_signalled);
         }
     }
 
@@ -484,7 +494,7 @@ uint8_t* picoquic_decode_new_token_frame(picoquic_cnx_t* cnx, uint8_t* bytes, co
  * STOP SENDING Frame
  */
 
-int picoquic_prepare_stop_sending_frame(picoquic_stream_head* stream,
+int picoquic_prepare_stop_sending_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
     int ret = 0;
@@ -502,7 +512,7 @@ int picoquic_prepare_stop_sending_frame(picoquic_stream_head* stream,
         picoformat_16(bytes + byte_index, (uint16_t)stream->local_stop_error);
         byte_index += 2;
         *consumed = byte_index;
-        stream->stream_flags |= picoquic_stream_flag_stop_sending_sent;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_sent);
     }
 
     return ret;
@@ -533,12 +543,12 @@ protoop_arg_t decode_stop_sending_frame(picoquic_cnx_t *cnx)
         bytes = NULL;  // Error already signaled
 
     } else if ((stream->stream_flags & (picoquic_stream_flag_stop_sending_received | picoquic_stream_flag_reset_requested)) == 0) {
-        stream->stream_flags |= picoquic_stream_flag_stop_sending_received;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_received);
         stream->remote_stop_error = error_code;
 
         if (cnx->callback_fn != NULL && (stream->stream_flags & picoquic_stream_flag_stop_sending_signalled) == 0) {
             cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stop_sending, cnx->callback_ctx);
-            stream->stream_flags |= picoquic_stream_flag_stop_sending_signalled;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_signalled);
         }
     }
 
@@ -644,7 +654,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
 
         if (stream->consumed_offset >= stream->fin_offset && (stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
             fin_now = picoquic_callback_stream_fin;
-            stream->stream_flags |= picoquic_stream_flag_fin_signalled;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
         }
 
         cnx->callback_fn(cnx, stream->stream_id, data->bytes + start, data_length, fin_now,
@@ -659,7 +669,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
     /* handle the case where the fin frame does not carry any data */
 
     if (stream->consumed_offset >= stream->fin_offset && (stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
-        stream->stream_flags |= picoquic_stream_flag_fin_signalled;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
         cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_fin,
             cnx->callback_ctx);
     }
@@ -749,7 +759,7 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
 
     } else {
         if (fin) {
-            stream->stream_flags |= picoquic_stream_flag_fin_received;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_received);
             should_notify = 1;
             cnx->latest_progress_time = current_time;
         }
@@ -880,13 +890,13 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
     int ret = 0;
 
     if (STREAM_SEND_RESET(stream)) {
-        ret = picoquic_prepare_stream_reset_frame(stream, bytes, bytes_max, &consumed);
+        ret = picoquic_prepare_stream_reset_frame(cnx, stream, bytes, bytes_max, &consumed);
         protoop_save_outputs(cnx, consumed);
         return ret;
     }
 
     if (STREAM_SEND_STOP_SENDING(stream)) {
-        ret = picoquic_prepare_stop_sending_frame(stream, bytes, bytes_max, &consumed);
+        ret = picoquic_prepare_stop_sending_frame(cnx, stream, bytes, bytes_max, &consumed);
         protoop_save_outputs(cnx, consumed);
         return ret;
     }
@@ -987,7 +997,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
 
             if (ret == 0 && STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0) {
                 /* Set the fin bit */
-                stream->stream_flags |= picoquic_stream_flag_fin_sent;
+                picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_sent);
                 bytes[0] |= 1;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */

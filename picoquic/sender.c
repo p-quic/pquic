@@ -70,7 +70,7 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
                 ret = PICOQUIC_ERROR_MEMORY;
             } else if (is_unidir) {
                 /* Mark the stream as already finished in remote direction */
-                stream->stream_flags |= picoquic_stream_flag_fin_signalled | picoquic_stream_flag_fin_received;
+                picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled | picoquic_stream_flag_fin_received);
             }
         }
     }
@@ -82,7 +82,7 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
                 ret = -1;
             }
         } else {
-            stream->stream_flags |= picoquic_stream_flag_fin_notified;
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_notified);
         }
     }
 
@@ -143,7 +143,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
     }
     else if ((stream->stream_flags & picoquic_stream_flag_reset_requested) == 0) {
         stream->local_error = local_stream_error;
-        stream->stream_flags |= picoquic_stream_flag_reset_requested;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_requested);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
@@ -167,7 +167,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
     }
     else if ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) == 0) {
         stream->local_stop_error = local_stream_error;
-        stream->stream_flags |= picoquic_stream_flag_stop_sending_requested;
+        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_requested);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));

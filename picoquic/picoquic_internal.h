@@ -835,6 +835,7 @@ picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t strea
 void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
+void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time);
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
@@ -908,6 +909,7 @@ picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, co
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
+#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || STREAM_RESET_SENT(stream)) && ((stream->stream_flags & picoquic_stream_flag_reset_received) != 0 && (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
 
 #ifdef __cplusplus
 }

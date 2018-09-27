@@ -1697,5 +1697,7 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_RECEIVED_SEGMENT] = &protoop_noop;
     cnx->ops[PROTOOPID_BEFORE_SENDING_SEGMENT] = &protoop_noop;
     cnx->ops[PROTOOPID_CNX_STATE_CHANGED] = &protoop_noop;
+    cnx->ops[PROTOOPID_STREAM_OPENED] = &protoop_noop;
+    cnx->ops[PROTOOPID_STREAM_CLOSED] = &protoop_noop;
     cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
 }
