@@ -803,7 +803,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
                 }
             }
 
-            cnx->cnx_state = picoquic_state_client_init;
+            picoquic_set_cnx_state(cnx, picoquic_state_client_init);
             if (picoquic_is_connection_id_null(initial_cnx_id)) {
                 picoquic_create_random_cnx_id(quic, &initial_cnx_id, 8);
             }
@@ -824,7 +824,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].send_queue = NULL;
             }
-            cnx->cnx_state = picoquic_state_server_init;
+            picoquic_set_cnx_state(cnx, picoquic_state_server_init);
             cnx->initial_cnxid = initial_cnx_id;
             cnx->remote_cnxid = remote_cnx_id;
             picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
@@ -1022,6 +1022,15 @@ uint64_t picoquic_get_cnx_start_time(picoquic_cnx_t* cnx)
 picoquic_state_enum picoquic_get_cnx_state(picoquic_cnx_t* cnx)
 {
     return cnx->cnx_state;
+}
+
+void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
+{
+    picoquic_state_enum previous_state = cnx->cnx_state;
+    cnx->cnx_state = state;
+    if(previous_state != cnx->cnx_state && (cnx->ops[PROTOOPID_CNX_STATE_CHANGED] || cnx->plugins[PROTOOPID_CNX_STATE_CHANGED])) {
+        protoop_prepare_and_run(cnx, PROTOOPID_CNX_STATE_CHANGED, NULL, NULL);
+    }
 }
 
 uint64_t picoquic_is_0rtt_available(picoquic_cnx_t* cnx)
@@ -1268,7 +1277,7 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
             for (size_t i = 0; i < picoquic_nb_supported_versions; i++) {
                 if (proposed_version == picoquic_supported_versions[i].version) {
                     cnx->version_index = (int)i;
-                    cnx->cnx_state = picoquic_state_client_renegotiate;
+                    picoquic_set_cnx_state(cnx, picoquic_state_client_renegotiate);
 
                     break;
                 }
@@ -1303,12 +1312,12 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
     if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
         cnx->local_error = local_error;
-        cnx->cnx_state = picoquic_state_disconnecting;
+        picoquic_set_cnx_state(cnx, picoquic_state_disconnecting);
 
         DBG_PRINTF("Protocol error (%x)", local_error);
     } else if (cnx->cnx_state < picoquic_state_client_ready) {
         cnx->local_error = local_error;
-        cnx->cnx_state = picoquic_state_handshake_failure;
+        picoquic_set_cnx_state(cnx, picoquic_state_handshake_failure);
 
         DBG_PRINTF("Protocol error %x", local_error);
     }
@@ -1332,7 +1341,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
     if (cnx != NULL) {
         if (cnx->cnx_state < picoquic_state_disconnected) {
             /* Give the application a chance to clean up its state */
-            cnx->cnx_state = picoquic_state_disconnected;
+            picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
             if (cnx->callback_fn) {
                 (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
             }
@@ -1687,5 +1696,6 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
     cnx->ops[PROTOOPID_RECEIVED_SEGMENT] = &protoop_noop;
     cnx->ops[PROTOOPID_BEFORE_SENDING_SEGMENT] = &protoop_noop;
+    cnx->ops[PROTOOPID_CNX_STATE_CHANGED] = &protoop_noop;
     cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
 }

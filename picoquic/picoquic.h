@@ -102,6 +102,7 @@ extern "C" {
 #define PROTOOPID_INCOMING_ENCRYPTED 0x0000
 #define PROTOOPID_GET_INCOMING_PATH 0x0001
 #define PROTOOPID_GET_DESTINATION_CONNECTION_ID 0x0002
+#define PROTOOPID_CNX_STATE_CHANGED 0x0003
 
 #define PROTOOPID_DECODE_FRAMES 0x0100
 #define PROTOOPID_DECODE_STREAM_FRAME (PROTOOPID_DECODE_FRAMES + 0x01)
@@ -444,6 +445,7 @@ int64_t picoquic_get_next_wake_delay(picoquic_quic_t* quic,
 picoquic_cnx_t* picoquic_get_earliest_cnx_to_wake(picoquic_quic_t* quic, uint64_t max_wake_time);
 
 picoquic_state_enum picoquic_get_cnx_state(picoquic_cnx_t* cnx);
+void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state);
 
 int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx);
 

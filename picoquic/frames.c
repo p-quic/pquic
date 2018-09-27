@@ -2230,7 +2230,7 @@ protoop_arg_t decode_connection_close_frame(picoquic_cnx_t *cnx)
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
             picoquic_frame_type_connection_close);
     } else {
-        cnx->cnx_state = (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received;
+        picoquic_set_cnx_state(cnx, (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received);
         if (cnx->callback_fn) {
             (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
         }
@@ -2301,7 +2301,7 @@ protoop_arg_t decode_application_close_frame(picoquic_cnx_t *cnx)
             picoquic_frame_type_application_close);
     }
     else {
-        cnx->cnx_state = (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received;
+        picoquic_set_cnx_state(cnx, (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received);
         if (cnx->callback_fn) {
             (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_application_close, cnx->callback_ctx);
         }

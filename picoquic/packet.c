@@ -968,7 +968,7 @@ int picoquic_incoming_server_cleartext(
 #endif
 
     if (cnx->cnx_state == picoquic_state_client_init_sent || cnx->cnx_state == picoquic_state_client_init_resent) {
-        cnx->cnx_state = picoquic_state_client_handshake_start;
+        picoquic_set_cnx_state(cnx, picoquic_state_client_handshake_start);
     }
 
     int restricted = cnx->cnx_state != picoquic_state_client_handshake_start && cnx->cnx_state != picoquic_state_client_handshake_progress;
@@ -1054,7 +1054,7 @@ int picoquic_incoming_stateless_reset(
     picoquic_cnx_t* cnx)
 {
     /* Stateless reset. The connection should be abandonned */
-    cnx->cnx_state = picoquic_state_disconnected;
+    picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
 
     if (cnx->callback_fn) {
         (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
@@ -1161,10 +1161,10 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 if (ret == 0) {
                     if (closing_received) {
                         if (cnx->client_mode) {
-                            cnx->cnx_state = picoquic_state_disconnected;
+                            picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                         }
                         else {
-                            cnx->cnx_state = picoquic_state_draining;
+                            picoquic_set_cnx_state(cnx, picoquic_state_draining);
                         }
                     }
                     else {
