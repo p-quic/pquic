@@ -788,6 +788,9 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     size_t * send_length, uint8_t * send_buffer, uint32_t send_buffer_max, 
     picoquic_path_t * path_x, uint64_t current_time)
 {
+    /* MP: Instead of hooking the following operation every time this function is called, we place it here */
+    picoquic_before_sending_segment(cnx, length + checksum_overhead);
+
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
     protoop_arg_t args [10];
     args[0] = (protoop_arg_t) packet;

@@ -905,6 +905,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     // plugin_insert_transaction(cnx, "plugins/ecn/ecn.plugin");
     // plugin_insert_transaction(cnx, "plugins/multipath/multipath.plugin");
     // plugin_insert_transaction(cnx, "plugins/tlp/tlp.plugin");
+    // plugin_insert_transaction(cnx, "plugins/cop2/cop2.plugin");
 
     return cnx;
 }
@@ -1610,6 +1611,14 @@ void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
         socket);
 }
 
+void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len) {
+    protoop_prepare_and_run(cnx, PROTOOPID_RECEIVED_SEGMENT, NULL, len);
+}
+
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len) {
+    protoop_prepare_and_run(cnx, PROTOOPID_BEFORE_SENDING_SEGMENT, NULL, len);
+}
+
 bool is_private(in_addr_t t) {
     bool ret = false;
     in_addr_t a = t & (in_addr_t) 0xff;
@@ -1676,5 +1685,7 @@ void quicctx_register_protoops(picoquic_cnx_t *cnx)
     cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
     cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
     cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
+    cnx->ops[PROTOOPID_RECEIVED_SEGMENT] = &protoop_noop;
+    cnx->ops[PROTOOPID_BEFORE_SENDING_SEGMENT] = &protoop_noop;
     cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
 }
