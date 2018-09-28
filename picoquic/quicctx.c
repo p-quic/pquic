@@ -936,6 +936,8 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
 
 void register_protocol_operations(picoquic_cnx_t *cnx)
 {
+    /* First ensure that ops is set to NULL, required by uthash.h */
+    cnx->ops = NULL;
     packet_register_protoops(cnx);
     frames_register_protoops(cnx);
     sender_register_protoops(cnx);
@@ -1028,8 +1030,8 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
 {
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
-    if(previous_state != cnx->cnx_state && (cnx->ops[PROTOOPID_CNX_STATE_CHANGED] || cnx->plugins[PROTOOPID_CNX_STATE_CHANGED])) {
-        protoop_prepare_and_run(cnx, PROTOOPID_CNX_STATE_CHANGED, NULL, NULL);
+    if(previous_state != cnx->cnx_state) {
+        protoop_prepare_and_run(cnx, "connection_state_changed", NULL, NULL);
     }
 }
 
@@ -1329,7 +1331,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
 int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
 {
-    return (int) protoop_prepare_and_run(cnx, PROTOOPID_CONNECTION_ERROR, NULL,
+    return (int) protoop_prepare_and_run(cnx, "connection_error", NULL,
         local_error, frame_type);
 }
 
@@ -1430,11 +1432,35 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             cnx->path = NULL;
         }
 
-        /* Also free plugins */
-        for (int i = 0; i < PROTOOPID_MAX; i++) {
-            if (cnx->plugins[i]) {
-                release_elf(cnx->plugins[i]);
+        /* Free protocol operations and plugins */
+        protocol_operation_struct_t *current_post, *tmp_protoop;
+        observer_node_t *cur_del, *tmp;
+
+        HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
+            HASH_DEL(cnx->ops, current_post);
+            if (current_post->replace) {
+                release_elf(current_post->replace);
             }
+
+            if (current_post->pre) {
+                cur_del = current_post->pre;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            if (current_post->post) {
+                cur_del = current_post->post;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            free(current_post);
         }
 
         free(cnx);
@@ -1611,21 +1637,21 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, PROTOOPID_RECEIVED_PACKET, NULL,
+    protoop_prepare_and_run(cnx, "received_packet", NULL,
         socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, PROTOOPID_BEFORE_SENDING_PACKET, NULL,
+    protoop_prepare_and_run(cnx, "before_sending_packet", NULL,
         socket);
 }
 
 void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len) {
-    protoop_prepare_and_run(cnx, PROTOOPID_RECEIVED_SEGMENT, NULL, len);
+    protoop_prepare_and_run(cnx, "received_segment", NULL, len);
 }
 
 void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len) {
-    protoop_prepare_and_run(cnx, PROTOOPID_BEFORE_SENDING_SEGMENT, NULL, len);
+    protoop_prepare_and_run(cnx, "before_sending_segment", NULL, len);
 }
 
 bool is_private(in_addr_t t) {
@@ -1687,17 +1713,33 @@ protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
     return 0;
 }
 
+int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+{
+    protocol_operation_struct_t *post = malloc(sizeof(protocol_operation_struct_t));
+    if (!post) {
+        return 1;
+    }
+    strncpy(post->name, pid, strlen(pid) + 1);
+    post->core = op;
+    /* Ensure NULL values */
+    post->replace = NULL;
+    post->pre = NULL;
+    post->post = NULL;
+    HASH_ADD_STR(cnx->ops, name, post);
+    return 0;
+}
+
 void quicctx_register_protoops(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_CONGESTION_ALGORITHM_NOTIFY] = &congestion_algorithm_notify;
-    cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
-    cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
-    cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
-    cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
-    cnx->ops[PROTOOPID_RECEIVED_SEGMENT] = &protoop_noop;
-    cnx->ops[PROTOOPID_BEFORE_SENDING_SEGMENT] = &protoop_noop;
-    cnx->ops[PROTOOPID_CNX_STATE_CHANGED] = &protoop_noop;
-    cnx->ops[PROTOOPID_STREAM_OPENED] = &protoop_noop;
-    cnx->ops[PROTOOPID_STREAM_CLOSED] = &protoop_noop;
-    cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
+    register_protoop(cnx, "congestion_algorithm_notify", &congestion_algorithm_notify);
+    register_protoop(cnx, "callback_function", &callback_function);
+    register_protoop(cnx, "printf", &protoop_printf);
+    register_protoop(cnx, "received_packet", &protoop_noop);
+    register_protoop(cnx, "before_sending_packet", &protoop_noop);
+    register_protoop(cnx, "received_segment", &protoop_noop);
+    register_protoop(cnx, "before_sending_segment", &protoop_noop);
+    register_protoop(cnx, "stream_opened", &protoop_noop);
+    register_protoop(cnx, "stream_closed", &protoop_noop);
+    register_protoop(cnx, "connection_state_changed", &protoop_noop);
+    register_protoop(cnx, "connection_error", &connection_error);
 }

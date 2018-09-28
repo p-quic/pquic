@@ -1,13 +1,13 @@
-0x128 decode_mp_new_connection_id_frame.o
-0x100 decode_frames.o
-0x348 prepare_mp_new_connection_id_frame.o
-0x302 prepare_packet_ready.o
-0x127 decode_mp_ack_frame.o
-0x116 process_possible_ack_of_ack_frame.o
-0x349 prepare_mp_ack_frame.o
-0x34a prepare_add_address_frame.o
-0x129 decode_add_address_frame.o
-0x001 get_incoming_path.o
-0x301 set_nxt_wake_time.o
-0x002 get_destination_connection_id.o
-0x30e predict_packet_header_length.o
+decode_mp_new_connection_id_frame replace decode_mp_new_connection_id_frame.o
+decode_frames replace decode_frames.o
+prepare_mp_new_connection_id_frame replace prepare_mp_new_connection_id_frame.o
+prepare_packet_ready replace prepare_packet_ready.o
+decode_mp_ack_frame replace decode_mp_ack_frame.o
+process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
+prepare_mp_ack_frame replace prepare_mp_ack_frame.o
+prepare_add_address_frame replace prepare_add_address_frame.o
+decode_add_address_frame replace decode_add_address_frame.o
+get_incoming_path replace get_incoming_path.o
+set_next_wake_time replace set_next_wake_time.o
+get_destination_connection_id replace get_destination_connection_id.o
+predict_packet_header_length replace predict_packet_header_length.o

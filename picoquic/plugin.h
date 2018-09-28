@@ -10,10 +10,16 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+typedef enum {
+    plugin_replace,
+    plugin_pre,
+    plugin_post
+} plugin_type_enum;
+
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid);
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte);
 
 /**
  * Function that reads a plugin file and insert plugins described in it

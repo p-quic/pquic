@@ -28,6 +28,7 @@
 #include "util.h"
 #include "ubpf.h"
 #include "picosocks.h"
+#include "uthash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -432,14 +433,31 @@ typedef struct st_picoquic_path_t {
 
 
 typedef struct state plugin_state_t;
-typedef uint16_t protoop_id_t;
+typedef char* protoop_id_t;
 typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
+#define PROTOOPNAME_MAX 100
+
+typedef struct observer_node {
+    plugin_t *observer; /* An observer, either pre or post */
+    struct observer_node *next;
+} observer_node_t;
+
+typedef struct {
+    char name[PROTOOPNAME_MAX]; /* Key */
+    protocol_operation core; /* The default operation, kept for unplugging feature */
+    plugin_t *replace; /* Exclusive plugin replacing the code operation */
+    observer_node_t *pre; /* List of observers, probing just before function invocation */
+    observer_node_t *post; /* List of observers, probing just after function returns */
+    UT_hash_handle hh; /* Make the structure hashable */
+} protocol_operation_struct_t;
+
 #define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
 /* Register functions */
+int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
 void packet_register_protoops(picoquic_cnx_t *cnx);
@@ -572,10 +590,9 @@ typedef struct st_picoquic_cnx_t {
     int nb_paths;
     int nb_path_alloc;
 
-    /* FIXME Move me in a safe place */
+    /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */
-    protocol_operation ops[PROTOOPID_MAX];
-    plugin_t *plugins[PROTOOPID_MAX];
+    protocol_operation_struct_t *ops;
 
     /* Opaque field for free use by plugins */
     size_t opaque_size_taken;

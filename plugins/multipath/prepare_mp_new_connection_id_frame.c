@@ -7,7 +7,7 @@
 static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) num;
-    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
+    plugin_run_protoop(cnx, "printf", 1, args, NULL);
 }
 
 /**

@@ -8,7 +8,7 @@ static uint8_t *decode_ecn_frame(picoquic_cnx_t *cnx, uint8_t *bytes, const uint
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
-    return (uint8_t *) plugin_run_protoop(cnx, PROTOOPID_DECODE_ECN_FRAME, 2, args, NULL);
+    return (uint8_t *) plugin_run_protoop(cnx, "decode_ecn_frame", 2, args, NULL);
 }
 
 /**

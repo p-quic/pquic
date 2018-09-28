@@ -7,7 +7,7 @@ static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) arg;
-    plugin_run_protoop(cnx, PROTOOPID_PRINTF, 1, args, NULL);
+    plugin_run_protoop(cnx, "printf", 1, args, NULL);
 }
 
 
@@ -154,7 +154,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 /**
  * cnx->protoop_inputv[0] = uint64_t current_time
  */
-protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
+protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
     uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - cnx->client_mode);
