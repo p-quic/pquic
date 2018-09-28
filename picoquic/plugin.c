@@ -47,7 +47,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
 }
 
 bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
-    char *plugin_dirname, protoop_id_t *inserted_pid)
+    char *plugin_dirname, protoop_id_t inserted_pid)
 {
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
@@ -55,12 +55,7 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
         printf("No token for protocol operation id extracted!\n");
         return false;
     }
-    char *err_msg = NULL;
-    *inserted_pid = (protoop_id_t) strtoul(token, &err_msg, 0);
-    if (strcmp(err_msg, "") != 0) {
-        printf("Invalid protocol operation id: %s due to %s\n", token, err_msg);
-        return false;
-    }
+    strncpy(inserted_pid, token, strlen(token) + 1);
     /* Part two: insert the plugin */
     token = strsep(&line, " ");
     /* Handle end of line */
@@ -73,11 +68,11 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
     strcat(abs_path, token);
-    return plugin_plug_elf(cnx, *inserted_pid, abs_path) == 0;
+    return plugin_plug_elf(cnx, inserted_pid, abs_path) == 0;
 }
 
 typedef struct pid_node {
-    protoop_id_t pid;
+    char pid[100];
     struct pid_node *next;
 } pid_node_t;
 
@@ -105,7 +100,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (len <= 1) {
             continue;
         }
-        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t *) &inserted_pid);
+        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t ) inserted_pid);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -114,7 +109,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
                 ok = false;
                 break;
             }
-            tmp->pid = (protoop_id_t) inserted_pid;
+            strncpy(tmp->pid, inserted_pid, strlen(inserted_pid) + 1);
             tmp->next = pid_stack_top;
             pid_stack_top = tmp;
         }
