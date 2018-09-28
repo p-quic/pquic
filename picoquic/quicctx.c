@@ -935,9 +935,8 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
 
 void register_protocol_operations(picoquic_cnx_t *cnx)
 {
-    /* First ensure that ops and plugins are set to NULL */
+    /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
-    cnx->plugins = NULL;
     packet_register_protoops(cnx);
     frames_register_protoops(cnx);
     sender_register_protoops(cnx);
@@ -1424,19 +1423,34 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         /* Free protocol operations and plugins */
-        protocol_operation_struct_t *current_protoop, *tmp_protoop;
+        protocol_operation_struct_t *current_post, *tmp_protoop;
+        observer_node_t *cur_del, *tmp;
 
-        HASH_ITER(hh, cnx->ops, current_protoop, tmp_protoop) {
-            HASH_DEL(cnx->ops, current_protoop);
-            free(current_protoop);
-        }
+        HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
+            HASH_DEL(cnx->ops, current_post);
+            if (current_post->replace) {
+                release_elf(current_post->replace);
+            }
 
-        plugin_struct_t *current_plugin, *tmp_plugin;
-
-        HASH_ITER(hh, cnx->plugins, current_plugin, tmp_plugin) {
-            HASH_DEL(cnx->plugins, current_plugin);
-            release_elf(current_plugin->plugin);
-            free(current_plugin);
+            if (current_post->pre) {
+                cur_del = current_post->pre;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            if (current_post->post) {
+                cur_del = current_post->post;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            free(current_post);
         }
 
         free(cnx);
@@ -1688,7 +1702,11 @@ int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation o
         return 1;
     }
     strncpy(post->name, pid, strlen(pid) + 1);
-    post->protoop = op;
+    post->core = op;
+    /* Ensure NULL values */
+    post->replace = NULL;
+    post->pre = NULL;
+    post->post = NULL;
     HASH_ADD_STR(cnx->ops, name, post);
     return 0;
 }

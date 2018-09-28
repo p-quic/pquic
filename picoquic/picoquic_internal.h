@@ -440,17 +440,19 @@ typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
 #define PROTOOPNAME_MAX 100
 
-typedef struct {
-    char name[PROTOOPNAME_MAX]; /* Key */
-    protocol_operation protoop;
-    UT_hash_handle hh; /* Make the structure hashable */
-} protocol_operation_struct_t;
+typedef struct observer_node {
+    plugin_t *observer; /* An observer, either pre or post */
+    struct observer_node *next;
+} observer_node_t;
 
 typedef struct {
     char name[PROTOOPNAME_MAX]; /* Key */
-    plugin_t *plugin;
+    protocol_operation core; /* The default operation, kept for unplugging feature */
+    plugin_t *replace; /* Exclusive plugin replacing the code operation */
+    observer_node_t *pre; /* List of observers, probing just before function invocation */
+    observer_node_t *post; /* List of observers, probing just after function returns */
     UT_hash_handle hh; /* Make the structure hashable */
-} plugin_struct_t;
+} protocol_operation_struct_t;
 
 #define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
@@ -588,10 +590,9 @@ typedef struct st_picoquic_cnx_t {
     int nb_paths;
     int nb_path_alloc;
 
-    /* FIXME Move me in a safe place */
+    /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
-    plugin_struct_t *plugins;
 
     /* Opaque field for free use by plugins */
     size_t opaque_size_taken;

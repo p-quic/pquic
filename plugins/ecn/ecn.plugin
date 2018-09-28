@@ -1,7 +1,7 @@
-before_sending_packet before_sending_packet.o
-received_packet received_packet.o
-decode_ack_frame decode_ack_frame.o
-decode_ecn_frame decode_ecn_frame.o
-decode_frames decode_frames.o
-prepare_ecn_frame prepare_ecn_frame.o
-prepare_packet_ready prepare_packet_ready.o
+before_sending_packet replace before_sending_packet.o
+received_packet replace received_packet.o
+decode_ack_frame replace decode_ack_frame.o
+decode_ecn_frame replace decode_ecn_frame.o
+decode_frames replace decode_frames.o
+prepare_ecn_frame replace prepare_ecn_frame.o
+prepare_packet_ready replace prepare_packet_ready.o
