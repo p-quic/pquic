@@ -1,3 +1,3 @@
-0x301 set_nxt_wake_time.o
-0x30a retransmit_needed_by_packet.o
-0x303 retransmit_needed.o
+set_next_wake_time set_next_wake_time.o
+retransmit_needed_by_packet retransmit_needed_by_packet.o
+retransmit_needed retransmit_needed.o

@@ -1,7 +1,7 @@
-0x201 before_sending_packet.o
-0x200 received_packet.o
-0x102 decode_ack_frame.o
-0x138 decode_ecn_frame.o
-0x100 decode_frames.o
-0x338 prepare_ecn_frame.o
-0x302 prepare_packet_ready.o
+before_sending_packet before_sending_packet.o
+received_packet received_packet.o
+decode_ack_frame decode_ack_frame.o
+decode_ecn_frame decode_ecn_frame.o
+decode_frames decode_frames.o
+prepare_ecn_frame prepare_ecn_frame.o
+prepare_packet_ready prepare_packet_ready.o
