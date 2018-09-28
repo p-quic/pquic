@@ -6,30 +6,44 @@
 
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, char *elf_fname) {
     /* We should not be able to insert twice a plugin to the same pid */
-    if (cnx->plugins[pid] != NULL) {
-        printf("Failed to insert %s for proto op id 0x%x: previously inserted plugin found\n", elf_fname, pid);
+    plugin_struct_t *should_be_null;
+    HASH_FIND_STR(cnx->plugins, pid, should_be_null);
+    if (should_be_null != NULL) {
+        printf("Failed to insert %s for proto op id %s: previously inserted plugin found\n", elf_fname, pid);
         return 1;
     }
-    cnx->plugins[pid] = load_elf_file(elf_fname);
-
-    if (cnx->plugins[pid]) {
-        return 0;
+    plugin_struct_t *new_plugin = malloc(sizeof(plugin_struct_t));
+    if (!new_plugin) {
+        printf("Failed to allocate memory for new plugin %s\n", pid);
+        return 1;
+    }
+    new_plugin->plugin = load_elf_file(elf_fname);
+    if (!new_plugin->plugin) {
+        printf("Failed to insert %s for proto op id %s\n", elf_fname, pid);
+        free(new_plugin);
+        return 1;
     }
 
-    printf("Failed to insert %s for proto op id 0x%x\n", elf_fname, pid);
-
-    return 1;
+    /* Everything is right, just insert the element in the hash map */
+    strncpy(new_plugin->name, pid, strlen(pid) + 1);
+    HASH_ADD_STR(cnx->plugins, name, new_plugin);
+    return 0;
 }
 
 int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid) {
-    if (cnx->plugins[pid]) {
-        release_elf(cnx->plugins[pid]);
-        cnx->plugins[pid] = NULL;
-        return 0;
+    plugin_struct_t *to_remove;
+    HASH_FIND_STR(cnx->plugins, pid, to_remove);
+
+    if (!to_remove) {
+        printf("Trying to unplug plugin for proto op id %s, but no plugin inserted...\n", pid);
+        return 1;
     }
 
-    printf("Trying to unplug plugin for proto op id 0x%x, but no plugin inserted...\n", pid);
-    return 1;
+    HASH_DEL(cnx->plugins, to_remove);
+    release_elf(to_remove->plugin);
+    free(to_remove);
+    to_remove = NULL;
+    return 0;
 }
 
 bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
@@ -82,7 +96,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     ssize_t read = 0;
     bool ok = true;
     char *plugin_dirname = dirname(buf);
-    protoop_id_t inserted_pid;
+    char inserted_pid[100];
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
 
@@ -91,7 +105,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (len <= 1) {
             continue;
         }
-        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, &inserted_pid);
+        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t *) &inserted_pid);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -100,7 +114,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
                 ok = false;
                 break;
             }
-            tmp->pid = inserted_pid;
+            tmp->pid = (protoop_id_t) inserted_pid;
             tmp->next = pid_stack_top;
             pid_stack_top = tmp;
         }
@@ -153,7 +167,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
 
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
     if (inputc > PROTOOPARGS_MAX) {
-        printf("Too many arguments for protocol operation with id 0x%x : %d > %d\n",
+        printf("Too many arguments for protocol operation with id %s : %d > %d\n",
             pid, inputc, PROTOOPARGS_MAX);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
@@ -186,15 +200,21 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 
     /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
-    if (cnx->plugins[pid]) {
-        DBG_PLUGIN_PRINTF("Running plugin at proto op id 0x%x", pid);
-        status = (protoop_arg_t) exec_loaded_code(cnx->plugins[pid], (void *)cnx, sizeof(picoquic_cnx_t));
-    } else if (cnx->ops[pid]) {
-        status = cnx->ops[pid](cnx);
+    plugin_struct_t *plugin_to_run;
+    HASH_FIND_STR(cnx->plugins, pid, plugin_to_run);
+    if (plugin_to_run) {
+        DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
+        status = (protoop_arg_t) exec_loaded_code(plugin_to_run->plugin, (void *)cnx, sizeof(picoquic_cnx_t));
     } else {
-        printf("FATAL ERROR: no protocol operation with id 0x%x\n", pid);
-        exit(-1);
+        protocol_operation_struct_t *protoop_to_run;
+        HASH_FIND_STR(cnx->ops, pid, protoop_to_run);
+        if (!protoop_to_run) {
+            printf("FATAL ERROR: no protocol operation with id %s\n", pid);
+            exit(-1);
+        }
+        status = protoop_to_run->protoop(cnx);
     }
+
     int outputc = cnx->protoop_outputc_callee;
 
     DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
@@ -208,7 +228,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
         }
 #endif
     } else if (outputc > 0) {
-        printf("WARNING: no output value provided for protocol operation with id 0x%x that returns %d additional outputs\n", pid, outputc);
+        printf("WARNING: no output value provided for protocol operation with id %s that returns %d additional outputs\n", pid, outputc);
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
 

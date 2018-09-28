@@ -935,6 +935,9 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
 
 void register_protocol_operations(picoquic_cnx_t *cnx)
 {
+    /* First ensure that ops and plugins are set to NULL */
+    cnx->ops = NULL;
+    cnx->plugins = NULL;
     packet_register_protoops(cnx);
     frames_register_protoops(cnx);
     sender_register_protoops(cnx);
@@ -1319,7 +1322,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
 int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
 {
-    return (int) protoop_prepare_and_run(cnx, PROTOOPID_CONNECTION_ERROR, NULL,
+    return (int) protoop_prepare_and_run(cnx, "connection_error", NULL,
         local_error, frame_type);
 }
 
@@ -1420,11 +1423,20 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             cnx->path = NULL;
         }
 
-        /* Also free plugins */
-        for (int i = 0; i < PROTOOPID_MAX; i++) {
-            if (cnx->plugins[i]) {
-                release_elf(cnx->plugins[i]);
-            }
+        /* Free protocol operations and plugins */
+        protocol_operation_struct_t *current_protoop, *tmp_protoop;
+
+        HASH_ITER(hh, cnx->ops, current_protoop, tmp_protoop) {
+            HASH_DEL(cnx->ops, current_protoop);
+            free(current_protoop);
+        }
+
+        plugin_struct_t *current_plugin, *tmp_plugin;
+
+        HASH_ITER(hh, cnx->plugins, current_plugin, tmp_plugin) {
+            HASH_DEL(cnx->plugins, current_plugin);
+            release_elf(current_plugin->plugin);
+            free(current_plugin);
         }
 
         free(cnx);
@@ -1601,12 +1613,12 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, PROTOOPID_RECEIVED_PACKET, NULL,
+    protoop_prepare_and_run(cnx, "received_packet", NULL,
         socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, PROTOOPID_BEFORE_SENDING_PACKET, NULL,
+    protoop_prepare_and_run(cnx, "before_sending_packet", NULL,
         socket);
 }
 
@@ -1669,12 +1681,24 @@ protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
     return 0;
 }
 
+int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+{
+    protocol_operation_struct_t *post = malloc(sizeof(protocol_operation_struct_t));
+    if (!post) {
+        return 1;
+    }
+    strncpy(post->name, pid, strlen(pid) + 1);
+    post->protoop = op;
+    HASH_ADD_STR(cnx->ops, name, post);
+    return 0;
+}
+
 void quicctx_register_protoops(picoquic_cnx_t *cnx)
 {
-    cnx->ops[PROTOOPID_CONGESTION_ALGORITHM_NOTIFY] = &congestion_algorithm_notify;
-    cnx->ops[PROTOOPID_CALLBACK_FUNCTION] = &callback_function;
-    cnx->ops[PROTOOPID_PRINTF] = &protoop_printf;
-    cnx->ops[PROTOOPID_RECEIVED_PACKET] = &protoop_noop;
-    cnx->ops[PROTOOPID_BEFORE_SENDING_PACKET] = &protoop_noop;
-    cnx->ops[PROTOOPID_CONNECTION_ERROR] = &connection_error;
+    register_protoop(cnx, "congestion_algorithm_notify", &congestion_algorithm_notify);
+    register_protoop(cnx, "callback_function", &callback_function);
+    register_protoop(cnx, "printf", &protoop_printf);
+    register_protoop(cnx, "received_packet", &protoop_noop);
+    register_protoop(cnx, "before_sending_packet", &protoop_noop);
+    register_protoop(cnx, "connection_error", &connection_error);
 }

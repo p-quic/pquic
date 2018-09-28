@@ -28,6 +28,7 @@
 #include "util.h"
 #include "ubpf.h"
 #include "picosocks.h"
+#include "uthash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -432,14 +433,29 @@ typedef struct st_picoquic_path_t {
 
 
 typedef struct state plugin_state_t;
-typedef uint16_t protoop_id_t;
+typedef char* protoop_id_t;
 typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
+#define PROTOOPNAME_MAX 100
+
+typedef struct {
+    char name[PROTOOPNAME_MAX]; /* Key */
+    protocol_operation protoop;
+    UT_hash_handle hh; /* Make the structure hashable */
+} protocol_operation_struct_t;
+
+typedef struct {
+    char name[PROTOOPNAME_MAX]; /* Key */
+    plugin_t *plugin;
+    UT_hash_handle hh; /* Make the structure hashable */
+} plugin_struct_t;
+
 #define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
 /* Register functions */
+int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
 void packet_register_protoops(picoquic_cnx_t *cnx);
@@ -574,8 +590,8 @@ typedef struct st_picoquic_cnx_t {
 
     /* FIXME Move me in a safe place */
     /* Management of default protocol operations and plugins */
-    protocol_operation ops[PROTOOPID_MAX];
-    plugin_t *plugins[PROTOOPID_MAX];
+    protocol_operation_struct_t *ops;
+    plugin_struct_t *plugins;
 
     /* Opaque field for free use by plugins */
     size_t opaque_size_taken;
