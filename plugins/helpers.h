@@ -2,6 +2,9 @@
 #include "plugin.h"
 #include "memcpy.h"
 
+#define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
+#define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+
 
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
@@ -10,11 +13,13 @@ static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext
     return (uint32_t) plugin_run_protoop(cnx, "get_checksum_length", 1, args, NULL);
 }
 
-static void helper_protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
+static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_arg_t *fmt_args, size_t args_len)
 {
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) arg;
-    plugin_run_protoop(cnx, "printf", 1, args, NULL);
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) fmt;
+    args[1] = (protoop_arg_t) fmt_args;
+    args[2] = (protoop_arg_t) args_len;
+    plugin_run_protoop(cnx, "printf", 3, args, NULL);
 }
 
 static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit)
