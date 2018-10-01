@@ -434,11 +434,21 @@ typedef struct st_picoquic_path_t {
 
 typedef struct state plugin_state_t;
 typedef char* protoop_id_t;
+typedef uint16_t param_id_t;
 typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
+typedef struct {
+    protoop_id_t pid;
+    param_id_t param;
+    int inputc;
+    protoop_arg_t *inputv;
+    protoop_arg_t *outputv;
+} protoop_params_t;
+
 #define PROTOOPNAME_MAX 100
+#define NO_PARAM (param_id_t) -1
 
 typedef struct observer_node {
     plugin_t *observer; /* An observer, either pre or post */
@@ -446,24 +456,38 @@ typedef struct observer_node {
 } observer_node_t;
 
 typedef struct {
-    char name[PROTOOPNAME_MAX]; /* Key */
+    param_id_t param; /* Key of the parameter. If its value is -1, it has no parameter */
     protocol_operation core; /* The default operation, kept for unplugging feature */
     plugin_t *replace; /* Exclusive plugin replacing the code operation */
     observer_node_t *pre; /* List of observers, probing just before function invocation */
     observer_node_t *post; /* List of observers, probing just after function returns */
+    UT_hash_handle hh; /* Make the structure hashable */
+} protocol_operation_param_struct_t;
+
+protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op);
+
+typedef struct {
+    char name[PROTOOPNAME_MAX]; /* Key */
+    bool is_parametrable;
+    /* This pointer is special. Depending on the value of is_parametrable, it is
+     * either directly the protocol_operation_param_struct_t, or an hash map containing
+     * such elements
+     */
+    protocol_operation_param_struct_t *params; /* This is a hash map */
     UT_hash_handle hh; /* Make the structure hashable */
 } protocol_operation_struct_t;
 
 #define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
 /* Register functions */
-int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
+int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
+int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t param, protocol_operation op);
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
-void packet_register_protoops(picoquic_cnx_t *cnx);
-void frames_register_protoops(picoquic_cnx_t *cnx);
-void sender_register_protoops(picoquic_cnx_t *cnx);
-void quicctx_register_protoops(picoquic_cnx_t *cnx);
+void packet_register_noparam_protoops(picoquic_cnx_t *cnx);
+void frames_register_noparam_protoops(picoquic_cnx_t *cnx);
+void sender_register_noparam_protoops(picoquic_cnx_t *cnx);
+void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
 #define OPAQUE_SIZE 200 /* In bytes */

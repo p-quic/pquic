@@ -463,7 +463,7 @@ picoquic_path_t* picoquic_get_incoming_path(
     picoquic_cnx_t* cnx,
     picoquic_packet_header* ph)
 {
-    return (picoquic_path_t*) protoop_prepare_and_run(cnx, "get_incoming_path", NULL,
+    return (picoquic_path_t*) protoop_prepare_and_run_noparam(cnx, "get_incoming_path", NULL,
         ph);
 }
 
@@ -1225,7 +1225,7 @@ int picoquic_incoming_encrypted(
     struct sockaddr* addr_from,
     uint64_t current_time)
 {
-    return (int) protoop_prepare_and_run(cnx, "incoming_encrypted", NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, "incoming_encrypted", NULL,
         bytes, ph, addr_from, current_time);
 }
 
@@ -1452,8 +1452,8 @@ int picoquic_incoming_packet(
     return ret;
 }
 
-void packet_register_protoops(picoquic_cnx_t *cnx)
+void packet_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
-    register_protoop(cnx, "incoming_encrypted", &incoming_encrypted);
-    register_protoop(cnx, "get_incoming_path", &get_incoming_path);
+    register_noparam_protoop(cnx, "incoming_encrypted", &incoming_encrypted);
+    register_noparam_protoop(cnx, "get_incoming_path", &get_incoming_path);
 }

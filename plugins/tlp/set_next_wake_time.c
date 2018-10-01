@@ -3,14 +3,6 @@
 #include "bpf.h"
 #include "../helpers.h"
 
-static void protoop_printf(picoquic_cnx_t *cnx, protoop_arg_t arg)
-{
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) arg;
-    plugin_run_protoop(cnx, "printf", 1, args, NULL);
-}
-
-
 /* Special wake up decision logic in initial state */
 /* TODO: tie with per path scheduling */
 static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_time)

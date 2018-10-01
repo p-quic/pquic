@@ -3,13 +3,6 @@
 #include "../helpers.h"
 #include "bpf.h"
 
-static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) num;
-    plugin_run_protoop(cnx, "printf", 1, args, NULL);
-}
-
-
 /**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
  * cnx->protoop_inputv[1] = picoquic_packet_t* packet
