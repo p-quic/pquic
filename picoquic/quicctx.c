@@ -803,7 +803,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
                 }
             }
 
-            picoquic_set_cnx_state(cnx, picoquic_state_client_init);
+            cnx->cnx_state = picoquic_state_client_init;
             if (picoquic_is_connection_id_null(initial_cnx_id)) {
                 picoquic_create_random_cnx_id(quic, &initial_cnx_id, 8);
             }
@@ -824,7 +824,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].send_queue = NULL;
             }
-            picoquic_set_cnx_state(cnx, picoquic_state_server_init);
+            cnx->cnx_state = picoquic_state_server_init;
             cnx->initial_cnxid = initial_cnx_id;
             cnx->remote_cnxid = remote_cnx_id;
             picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
