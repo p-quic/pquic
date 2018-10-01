@@ -1699,8 +1699,21 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
 protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
 {
     printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
-    for (int i = 0; i < cnx->protoop_inputc; i++) {
-        printf("\tInput %d: 0x%lx\n", i, cnx->protoop_inputv[i]);
+    protoop_arg_t *fmt_args = (protoop_arg_t *) cnx->protoop_inputv[1];
+    switch (cnx->protoop_inputv[2]) {
+        case 0: printf((const char *) cnx->protoop_inputv[0]); break;
+        case 1: printf((const char *) cnx->protoop_inputv[0], fmt_args[0]); break;
+        case 2: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1]); break;
+        case 3: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2]); break;
+        case 4: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3]); break;
+        case 5: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4]); break;
+        case 6: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5]); break;
+        case 7: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6]); break;
+        case 8: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7]); break;
+        case 9: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8]); break;
+        case 10: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8], fmt_args[9]); break;
+        default:
+            printf("protoop printf cannot handle more than 10 arguments, %lu were given\n", (size_t) cnx->protoop_inputv[2]);
     }
     fflush(stdout);
     return 0;
