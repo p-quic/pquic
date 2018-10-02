@@ -297,8 +297,11 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
-        if (NULL == picoquic_decode_crypto_hs_frame(&cnx, test->list[i].packet,
-                test->list[i].packet + test->list[i].packet_length, test_epoch )) {
+        protoop_arg_t outs[1];
+        int ack_needed;
+        uint8_t* bytes = (uint8_t*) protoop_prepare_and_run_param(&cnx, "decode_frame", picoquic_frame_type_crypto_hs, outs,
+            test->list[i].packet, test->list[i].packet + test->list[i].packet_length, 0, test_epoch, &ack_needed);
+        if (NULL == bytes) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;
         }
