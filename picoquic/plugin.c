@@ -70,7 +70,7 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, p
         printf("Trying to insert parameter %u in non-parametrable protocol operation %s\n", param, pid);
         return 1;
     }
-    HASH_FIND_INT(post->params, &param, popst);
+    HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
     /* It is possible to have a new parameter with the plugin */
     if (!popst) {
         popst = create_protocol_operation_param(param, NULL);
@@ -94,7 +94,7 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, p
 
     if (created_popst) {
         /* Insert in hash */
-        HASH_ADD_INT(post->params, param, popst);
+        HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
     }
 
     return 0;
@@ -146,7 +146,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
             printf("Trying to remove param %u from non-parametrable protocol operation %s\n", param, pid);
             return 1;
         }
-        HASH_FIND_INT(post->params, &param, popst);
+        HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
         if (!popst) {
             printf("Trying to remove non-existing param %u for protocol operation %s\n", param, pid);
             return 1;
@@ -382,7 +382,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     protocol_operation_param_struct_t *popst;
     if (post->is_parametrable) {
-        HASH_FIND_INT(post->params, &pp->param, popst);
+        HASH_FIND(hh, post->params, &pp->param, sizeof(param_id_t), popst);
         if (!popst) {
             printf("FATAL ERROR: no protocol operation with id %s and param %u\n", pp->pid, pp->param);
             exit(-1);

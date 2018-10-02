@@ -1736,6 +1736,7 @@ protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t pa
         printf("ERROR: failed to allocate memory for protocol operation param\n");
         return NULL;
     }
+    popst->param = param;
     popst->core = op;
     /* Ensure NULL values */
     popst->replace = NULL;
@@ -1787,7 +1788,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
             printf("ERROR: trying to insert parameter in non-parametrable protocol operation %s\n", pid);
             return 1;
         }
-        HASH_FIND_INT(post->params, &param, popst);
+        HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
         if (popst) {
             printf("ERROR: trying to register twice the parametrable protocol operation %s with param %u\n", pid, param);
             return 1;
@@ -1820,7 +1821,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
         HASH_ADD_STR(cnx->ops, name, post);
     }
     /* Insert the param struct */
-    HASH_ADD_INT(post->params, param, popst);
+    HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
     return 0;
 }
 
