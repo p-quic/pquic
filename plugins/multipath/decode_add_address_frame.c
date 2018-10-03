@@ -6,15 +6,23 @@
 
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
+ * The interface for the decode_frame protocol operation is the same for all:
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * const uint8_t* bytes_max = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * int epoch = cnx->protoop_inputv[3]
+ * int ack_needed = cnx->protoop_inputv[4]
  *
  * Output: uint8_t* bytes
+ * cnx->protoop_outputv[0] = ack_needed
  */
 protoop_arg_t decode_add_address_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    int ack_needed = (int) cnx->protoop_outputv[4];
+
+    ack_needed = 1;
 
     size_t byte_index = 1;
     uint8_t flags_and_ip_ver;
@@ -102,6 +110,7 @@ protoop_arg_t decode_add_address_frame(picoquic_cnx_t* cnx)
         // Error: unknown ip version
     }
 
-
+    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[0] = ack_needed;
     return (protoop_arg_t) bytes + byte_index;
 }

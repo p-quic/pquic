@@ -4,17 +4,22 @@
 #include "bpf.h"
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
- * cnx->protoop_inputv[2] = uint64_t current_time
+ * The interface for the decode_frame protocol operation is the same for all:
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * const uint8_t* bytes_max = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * int epoch = cnx->protoop_inputv[3]
+ * int ack_needed = cnx->protoop_inputv[4]
  *
  * Output: uint8_t* bytes
+ * cnx->protoop_outputv[0] = ack_needed
  */
 protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
 {
     uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (uint8_t *) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    int ack_needed = (int) cnx->protoop_inputv[4];
 
     uint64_t num_block;
     uint64_t largest;
@@ -30,18 +35,15 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
         NULL, &path_id,
         &largest, &ack_delay, &consumed,
         cnx->remote_parameters.ack_delay_exponent) != 0) {
-        print_num_text_2(cnx, 0x4321);
         bytes = NULL;
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
     } else {
         int path_index = mp_get_path_index(bpfd, path_id, NULL);
         if (path_index < 0) {
             bytes = NULL;
-            print_num_text_2(cnx, 0x5432);
             helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         } else if (largest >= bpfd->paths[path_index].path->pkt_ctx[pc].send_sequence) {
             bytes = NULL;
-            print_num_text_2(cnx, 0x6543);
             helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         } else {
             picoquic_path_t *path_x = bpfd->paths[path_index].path;
@@ -57,7 +59,6 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
 
                 if ((bytes = helper_frames_varint_decode(bytes, bytes_max, &range)) == NULL) {
                     // DBG_PRINTF("Malformed ACK RANGE, %d blocks remain.\n", (int)num_block);
-                    print_num_text_2(cnx, 0x7654);
                     helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
                     bytes = NULL;
                     break;
@@ -66,7 +67,6 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
                 range ++;
                 if (largest + 1 < range) {
                     // DBG_PRINTF("ack range error: largest=%" PRIx64 ", range=%" PRIx64, largest, range);
-                    print_num_text_2(cnx, 0x8765);
                     helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
                     bytes = NULL;
                     break;
@@ -87,7 +87,6 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
                 /* Skip the gap */
                 if ((bytes = helper_frames_varint_decode(bytes, bytes_max, &block_to_block)) == NULL) {
                     // DBG_PRINTF("    Malformed ACK GAP, %d blocks remain.\n", (int)num_block);
-                    print_num_text_2(cnx, 0x9876);
                     helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
                     bytes = NULL;
                     break;
@@ -99,7 +98,6 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
                 if (largest < block_to_block) {
                     // DBG_PRINTF("ack gap error: largest=%" PRIx64 ", range=%" PRIx64 ", gap=%" PRIu64,
                     //     largest, range, block_to_block - range);
-                    print_num_text_2(cnx, 0x9987);
                     helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, first_byte);
                     bytes = NULL;
                     break;
@@ -110,5 +108,7 @@ protoop_arg_t decode_mp_ack_frame(picoquic_cnx_t *cnx)
         }
     }
 
+    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[0] = ack_needed;
     return (protoop_arg_t) bytes;
 }

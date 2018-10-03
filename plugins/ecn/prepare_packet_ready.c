@@ -10,7 +10,8 @@ static int prepare_ecn_frame(picoquic_cnx_t *cnx, uint8_t *bytes, size_t bytes_m
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
-    int ret = (int) plugin_run_protoop(cnx, "prepare_ecn_frame", 3, args, outs);
+    protoop_params_t pp = get_pp_noparam("prepare_ecn_frame", 3, args, outs);
+    int ret = (int) plugin_run_protoop(cnx, &pp);
     *consumed = (size_t) outs[0];
     return ret;
 }

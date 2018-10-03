@@ -3,13 +3,6 @@
 #include "../helpers.h"
 #include "bpf.h"
 
-static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) num;
-    plugin_run_protoop(cnx, "printf", 1, args, NULL);
-}
-
-
 /**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
  * cnx->protoop_inputv[1] = picoquic_packet_t* packet
@@ -36,7 +29,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     /* Select the path */
     path_x = cnx->path[0];
-    // print_num_text_2(cnx, path_x);
 
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
@@ -83,7 +75,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
     }
     bpfd->last_path_index_sent = selected_path_index;
-    // print_num_text_2(cnx, path_x);
 
     int ret = 0;
     /* TODO: manage multiple streams. */

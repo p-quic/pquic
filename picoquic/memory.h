@@ -25,6 +25,6 @@ void init_memory_management(picoquic_cnx_t *cnx);
 
 #define DBG_MEMORY_PRINTF(fmt, ...)
 
-#endif // #ifdef DEBUG_PLUGIN_PRINTF
+#endif // #ifdef DEBUG_PLUGIN_PRINTF_CALL
 
 #endif // MEMORY_H

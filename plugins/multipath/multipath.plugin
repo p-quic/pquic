@@ -1,12 +1,11 @@
-decode_mp_new_connection_id_frame replace decode_mp_new_connection_id_frame.o
-decode_frames replace decode_frames.o
+decode_frame param 0x26 replace decode_mp_new_connection_id_frame.o
 prepare_mp_new_connection_id_frame replace prepare_mp_new_connection_id_frame.o
 prepare_packet_ready replace prepare_packet_ready.o
-decode_mp_ack_frame replace decode_mp_ack_frame.o
+decode_frame param 0x27 replace decode_mp_ack_frame.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
 prepare_mp_ack_frame replace prepare_mp_ack_frame.o
 prepare_add_address_frame replace prepare_add_address_frame.o
-decode_add_address_frame replace decode_add_address_frame.o
+decode_frame param 0x22 replace decode_add_address_frame.o
 get_incoming_path replace get_incoming_path.o
 set_next_wake_time replace set_next_wake_time.o
 get_destination_connection_id replace get_destination_connection_id.o

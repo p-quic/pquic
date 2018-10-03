@@ -40,15 +40,23 @@ static uint8_t* skip_connection_id_frame(uint8_t* bytes, const uint8_t* bytes_ma
 }
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
+ * The interface for the decode_frame protocol operation is the same for all:
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * const uint8_t* bytes_max = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * int epoch = cnx->protoop_inputv[3]
+ * int ack_needed = cnx->protoop_inputv[4]
  *
  * Output: uint8_t* bytes
+ * cnx->protoop_outputv[0] = ack_needed
  */
 protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    int ack_needed = (int) cnx->protoop_inputv[4];
+
+    ack_needed = 1;
 
     /* TODO: store the connection ID in order to support migration. */
     if ((bytes = skip_connection_id_frame(bytes, bytes_max)) == NULL) {
@@ -56,5 +64,7 @@ protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
             picoquic_frame_type_new_connection_id);
     }
 
+    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[0] = (protoop_arg_t) ack_needed;
     return (protoop_arg_t) bytes;
 }

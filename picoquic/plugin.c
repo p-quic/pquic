@@ -4,13 +4,114 @@
 #include <stdio.h>
 #include <string.h>
 
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, plugin_type_enum pte, char *elf_fname) {
+    /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
+    if (pte == plugin_replace && popst->replace) {
+        printf("Replace plugin already inserted!\n");
+        return 1;
+    }
+
+    /* Then check if we can load the plugin! */
+    plugin_t *new_plugin = load_elf_file(elf_fname);
+    if (!new_plugin) {
+        printf("Failed to insert %s\n", elf_fname);
+        return 1;
+    }
+
+    /* We cope with (nearly) all bad cases, so now insert */
+    observer_node_t *new_node;
+    switch (pte) {
+    case plugin_replace:
+        popst->replace = new_plugin;
+        break;
+    case plugin_pre:
+        new_node = malloc(sizeof(observer_node_t));
+        if (!new_node) {
+            printf("Cannot allocate memory to insert pre node with plugin %s for pid\n", elf_fname);
+            release_elf(new_plugin);
+            return 1;
+        }
+        new_node->observer = new_plugin;
+        new_node->next = popst->pre;
+        popst->pre = new_node;
+        break;
+    case plugin_post:
+        new_node = malloc(sizeof(observer_node_t));
+        if (!new_node) {
+            printf("Cannot allocate memory to insert pre node with plugin %s\n", elf_fname);
+            release_elf(new_plugin);
+            return 1;
+        }
+        new_node->observer = new_plugin;
+        new_node->next = popst->post;
+        popst->post = new_node;
+        break;
+    }
+
+    return 0;
+}
+
+int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_id_t pid, plugin_type_enum pte, char *elf_fname) {
+    protocol_operation_param_struct_t *popst = post->params;
+    /* Sanity check */
+    if (post->is_parametrable) {
+        printf("Trying to insert NO_PARAM in parametrable protocol operation %s\n", pid);
+        return 1;
+    }
+
+    return plugin_plug_elf_param_struct(popst, pte, elf_fname);
+}
+
+int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
+    protocol_operation_param_struct_t *popst;
+    bool created_popst = false;
+    /* Sanity check */
+    if (!post->is_parametrable) {
+        printf("Trying to insert parameter %u in non-parametrable protocol operation %s\n", param, pid);
+        return 1;
+    }
+    HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
+    /* It is possible to have a new parameter with the plugin */
+    if (!popst) {
+        popst = create_protocol_operation_param(param, NULL);
+        created_popst = true;
+        if (!popst) {
+            printf("ERROR: cannot allocate memory for param struct when plugin...\n");
+            return 1;
+        }
+    }
+
+    int err = plugin_plug_elf_param_struct(popst, pte, elf_fname);
+
+    if (err) {
+        if (created_popst) {
+            /* Remove it */
+            free(popst);
+        }
+        printf("Failed to insert plugin for parametrable protocol operation %s with param %u\n", pid, param);
+        return 1;
+    }
+
+    if (created_popst) {
+        /* Insert in hash */
+        HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
+    }
+
+    return 0;
+}
+
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
     /* Two cases: either it exists, or not */
     if (!post) {
-        int err = register_protoop(cnx, pid, NULL);
+        int err;
+        if (param != NO_PARAM) {
+            err = register_param_protoop(cnx, pid, param, NULL);
+        } else {
+            err = register_noparam_protoop(cnx, pid, NULL);
+        }
         if (err) {
             printf("Failed to allocate resources for pid %s\n", pid);
             return 1;
@@ -19,59 +120,37 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte,
         HASH_FIND_STR(cnx->ops, pid, post);
     }
 
-    /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
-    if (pte == plugin_replace && post->replace) {
-        printf("Replace plugin already inserted for pid %s!\n", pid);
-        return 1;
-    }
-
-    /* Then check if we can load the plugin! */
-    plugin_t *new_plugin = load_elf_file(elf_fname);
-    if (!new_plugin) {
-        printf("Failed to insert %s for proto op id %s\n", elf_fname, pid);
-        return 1;
-    }
-
-    /* We cope with (nearly) all bad cases, so now insert */
-    observer_node_t *new_node;
-    switch (pte) {
-    case plugin_replace:
-        post->replace = new_plugin;
-        break;
-    case plugin_pre:
-        new_node = malloc(sizeof(observer_node_t));
-        if (!new_node) {
-            printf("Cannot allocate memory to insert pre node with plugin %s for pid %s\n", elf_fname, pid);
-            release_elf(new_plugin);
-            return 1;
-        }
-        new_node->observer = new_plugin;
-        new_node->next = post->pre;
-        post->pre = new_node;
-        break;
-    case plugin_post:
-        new_node = malloc(sizeof(observer_node_t));
-        if (!new_node) {
-            printf("Cannot allocate memory to insert pre node with plugin %s for pid %s\n", elf_fname, pid);
-            release_elf(new_plugin);
-            return 1;
-        }
-        new_node->observer = new_plugin;
-        new_node->next = post->post;
-        post->post = new_node;
-        break;
-    }
-
-    return 0;
+    /* Again, two cases: either it is parametric or not */
+    return param != NO_PARAM ? plugin_plug_elf_param(post, pid, param, pte, elf_fname) :
+        plugin_plug_elf_noparam(post, pid, pte, elf_fname);
 }
 
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte) {
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
     if (!post) {
         printf("Trying to unplug plugin for non-existing proto op id %s...\n", pid);
         return 1;
+    }
+
+    protocol_operation_param_struct_t *popst;
+    if (param == NO_PARAM) {
+        if (post->is_parametrable) {
+            printf("Trying to remove NO_PARAM from parametrable protocol operation %s\n", pid);
+            return 1;
+        }
+        popst = post->params;
+    } else {
+        if (!post->is_parametrable) {
+            printf("Trying to remove param %u from non-parametrable protocol operation %s\n", param, pid);
+            return 1;
+        }
+        HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
+        if (!popst) {
+            printf("Trying to remove non-existing param %u for protocol operation %s\n", param, pid);
+            return 1;
+        }
     }
 
     /* For pre/post, it's difficult to ensure we remove the right observer right now...
@@ -82,31 +161,31 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte) {
     observer_node_t *to_remove;
     switch (pte) {
     case plugin_replace:
-        if (!post->replace) {
+        if (!popst->replace) {
             printf("Trying to unplug non-existing replace plugin for proto op id %s...\n", pid);
             return 1;
         }
-        release_elf(post->replace);
-        post->replace = NULL;
+        release_elf(popst->replace);
+        popst->replace = NULL;
         break;
     case plugin_pre:
-        if (!post->pre) {
+        if (!popst->pre) {
             printf("Trying to unplug non-existing pre plugin for proto op id %s...\n", pid);
             return 1;
         }
-        to_remove = post->pre;
-        post->pre = to_remove->next;
+        to_remove = popst->pre;
+        popst->pre = to_remove->next;
         release_elf(to_remove->observer);
         free(to_remove);
         to_remove = NULL;
         break;
     case plugin_post:
-        if (!post->post) {
+        if (!popst->post) {
             printf("Trying to unplug non-existing post plugin for proto op id %s...\n", pid);
             return 1;
         }
-        to_remove = post->post;
-        post->post = to_remove->next;
+        to_remove = popst->post;
+        popst->post = to_remove->next;
         release_elf(to_remove->observer);
         free(to_remove);
         to_remove = NULL;
@@ -114,7 +193,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte) {
     }
 
     /* Cope with a special case of a protoop without core op and with no more plugins */
-    if (!post->core && !post->replace && !post->pre && !post->post) {
+    if (!popst->core && !popst->replace && !popst->pre && !popst->post) {
         HASH_DEL(cnx->ops, post);
         free(post);
         post = NULL;
@@ -124,7 +203,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte) {
 }
 
 bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
-    char *plugin_dirname, protoop_id_t inserted_pid, plugin_type_enum *pte)
+    char *plugin_dirname, protoop_id_t inserted_pid, param_id_t *param, plugin_type_enum *pte)
 {
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
@@ -133,8 +212,23 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
         return false;
     }
     strncpy(inserted_pid, token, strlen(token) + 1);
-    /* Part two: extract plugin type */
+
+    /* Part one bis: extract param, if any */
     token = strsep(&line, " ");
+    if (strncmp(token, "param", 5) == 0) {
+        char *errmsg = NULL;
+        token = strsep(&line, " ");
+        *param = (param_id_t) strtoul(token, &errmsg, 0);
+        if (errmsg != NULL && strncmp(errmsg, "", 1) != 0) {
+            printf("Invalid parameter %s, num is %u!\n", token, *param);
+            return false;
+        }
+        token = strsep(&line, " ");
+    } else {
+        *param = NO_PARAM;
+    }
+
+    /* Part two: extract plugin type */
     if (strncmp(token, "replace", 7) == 0) {
         *pte = plugin_replace;
     } else if (strncmp(token, "pre", 3) == 0) {
@@ -148,6 +242,7 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
 
     /* Part three: insert the plugin */
     token = strsep(&line, " ");
+
     /* Handle end of line */
     token[strcspn(token, "\r\n")] = 0;
     if (token == NULL) {
@@ -158,11 +253,12 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
     strcat(abs_path, token);
-    return plugin_plug_elf(cnx, inserted_pid, *pte, abs_path) == 0;
+    return plugin_plug_elf(cnx, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
 typedef struct pid_node {
     char pid[100];
+    param_id_t param;
     plugin_type_enum pte;
     struct pid_node *next;
 } pid_node_t;
@@ -183,6 +279,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     bool ok = true;
     char *plugin_dirname = dirname(buf);
     char inserted_pid[100];
+    param_id_t param;
     plugin_type_enum pte;
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
@@ -192,7 +289,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (len <= 1) {
             continue;
         }
-        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t ) inserted_pid, &pte);
+        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -202,6 +299,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
                 break;
             }
             strncpy(tmp->pid, inserted_pid, strlen(inserted_pid) + 1);
+            tmp->param = param;
             tmp->pte = pte;
             tmp->next = pid_stack_top;
             pid_stack_top = tmp;
@@ -211,7 +309,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     while (pid_stack_top != NULL) {
         if (!ok) {
             /* Unplug previously plugged code */
-            plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->pte);
+            plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
         }
         tmp = pid_stack_top->next;
         free(pid_stack_top);
@@ -253,10 +351,10 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
     return ometas[oid].start_ptr;
 }
 
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv) {
-    if (inputc > PROTOOPARGS_MAX) {
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
+    if (pp->inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id %s : %d > %d\n",
-            pid, inputc, PROTOOPARGS_MAX);
+            pp->pid, pp->inputc, PROTOOPARGS_MAX);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
 
@@ -271,12 +369,12 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     uint64_t *caller_outputv[PROTOOPARGS_MAX];
     memcpy(caller_inputv, cnx->protoop_inputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
     memcpy(caller_outputv, cnx->protoop_outputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
-    memcpy(cnx->protoop_inputv, inputv, sizeof(uint64_t) * inputc);
-    cnx->protoop_inputc = inputc;
+    memcpy(cnx->protoop_inputv, pp->inputv, sizeof(uint64_t) * pp->inputc);
+    cnx->protoop_inputc = pp->inputc;
 
-#ifdef DBG_PLUGIN_PRINTF
-    for (int i = 0; i < inputc; i++) {
-        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, inputv[i]);
+#ifdef DBG_PLUGIN_PRINTF_CALL
+    for (int i = 0; i < pp->inputc; i++) {
+        DBG_PLUGIN_PRINTF_CALL("Arg %d: 0x%lx", i, inputv[i]);
     }
 #endif
 
@@ -284,19 +382,37 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
-    DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
+
+#ifdef DEBUG_PLUGIN_PRINTF
+    /* Prepares the stdout pipe */
+    memset(cnx->stdout_buf, 0, DEBUG_PLUGIN_PRINTF_BUF_SIZE);
+    cnx->buf_offset = 0;
+#endif
+
+    DBG_PLUGIN_PRINTF_CALL("Running operation with id 0x%x with %d inputs", pid, inputc);
 
     /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     protocol_operation_struct_t *post;
-    HASH_FIND_STR(cnx->ops, pid, post);
+    HASH_FIND_STR(cnx->ops, pp->pid, post);
     if (!post) {
-        printf("FATAL ERROR: no protocol operation with id %s\n", pid);
+        printf("FATAL ERROR: no protocol operation with id %s\n", pp->pid);
         exit(-1);
     }
 
+    protocol_operation_param_struct_t *popst;
+    if (post->is_parametrable) {
+        HASH_FIND(hh, post->params, &pp->param, sizeof(param_id_t), popst);
+        if (!popst) {
+            printf("FATAL ERROR: no protocol operation with id %s and param %u\n", pp->pid, pp->param);
+            exit(-1);
+        }
+    } else {
+        popst = post->params;
+    }
+
     /* First, is there any pre to run? */
-    observer_node_t *tmp = post->pre;
+    observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t));
@@ -304,18 +420,18 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
     }
 
     /* The actual protocol operation */
-    if (post->replace) {
-        DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
-        status = (protoop_arg_t) exec_loaded_code(post->replace, (void *)cnx, sizeof(picoquic_cnx_t));
-    } else if (post->core) {
-        status = post->core(cnx);
+    if (popst->replace) {
+        DBG_PLUGIN_PRINTF_CALL("Running plugin at proto op id %s", pid);
+        status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t));
+    } else if (popst->core) {
+        status = popst->core(cnx);
     } else {
-        printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pid);
+        printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid);
         exit(-1);
     }
 
     /* Finally, is there any post to run? */
-    tmp = post->post;
+    tmp = popst->post;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t));
@@ -324,20 +440,31 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 
     int outputc = cnx->protoop_outputc_callee;
 
-    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
+    DBG_PLUGIN_PRINTF_CALL("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
-    if (outputv) {
-        memcpy(outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
-#ifdef DBG_PLUGIN_PRINTF
+    if (pp->outputv) {
+        memcpy(pp->outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
+#ifdef DBG_PLUGIN_PRINTF_CALL
         for (int i = 0; i < outputc; i++) {
-            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
+            DBG_PLUGIN_PRINTF_CALL("Out %d: 0x%lx", i, outputv[i]);
         }
 #endif
     } else if (outputc > 0) {
-        printf("WARNING: no output value provided for protocol operation with id %s that returns %d additional outputs\n", pid, outputc);
+        printf("WARNING: no output value provided for protocol operation with id %s and param %u that returns %d additional outputs\n", pp->pid, pp->param, outputc);
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
+
+#ifdef DEBUG_PLUGIN_PRINTF
+    /* Copy the buffer to stdout */
+    if (cnx->buf_offset > 0) {
+        if (cnx->stdout_buf[DEBUG_PLUGIN_PRINTF_BUF_SIZE - 1] != 0) {
+            cnx->stdout_buf[DEBUG_PLUGIN_PRINTF_BUF_SIZE - 1] = 0;
+            printf("WARNING: the plugin stdout buffer was overflowed\n");
+        }
+        printf("%s", cnx->stdout_buf);
+    }
+#endif
 
     /* ... and restore ALL the previous inputs and outputs */
     memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * PROTOOPARGS_MAX);

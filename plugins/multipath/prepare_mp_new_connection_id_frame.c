@@ -4,12 +4,6 @@
 #include "bpf.h"
 #include "tls_api.h"
 
-static void print_num_text(picoquic_cnx_t *cnx, uint64_t num) {
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) num;
-    plugin_run_protoop(cnx, "printf", 1, args, NULL);
-}
-
 /**
  * cnx->protoop_inputv[0] = uint8_t* bytes
  * cnx->protoop_inputv[1] = size_t bytes_max
