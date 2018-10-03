@@ -29,7 +29,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     /* Select the path */
     path_x = cnx->path[0];
-    // print_num_text_2(cnx, path_x);
 
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
@@ -76,7 +75,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
     }
     bpfd->last_path_index_sent = selected_path_index;
-    // print_num_text_2(cnx, path_x);
 
     int ret = 0;
     /* TODO: manage multiple streams. */

@@ -107,8 +107,6 @@ static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current
     int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &cnx->path[0]->peer_addr);
     /* TODO cope with possible errors */
     pd->path = cnx->path[cnx_path_index];
-    print_num_text_2(cnx, pd->path_id);
-    print_num_text_2(cnx, cnx_path_index);
 }
 
 /* Other multipath functions */
@@ -217,7 +215,6 @@ static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_
     protoop_params_t pp = get_pp_noparam("prepare_mp_new_connection_id_frame", 5, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *consumed = (size_t) outs[0];
-    print_num_text_2(cnx,  outs[0]);
     return ret;
 }
 

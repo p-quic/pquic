@@ -28,13 +28,6 @@ static inline protoop_params_t get_pp_param(protoop_id_t pid, param_id_t param, 
     return pp;
 }
 
-static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
-    protoop_arg_t args[1];
-    args[0] = (protoop_arg_t) num;
-    protoop_params_t pp = get_pp_noparam("printf", 1, args, NULL);
-    plugin_run_protoop(cnx, &pp);
-}
-
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
     protoop_arg_t args[1];
