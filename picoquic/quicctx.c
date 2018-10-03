@@ -1717,7 +1717,7 @@ protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
     printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
     protoop_arg_t *fmt_args = (protoop_arg_t *) cnx->protoop_inputv[1];
     switch (cnx->protoop_inputv[2]) {
-        case 0: printf((const char *) cnx->protoop_inputv[0]); break;
+        case 0: printf("%s", (const char *) cnx->protoop_inputv[0]); break;
         case 1: printf((const char *) cnx->protoop_inputv[0], fmt_args[0]); break;
         case 2: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1]); break;
         case 3: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2]); break;
