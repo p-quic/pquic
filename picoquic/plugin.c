@@ -385,8 +385,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
 #ifdef DEBUG_PLUGIN_PRINTF
     /* Prepares the stdout pipe */
-    memset(cnx->stdout_buf, 0, DEBUG_PLUGIN_PRINTF_BUF_SIZE);
-    cnx->buf_offset = 0;
+    if (cnx->stdout_buf != NULL) {
+        memset(cnx->stdout_buf, 0, DEBUG_PLUGIN_PRINTF_BUF_SIZE);
+        cnx->buf_offset = 0;
+    }
 #endif
 
     DBG_PLUGIN_PRINTF_CALL("Running operation with id 0x%x with %d inputs", pid, inputc);
