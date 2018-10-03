@@ -3,12 +3,15 @@
 #include "../helpers.h"
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
- * cnx->protoop_inputv[2] = uint64_t current_time
- * cnx->protoop_inputv[3] = int epoch
+ * The interface for the decode_frame protocol operation is the same for all:
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * const uint8_t* bytes_max = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * int epoch = cnx->protoop_inputv[3]
+ * int ack_needed = cnx->protoop_inputv[4]
  *
  * Output: uint8_t* bytes
+ * cnx->protoop_outputv[0] = ack_needed
  */
 protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
 {
@@ -16,6 +19,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
     const uint8_t* bytes_max = (uint8_t *) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
     int epoch = (int) cnx->protoop_inputv[3];
+    int ack_needed = (int) cnx->protoop_inputv[4];
 
     uint64_t num_block;
     uint64_t largest;
@@ -94,5 +98,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
         }
     }
 
+    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[0] = (protoop_arg_t) ack_needed;
     return (protoop_arg_t) bytes;
 }

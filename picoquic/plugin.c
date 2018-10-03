@@ -212,8 +212,23 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
         return false;
     }
     strncpy(inserted_pid, token, strlen(token) + 1);
-    /* Part two: extract plugin type */
+
+    /* Part one bis: extract param, if any */
     token = strsep(&line, " ");
+    if (strncmp(token, "param", 5) == 0) {
+        char *errmsg = NULL;
+        token = strsep(&line, " ");
+        *param = (param_id_t) strtoul(token, &errmsg, 0);
+        if (errmsg != NULL && strncmp(errmsg, "", 1) != 0) {
+            printf("Invalid parameter %s, num is %u!\n", token, *param);
+            return false;
+        }
+        token = strsep(&line, " ");
+    } else {
+        *param = NO_PARAM;
+    }
+
+    /* Part two: extract plugin type */
     if (strncmp(token, "replace", 7) == 0) {
         *pte = plugin_replace;
     } else if (strncmp(token, "pre", 3) == 0) {
@@ -225,11 +240,9 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
         return false;
     }
 
-    /* FIXME TODO */
-    *param = NO_PARAM;
-
     /* Part three: insert the plugin */
     token = strsep(&line, " ");
+
     /* Handle end of line */
     token[strcspn(token, "\r\n")] = 0;
     if (token == NULL) {
@@ -240,7 +253,7 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
     strcat(abs_path, token);
-    return plugin_plug_elf(cnx, inserted_pid, NO_PARAM, *pte, abs_path) == 0;
+    return plugin_plug_elf(cnx, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
 typedef struct pid_node {
