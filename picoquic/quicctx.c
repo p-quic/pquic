@@ -904,8 +904,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         if (cnx->stdout_buf == NULL) {
             picoquic_delete_cnx(cnx);
             cnx = NULL;
+        } else {
+            cnx->buf_offset = 0;
         }
-        cnx->buf_offset = 0;
     }
 #endif
 
