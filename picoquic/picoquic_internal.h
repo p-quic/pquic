@@ -29,6 +29,7 @@
 #include "ubpf.h"
 #include "picosocks.h"
 #include "uthash.h"
+#include "protoop.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -431,14 +432,6 @@ typedef struct st_picoquic_path_t {
 
 } picoquic_path_t;
 
-
-typedef struct state plugin_state_t;
-typedef char* protoop_id_t;
-typedef uint16_t param_id_t;
-typedef uint16_t opaque_id_t;
-typedef uint64_t protoop_arg_t;
-typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
-
 typedef struct {
     protoop_id_t pid;
     param_id_t param;
@@ -449,6 +442,8 @@ typedef struct {
 
 #define PROTOOPNAME_MAX 100
 #define NO_PARAM (param_id_t) -1
+
+typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
 typedef struct observer_node {
     plugin_t *observer; /* An observer, either pre or post */
