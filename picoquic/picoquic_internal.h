@@ -633,6 +633,15 @@ typedef struct st_picoquic_cnx_t {
 
     int protoop_outputc_callee; /* Modified by the callee */
 
+#ifdef DEBUG_PLUGIN_PRINTF
+    /* We want plugins to be able to print to stdout for debug purposes in the most natural way.
+     * To do so, we provide them with a file descriptor that is backed by a buffer
+     * that will be printed to stdout after each protoop run.
+     */
+    char *stdout_buf;
+    int buf_offset;
+#endif
+
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
      * Therefore, each context has its own memory space that should contain everything
      * needed for the given connection.
