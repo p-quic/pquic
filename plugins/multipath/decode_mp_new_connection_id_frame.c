@@ -14,17 +14,24 @@ static uint8_t* frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_max, ui
 }
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
- * cnx->protoop_inputv[2] = uint64_t current_time
+ * The interface for the decode_frame protocol operation is the same for all:
+ * uint8_t* bytes = cnx->protoop_inputv[0]
+ * const uint8_t* bytes_max = cnx->protoop_inputv[1]
+ * uint64_t current_time = cnx->protoop_inputv[2]
+ * int epoch = cnx->protoop_inputv[3]
+ * int ack_needed = cnx->protoop_inputv[4]
  *
  * Output: uint8_t* bytes
+ * cnx->protoop_outputv[0] = ack_needed
  */
 protoop_arg_t decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    int ack_needed = (int) cnx->protoop_inputv[4];
+
+    ack_needed = 1;
 
     uint64_t path_id, seq;
     size_t path_id_l, seq_l;
@@ -75,5 +82,7 @@ protoop_arg_t decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         bpfd->paths[path_index].state = 0;
     }
 
+    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[0] = ack_needed;
     return (protoop_arg_t) bytes + byte_index;
 }

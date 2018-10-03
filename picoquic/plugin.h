@@ -17,9 +17,9 @@ typedef enum {
 } plugin_type_enum;
 
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, plugin_type_enum pte);
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte);
 
 /**
  * Function that reads a plugin file and insert plugins described in it
@@ -48,13 +48,17 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
  * interference.
  * Arguments can be provided to the operations. It ensures that they will
  * be safely passed to them without corrupting previous arguments due to
- * reentrant calls. There are as many arguments in inputv as the value of inputc.
+ * reentrant calls. 
+ * The (pointer to the) structure pp contains fields containing the protocol operation
+ * called (pid), the number of input arguments (inputc), an array with the inputs (inputv)
+ * and an array to store the outputs (outputv).
+ * There are as many arguments in inputv as the value of inputc.
  * Both inputv and outputv are provided by the caller.
  * The size of the output is stored in cnx->protoop_outputc.
  * outputv can be set to NULL if no output is required.
  * One output is always guaranteed: the return value of this call.
  */
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inputc, uint64_t *inputv, uint64_t *outputv);
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -83,7 +87,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 # define N_ARGS_HELPER1(...) N_ARGS_HELPER2(__VA_ARGS__)
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
 
-# define protoop_prepare_and_run(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
 #elif defined(__GNUC__)
@@ -94,7 +99,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 # define N_ARGS_HELPER1(args...) N_ARGS_HELPER2(args)
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, x...) n
 
-# define protoop_prepare_and_run(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, outputv, N_ARGS(args), args)
+
+# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_noparam_helper(cnx, pid, NO_PARAM, outputv, N_ARGS(args), args)
+# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_noparam_helper(cnx, pid, param, outputv, N_ARGS(args), args)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(args), args)
 
 #else
@@ -103,7 +110,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_id_t pid, int inpu
 
 #endif
 
-static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, protoop_arg_t *outputv, unsigned int n_args, ...)
+static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
   protoop_arg_t i, arg;
   va_list ap;
@@ -117,7 +124,8 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
     DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   va_end(ap);
-  return plugin_run_protoop(cnx, pid, n_args, args, outputv);
+  protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv};
+  return plugin_run_protoop(cnx, &pp);
 }
 
 static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int n_args, ...)

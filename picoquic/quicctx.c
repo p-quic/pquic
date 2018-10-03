@@ -937,10 +937,10 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
-    packet_register_protoops(cnx);
-    frames_register_protoops(cnx);
-    sender_register_protoops(cnx);
-    quicctx_register_protoops(cnx);
+    packet_register_noparam_protoops(cnx);
+    frames_register_noparam_protoops(cnx);
+    sender_register_noparam_protoops(cnx);
+    quicctx_register_noparam_protoops(cnx);
 }
 
 int picoquic_start_client_cnx(picoquic_cnx_t * cnx)
@@ -1321,7 +1321,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
 int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
 {
-    return (int) protoop_prepare_and_run(cnx, "connection_error", NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, "connection_error", NULL,
         local_error, frame_type);
 }
 
@@ -1424,32 +1424,66 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         /* Free protocol operations and plugins */
         protocol_operation_struct_t *current_post, *tmp_protoop;
+        protocol_operation_param_struct_t *current_popst, *tmp_popst;
         observer_node_t *cur_del, *tmp;
 
         HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
             HASH_DEL(cnx->ops, current_post);
-            if (current_post->replace) {
-                release_elf(current_post->replace);
+
+            if (current_post->is_parametrable) {
+                HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                    HASH_DEL(current_post->params, current_popst);
+                    if (current_popst->replace) {
+                        release_elf(current_popst->replace);
+                    }
+
+                    if (current_popst->pre) {
+                        cur_del = current_popst->pre;
+                        while (cur_del) {
+                            tmp = cur_del->next;
+                            release_elf(cur_del->observer);
+                            free(cur_del);
+                            cur_del = tmp;
+                        }
+                    }
+                    if (current_popst->post) {
+                        cur_del = current_popst->post;
+                        while (cur_del) {
+                            tmp = cur_del->next;
+                            release_elf(cur_del->observer);
+                            free(cur_del);
+                            cur_del = tmp;
+                        }
+                    }
+                    free(current_popst);
+                }
+            } else {
+                current_popst = current_post->params;
+                if (current_popst->replace) {
+                    release_elf(current_popst->replace);
+                }
+
+                if (current_popst->pre) {
+                    cur_del = current_popst->pre;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                if (current_popst->post) {
+                    cur_del = current_popst->post;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                free(current_popst);
             }
 
-            if (current_post->pre) {
-                cur_del = current_post->pre;
-                while (cur_del) {
-                    tmp = cur_del->next;
-                    release_elf(cur_del->observer);
-                    free(cur_del);
-                    cur_del = tmp;
-                }
-            }
-            if (current_post->post) {
-                cur_del = current_post->post;
-                while (cur_del) {
-                    tmp = cur_del->next;
-                    release_elf(cur_del->observer);
-                    free(cur_del);
-                    cur_del = tmp;
-                }
-            }
             free(current_post);
         }
 
@@ -1627,12 +1661,12 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, "received_packet", NULL,
+    protoop_prepare_and_run_noparam(cnx, "received_packet", NULL,
         socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run(cnx, "before_sending_packet", NULL,
+    protoop_prepare_and_run_noparam(cnx, "before_sending_packet", NULL,
         socket);
 }
 
@@ -1708,28 +1742,108 @@ protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
     return 0;
 }
 
-int register_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op) 
 {
-    protocol_operation_struct_t *post = malloc(sizeof(protocol_operation_struct_t));
+    protocol_operation_param_struct_t *popst = malloc(sizeof(protocol_operation_param_struct_t));
+    if (!popst) {
+        printf("ERROR: failed to allocate memory for protocol operation param\n");
+        return NULL;
+    }
+    popst->param = param;
+    popst->core = op;
+    /* Ensure NULL values */
+    popst->replace = NULL;
+    popst->pre = NULL;
+    popst->post = NULL;
+    return popst;
+}
+
+int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+{
+    /* This is a safety check */
+    protocol_operation_struct_t *post;
+    HASH_FIND_STR(cnx->ops, pid, post);
+    if (post) {
+        printf("ERROR: trying to register twice the non-parametrable protocol operation %s\n", pid);
+        return 1;
+    }
+    
+    post = malloc(sizeof(protocol_operation_struct_t));
     if (!post) {
+        printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %s\n", pid);
         return 1;
     }
     strncpy(post->name, pid, strlen(pid) + 1);
-    post->core = op;
-    /* Ensure NULL values */
-    post->replace = NULL;
-    post->pre = NULL;
-    post->post = NULL;
+    post->is_parametrable = false;
+    post->params = create_protocol_operation_param(NO_PARAM, op);
+    if (!post->params) {
+        free(post);
+        return 1;
+    }
     HASH_ADD_STR(cnx->ops, name, post);
     return 0;
 }
 
-void quicctx_register_protoops(picoquic_cnx_t *cnx)
+int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t param, protocol_operation op)
 {
-    register_protoop(cnx, "congestion_algorithm_notify", &congestion_algorithm_notify);
-    register_protoop(cnx, "callback_function", &callback_function);
-    register_protoop(cnx, "printf", &protoop_printf);
-    register_protoop(cnx, "received_packet", &protoop_noop);
-    register_protoop(cnx, "before_sending_packet", &protoop_noop);
-    register_protoop(cnx, "connection_error", &connection_error);
+    /* Two possible options: either the protocol operation had a previously registered
+     * value for another parameter, or it is the first one
+     */
+    protocol_operation_struct_t *post;
+    protocol_operation_param_struct_t *popst;
+    HASH_FIND_STR(cnx->ops, pid, post);
+    if (post) {
+        /* Two sanity checks:
+         * 1- Is it really a parametrable protocol operation?
+         * 2- Is there no previously registered protocol operation for that parameter?
+         */
+        if (!post->is_parametrable) {
+            printf("ERROR: trying to insert parameter in non-parametrable protocol operation %s\n", pid);
+            return 1;
+        }
+        HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
+        if (popst) {
+            printf("ERROR: trying to register twice the parametrable protocol operation %s with param %u\n", pid, param);
+            return 1;
+        }
+    } else {
+        /* Create it */
+        post = malloc(sizeof(protocol_operation_struct_t));
+        if (!post) {
+            printf("ERROR: failed to allocate memory to register parametrable protocol operation %s with param %u\n", pid, param);
+            return 1;
+        }
+        strncpy(post->name, pid, strlen(pid) + 1);
+        post->is_parametrable = true;
+        /* Ensure the value is NULL */
+        post->params = NULL;
+    }
+
+    popst = create_protocol_operation_param(param, op);
+
+    if (!popst) {
+        /* If the post is new, remove it */
+        if (!post->params) {
+            free(post);
+        }
+        return 1;
+    }
+
+    /* Insert the post if it is new */
+    if (!post->params) {
+        HASH_ADD_STR(cnx->ops, name, post);
+    }
+    /* Insert the param struct */
+    HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
+    return 0;
+}
+
+void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
+{
+    register_noparam_protoop(cnx, "congestion_algorithm_notify", &congestion_algorithm_notify);
+    register_noparam_protoop(cnx, "callback_function", &callback_function);
+    register_noparam_protoop(cnx, "printf", &protoop_printf);
+    register_noparam_protoop(cnx, "received_packet", &protoop_noop);
+    register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
+    register_noparam_protoop(cnx, "connection_error", &connection_error);
 }
