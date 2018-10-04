@@ -898,17 +898,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
-#ifdef DEBUG_PLUGIN_PRINTF
-    if (cnx != NULL) {
-        cnx->stdout_buf = my_malloc(cnx, sizeof(char) * DEBUG_PLUGIN_PRINTF_BUF_SIZE);
-        if (cnx->stdout_buf == NULL) {
-            picoquic_delete_cnx(cnx);
-            cnx = NULL;
-        }
-        cnx->buf_offset = 0;
-    }
-#endif
-
     register_protocol_operations(cnx);
 
     /* The following lines should be uncommented only for testing purpose */
