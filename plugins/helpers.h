@@ -31,7 +31,7 @@ static inline protoop_params_t get_pp_param(protoop_id_t pid, param_id_t param, 
 static void print_num_text_2(picoquic_cnx_t *cnx, uint64_t num) {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) num;
-    protoop_params_t pp = get_pp_noparam("printf", 1, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PRINTF, 1, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -39,7 +39,7 @@ static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) is_cleartext_mode;
-    protoop_params_t pp = get_pp_noparam("get_checksum_length", 1, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, 1, args, NULL);
     return (uint32_t) plugin_run_protoop(cnx, &pp);
 }
 
@@ -49,7 +49,7 @@ static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_
     args[0] = (protoop_arg_t) fmt;
     args[1] = (protoop_arg_t) fmt_args;
     args[2] = (protoop_arg_t) args_len;
-    protoop_params_t pp = get_pp_noparam("printf", 3, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PRINTF, 3, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -59,7 +59,7 @@ static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_pack
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) current_time;
     args[2] = (protoop_arg_t) *timer_based_retransmit;
-    protoop_params_t pp = get_pp_noparam("retransmit_needed_by_packet", 3, args, outs);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *timer_based_retransmit = (int) outs[0];
     return ret;
@@ -76,7 +76,7 @@ static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_pat
     args[3] = (protoop_arg_t) nb_bytes_acknowledged;
     args[4] = (protoop_arg_t) lost_packet_number;
     args[5] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam("congestion_algorithm_notify", 6, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, 6, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -125,7 +125,7 @@ static uint32_t helper_predict_packet_header_length(picoquic_cnx_t *cnx, picoqui
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) packet_type;
     args[1] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam("predict_packet_header_length", 2, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, 2, args, NULL);
     return (uint32_t) plugin_run_protoop(cnx, &pp);
 }
 
@@ -139,7 +139,7 @@ static void helper_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packe
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) should_free;
-    protoop_params_t pp = get_pp_noparam("dequeue_retransmit_packet", 2, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, 2, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -201,7 +201,7 @@ static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_
     args[3] = (protoop_arg_t) send_buffer_max;
     args[4] = (protoop_arg_t) current_time;
     args[5] = (protoop_arg_t) *header_length;
-    protoop_params_t pp = get_pp_noparam("prepare_packet_old_context", 6, args, outs);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, 6, args, outs);
     uint32_t length = (uint32_t) plugin_run_protoop(cnx, &pp);
     *header_length = (uint32_t) outs[0];
     return length;
@@ -221,7 +221,7 @@ static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     args[4] = (protoop_arg_t) send_buffer_max;
     args[5] = (protoop_arg_t) *is_cleartext_mode;
     args[6] = (protoop_arg_t) *header_length;
-    protoop_params_t pp = get_pp_noparam("retransmit_needed", 7, args, outs);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED, 7, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
@@ -238,7 +238,7 @@ static uint32_t helper_prepare_mtu_probe(picoquic_cnx_t* cnx,
     args[1] = (protoop_arg_t) header_length;
     args[2] = (protoop_arg_t) checksum_length;
     args[3] = (protoop_arg_t) bytes;
-    protoop_params_t pp = get_pp_noparam("prepare_mtu_probe", 4, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREPARE_MTU_PROBE, 4, args, NULL);
     return (uint32_t) plugin_run_protoop(cnx, &pp);
 }
 
@@ -363,7 +363,7 @@ static void helper_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_pac
     args[7] = (protoop_arg_t) send_buffer_max;
     args[8] = (protoop_arg_t) path_x;
     args[9] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam("finalize_and_protect_packet", 10, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, 10, args, NULL);
     *send_length = (size_t) plugin_run_protoop(cnx, &pp);
 }
 
@@ -372,7 +372,7 @@ static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam("set_next_wake_time", 1, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, 1, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -393,7 +393,7 @@ static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, ui
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) local_error;
     args[1] = (protoop_arg_t) frame_type;
-    protoop_params_t pp = get_pp_noparam("connection_error", 2, args, NULL);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CONNECTION_ERROR, 2, args, NULL);
     return (int) plugin_run_protoop(cnx, &pp);
 }
 
