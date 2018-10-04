@@ -1680,12 +1680,12 @@ void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
         socket);
 }
 
-void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len) {
-    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, len);
+void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t *path) {
+    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, len, path);
 }
 
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len) {
-    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, len);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t *path) {
+    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, len, path);
 }
 
 bool is_private(in_addr_t t) {

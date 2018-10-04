@@ -841,6 +841,7 @@ void picoquic_log_picotls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
 const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev);
 void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2);
+char const* picoquic_log_state_name(picoquic_state_enum state);
 
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
 
@@ -928,8 +929,8 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 /* Hooks for reception and sending of QUIC packets before encryption */  // TODO: Maybe the two above and below should be merged
-void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len);
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len);
+void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t* path);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t* path);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
