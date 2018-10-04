@@ -178,7 +178,7 @@ static int helper_process_mp_ack_range(
     args[2] = (protoop_arg_t) range;
     args[3] = (protoop_arg_t) *ppacket;
     args[4] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam("process_ack_range", 5, args, outs);
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_RANGE, 5, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *ppacket = (picoquic_packet_t*) outs[0];
     return ret;
@@ -228,7 +228,7 @@ static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, ui
     args[2] = (protoop_arg_t) current_time;
     args[3] = (protoop_arg_t) 0;
     args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param("decode_frame", MP_NEW_CONNECTION_ID_TYPE, 5, args, NULL);
+    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, MP_NEW_CONNECTION_ID_TYPE, 5, args, NULL);
     bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
     *ack_needed = (int) outs[0];
     return bytes;
@@ -244,7 +244,7 @@ static uint8_t* helper_decode_mp_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     args[2] = (protoop_arg_t) current_time;
     args[3] = (protoop_arg_t) 0;
     args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param("decode_frame", MP_ACK_TYPE, 5, args, NULL);
+    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, MP_ACK_TYPE, 5, args, NULL);
     bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
     *ack_needed = (int) outs[0];
     return bytes;
@@ -273,7 +273,7 @@ static uint8_t* helper_decode_add_address_frame(picoquic_cnx_t* cnx, uint8_t* by
     args[2] = (protoop_arg_t) 0;
     args[3] = (protoop_arg_t) 0;
     args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param("decode_frame", ADD_ADDRESS_TYPE, 5, args, NULL);
+    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, ADD_ADDRESS_TYPE, 5, args, NULL);
     bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
     *ack_needed = (int) outs[0];
     return bytes;

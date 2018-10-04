@@ -21,3 +21,5 @@ Release
 */*.ilk
 *.b
 **/*.o
+html/**
+latex/**

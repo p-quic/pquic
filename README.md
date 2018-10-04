@@ -1,5 +1,14 @@
 # picoquic
 
+## Documentation
+
+Generate doc with 
+```bash
+doxygen
+```
+
+## Overview
+
 Minimalist implementation of the QUIC protocol, as defined by the IETF.
 The IETF spec started with the version of QUIC defined by Google and
 implemented in Chrome, but the IETF spec is independent of Chrome, and
