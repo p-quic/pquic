@@ -1,21 +1,12 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-#include <stdio.h>
-
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "memcpy.h"
 
-#ifdef DEBUG_PLUGIN_PRINTF
-
-#define DBG_PLUGIN_PRINTF(cnx, fmt, ...)   cnx->buf_offset += snprintf(cnx->stdout_buf, DEBUG_PLUGIN_PRINTF_BUF_SIZE - cnx->buf_offset, fmt, __VA_ARGS__);
-
-#else
-
-#define DBG_PRINTF(cnx, fmt, ...)
-
-#endif
+#define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
+#define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
 
 static inline protoop_params_t get_pp_noparam(protoop_id_t pid, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;

@@ -372,9 +372,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     memcpy(cnx->protoop_inputv, pp->inputv, sizeof(uint64_t) * pp->inputc);
     cnx->protoop_inputc = pp->inputc;
 
-#ifdef DBG_PLUGIN_PRINTF_CALL
+#ifdef DBG_PLUGIN_PRINTF
     for (int i = 0; i < pp->inputc; i++) {
-        DBG_PLUGIN_PRINTF_CALL("Arg %d: 0x%lx", i, inputv[i]);
+        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, inputv[i]);
     }
 #endif
 
@@ -382,16 +382,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
-
-#ifdef DEBUG_PLUGIN_PRINTF
-    /* Prepares the stdout pipe */
-    if (cnx->stdout_buf != NULL) {
-        memset(cnx->stdout_buf, 0, DEBUG_PLUGIN_PRINTF_BUF_SIZE);
-        cnx->buf_offset = 0;
-    }
-#endif
-
-    DBG_PLUGIN_PRINTF_CALL("Running operation with id 0x%x with %d inputs", pid, inputc);
+    DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
 
     /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
@@ -423,7 +414,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     /* The actual protocol operation */
     if (popst->replace) {
-        DBG_PLUGIN_PRINTF_CALL("Running plugin at proto op id %s", pid);
+        DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t));
     } else if (popst->core) {
         status = popst->core(cnx);
@@ -442,31 +433,20 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     int outputc = cnx->protoop_outputc_callee;
 
-    DBG_PLUGIN_PRINTF_CALL("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
+    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
     if (pp->outputv) {
         memcpy(pp->outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
-#ifdef DBG_PLUGIN_PRINTF_CALL
+#ifdef DBG_PLUGIN_PRINTF
         for (int i = 0; i < outputc; i++) {
-            DBG_PLUGIN_PRINTF_CALL("Out %d: 0x%lx", i, outputv[i]);
+            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
         }
 #endif
     } else if (outputc > 0) {
         printf("WARNING: no output value provided for protocol operation with id %s and param %u that returns %d additional outputs\n", pp->pid, pp->param, outputc);
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
-
-#ifdef DEBUG_PLUGIN_PRINTF
-    /* Copy the buffer to stdout */
-    if (cnx->buf_offset > 0) {
-        if (cnx->stdout_buf[DEBUG_PLUGIN_PRINTF_BUF_SIZE - 1] != 0) {
-            cnx->stdout_buf[DEBUG_PLUGIN_PRINTF_BUF_SIZE - 1] = 0;
-            printf("WARNING: the plugin stdout buffer was overflowed\n");
-        }
-        printf("%s", cnx->stdout_buf);
-    }
-#endif
 
     /* ... and restore ALL the previous inputs and outputs */
     memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
