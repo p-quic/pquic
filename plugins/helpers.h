@@ -9,7 +9,7 @@
 
 #ifdef DEBUG_PLUGIN_PRINTF
 
-#define DBG_PLUGIN_PRINTF(cnx, fmt, ...)   cnx->buf_offset += snprintf(cnx->stdout_buf, DEBUG_PLUGIN_PRINTF_BUF_SIZE - cnx->buf_offset, fmt, __VA_ARGS__);
+#define DBG_PRINTF(cnx, fmt, ...)   cnx->buf_offset += snprintf(cnx->stdout_buf, DEBUG_PLUGIN_PRINTF_BUF_SIZE - cnx->buf_offset, fmt, __VA_ARGS__);
 
 #else
 
