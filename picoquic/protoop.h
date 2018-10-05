@@ -244,7 +244,7 @@ static const protoop_id_t PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID = "get_d
  * Set the timer for the select, i.e., specify the next wake time of the implementation
  * \param[in] current_time \b uint64_t The current time
  */
-static const protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME = "set_next_time";
+static const protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME = "set_next_wake_time";
 
 /**
  * Detect if a retransmission is needed.
