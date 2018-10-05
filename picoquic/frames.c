@@ -434,15 +434,7 @@ uint8_t* picoquic_skip_connection_id_frame(uint8_t* bytes, const uint8_t* bytes_
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
@@ -471,15 +463,7 @@ uint8_t* picoquic_skip_new_token_frame(uint8_t* bytes, const uint8_t* bytes_max)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_new_token_frame(picoquic_cnx_t* cnx)
 {
@@ -528,15 +512,7 @@ int picoquic_prepare_stop_sending_frame(picoquic_cnx_t* cnx, picoquic_stream_hea
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_stop_sending_frame(picoquic_cnx_t *cnx)
 {
@@ -801,11 +777,7 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
 }
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = const uint8_t* bytes_max
- * cnx->protoop_inputv[2] = uint64_t current_time
- *
- * Output: uint8_t* bytes
+ * See PROTOOP_NOPARAM_DECODE_STREAM_FRAME
  */
 protoop_arg_t decode_stream_frame(picoquic_cnx_t *cnx)
 {
@@ -832,12 +804,12 @@ protoop_arg_t decode_stream_frame(picoquic_cnx_t *cnx)
 
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
 {
-    return (uint8_t *) protoop_prepare_and_run_noparam(cnx, "decode_stream_frame", NULL,
+    return (uint8_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_DECODE_STREAM_FRAME, NULL,
         bytes, bytes_max, current_time);
 }
 
 /**
- * Output: picoquic_stream_head* stream
+ * See PROTOOP_NOPARAM_FIND_READY_STREAM
  */
 protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
 {
@@ -880,7 +852,7 @@ protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
 
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
 {
-    protoop_params_t pp = { .pid = "find_ready_stream", .inputc = 0, .inputv = NULL, .outputv = NULL};
+    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FIND_READY_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL};
     return (picoquic_stream_head *) plugin_run_protoop(cnx, &pp);
 }
 
@@ -1040,7 +1012,7 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
  */
 
 /**
- * Output: ready (int)
+ * See PROTOOP_NOPARAM_IS_TLS_STREAM_READY
  */
 protoop_arg_t is_tls_stream_ready(picoquic_cnx_t *cnx)
 {
@@ -1062,20 +1034,12 @@ protoop_arg_t is_tls_stream_ready(picoquic_cnx_t *cnx)
 
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
 {
-    protoop_params_t pp = { .pid = "is_tls_stream_ready", .inputc = 0, .inputv = NULL, .outputv = NULL};
+    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_IS_TLS_STREAM_READY, .inputc = 0, .inputv = NULL, .outputv = NULL};
     return (int) plugin_run_protoop(cnx, &pp);
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_crypto_hs_frame(picoquic_cnx_t *cnx)
 {
@@ -1276,13 +1240,7 @@ int picoquic_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
 }
 
 /**
- * uint64_t start_of_range = cnx->protoop_inputv[0]
- * uint64_t end_of_range = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
- * picoquic_path_t* path_x = cnx->protoop_inputv[4]
- *
- * Output: none
+ * See PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION
  */
 protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
 {
@@ -1346,18 +1304,12 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
     uint64_t start_of_range, uint64_t end_of_range, uint64_t current_time,
     picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
-    protoop_prepare_and_run_noparam(cnx, "check_spurious_retransmission", NULL,
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, NULL,
         start_of_range, end_of_range, current_time, pc, path_x);
 }
 
 /**
- * uint64_t largest = cnx->protoop_inputv[0]
- * uint64_t current_time = cnx->protoop_inputv[1]
- * uint64_t ack_delay = cnx->protoop_inputv[2]
- * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
- * picoquic_path_t* path_x = cnx->protoop_inputv[4]
- *
- * Output: picoquic_packet_t* packet
+ * See PROTOOP_NOPARAM_UPDATE_RTT
  */
 protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 {
@@ -1462,7 +1414,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
     uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc, picoquic_path_t* path_x)
 {
-    return (picoquic_packet_t *) protoop_prepare_and_run_noparam(cnx, "update_rtt", NULL,
+    return (picoquic_packet_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_UPDATE_RTT, NULL,
         largest, current_time, ack_delay, pc, path_x);
 }
 
@@ -1591,12 +1543,7 @@ int picoquic_process_ack_of_ack_frame(
 }
 
 /**
- * uint8_t* bytes = input 0
- * size_t bytes_max = input 1
- * int no_need_to_repeat = input 2
- *
- * Output: error code (int)
- * int no_need_to_repeat = output 0
+ * See PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED
  */
 protoop_arg_t check_stream_frame_already_acked(picoquic_cnx_t *cnx)
 {
@@ -1642,19 +1589,14 @@ int picoquic_check_stream_frame_already_acked(picoquic_cnx_t* cnx, uint8_t* byte
     size_t bytes_max, int* no_need_to_repeat)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, "check_stream_frame_already_acked", outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, outs,
         bytes, bytes_max, *no_need_to_repeat);
     *no_need_to_repeat = (int) outs[0];
     return ret;
 }
 
 /**
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * size_t bytes_max = cnx->protoop_inputv[1]
- * size_t consumed = cnx->protoop_inputv[2]
- *
- * Output: int ret
- * cnx->protoop_outputv[0] = size_t consumed
+ * See PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME
  */
 protoop_arg_t process_ack_of_stream_frame(picoquic_cnx_t* cnx)
 {
@@ -1693,16 +1635,14 @@ static int picoquic_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* by
     size_t bytes_max, size_t* consumed)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, "process_ack_of_stream_frame", outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, outs,
         bytes, bytes_max, *consumed);
     *consumed = (size_t) outs[0];
     return ret;
 }
 
 /**
- * picoquic_packet_t* p = cnx->protoop_inputv[0]
- *
- * Output: none
+ * See PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {
@@ -1743,19 +1683,12 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 
 void picoquic_process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_t* p)
 {
-    protoop_prepare_and_run_noparam(cnx, "process_possible_ack_of_ack_frame", NULL,
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, NULL,
         p);
 }
 
 /**
- * picoquic_packet_context_enum pc = cnx->protoop_inputv[0]
- * uint64_t highest = cnx->protoop_inputv[1]
- * uint64_t range = cnx->protoop_inputv[2]
- * picoquic_packet_t* ppacket = cnx->protoop_inputv[3]
- * uint64_t current_time = cnx->protoop_inputv[4]
- *
- * Output: int ret
- * cnx->protoop_outpuv[0] = picoquic_packet_t* ppacket
+ * See PROTOOP_NOPARAM_PROCESS_ACK_RANGE
  */
 protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 {
@@ -1816,7 +1749,7 @@ static int picoquic_process_ack_range(
     uint64_t current_time)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, "process_ack_range", outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PROCESS_ACK_RANGE, outs,
         pc, highest, range, *ppacket, current_time);
     *ppacket = (picoquic_packet_t*) outs[0];
     return ret;
@@ -1921,15 +1854,7 @@ uint8_t* picoquic_decode_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint8_t* bytes
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
 {
@@ -1944,15 +1869,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_ack_ecn_frame(picoquic_cnx_t *cnx)
 {
@@ -2184,11 +2101,7 @@ int picoquic_prepare_ack_ecn_frame(picoquic_cnx_t* cnx, uint64_t current_time,
 }
 
 /**
- * uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
- * picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
- * picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[2];
- *
- * Output: is ack needed (int)
+ * See PROTOOP_NOPARAM_IS_ACK_NEEDED
  */
 protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
 {
@@ -2210,7 +2123,7 @@ protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc,
     picoquic_path_t* path_x)
 {
-    return (int) protoop_prepare_and_run_noparam(cnx, "is_ack_needed", NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_IS_ACK_NEEDED, NULL,
         current_time, pc, path_x);
 }
 
@@ -2250,15 +2163,7 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_connection_close_frame(picoquic_cnx_t *cnx)
 {
@@ -2323,15 +2228,7 @@ int picoquic_prepare_application_close_frame(picoquic_cnx_t* cnx,
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_application_close_frame(picoquic_cnx_t *cnx)
 {
@@ -2420,15 +2317,7 @@ int picoquic_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increa
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_max_data_frame(picoquic_cnx_t *cnx)
 {
@@ -2473,15 +2362,7 @@ int picoquic_prepare_max_stream_data_frame(picoquic_stream_head* stream,
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_max_stream_data_frame(picoquic_cnx_t *cnx)
 {
@@ -2594,15 +2475,7 @@ int picoquic_prepare_max_stream_ID_frame(picoquic_cnx_t* cnx, uint32_t increment
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_max_stream_id_frame(picoquic_cnx_t *cnx)
 {
@@ -2766,15 +2639,7 @@ int picoquic_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* bytes,
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_path_challenge_frame(picoquic_cnx_t *cnx)
 {
@@ -2807,15 +2672,7 @@ protoop_arg_t decode_path_challenge_frame(picoquic_cnx_t *cnx)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_path_response_frame(picoquic_cnx_t *cnx)
 {
@@ -2858,15 +2715,7 @@ uint8_t* picoquic_decode_path_response_frame(picoquic_cnx_t* cnx, uint8_t* bytes
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_blocked_frame(picoquic_cnx_t *cnx)
 {
@@ -2886,15 +2735,7 @@ protoop_arg_t decode_blocked_frame(picoquic_cnx_t *cnx)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_stream_blocked_frame(picoquic_cnx_t* cnx)
 {
@@ -2917,15 +2758,7 @@ protoop_arg_t decode_stream_blocked_frame(picoquic_cnx_t* cnx)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_stream_id_needed_frame(picoquic_cnx_t* cnx)
 {
@@ -2945,15 +2778,7 @@ protoop_arg_t decode_stream_id_needed_frame(picoquic_cnx_t* cnx)
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 static protoop_arg_t skip_0len_frame(picoquic_cnx_t *cnx)
 {
@@ -2983,7 +2808,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
     protocol_operation_struct_t *post;
     protocol_operation_param_struct_t *popst;
     param_id_t param = (param_id_t) first_byte;
-    HASH_FIND_STR(cnx->ops, "decode_frame", post);
+    HASH_FIND_STR(cnx->ops, PROTOOP_PARAM_DECODE_FRAME, post);
     HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
     if (!popst) {
         uint64_t frame_id64;
@@ -2995,7 +2820,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
     
     protoop_arg_t outs[PROTOOPARGS_MAX];
     outs[0] = *ack_needed;
-    bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, "decode_frame", first_byte, outs,
+    bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_DECODE_FRAME, first_byte, outs,
         bytes, bytes_max, current_time, epoch, *ack_needed);
     *ack_needed |= (int) outs[0];
     return bytes;
@@ -3333,52 +3158,54 @@ int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes, size_t b
 void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
     /* Decoding */
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_padding, &skip_0len_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_reset_stream, &decode_stream_reset_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_connection_close, &decode_connection_close_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_application_close, &decode_application_close_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_max_data, &decode_max_data_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_max_stream_data, &decode_max_stream_data_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_max_stream_id, &decode_max_stream_id_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_ping, &skip_0len_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_blocked, &decode_blocked_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_stream_blocked, &decode_stream_blocked_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_stream_id_needed, &decode_stream_id_needed_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_new_connection_id, &decode_new_connection_id_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_ack, &decode_ack_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_stop_sending, &decode_stop_sending_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_path_challenge, &decode_path_challenge_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_path_response, &decode_path_response_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_crypto_hs, &decode_crypto_hs_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_new_token, &decode_new_token_frame);
-    register_param_protoop(cnx, "decode_frame", picoquic_frame_type_ack_ecn, &decode_ack_ecn_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_padding, &skip_0len_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_reset_stream, &decode_stream_reset_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_connection_close, &decode_connection_close_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_application_close, &decode_application_close_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_max_data, &decode_max_data_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_max_stream_data, &decode_max_stream_data_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_max_stream_id, &decode_max_stream_id_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_ping, &skip_0len_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_blocked, &decode_blocked_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_stream_blocked, &decode_stream_blocked_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_stream_id_needed, &decode_stream_id_needed_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_new_connection_id, &decode_new_connection_id_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_ack, &decode_ack_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_stop_sending, &decode_stop_sending_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_path_challenge, &decode_path_challenge_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_path_response, &decode_path_response_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_crypto_hs, &decode_crypto_hs_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_new_token, &decode_new_token_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_ack_ecn, &decode_ack_ecn_frame);
 
-    //register_noparam_protoop(cnx, "decode_frames", &decode_frames);
-    register_noparam_protoop(cnx, "decode_stream_frame", &decode_stream_frame);
-    register_noparam_protoop(cnx, "update_rtt", &update_rtt);
-    register_noparam_protoop(cnx, "process_ack_range", &process_ack_range);
-    register_noparam_protoop(cnx, "check_spurious_retransmission", &check_spurious_retransmission);
-    register_noparam_protoop(cnx, "process_possible_ack_of_ack_frame", &process_possible_ack_of_ack_frame);
-    register_noparam_protoop(cnx, "process_ack_of_stream_frame", &process_ack_of_stream_frame);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_ACK_RANGE, &process_ack_range);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, &check_spurious_retransmission);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, &process_possible_ack_of_ack_frame);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, &process_ack_of_stream_frame);
 
     /* Preparing */
+    /** \todo Refactor API */
     register_noparam_protoop(cnx, "prepare_ack_frame", &prepare_ack_frame);
     register_noparam_protoop(cnx, "prepare_ack_ecn_frame", &prepare_ack_ecn_frame);
     register_noparam_protoop(cnx, "prepare_path_challenge_frame", &prepare_path_challenge_frame);
     register_noparam_protoop(cnx, "prepare_crypto_hs_frame", &prepare_crypto_hs_frame);
     register_noparam_protoop(cnx, "prepare_misc_frame", &prepare_misc_frame);
     register_noparam_protoop(cnx, "prepare_max_data_frame", &prepare_max_data_frame);
-    register_noparam_protoop(cnx, "find_ready_stream", &find_ready_stream);
-    register_noparam_protoop(cnx, "is_ack_needed", &is_ack_needed);
-    register_noparam_protoop(cnx, "is_tls_stream_ready", &is_tls_stream_ready);
     register_noparam_protoop(cnx, "prepare_first_misc_frame", &prepare_first_misc_frame);
     register_noparam_protoop(cnx, "prepare_required_max_stream_data_frames", &prepare_required_max_stream_data_frames);
     register_noparam_protoop(cnx, "prepare_stream_frame", &prepare_stream_frame);
 
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_FIND_READY_STREAM, &find_ready_stream);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_IS_ACK_NEEDED, &is_ack_needed);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_IS_TLS_STREAM_READY, &is_tls_stream_ready);
+
     /* Skipping */
+    /** \todo Refactor API, decode_frame split into parse and process param operations */
     register_noparam_protoop(cnx, "skip_frame", &skip_frame);
 
     /* Others */
-    register_noparam_protoop(cnx, "check_stream_frame_already_acked", &check_stream_frame_already_acked);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, &check_stream_frame_already_acked);
 }
 

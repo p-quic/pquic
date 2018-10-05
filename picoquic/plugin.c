@@ -194,9 +194,17 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
 
     /* Cope with a special case of a protoop without core op and with no more plugins */
     if (!popst->core && !popst->replace && !popst->pre && !popst->post) {
-        HASH_DEL(cnx->ops, post);
-        free(post);
-        post = NULL;
+        /* If it is parametrable, we just remove popst from post->params */
+        if (post->is_parametrable) {
+            HASH_DEL(post->params, popst);
+        }
+        else {
+            HASH_DEL(cnx->ops, post);
+            free(post);
+            post = NULL;
+        }
+        /* And free popst */
+        free(popst);
     }
 
     return 0;

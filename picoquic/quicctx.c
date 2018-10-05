@@ -1302,10 +1302,7 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
 }
 
 /**
- * uint16_t local_error = cnx->protoop_inputv[0]
- * uint64_t frame_type = cnx->protoop_inputv[1]
- *
- * Output: int error_code
+ * See PROTOOP_NOPARAM_CONNECTION_ERROR
  */
 protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 {
@@ -1331,7 +1328,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
 int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
 {
-    return (int) protoop_prepare_and_run_noparam(cnx, "connection_error", NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, NULL,
         local_error, frame_type);
 }
 
@@ -1572,12 +1569,7 @@ void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_
 }
 
 /**
- * picoquic_path_t* path_x = input 0
- * picoquic_congestion_notification_t notification = input 1
- * uint64_t rtt_measurement = input 2
- * uint64_t nb_bytes_acknowledged = input 3
- * uint64_t lost_packet_number = input 4
- * uint64_t current_time = input 5
+ * See PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY
  */
 protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
 {
@@ -1596,11 +1588,7 @@ protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
 }
 
 /**
- * uint64_t stream_id = input 0
- * uint8_t* bytes = input 1
- * size_t length = input 2
- * picoquic_call_back_event_t fin_or_event = input 3
- * void* callback_ctx = input 4
+ * See PROTOOP_NOPARAM_CALLBACK_FUNCTION
  */
 protoop_arg_t callback_function(picoquic_cnx_t *cnx)
 {
@@ -1730,6 +1718,9 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
     return count;
 }
 
+/**
+ * See PROTOOP_NOPARAM_PRINTF
+ */
 protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
 {
     printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
@@ -1858,9 +1849,11 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
-    register_noparam_protoop(cnx, "congestion_algorithm_notify", &congestion_algorithm_notify);
-    register_noparam_protoop(cnx, "callback_function", &callback_function);
-    register_noparam_protoop(cnx, "printf", &protoop_printf);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
+    register_noparam_protoop(cnx,PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PRINTF, &protoop_printf);
+
+    /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, "received_packet", &protoop_noop);
     register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
     register_noparam_protoop(cnx, "received_segment", &protoop_noop);
@@ -1869,4 +1862,6 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, "stream_closed", &protoop_noop);
     register_noparam_protoop(cnx, "connection_state_changed", &protoop_noop);
     register_noparam_protoop(cnx, "connection_error", &connection_error);
+
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
 }
