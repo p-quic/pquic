@@ -13,10 +13,12 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <time.h>
 #include "plugin.h"
 #include "memcpy.h"
 #include "memory.h"
 #include "tls_api.h"
+#include "endianness.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -38,9 +40,18 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
     ubpf_register(vm, 0x19, "my_memset", my_memset);
 
+    ubpf_register(vm, 0x1a, "clock_gettime", clock_gettime);
+
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);
     ubpf_register(vm, 0x21, "setsockopt", setsockopt);
+    ubpf_register(vm, 0x22, "socket", socket);
+    ubpf_register(vm, 0x23, "connect", connect);
+    ubpf_register(vm, 0x24, "send", send);
+    ubpf_register(vm, 0x25, "inet_aton", inet_aton);
+
+    ubpf_register(vm, 0x3a, "my_htons", my_htons);
+    ubpf_register(vm, 0x3b, "my_ntohs", my_ntohs);
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
@@ -52,6 +63,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
     ubpf_register(vm, 0x37, "picoquic_compare_connection_id", picoquic_compare_connection_id);
     ubpf_register(vm, 0x38, "picoquic_create_path", picoquic_create_path);
+    ubpf_register(vm, 0x38, "picoquic_compare_addr", picoquic_compare_addr);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
