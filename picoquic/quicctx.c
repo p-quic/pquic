@@ -368,12 +368,12 @@ picoquic_stateless_packet_t* picoquic_dequeue_stateless_packet(picoquic_quic_t* 
 int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id)
 {
     int ret = 0;
-    picohash_item* item;
     picoquic_cnx_id* key = (picoquic_cnx_id*)malloc(sizeof(picoquic_cnx_id));
 
     if (key == NULL) {
         ret = -1;
     } else {
+        picohash_item* item;
         key->cnx_id = *cnx_id;
         key->cnx = cnx;
         key->next_cnx_id = NULL;
@@ -424,12 +424,12 @@ static void picoquic_set_hash_key_by_address(picoquic_net_id * key, struct socka
 int picoquic_register_net_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, struct sockaddr* addr)
 {
     int ret = 0;
-    picohash_item* item;
     picoquic_net_id* key = (picoquic_net_id*)malloc(sizeof(picoquic_net_id));
 
     if (key == NULL) {
         ret = -1;
     } else {
+        picohash_item* item;
         picoquic_set_hash_key_by_address(key, addr);
 
         key->cnx = cnx;
@@ -673,7 +673,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             path_x->next_pacing_time = start_time;
 
             /* Initialize the MTU */
-            path_x->send_mtu = (addr == NULL || addr->sa_family == AF_INET) ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
+            path_x->send_mtu = addr->sa_family == AF_INET ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
 
             /* Initialize packet contexts */
             for (picoquic_packet_context_enum pc = 0;
@@ -898,7 +898,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
-    register_protocol_operations(cnx);
+    if (cnx) {
+        register_protocol_operations(cnx);
+    }
 
     /* The following lines should be uncommented only for testing purpose */
     // plugin_insert_transaction(cnx, "plugins/basic/basic.plugin");
@@ -1256,12 +1258,12 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
 {
     /* First parse the incoming connection negotiation to choose the
 	* new version. If none is available, return an error */
-    size_t byte_index = 0;
-    uint32_t proposed_version = 0;
     int ret = -1;
 
     if (cnx->cnx_state == picoquic_state_client_init || cnx->cnx_state == picoquic_state_client_init_sent) {
+        size_t byte_index = 0;
         while (cnx->cnx_state != picoquic_state_client_renegotiate && byte_index + 4 <= length) {
+            uint32_t proposed_version = 0;
             /* parsing the list of proposed versions encoded in renegotiation packet */
             proposed_version = PICOPARSE_32(bytes + byte_index);
             byte_index += 4;
@@ -1720,7 +1722,7 @@ protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
         case 9: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8]); break;
         case 10: printf((const char *) cnx->protoop_inputv[0], fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8], fmt_args[9]); break;
         default:
-            printf("protoop printf cannot handle more than 10 arguments, %lu were given\n", (size_t) cnx->protoop_inputv[2]);
+            printf("protoop printf cannot handle more than 10 arguments, %lu were given\n", (unsigned long) cnx->protoop_inputv[2]);
     }
     fflush(stdout);
     return 0;
@@ -1827,6 +1829,11 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
     /* Insert the param struct */
     HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
     return 0;
+}
+
+int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+{
+    return register_param_protoop(cnx, pid, NO_PARAM, op);
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)

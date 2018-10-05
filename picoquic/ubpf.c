@@ -68,7 +68,7 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
         return NULL;
     }
 
-    void *data = calloc(maxlen, 1);
+    char *data = calloc(maxlen, 1);
     size_t offset = 0;
     size_t rv;
     while ((rv = fread(data+offset, 1, maxlen-offset, file)) > 0) {
@@ -161,7 +161,6 @@ int release_elf(plugin_t *plugin) {
         plugin->vm = NULL;
         plugin->fn = 0;
         free(plugin);
-        plugin = NULL;
     }
     return 0;
 }

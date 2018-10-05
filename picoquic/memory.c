@@ -100,7 +100,7 @@ void *extend(picoquic_cnx_t *cnx, unsigned int size) {
 	if (cnx->heap_last_block) {
 		((meta_data *) cnx->heap_last_block)->next_block = new_block;	
 	}
-	cnx->heap_last_block = new_block;
+	cnx->heap_last_block = (char *) new_block;
 	return new_block;
 }
 
@@ -153,7 +153,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
  */ 
 void my_free(picoquic_cnx_t *cnx, void *ptr) {
 	if (!cnx->heap_start) return;
-	if (ptr >= cnx->heap_start + METADATA_SIZE && ptr < my_sbrk(cnx, 0)) {
+	if ((char *) ptr >= cnx->heap_start + METADATA_SIZE && ptr < my_sbrk(cnx, 0)) {
 		meta_data *ptr_metadata = get_metadata(ptr);
 		if (ptr_metadata->magic_number == MAGIC_NUMBER) {
 			ptr_metadata->available = 1;
@@ -176,7 +176,7 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
     /* If no previous ptr, fast-track to my_malloc */
     if (!ptr) return my_malloc(cnx, size);
     /* If the previous ptr is invalid, return NULL */
-    if (ptr < cnx->heap_start + METADATA_SIZE && ptr >= my_sbrk(cnx, 0)) return NULL;
+    if ((char *) ptr < cnx->heap_start + METADATA_SIZE && ptr >= my_sbrk(cnx, 0)) return NULL;
     /* Now take metadata */
     meta_data *ptr_metadata = get_metadata(ptr);
     if (ptr_metadata->magic_number != MAGIC_NUMBER) {

@@ -2769,6 +2769,17 @@ protoop_arg_t decode_stream_id_needed_frame(picoquic_cnx_t* cnx)
 
 /**
  * See PROTOOP_PARAM_DECODE_FRAME
+ * Default behaviour for unknown parameter
+ */
+static protoop_arg_t unknown_frame(picoquic_cnx_t *cnx)
+{
+    int ack_needed = (int) cnx->protoop_inputv[4];
+    protoop_save_outputs(cnx, ack_needed);
+    return (protoop_arg_t) NULL;
+}
+
+/**
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 static protoop_arg_t skip_0len_frame(picoquic_cnx_t *cnx)
 {
@@ -2794,20 +2805,6 @@ static protoop_arg_t skip_0len_frame(picoquic_cnx_t *cnx)
 uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
     uint64_t current_time, int epoch, int *ack_needed)
 {
-    /* FIXME: This is not very clean, but we need to check if the operation exists or not. Maybe a dedicated API for that? */
-    protocol_operation_struct_t *post;
-    protocol_operation_param_struct_t *popst;
-    param_id_t param = (param_id_t) first_byte;
-    HASH_FIND_STR(cnx->ops, PROTOOP_PARAM_DECODE_FRAME, post);
-    HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
-    if (!popst) {
-        uint64_t frame_id64;
-        if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame_id64)) != NULL) {
-            /* Not implemented yet! */
-            return NULL;
-        }
-    }
-    
     protoop_arg_t outs[PROTOOPARGS_MAX];
     outs[0] = *ack_needed;
     bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_DECODE_FRAME, first_byte, outs,
@@ -2823,9 +2820,9 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
  */
 
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_maxsize, int epoch, uint64_t current_time, picoquic_path_t* path_x)
+    size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x)
 {
-    const uint8_t *bytes_max = bytes + bytes_maxsize;
+    const uint8_t *bytes_max = bytes + bytes_max_size;
     int ack_needed = 0;
     picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
     picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
@@ -2993,7 +2990,7 @@ static uint8_t* picoquic_skip_stream_blocked_frame(uint8_t* bytes, const uint8_t
 
 /**
  * uint8_t* bytes = input 0
- * size_t bytes_maxsize = input 1
+ * size_t bytes_max_size = input 1
  * size_t consumed = input 2
  * int pure_ack = input 3
  *
@@ -3004,13 +3001,13 @@ static uint8_t* picoquic_skip_stream_blocked_frame(uint8_t* bytes, const uint8_t
 protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    size_t bytes_maxsize = (size_t) cnx->protoop_inputv[1];
+    size_t bytes_max_size = (size_t) cnx->protoop_inputv[1];
     size_t consumed = (size_t) cnx->protoop_inputv[2];
     int pure_ack = (int) cnx->protoop_inputv[3];
 
     int ack_needed;
 
-    const uint8_t *bytes_max = bytes + bytes_maxsize;
+    const uint8_t *bytes_max = bytes + bytes_max_size;
     uint8_t first_byte = bytes[0];
 
     pure_ack = 1;
@@ -3102,19 +3099,19 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
         }
     }
 
-    consumed = (bytes != NULL) ? bytes_maxsize - (bytes_max - bytes) : bytes_maxsize;
+    consumed = (bytes != NULL) ? bytes_max_size - (bytes_max - bytes) : bytes_max_size;
 
     protoop_save_outputs(cnx, consumed, pure_ack);
 
     return bytes == NULL;
 }
 
-int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_maxsize, size_t* consumed,
+int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max_size, size_t* consumed,
     int* pure_ack)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, "skip_frame", outs,
-        bytes, bytes_maxsize, *consumed, *pure_ack);
+        bytes, bytes_max_size, *consumed, *pure_ack);
     *consumed = (size_t) outs[0];
     *pure_ack = (int) outs[1];
     return ret;
@@ -3148,6 +3145,7 @@ int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes, size_t b
 void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
     /* Decoding */
+    register_param_protoop_default(cnx, PROTOOP_PARAM_DECODE_FRAME, &unknown_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_padding, &skip_0len_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_reset_stream, &decode_stream_reset_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_connection_close, &decode_connection_close_frame);

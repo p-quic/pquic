@@ -112,15 +112,14 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
 static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
-  protoop_arg_t i, arg;
+  int i;
   va_list ap;
 
   va_start(ap, n_args);
   protoop_arg_t args[n_args];
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
-    arg = va_arg(ap, protoop_arg_t);
-    args[i] = arg;
+    args[i] = va_arg(ap, protoop_arg_t);
     DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   va_end(ap);
@@ -130,14 +129,13 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
 
 static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int n_args, ...)
 {
-  protoop_arg_t i, arg;
+  int i;
   va_list ap;
 
   va_start(ap, n_args);
   DBG_PLUGIN_PRINTF("%u saved:", n_args);
   for (i = 0; i < n_args; i++) {
-    arg = va_arg(ap, protoop_arg_t);
-    cnx->protoop_outputv[i] = arg;
+    cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
     DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   cnx->protoop_outputc_callee = n_args;

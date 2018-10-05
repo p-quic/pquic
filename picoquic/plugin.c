@@ -223,15 +223,29 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
 
     /* Part one bis: extract param, if any */
     token = strsep(&line, " ");
+
+    if (token == NULL) {
+        printf("No param or keyword!\n");
+        return false;
+    }
+
     if (strncmp(token, "param", 5) == 0) {
         char *errmsg = NULL;
         token = strsep(&line, " ");
+        if (token == NULL) {
+            printf("No param value!\n");
+            return false;
+        }
         *param = (param_id_t) strtoul(token, &errmsg, 0);
         if (errmsg != NULL && strncmp(errmsg, "", 1) != 0) {
             printf("Invalid parameter %s, num is %u!\n", token, *param);
             return false;
         }
         token = strsep(&line, " ");
+        if (token == NULL) {
+            printf("No keyword value!\n");
+            return false;
+        }
     } else {
         *param = NO_PARAM;
     }
@@ -250,13 +264,14 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
 
     /* Part three: insert the plugin */
     token = strsep(&line, " ");
-
-    /* Handle end of line */
-    token[strcspn(token, "\r\n")] = 0;
     if (token == NULL) {
         printf("No token for ebpf filename extracted!\n");
         return false;
     }
+
+    /* Handle end of line */
+    token[strcspn(token, "\r\n")] = 0;
+
     char abs_path[250];
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
@@ -405,8 +420,12 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     if (post->is_parametrable) {
         HASH_FIND(hh, post->params, &pp->param, sizeof(param_id_t), popst);
         if (!popst) {
-            printf("FATAL ERROR: no protocol operation with id %s and param %u\n", pp->pid, pp->param);
-            exit(-1);
+            param_id_t default_behaviour = NO_PARAM;
+            HASH_FIND(hh, post->params, &default_behaviour, sizeof(param_id_t), popst);
+            if (!popst) {
+                printf("FATAL ERROR: no protocol operation with id %s and param %u, no default behaviour!\n", pp->pid, pp->param);
+                exit(-1);
+            }
         }
     } else {
         popst = post->params;

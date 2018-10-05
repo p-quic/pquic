@@ -381,7 +381,6 @@ int quic_server(const char* server_name, int server_port,
     uint8_t buffer[1536];
     uint8_t send_buffer[1536];
     size_t send_length = 0;
-    int bytes_recv;
     uint64_t current_time = 0;
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
@@ -404,16 +403,16 @@ int quic_server(const char* server_name, int server_port,
                 picoquic_set_cookie_mode(qserver, 1);
             }
             qserver->mtu_max = mtu_max;
+            /* TODO: add log level, to reduce size in "normal" cases */
+            PICOQUIC_SET_LOG(qserver, stdout);
         }
-
-        /* TODO: add log level, to reduce size in "normal" cases */
-        PICOQUIC_SET_LOG(qserver, stdout);
     }
 
     /* Wait for packets */
     while (ret == 0 && (just_once == 0 || cnx_server == NULL || picoquic_get_cnx_state(cnx_server) != picoquic_state_disconnected)) {
         int64_t delta_t = picoquic_get_next_wake_delay(qserver, current_time, delay_max);
         uint64_t time_before = current_time;
+        int bytes_recv;
 
         from_length = to_length = sizeof(struct sockaddr_storage);
         if_index_to = 0;
@@ -431,7 +430,7 @@ int quic_server(const char* server_name, int server_port,
 
         if (just_once != 0) {
             if (bytes_recv > 0) {
-                printf("Select returns %d, from length %d after %d us (wait for %d us)\n",
+                printf("Select returns %d, from length %u after %d us (wait for %d us)\n",
                     bytes_recv, from_length, (int)(current_time - time_before), (int)delta_t);
                 print_address((struct sockaddr*)&addr_from, "recv from:", picoquic_null_connection_id);
             } else {
@@ -467,7 +466,7 @@ int quic_server(const char* server_name, int server_port,
                     }
                     printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
                     picoquic_log_time(stdout, cnx_server, picoquic_current_time(), "", " : ");
-                    printf("Connection established, state = %d, from length: %d\n",
+                    printf("Connection established, state = %d, from length: %u\n",
                         picoquic_get_cnx_state(picoquic_get_first_cnx(qserver)), from_length);
                     memset(&client_from, 0, sizeof(client_from));
                     memcpy(&client_from, &addr_from, from_length);
@@ -621,15 +620,14 @@ static void demo_client_open_stream(picoquic_cnx_t* cnx,
     picoquic_first_client_callback_ctx_t* ctx,
     uint32_t stream_id, char const* text, size_t text_len, char const* fname, int is_binary)
 {
-    int ret = 0;
-
     picoquic_first_client_stream_ctx_t* stream_ctx = (picoquic_first_client_stream_ctx_t*)
         malloc(sizeof(picoquic_first_client_stream_ctx_t));
 
     if (stream_ctx == NULL) {
         fprintf(stdout, "Memory error!\n");
     } else {
-        fprintf(stdout, "Opening stream %d to GET /%s\n", stream_id, text);
+        int ret = 0;
+        fprintf(stdout, "Opening stream %u to GET /%s\n", stream_id, text);
 
         memset(stream_ctx, 0, sizeof(picoquic_first_client_stream_ctx_t));
         stream_ctx->command[0] = 'G';
@@ -722,7 +720,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
                 stream_ctx->F = NULL;
                 ctx->nb_open_streams--;
 
-                fprintf(stdout, "On stream %d, command: %s stopped after %d bytes\n",
+                fprintf(stdout, "On stream %u, command: %s stopped after %d bytes\n",
                     stream_ctx->stream_id, stream_ctx->command, (int)stream_ctx->received_length);
             }
             stream_ctx = stream_ctx->next_stream;
@@ -750,7 +748,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
             stream_ctx->F = NULL;
             ctx->nb_open_streams--;
 
-            fprintf(stdout, "Reset received on stream %d, command: %s, after %d bytes\n",
+            fprintf(stdout, "Reset received on stream %u, command: %s, after %d bytes\n",
                 stream_ctx->stream_id,
                 strip_endofline(buf, sizeof(buf), (char*)&stream_ctx->command),
                 (int)stream_ctx->received_length);
@@ -760,7 +758,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
         char buf[256];
         picoquic_reset_stream(cnx, stream_id, 0);
 
-        fprintf(stdout, "Stop sending received on stream %d, command: %s\n",
+        fprintf(stdout, "Stop sending received on stream %u, command: %s\n",
             stream_ctx->stream_id,
             strip_endofline(buf, sizeof(buf), (char*)&stream_ctx->command));
         return;
@@ -783,7 +781,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
             ctx->nb_open_streams--;
             fin_stream_id = stream_id;
 
-            fprintf(stdout, "Received file %s, after %d bytes, closing stream %d\n",
+            fprintf(stdout, "Received file %s, after %d bytes, closing stream %u\n",
                 strip_endofline(buf, sizeof(buf), (char*)&stream_ctx->command[4]),
                 (int)stream_ctx->received_length, stream_ctx->stream_id);
         }
@@ -819,7 +817,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     uint8_t buffer[1536];
     uint8_t send_buffer[1536];
     size_t send_length = 0;
-    int bytes_recv;
     int bytes_sent;
     uint64_t current_time = 0;
     int client_ready_loop = 0;
@@ -954,6 +951,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
     /* Wait for packets */
     while (ret == 0 && picoquic_get_cnx_state(cnx_client) != picoquic_state_disconnected) {
+        int bytes_recv;
         if (picoquic_is_cnx_backlog_empty(cnx_client) && callback_ctx.nb_open_streams == 0) {
             delay_max = 10000;
         } else {
@@ -970,7 +968,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             qclient);
 
         if (bytes_recv != 0) {
-            fprintf(F_log, "Select returns %d, from length %d\n", bytes_recv, from_length);
+            if (F_log != NULL) {
+                fprintf(F_log, "Select returns %d, from length %u\n", bytes_recv, from_length);
+            }
 
             if (bytes_recv > 0 && F_log != NULL)
             {
@@ -1043,11 +1043,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     if ((bytes_recv == 0 || client_ready_loop > 4) && picoquic_is_cnx_backlog_empty(cnx_client)) {
                         if (callback_ctx.nb_open_streams == 0) {
                             if (cnx_client->nb_zero_rtt_sent != 0) {
-                                fprintf(stdout, "Out of %d zero RTT packets, %d were acked by the server.\n",
+                                fprintf(stdout, "Out of %u zero RTT packets, %u were acked by the server.\n",
                                     cnx_client->nb_zero_rtt_sent, cnx_client->nb_zero_rtt_acked);
                                 if (F_log != stdout && F_log != stderr)
                                 {
-                                    fprintf(F_log, "Out of %d zero RTT packets, %d were acked by the server.\n",
+                                    fprintf(F_log, "Out of %u zero RTT packets, %u were acked by the server.\n",
                                         cnx_client->nb_zero_rtt_sent, cnx_client->nb_zero_rtt_acked);
                                 }
                             }
@@ -1266,7 +1266,7 @@ int main(int argc, char** argv)
                 fprintf(stderr, "option requires more arguments -- s\n");
                 usage();
             }
-            if ((proposed_version = parse_target_version(optarg)) <= 0) {
+            if ((proposed_version = parse_target_version(optarg)) == 0) {
                 fprintf(stderr, "Invalid version: %s\n", optarg);
                 usage();
             }

@@ -475,7 +475,7 @@ int picoquic_parse_header_and_decrypt(
     picoquic_packet_header* ph,
     picoquic_cnx_t** pcnx,
     uint32_t * consumed,
-    int * new_ctx_created)
+    int * new_context_created)
 {
     /* Parse the clear text header. Ret == 0 means an incorrect packet that could not be parsed */
     int already_received = 0;
@@ -496,7 +496,7 @@ int picoquic_parse_header_and_decrypt(
             else {
                 /* if listening is OK, listen */
                 *pcnx = picoquic_create_cnx(quic, ph->dest_cnx_id, ph->srce_cnx_id, addr_from, current_time, ph->vn, NULL, NULL, 0);
-                *new_ctx_created = (*pcnx == NULL) ? 0 : 1;
+                *new_context_created = (*pcnx == NULL) ? 0 : 1;
             }
         }
 
@@ -549,10 +549,10 @@ int picoquic_parse_header_and_decrypt(
             /* TODO: consider the error "too soon" */
             if (decoded_length > (length - ph->offset)) {
                 ret = PICOQUIC_ERROR_AEAD_CHECK;
-                if (*new_ctx_created) {
+                if (*new_context_created) {
                     picoquic_delete_cnx(*pcnx);
                     *pcnx = NULL;
-                    *new_ctx_created = 0;
+                    *new_context_created = 0;
                 }
             }
             else if (already_received != 0) {
@@ -1428,7 +1428,7 @@ int picoquic_incoming_segment(
 int picoquic_incoming_packet(
     picoquic_quic_t* quic,
     uint8_t* bytes,
-    uint32_t packet_length,
+    uint32_t length,
     struct sockaddr* addr_from,
     struct sockaddr* addr_to,
     int if_index_to,
@@ -1439,11 +1439,11 @@ int picoquic_incoming_packet(
     picoquic_connection_id_t previous_destid = picoquic_null_connection_id;
 
 
-    while (consumed_index < packet_length) {
+    while (consumed_index < length) {
         uint32_t consumed = 0;
 
         ret = picoquic_incoming_segment(quic, bytes + consumed_index, 
-            packet_length - consumed_index, packet_length,
+            length - consumed_index, length,
             &consumed, addr_from, addr_to, if_index_to, current_time, &previous_destid);
 
         if (ret == 0) {
