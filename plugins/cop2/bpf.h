@@ -46,7 +46,7 @@ typedef struct {  // We might want to add CIDs to this
     cop2_path_metrics *established_metrics;
 } cop2_conn_metrics;
 
-static cop2_conn_metrics *initialize_metrics_data(picoquic_cnx_t *cnx)  // TODO: We need to free it as well
+static inline cop2_conn_metrics *initialize_metrics_data(picoquic_cnx_t *cnx)  // TODO: We need to free it as well
 {
     cop2_conn_metrics *metrics = (cop2_conn_metrics *) my_malloc(cnx, sizeof(cop2_conn_metrics));
     if (!metrics) return NULL;
@@ -54,7 +54,7 @@ static cop2_conn_metrics *initialize_metrics_data(picoquic_cnx_t *cnx)  // TODO:
     return metrics;
 }
 
-static cop2_conn_metrics *get_cop2_metrics(picoquic_cnx_t *cnx)
+static inline cop2_conn_metrics *get_cop2_metrics(picoquic_cnx_t *cnx)
 {
     int allocated = 0;
     cop2_conn_metrics **bpfd_ptr = (cop2_conn_metrics **) get_opaque_data(cnx, COP2_OPAQUE_ID, sizeof(cop2_conn_metrics *), &allocated);
@@ -66,7 +66,7 @@ static cop2_conn_metrics *get_cop2_metrics(picoquic_cnx_t *cnx)
     return *bpfd_ptr;
 }
 
-static int count_paths(cop2_conn_metrics *metrics) {
+static inline int count_paths(cop2_conn_metrics *metrics) {
     int n_paths = 1;  // There always exists the handshake path
     cop2_path_metrics *path = metrics->established_metrics;
     while (path != NULL) {
@@ -76,7 +76,7 @@ static int count_paths(cop2_conn_metrics *metrics) {
     return n_paths;
 }
 
-static int copy_path(void *dst, cop2_path_metrics *path) {
+static inline int copy_path(void *dst, cop2_path_metrics *path) {
     int copied = 0;
 
     long elapsed = TIME_SUBTRACT_MS(path->t_start, path->t_end);
@@ -95,7 +95,7 @@ static int copy_path(void *dst, cop2_path_metrics *path) {
     return copied;
 }
 
-static cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics, picoquic_path_t *path)
+static inline cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics, picoquic_path_t *path)
 {
     cop2_path_metrics *prev_path = NULL;
     cop2_path_metrics *path_metrics = metrics->established_metrics;
@@ -124,7 +124,7 @@ static cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_m
     return path_metrics;
 }
 
-static void complete_path(cop2_path_metrics *path_metrics, picoquic_path_t *path) {
+static inline void complete_path(cop2_path_metrics *path_metrics, picoquic_path_t *path) {
     my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
     path_metrics->local_addr_len = path->local_addr_len;
     my_memcpy(&path_metrics->peer_addr, &path->peer_addr, path->peer_addr_len);
@@ -132,7 +132,7 @@ static void complete_path(cop2_path_metrics *path_metrics, picoquic_path_t *path
     clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_end);
 }
 
-static void dump_metrics(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics) {
+static inline void dump_metrics(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics) {
     struct sockaddr_in si;
     memset(&si, 0, sizeof(struct sockaddr_in));
     si.sin_family = AF_INET;
