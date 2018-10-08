@@ -1,4 +1,6 @@
 /*
+* \file picoquic_internal.h
+* \brief Header file with all internal structures of picoquic
 * Author: Christian Huitema
 * Copyright (c) 2017, Private Octopus, Inc.
 * All rights reserved.
@@ -644,6 +646,28 @@ typedef struct st_picoquic_cnx_t {
     char *heap_last_block; /* keeps track of the last block used when extending heap. */
     char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
+
+/** 
+ * Frame structures 
+ */
+typedef struct padding_or_ping_frame {
+    int is_ping;
+    int num_block; /** How many consecutive frames? */
+} padding_or_ping_frame_t;
+
+typedef struct reset_stream_frame {
+    uint64_t stream_id;
+    uint16_t app_error_code;
+    uint64_t final_offset;
+} reset_stream_frame_t;
+
+typedef struct connection_close_frame {
+    uint16_t error_code;
+    uint64_t frame_type;
+    uint64_t reason_phrase_length;
+    /** \todo Remove fix-length char */
+    char reason_phrase[200];
+} connection_close_frame_t;
 
 /* Init of transport parameters */
 void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode);

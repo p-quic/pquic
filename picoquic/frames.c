@@ -351,15 +351,35 @@ int picoquic_prepare_stream_reset_frame(picoquic_stream_head* stream,
 }
 
 /**
- * The interface for the decode_frame protocol operation is the same for all:
- * uint8_t* bytes = cnx->protoop_inputv[0]
- * const uint8_t* bytes_max = cnx->protoop_inputv[1]
- * uint64_t current_time = cnx->protoop_inputv[2]
- * int epoch = cnx->protoop_inputv[3]
- * int ack_needed = cnx->protoop_inputv[4]
- *
- * Output: uint8_t* bytes
- * cnx->protoop_outputv[0] = ack_needed
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+protoop_arg_t parse_reset_stream_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    reset_stream_frame_t* frame = (reset_stream_frame_t *) cnx->protoop_inputv[2];
+
+    frame = my_malloc(cnx, sizeof(reset_stream_frame_t));
+    if (!frame) {
+        printf("Failed to allocate memory for padding_or_ping_frame\n");
+        protoop_save_outputs(cnx, frame);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &frame->stream_id))      == NULL ||
+        (bytes = picoquic_frames_uint16_decode(bytes,   bytes_max, &frame->app_error_code)) == NULL ||
+        (bytes = picoquic_frames_varint_decode(bytes,   bytes_max, &frame->final_offset))   == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_reset_stream);
+    }
+
+    protoop_save_outputs(cnx, frame);
+    return (protoop_arg_t) bytes;
+}
+
+/**
+ * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_stream_reset_frame(picoquic_cnx_t* cnx)
 {
@@ -2153,6 +2173,34 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
 }
 
 /**
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+protoop_arg_t parse_connection_close_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
+    connection_close_frame_t* frame = (connection_close_frame_t*) cnx->protoop_inputv[2];
+
+    frame = my_malloc(cnx, sizeof(reset_stream_frame_t));
+    if (!frame) {
+        printf("Failed to allocate memory for padding_or_ping_frame\n");
+        protoop_save_outputs(cnx, frame);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_uint16_decode(bytes+1, bytes_max, &frame->error_code)) == NULL ||
+        (bytes = picoquic_frames_varint_decode(bytes,   bytes_max, &frame->frame_type)) == NULL ||
+        (bytes = picoquic_frames_length_data_skip(bytes, bytes_max)) == NULL) /* TODO FIXME */
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+            picoquic_frame_type_connection_close);
+    }
+
+    protoop_save_outputs(cnx, frame);
+    return (protoop_arg_t) bytes;
+}
+
+/**
  * See PROTOOP_PARAM_DECODE_FRAME
  */
 protoop_arg_t decode_connection_close_frame(picoquic_cnx_t *cnx)
@@ -2779,6 +2827,35 @@ static protoop_arg_t unknown_frame(picoquic_cnx_t *cnx)
 }
 
 /**
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+static protoop_arg_t parse_padding_or_ping_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t*) cnx->protoop_inputv[1];
+    padding_or_ping_frame_t *frame = (padding_or_ping_frame_t *) cnx->protoop_inputv[2];
+
+    /* Frame is not allocated, so do it now */
+    frame = my_malloc(cnx, sizeof(padding_or_ping_frame_t));
+    if (!frame) {
+        printf("Failed to allocate memory for padding_or_ping_frame\n");
+        protoop_save_outputs(cnx, frame);
+        return (protoop_arg_t) NULL;
+    }
+
+    frame->is_ping = bytes[0] ? 1 : 0;
+    frame->num_block = 0;
+
+    do {
+        bytes++;
+        frame->num_block++;
+    } while (bytes < bytes_max && *bytes == frame);
+
+    protoop_save_outputs(cnx, frame);
+    return (protoop_arg_t) bytes;
+}
+
+/**
  * See PROTOOP_PARAM_DECODE_FRAME
  */
 static protoop_arg_t skip_0len_frame(picoquic_cnx_t *cnx)
@@ -3145,6 +3222,11 @@ int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes, size_t b
 void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
     /* Decoding */
+    register_param_protoop_default(cnx, PROTOOP_PARAM_PARSE_FRAME, &unknown_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_padding, &parse_padding_or_ping_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_reset_stream, &parse_reset_stream_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_ping, &parse_padding_or_ping_frame);
+
     register_param_protoop_default(cnx, PROTOOP_PARAM_DECODE_FRAME, &unknown_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_padding, &skip_0len_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_reset_stream, &decode_stream_reset_frame);
