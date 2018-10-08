@@ -939,6 +939,8 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
+    cnx->transactions = NULL;
+    cnx->current_transaction = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -1484,6 +1486,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             }
 
             free(current_post);
+        }
+
+        protoop_transaction_t *current_tr, *tmp_tr;
+        HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
+            HASH_DEL(cnx->transactions, current_tr);
+            free(current_tr);
         }
 
         free(cnx);

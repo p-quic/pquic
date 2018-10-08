@@ -438,6 +438,15 @@ typedef uint16_t param_id_t;
 typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 
+typedef char* transaction_id_t;
+
+#define PROTOOPTRANSACTIONNAME_MAX 100
+
+typedef struct protoop_transaction {
+    char name[PROTOOPTRANSACTIONNAME_MAX];
+    UT_hash_handle hh; /* Make the structure hashable */
+} protoop_transaction_t;
+
 typedef struct {
     protoop_id_t pid;
     param_id_t param;
@@ -620,6 +629,9 @@ typedef struct st_picoquic_cnx_t {
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
 
+    /* FIXME move me to a safe place */
+    protoop_transaction_t *transactions;
+
     /* Opaque field for free use by plugins */
     size_t opaque_size_taken;
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
@@ -635,6 +647,8 @@ typedef struct st_picoquic_cnx_t {
 
     int protoop_outputc_callee; /* Modified by the callee */
 
+    protoop_transaction_t *current_transaction; /* This should not be modified by the plugins... */
+    
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
      * Therefore, each context has its own memory space that should contain everything
      * needed for the given connection.

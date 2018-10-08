@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "uthash.h"
 
 struct ubpf_vm;
 typedef uint64_t (*ubpf_jit_fn)(void *mem, size_t mem_len);
@@ -77,10 +78,13 @@ uint64_t ubpf_exec(const struct ubpf_vm *vm, void *mem, size_t mem_len);
 
 ubpf_jit_fn ubpf_compile(struct ubpf_vm *vm, char **errmsg);
 
+typedef struct protoop_transaction protoop_transaction_t;
+
 /* Now functions that will be actually used in the program */
 typedef struct plugin {
 	void *vm;
 	ubpf_jit_fn fn;
+	protoop_transaction_t *t;
 } plugin_t;
 
 plugin_t *load_elf(void *code, size_t code_len);
