@@ -2395,6 +2395,25 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
+                    /* Find if reservations were made */
+                    protoop_transaction_t *curr_tr, *tmp_tr;
+                    reserve_frame_slot_t *rfs;
+                    protoop_arg_t outs[PROTOOPARGS_MAX];
+                    HASH_ITER(hh, cnx->transactions, curr_tr, tmp_tr) {
+                        while (queue_peek(curr_tr->slot_queue) != NULL) {
+                            rfs = (reserve_frame_slot_t *) queue_dequeue(curr_tr->slot_queue);
+                            /* TODO FIXME */
+                            ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                                &bytes[length], &bytes[length + rfs->nb_bytes], &data_bytes);
+                            /* TODO FIXME consumed */
+                            if (ret == 0) {
+                                length += (uint32_t) data_bytes;
+                            }
+                            /* It was reserved by the plugin, so it is a my_free */
+                            my_free(cnx, rfs);
+                        }
+                    }
+
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                         send_buffer_min_max - checksum_overhead - length, &data_bytes)
                         == 0) {

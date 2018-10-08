@@ -300,6 +300,11 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
     }
 
     strncpy(t->name, token, PROTOOPTRANSACTIONNAME_MAX);
+    t->slot_queue = queue_init();
+    if (t->slot_queue) {
+        free(t);
+        return NULL;
+    }
     return t;
 }
 

@@ -51,6 +51,18 @@ typedef char* protoop_id_t;
  */
 static const protoop_id_t PROTOOP_PARAM_DECODE_FRAME = "decode_frame";
 
+/**
+ * Write the frame whose the type is provided as parameter.
+ * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
+ * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
+ * \param[in] current_time \b uint64_t Time of the writing of the frame
+ * \param[in] consumed \b int Current value of consumed
+ * 
+ * \return \b int Error code, 0 iff everything was fine
+ * \param[out] consumed \b int The number of bytes written in \p bytes
+ */
+static const protoop_id_t PROTOOP_PARAM_WRITE_FRAME = "write_frame";
+
 /* @} */ 
 
 /**

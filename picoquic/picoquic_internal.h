@@ -30,6 +30,7 @@
 #include "picosocks.h"
 #include "uthash.h"
 #include "protoop.h"
+#include "queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -440,10 +441,28 @@ typedef uint64_t protoop_arg_t;
 
 typedef char* transaction_id_t;
 
+/* This structure is used for sending booking purposes */
+typedef struct reserve_frame_slot {
+    size_t nb_bytes;
+    uint64_t frame_type;
+    /* TODO FIXME position */
+    void *frame_ctx;
+} reserve_frame_slot_t;
+
+/**
+ * Book an occasion to send the frame whose details are given in \p slot.
+ * \param[in] cnx The context of the connection
+ * \param[in] slot Information about the frame booking
+ * 
+ * \return The number of bytes reserved, or 0 if an error occurred
+ */
+size_t reserve_frame(picoquic_cnx_t* cnx, reserve_frame_slot_t* slot);
+
 #define PROTOOPTRANSACTIONNAME_MAX 100
 
 typedef struct protoop_transaction {
     char name[PROTOOPTRANSACTIONNAME_MAX];
+    queue_t *slot_queue; /* Send reservation queue */
     UT_hash_handle hh; /* Make the structure hashable */
 } protoop_transaction_t;
 

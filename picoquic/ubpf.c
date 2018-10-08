@@ -28,6 +28,7 @@ register_functions(struct ubpf_vm *vm)
     /* specific API related */
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     ubpf_register(vm, 0x01, "get_opaque_data", get_opaque_data);
+    ubpf_register(vm, 0x02, "reserve_frame", reserve_frame);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
     /* for memory */

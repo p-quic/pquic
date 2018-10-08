@@ -1491,6 +1491,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         protoop_transaction_t *current_tr, *tmp_tr;
         HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
             HASH_DEL(cnx->transactions, current_tr);
+            queue_free(current_tr->slot_queue);
             free(current_tr);
         }
 
@@ -1842,6 +1843,19 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
 int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
 {
     return register_param_protoop(cnx, pid, NO_PARAM, op);
+}
+
+size_t reserve_frame(picoquic_cnx_t* cnx, reserve_frame_slot_t* slot)
+{
+    if (!cnx->current_transaction) {
+        printf("ERROR: reserve_frame can only be called by plugins with transactions!\n");
+        return 0;
+    }
+    int err = queue_enqueue(cnx->current_transaction->slot_queue, slot);
+    if (err) {
+        return 0;
+    }
+    return slot->nb_bytes;
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
