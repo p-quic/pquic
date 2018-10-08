@@ -84,15 +84,14 @@ static int copy_path(void *dst, cop2_path_metrics *path) {
     copied += sizeof(long);
     my_memcpy(dst + copied, &path->local_addr_len, sizeof(int));
     copied += sizeof(int);
-    //my_memcpy(dst + copied, &path->local_addr, (size_t) path->local_addr_len);
-    //copied += path->local_addr_len;
+    my_memcpy(dst + copied, &path->local_addr, (size_t) path->local_addr_len);
+    copied += path->local_addr_len;
     my_memcpy(dst + copied, &path->peer_addr_len, sizeof(int));
     copied += sizeof(int);
-    //my_memcpy(dst + copied, &path->peer_addr, (size_t) path->peer_addr_len);
-    //copied += path->peer_addr_len;
+    my_memcpy(dst + copied, &path->peer_addr, (size_t) path->peer_addr_len);
+    copied += path->peer_addr_len;
     my_memcpy(dst + copied, &path->metrics, sizeof(cop2_metrics));
     copied += sizeof(cop2_metrics);
-
     return copied;
 }
 
@@ -115,10 +114,10 @@ static cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_m
         }
 
         my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
-        //my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
-        //path_metrics->local_addr_len = path->local_addr_len;
-        //my_memcpy(&path_metrics->peer_addr, &path->peer_addr, path->peer_addr_len);
-        //path_metrics->peer_addr_len = path->peer_addr_len;
+        my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
+        path_metrics->local_addr_len = path->local_addr_len;
+        my_memcpy(&path_metrics->peer_addr, &path->peer_addr, path->peer_addr_len);
+        path_metrics->peer_addr_len = path->peer_addr_len;
         clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_start);
     }
 

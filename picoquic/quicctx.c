@@ -1861,7 +1861,6 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, "stream_opened", &protoop_noop);
     register_noparam_protoop(cnx, "stream_closed", &protoop_noop);
     register_noparam_protoop(cnx, "connection_state_changed", &protoop_noop);
-    register_noparam_protoop(cnx, "connection_error", &connection_error);
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
 }
