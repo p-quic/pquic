@@ -802,10 +802,10 @@ protoop_arg_t decode_stream_frame(picoquic_cnx_t *cnx)
     return (protoop_arg_t) bytes;
 }
 
-uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
+uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x)
 {
     return (uint8_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_DECODE_STREAM_FRAME, NULL,
-        bytes, bytes_max, current_time);
+        bytes, bytes_max, current_time, path_x);
 }
 
 /**
@@ -2851,7 +2851,7 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
                 break;
             }
 
-            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time);
+            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time, path_x);
             ack_needed = 1;
 
         } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding

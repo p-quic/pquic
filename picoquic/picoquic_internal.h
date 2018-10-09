@@ -880,7 +880,7 @@ picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
-uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time);
+uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x);
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,

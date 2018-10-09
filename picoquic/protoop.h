@@ -67,7 +67,8 @@ static const protoop_id_t PROTOOP_PARAM_DECODE_FRAME = "decode_frame";
  * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode
  * \param[in] current_time \b uint64_t Time of reception of the frame
- * 
+ * \param[in] path \b picoquic_path_t* The path on which the frame was received
+ *
  * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
  */
 static const protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME = "decode_stream_frame";
