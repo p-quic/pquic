@@ -55,7 +55,7 @@ static const protoop_id_t PROTOOP_PARAM_DECODE_FRAME = "decode_frame";
  * Write the frame whose the type is provided as parameter.
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
- * \param[in] current_time \b uint64_t Time of the writing of the frame
+ * \param[in] frame_ctx \b void* The context of the frame to write. It has to be free'd.
  * \param[in] consumed \b int Current value of consumed
  * 
  * \return \b int Error code, 0 iff everything was fine
@@ -361,6 +361,13 @@ static const protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE = "prepare_mtu_probe
  * \return \b size_t The length of the buffer that will be sent
  */
 static const protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET = "finalize_and_protect_packet";
+
+/**
+ * Select the path on which the next packet will be sent.
+ *
+ * \return \b picoquic_path_t* The path on which the next packet will be sent.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH = "select_sending_path";
 
 /* @} */
 

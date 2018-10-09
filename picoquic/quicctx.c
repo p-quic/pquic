@@ -1035,7 +1035,8 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL, NULL);
+        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL,
+            previous_state, state);
     }
 }
 

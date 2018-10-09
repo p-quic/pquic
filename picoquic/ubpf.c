@@ -33,6 +33,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x02, "reserve_frame", reserve_frame);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
+    ubpf_register(vm, 0x09, "picoquic_current_time", picoquic_current_time);
     /* for memory */
     ubpf_register(vm, 0x10, "my_malloc", my_malloc);
     ubpf_register(vm, 0x11, "my_free", my_free);

@@ -665,6 +665,7 @@ typedef struct st_picoquic_cnx_t {
     protoop_arg_t protoop_outputv[PROTOOPARGS_MAX];
 
     int protoop_outputc_callee; /* Modified by the callee */
+    protoop_arg_t protoop_output; /* Only available for post calls */
 
     protoop_transaction_t *current_transaction; /* This should not be modified by the plugins... */
     

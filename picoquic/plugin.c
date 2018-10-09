@@ -296,12 +296,14 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
 
     protoop_transaction_t *t = malloc(sizeof(protoop_transaction_t));
     if (!t) {
+        printf("Cannot allocate memory for transaction!\n");
         return NULL;
     }
 
     strncpy(t->name, token, PROTOOPTRANSACTIONNAME_MAX);
     t->slot_queue = queue_init();
-    if (t->slot_queue) {
+    if (!t->slot_queue) {
+        printf("Cannot allocate memory for sending queue!\n");
         free(t);
         return NULL;
     }
@@ -503,12 +505,16 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     /* Finally, is there any post to run? */
     tmp = popst->post;
+    if (tmp) {
+        cnx->protoop_output = status;
+    }
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_transaction = tmp->observer->t;
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t));
         tmp = tmp->next;
     }
+    cnx->protoop_output = 0;
 
     int outputc = cnx->protoop_outputc_callee;
 
