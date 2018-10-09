@@ -17,6 +17,7 @@ INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
 SET(PICOQUIC_LIBRARY_FILES
+    picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c
     picoquic/http0dot9.c
@@ -64,6 +65,12 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/transport_param_test.c
 )
 
+SET(PLUGINS_COP2
+    plugins/cop2/cnx_state_changed.c
+    plugins/cop2/packet_received.c
+    plugins/cop2/packet_sent.c
+        plugins/cop2/rtt_updated.c)
+
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
 
@@ -85,6 +92,10 @@ INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
 ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
+)
+
+ADD_LIBRARY(plugins-cop2
+    ${PLUGINS_COP2}
 )
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c

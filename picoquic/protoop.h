@@ -96,6 +96,12 @@ static const protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME = "decode_stream_f
  */
 static const protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT = "update_rtt";
 
+// MP: Do we really want the RTT computation to be pluggable ?
+// This a metric that is used in many places and often part of more complex mechanisms.
+// I certainly wouldn't want a plugin to modify the RTT computation without being in charge of every other mechanisms
+// that is using it.
+// I would rather be in favor of plugins to define a separate metrics accessible via the cnx.
+
 /**
  * Process "ack_range" blocks contained in an ACK frame and release acknowledged packets in the retransmit queue.
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ack range

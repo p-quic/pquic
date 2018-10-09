@@ -369,6 +369,7 @@ int64_t picoquic_get_next_wake_delay(picoquic_quic_t* quic,
 picoquic_cnx_t* picoquic_get_earliest_cnx_to_wake(picoquic_quic_t* quic, uint64_t max_wake_time);
 
 picoquic_state_enum picoquic_get_cnx_state(picoquic_cnx_t* cnx);
+void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state);
 
 int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx);
 
