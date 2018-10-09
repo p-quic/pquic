@@ -2,9 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "plugin.h"
 #include "memory.h"
-#include "../helpers.h"
 #include "bpf.h"
 
 /**

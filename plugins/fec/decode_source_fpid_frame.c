@@ -1,7 +1,5 @@
 #include "picoquic_internal.h"
-#include "plugin.h"
 #include "bpf.h"
-#include "../helpers.h"
 
 /**
  * cnx->protoop_inputv[0] = uint8_t* bytes

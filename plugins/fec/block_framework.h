@@ -1,5 +1,4 @@
 #include "picoquic_internal.h"
-#include "plugin.h"
 #include "fec.h"
 #include "../helpers.h"
 #include "memory.h"
