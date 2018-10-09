@@ -132,38 +132,51 @@ static int StreamZeroFrameOneTest(struct test_case_st* test)
 {
     int ret = 0;
 
-    picoquic_cnx_t cnx = { 0 };
+    struct sockaddr_in test_addr;
+    picoquic_quic_t* quic = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+
+    picoquic_cnx_t* cnx;
     uint64_t current_time = 0;
 
-    register_protocol_operations(&cnx);
+    memset(&test_addr, 0, sizeof(struct sockaddr_in));
+    test_addr.sin_family = AF_INET;
+    memcpy(&test_addr.sin_addr, (uint8_t[]){ 10, 0, 0, 1 }, 4);
+    test_addr.sin_port = 12345;
+
+    cnx = picoquic_create_cnx(quic, picoquic_null_connection_id, picoquic_null_connection_id,
+                                     (struct sockaddr*)&test_addr, 0, 0, NULL, NULL, 0);
+    if (cnx == NULL) {
+        DBG_PRINTF("%s", "Could not connection context.\n");
+        ret = -1;
+    }
     
-    cnx.local_parameters.initial_max_stream_data_bidi_local = 0x10000;
-    cnx.local_parameters.initial_max_stream_data_bidi_remote = 0x10000;
-    cnx.remote_parameters.initial_max_stream_data_bidi_local = 0x10000;
-    cnx.remote_parameters.initial_max_stream_data_bidi_remote = 0x10000;
-    cnx.maxdata_local = 0x10000;
+    cnx->local_parameters.initial_max_stream_data_bidi_local = 0x10000;
+    cnx->local_parameters.initial_max_stream_data_bidi_remote = 0x10000;
+    cnx->remote_parameters.initial_max_stream_data_bidi_local = 0x10000;
+    cnx->remote_parameters.initial_max_stream_data_bidi_remote = 0x10000;
+    cnx->maxdata_local = 0x10000;
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
-        if (NULL == picoquic_decode_stream_frame(&cnx, test->list[i].packet,
-                test->list[i].packet + test->list[i].packet_length, current_time)) {
+        if (NULL == picoquic_decode_stream_frame(cnx, test->list[i].packet,
+                test->list[i].packet + test->list[i].packet_length, current_time, NULL)) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;
         }
     }
 
-    if (ret == 0 && cnx.first_stream == NULL) {
+    if (ret == 0 && cnx->first_stream == NULL) {
         FAIL(test, "%s", "No stream created");
         ret = -1;
     }
 
-    if (ret == 0 && cnx.first_stream->stream_id != 0) {
+    if (ret == 0 && cnx->first_stream->stream_id != 0) {
         FAIL(test, "%s", "Other stream than 0");
         ret = -1;
     }
 
     if (ret == 0) {
         /* Check the content of all the data in the context */
-        picoquic_stream_data* data = cnx.first_stream->stream_data;
+        picoquic_stream_data* data = cnx->first_stream->stream_data;
         size_t data_rank = 0;
 
         while (data != NULL) {

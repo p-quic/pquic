@@ -158,7 +158,7 @@ typedef struct st_picoquic_stored_ticket_t {
     uint16_t ticket_length;
 } picoquic_stored_ticket_t;
 
-int picoquic_store_ticket(picoquic_stored_ticket_t** p_first_ticket,
+int picoquic_store_ticket(picoquic_stored_ticket_t** pp_first_ticket,
     uint64_t current_time,
     char const* sni, uint16_t sni_length, char const* alpn, uint16_t alpn_length,
     uint8_t* ticket, uint16_t ticket_length);
@@ -483,6 +483,7 @@ typedef struct {
 /* Register functions */
 int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
 int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t param, protocol_operation op);
+int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
 void packet_register_noparam_protoops(picoquic_cnx_t *cnx);
@@ -638,9 +639,9 @@ typedef struct st_picoquic_cnx_t {
      * Therefore, each context has its own memory space that should contain everything
      * needed for the given connection.
      */
-    void *heap_start;
-    void *heap_end; /* used to implement my_sbrk */
-    void *heap_last_block; /* keeps track of the last block used when extending heap. */
+    char *heap_start;
+    char *heap_end; /* used to implement my_sbrk */
+    char *heap_last_block; /* keeps track of the last block used when extending heap. */
     char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
 
@@ -788,7 +789,7 @@ int picoquic_parse_ack_header(
 uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t pn);
 
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
-    uint8_t* bytes, size_t length, picoquic_packet_header* ph,
+    uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph,
     void * pn_enc, void* aead_context, int * already_received,
     picoquic_path_t* path_from);
 
@@ -913,9 +914,9 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 /* send/receive */
 
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_max, int epoch, uint64_t current_time, picoquic_path_t* path_x);
+    size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x);
 
-int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed, int* pure_ack);
+int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max_size, size_t* consumed, int* pure_ack);
 
 int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes,
     size_t bytes_max, int* closing_received);

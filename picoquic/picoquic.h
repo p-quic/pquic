@@ -309,7 +309,7 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     picoquic_stream_data_cb_fn default_callback_fn,
     void* default_callback_ctx,
     cnx_id_cb_fn cnx_id_callback,
-    void* cnx_id_callback_data,
+    void* cnx_id_callback_ctx,
     uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
     uint64_t current_time,
     uint64_t* p_simulated_time,
@@ -451,9 +451,9 @@ typedef struct st_picoquic_congestion_algorithm_t {
     picoquic_congestion_algorithm_delete alg_delete;
 } picoquic_congestion_algorithm_t;
 
-void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_congestion_algorithm_t const* algo);
+void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_congestion_algorithm_t const* alg);
 
-void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_algorithm_t const* algo);
+void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_algorithm_t const* alg);
 
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,
