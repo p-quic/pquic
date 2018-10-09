@@ -79,6 +79,7 @@ if __name__ == "__main__":
             path['data_recv'] = buf.read('Q')
             path['data_lost'] = buf.read('Q')
             path['data_ooo'] = buf.read('Q')
+            path['data_dupl'] = buf.read('Q')
             path['mean_rtt'] = buf.read('Q')
             path['rtt_variance'] = buf.read('Q')
 

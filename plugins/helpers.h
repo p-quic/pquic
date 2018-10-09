@@ -806,4 +806,71 @@ static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* byte
     return ret;
 }
 
+/**
+ *  return_values must contain 5 pointers to:
+ *
+ *  uint64_t* stream_id
+ *  uint64_t* offset
+ *  size_t* data_length
+ *  int* fin
+    size_t* consumed
+ */
+static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, protoop_arg_t** return_values) {
+    int ret = 0;
+    int len = bytes[0] & 2;
+    int off = bytes[0] & 4;
+    uint64_t length = 0;
+    size_t l_stream = 0;
+    size_t l_len = 0;
+    size_t l_off = 0;
+    size_t byte_index = 1;
+
+    uint64_t* stream_id = *(return_values);
+    uint64_t* offset = *(return_values + 1);
+    size_t* data_length = *(return_values + 2);
+    int* fin = (int *) *(return_values + 3);
+    size_t* consumed = *(return_values + 4);
+
+    *fin = bytes[0] & 1;
+
+    if (bytes_max > byte_index) {
+        l_stream = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, stream_id);
+        byte_index += l_stream;
+    }
+
+    if (off == 0) {
+        *offset = 0;
+    } else if (bytes_max > byte_index) {
+        l_off = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, offset);
+        byte_index += l_off;
+    }
+
+    if (bytes_max < byte_index || l_stream == 0 || (off != 0 && l_off == 0)) {
+        //DBG_PRINTF("stream frame header too large: first_byte=0x%02x, bytes_max=%" PRIst, bytes[0], bytes_max);
+        *data_length = 0;
+        byte_index = bytes_max;
+        ret = -1;
+    } else if (len == 0) {
+        *data_length = bytes_max - byte_index;
+    } else {
+        if (bytes_max > byte_index) {
+            l_len = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &length);
+            byte_index += l_len;
+            *data_length = (size_t)length;
+        }
+
+        if (l_len == 0 || bytes_max < byte_index) {
+            //DBG_PRINTF("stream frame header too large: first_byte=0x%02x, bytes_max=%" PRIst, bytes[0], bytes_max);
+            byte_index = bytes_max;
+            ret = -1;
+        } else if (byte_index + length > bytes_max) {
+            //DBG_PRINTF("stream data past the end of the packet: first_byte=0x%02x, data_length=%" PRIst ", max_bytes=%" PRIst, bytes[0], *data_length, bytes_max);
+            ret = -1;
+        }
+    }
+
+    *consumed = byte_index;
+    return ret;
+}
+
 #endif

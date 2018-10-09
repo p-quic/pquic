@@ -1,13 +1,13 @@
 #include <string.h>
 #include <time.h>
 #include <sys/types.h>
-
 #include <sys/socket.h>
+
+#include "endianness.h"
 #include "picoquic_internal.h"
 #include "memory.h"
 #include "memcpy.h"
 #include "util.h"
-#include "endianness.h"
 
 #define COP2_OPAQUE_ID 0x02
 #define BILLION ((unsigned int) 1000000)
@@ -22,6 +22,7 @@ typedef struct {
     uint64_t data_recv;
     uint64_t data_lost;
     uint64_t data_ooo;
+    uint64_t data_dupl;
 
     /* time in msec */
     uint64_t smoothed_rtt;
