@@ -1397,7 +1397,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         while ((stream = cnx->first_stream) != NULL) {
             cnx->first_stream = stream->next_stream;
             picoquic_clear_stream(stream);
-            free(stream);
+            my_free(cnx, stream);
         }
 
         if (cnx->tls_ctx != NULL) {

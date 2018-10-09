@@ -151,7 +151,7 @@ static uint8_t* picoquic_frames_length_data_skip(uint8_t* bytes, const uint8_t* 
 
 picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t stream_id)
 {
-    picoquic_stream_head* stream = (picoquic_stream_head*)malloc(sizeof(picoquic_stream_head));
+    picoquic_stream_head* stream = (picoquic_stream_head*)my_malloc(cnx, sizeof(picoquic_stream_head));
     if (stream != NULL) {
         picoquic_stream_head* previous_stream = NULL;
         picoquic_stream_head* next_stream = cnx->first_stream;
@@ -306,7 +306,7 @@ int picoquic_flow_control_check_stream_offset(picoquic_cnx_t* cnx, picoquic_stre
  * An endpoint may use a RST_STREAM frame (type=0x01) to abruptly terminate a stream.
  */
 
-int picoquic_prepare_stream_reset_frame(picoquic_stream_head* stream,
+int picoquic_prepare_stream_reset_frame(picoquic_cnx_t *cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
     int ret = 0;
@@ -341,7 +341,7 @@ int picoquic_prepare_stream_reset_frame(picoquic_stream_head* stream,
                 if (stream->send_queue->bytes != NULL) {
                     free(stream->send_queue->bytes);
                 }
-                free(stream->send_queue);
+                my_free(cnx, stream->send_queue);
                 stream->send_queue = next;
             }
         }
@@ -640,7 +640,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
 
         free(data->bytes);
         stream->stream_data = data->next_stream_data;
-        free(data);
+        my_free(cnx, data);
         data = stream->stream_data;
     }
 
@@ -701,7 +701,7 @@ static int picoquic_queue_network_input(picoquic_cnx_t* cnx, picoquic_stream_hea
                 data->bytes = (uint8_t*)malloc(data_length);
                 if (data->bytes == NULL) {
                     ret = picoquic_connection_error(cnx, PICOQUIC_ERROR_MEMORY, 0);
-                    free(data);
+                    my_free(cnx, data);
                 }
                 else {
                     data->offset = offset + start;
@@ -865,7 +865,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
     int ret = 0;
 
     if (STREAM_SEND_RESET(stream)) {
-        ret = picoquic_prepare_stream_reset_frame(stream, bytes, bytes_max, &consumed);
+        ret = picoquic_prepare_stream_reset_frame(cnx, stream, bytes, bytes_max, &consumed);
         protoop_save_outputs(cnx, consumed);
         return ret;
     }
@@ -959,7 +959,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 if (stream->send_queue->offset >= stream->send_queue->length) {
                     picoquic_stream_data* next = stream->send_queue->next_stream_data;
                     free(stream->send_queue->bytes);
-                    free(stream->send_queue);
+                    my_free(cnx, stream->send_queue);
                     stream->send_queue = next;
                 }
 
@@ -1145,7 +1145,7 @@ protoop_arg_t prepare_crypto_hs_frame(picoquic_cnx_t *cnx)
                 if (stream->send_queue->offset >= stream->send_queue->length) {
                     picoquic_stream_data* next = stream->send_queue->next_stream_data;
                     free(stream->send_queue->bytes);
-                    free(stream->send_queue);
+                    my_free(cnx, stream->send_queue);
                     stream->send_queue = next;
                 }
 
