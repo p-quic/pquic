@@ -4,24 +4,18 @@
 #include "bpf.h"
 
 /**
- * cnx->protoop_inputv[0] = uint64_t current_time
- * cnx->protoop_inputv[1] = picoquic_packet_context_enum pc
- * cnx->protoop_inputv[2] = uint8_t* bytes
- * cnx->protoop_inputv[3] = size_t bytes_max
- * cnx->protoop_inputv[4] = size_t consumed
- * cnx->protoop_inputv[5] = picoquic_path_t* path_x
- *
- * Regular output: error code (int)
- * cnx->protoop_outputv[0] = size_t consumed
+ * See PROTOOP_PARAM_WRITE_FRAME
  */
-protoop_arg_t prepare_mp_ack_frame(picoquic_cnx_t *cnx)
+protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 {
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
-    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[1];
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[2];
-    size_t bytes_max = (size_t) cnx->protoop_inputv[3];
-    size_t consumed = (size_t) cnx->protoop_inputv[4];
-    picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[5]; 
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
+    
+    uint64_t current_time = picoquic_current_time();
+    picoquic_path_t *path_x = mac->path_x;
+    picoquic_packet_context_enum pc = mac->pc;
 
     int ret = 0;
     size_t byte_index = 0;
@@ -138,6 +132,10 @@ protoop_arg_t prepare_mp_ack_frame(picoquic_cnx_t *cnx)
     if (ret == 0) {
         pkt_ctx->ack_needed = 0;
     }
+
+    my_free(cnx, mac);
+
+    helper_protoop_printf(cnx, "MP ACK done!\n", NULL, 0);
 
     cnx->protoop_outputc_callee = 1;
     cnx->protoop_outputv[0] = (protoop_arg_t) consumed;

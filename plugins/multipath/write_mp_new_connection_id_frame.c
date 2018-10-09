@@ -5,22 +5,14 @@
 #include "tls_api.h"
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = size_t bytes_max
- * size_t consumed = cnx->protoop_inputv[2]
- * uint64_t path_id = cnx->protoop_inputv[3]
- * uint64_t current_time = cnx->protoop_inputv[4]
- *
- * Output: int ret
- * cnx->protoop_outputv[0] = size_t consumed
+ * See PROTOOP_PARAM_WRITE_FRAME
  */
-protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
+protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
-    size_t consumed = (size_t) cnx->protoop_inputv[2];
-    uint64_t path_id = (uint64_t) cnx->protoop_inputv[3];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
+    mp_new_connection_id_ctx_t *mncic = (mp_new_connection_id_ctx_t *) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
 
     int ret = 0;
     int new_path_index = 0;
@@ -37,7 +29,7 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* First find the corresponding path_id in the bpfd
          * Create it if it is not present yet.
          */
-        int path_index = mp_get_path_index(bpfd, path_id, &new_path_index);
+        int path_index = mp_get_path_index(bpfd, mncic->path_id, &new_path_index);
         if (path_index < 0) {
             /* Stop sending NEW_CONNECTION_ID frames */
             cnx->protoop_outputc_callee = 1;
@@ -69,7 +61,7 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         if (byte_index < bytes_max) {
             /* Path ID */
             path_id_l = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
-                path_id);
+                mncic->path_id);
             byte_index += path_id_l;
         }
         if (byte_index < bytes_max) {
@@ -91,9 +83,11 @@ protoop_arg_t prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         if (new_path_index) {
             p->state = 0;
         } else {
-            mp_path_ready(cnx, p, current_time);
+            mp_path_ready(cnx, p, picoquic_current_time());
         }
     }
+
+    my_free(cnx, mncic);
     
     cnx->protoop_outputc_callee = 1;
     cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
