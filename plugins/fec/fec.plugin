@@ -1,0 +1,4 @@
+decode_frame param 0x1b replace decode_fec_frame.o
+decode_frame param 0x1c replace decode_source_fpid_frame.o
+incoming_encrypted pre incoming_encrypted.o
+prepare_packet_ready replace prepare_packet_ready.o
