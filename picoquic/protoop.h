@@ -42,10 +42,11 @@ typedef char* protoop_id_t;
  * Parse the frame on the wire pointed by \p bytes whose the type is provided as parameter and provides the structure \p frame containing the frame information.
  * \param[in] bytes \b uint8_t* Pointer to the start of the in binary format to parse
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to parse
- * \param[in] frame \b void* Unused pointer
  * 
  * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
  * \param[out] frame \b void* Pointer to the structure malloc'ed in the context memory containing the frame information
+ * \param[out] is_ack_needed \b int Indicates if the parsed frame requires replying with an ACK frame
+ * \param[out] is_retransmittable \b int Indicates if the parsed frame should be retransmitted if the packet carrying it is lost
  */
 static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
 
