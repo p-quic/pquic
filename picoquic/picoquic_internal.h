@@ -732,7 +732,7 @@ typedef struct ack_frame {
 } ack_frame_t;
 
 typedef struct path_challenge_frame {
-    uint64_t data;
+    uint8_t data[8];
 } path_challenge_frame_t;
 
 typedef struct path_response_frame {
@@ -950,6 +950,10 @@ void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2);
 
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
+
+/* Small internal function */
+uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t current_time, int epoch, int *ack_needed);
 
 /* handling of ACK logic */
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 

@@ -21,6 +21,7 @@
 
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/plugin.h"
+#include "../picoquic/memory.h"
 
 /*
  * Testing Arrival of Frame for Stream Zero
@@ -294,12 +295,12 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
 
     picoquic_cnx_t cnx = { 0 };
 
+    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
-        protoop_arg_t outs[1];
         int ack_needed;
-        uint8_t* bytes = (uint8_t*) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_DECODE_FRAME, picoquic_frame_type_crypto_hs, outs,
+        uint8_t* bytes = picoquic_decode_frame(&cnx, picoquic_frame_type_crypto_hs, 
             test->list[i].packet, test->list[i].packet + test->list[i].packet_length, 0, test_epoch, &ack_needed);
         if (NULL == bytes) {
             FAIL(test, "packet %" PRIst, i);
