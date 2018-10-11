@@ -1860,11 +1860,14 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx,PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PRINTF, &protoop_printf);
 
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, "received_packet", &protoop_noop);
     register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
     register_noparam_protoop(cnx, "received_segment", &protoop_noop);
     register_noparam_protoop(cnx, "before_sending_segment", &protoop_noop);
+
+    /** \todo document these */
     register_noparam_protoop(cnx, "stream_opened", &protoop_noop);
     register_noparam_protoop(cnx, "stream_closed", &protoop_noop);
     register_noparam_protoop(cnx, "connection_state_changed", &protoop_noop);

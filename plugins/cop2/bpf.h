@@ -17,12 +17,19 @@
 #define TIME_SUBTRACT_MS(a, b)  (((b.tv_sec - a.tv_sec) * 1000) + (((unsigned long)(b.tv_nsec - a.tv_nsec)) / BILLION))
 
 typedef struct {
-    /* sum in bytes */  // TODO: Adds packet counts ?
+    /* sum in bytes */
     uint64_t data_sent;
     uint64_t data_recv;
     uint64_t data_lost;
     uint64_t data_ooo;
     uint64_t data_dupl;
+
+    /* sum in packets */
+    uint64_t pkt_sent;
+    uint64_t pkt_recv;
+    uint64_t pkt_lost;
+    uint64_t pkt_ooo;
+    uint64_t pkt_dupl;
 
     /* time in msec */
     uint64_t smoothed_rtt;

@@ -4,3 +4,4 @@ before_sending_segment replace packet_sent.o
 update_rtt post rtt_updated.o
 decode_stream_frame pre check_ooo_stream_frame.o
 decode_stream_frame pre check_spurious_stream_frame.o
+packet_was_lost pre packet_lost.o

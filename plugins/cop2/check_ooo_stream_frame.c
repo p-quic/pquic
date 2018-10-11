@@ -26,6 +26,7 @@ protoop_arg_t check_ooo_stream_frame(picoquic_cnx_t *cnx)
         if(offset > stream->consumed_offset) {
             cop2_path_metrics *path_metrics = find_metrics_for_path(cnx, get_cop2_metrics(cnx), path);
             path_metrics->metrics.data_ooo += data_length;
+            path_metrics->metrics.pkt_ooo++;
         }
     }
 

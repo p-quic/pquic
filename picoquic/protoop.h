@@ -351,6 +351,16 @@ static const protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE = "prepare_mtu_probe
  */
 static const protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET = "finalize_and_protect_packet";
 
+
+/**
+ * Observer-only anchor that must be triggered by all mechanisms that declare packets as lost
+ * and trigger retransmissions.
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet that was lost
+ * \param[in] path_x \b picoquic_path_t* The path on which the packet was lost
+ */
+static const protoop_id_t PROTOOP_NOPARAM_PACKET_WAS_LOST = "packet_was_lost";
+
 /* @} */
 
 #endif

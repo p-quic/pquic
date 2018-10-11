@@ -71,7 +71,7 @@ SET(PLUGINS_COP2
     plugins/cop2/rtt_updated.c
     plugins/cop2/check_ooo_stream_frame.c
     plugins/cop2/check_spurious_stream_frame.c
-)
+        plugins/cop2/packet_lost.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )

@@ -610,6 +610,8 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         my_free(cnx, p);
     }
     else {
+        protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
+
         p->next_packet = NULL;
 
         /* add this packet to the retransmitted list */
