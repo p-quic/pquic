@@ -181,7 +181,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 * Max retransmission count was exceeded. Disconnect.
                                 */
                                 /* DBG_PRINTF("%s\n", "Too many retransmits, disconnect"); */
-                                cnx->cnx_state = picoquic_state_disconnected;
+                                picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                                 helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
                                 length = 0;
                                 stop = true;

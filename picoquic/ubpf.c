@@ -65,6 +65,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x38, "picoquic_compare_addr", picoquic_compare_addr);
     ubpf_register(vm, 0x39, "picoquic_parse_stream_header", picoquic_parse_stream_header);
     ubpf_register(vm, 0x3a, "picoquic_find_stream", picoquic_find_stream);
+    ubpf_register(vm, 0x3b, "picoquic_set_cnx_state", picoquic_set_cnx_state);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

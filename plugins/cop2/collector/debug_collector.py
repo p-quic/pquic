@@ -40,10 +40,11 @@ class StructReader:
         self.b = buffer
         self.i = 0
 
-    def read(self, format_char):
+    def read(self, format_char, peek=False):
         format_length = struct.calcsize(self.b_o + format_char)
         val = struct.unpack(self.b_o + format_char, self.b[self.i:self.i+format_length])[0]
-        self.i += format_length
+        if not peek:
+            self.i += format_length
         return val
 
     def next(self, amount):
@@ -67,12 +68,14 @@ if __name__ == "__main__":
 
             local_addr_len = buf.read('I')
             if local_addr_len:
-                path['local_addr'] = sockaddr_in6()
+                family = buf.read('H', peek=True)
+                path['local_addr'] = sockaddr_in() if family == 2 else sockaddr_in6()
                 ctypes.memmove(ctypes.byref(path['local_addr']), buf.next(local_addr_len), local_addr_len)
 
             peer_addr_len = buf.read('I')
             if peer_addr_len:
-                path['peer_addr'] = sockaddr_in6()
+                family = buf.read('H', peek=True)
+                path['peer_addr'] = sockaddr_in() if family == 2 else sockaddr_in6()
                 ctypes.memmove(ctypes.byref(path['peer_addr']), buf.next(peer_addr_len), peer_addr_len)
 
             path['data_sent'] = buf.read('Q')
