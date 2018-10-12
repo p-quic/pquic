@@ -1,4 +1,6 @@
 /*
+* \file picoquic_internal.h
+* \brief Header file with all internal structures of picoquic
 * Author: Christian Huitema
 * Copyright (c) 2017, Private Octopus, Inc.
 * All rights reserved.
@@ -78,7 +80,7 @@ typedef enum {
     picoquic_frame_type_ping = 7,
     picoquic_frame_type_blocked = 8,
     picoquic_frame_type_stream_blocked = 9,
-    picoquic_frame_type_stream_id_needed = 0x0a,
+    picoquic_frame_type_stream_id_blocked = 0x0a,
     picoquic_frame_type_new_connection_id = 0x0b,
     picoquic_frame_type_stop_sending = 0x0c,
     picoquic_frame_type_ack = 0x0d,
@@ -645,6 +647,109 @@ typedef struct st_picoquic_cnx_t {
     char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
 
+/** 
+ * Frame structures 
+ */
+#define REASONPHRASELENGTH_MAX 200
+
+typedef struct padding_or_ping_frame {
+    int is_ping;
+    int num_block; /** How many consecutive frames? */
+} padding_or_ping_frame_t;
+
+typedef struct reset_stream_frame {
+    uint64_t stream_id;
+    uint16_t app_error_code;
+    uint64_t final_offset;
+} reset_stream_frame_t;
+
+typedef struct connection_close_frame {
+    uint16_t error_code;
+    uint64_t frame_type;
+    uint64_t reason_phrase_length;
+    /** \todo Remove fix-length char */
+    char reason_phrase[REASONPHRASELENGTH_MAX];
+} connection_close_frame_t;
+
+typedef struct application_close_frame {
+    uint16_t error_code;
+    uint64_t reason_phrase_length;
+    /** \todo Remove fix-length char */
+    char reason_phrase[REASONPHRASELENGTH_MAX];
+} application_close_frame_t;
+
+typedef struct max_data_frame {
+    uint64_t maximum_data;
+} max_data_frame_t;
+
+typedef struct max_stream_data_frame {
+    uint64_t stream_id;
+    uint64_t maximum_stream_data;
+} max_stream_data_frame_t;
+
+typedef struct max_stream_id_frame {
+    uint64_t maximum_stream_id;
+} max_stream_id_frame_t;
+
+typedef struct blocked_frame {
+    uint64_t offset;
+} blocked_frame_t;
+
+typedef struct stream_blocked_frame {
+    uint64_t stream_id;
+    uint64_t offset;
+} stream_blocked_frame_t;
+
+typedef struct stream_id_blocked_frame {
+    uint64_t stream_id;
+} stream_id_blocked_frame_t;
+
+typedef struct new_connection_id_frame {
+    uint64_t sequence;
+    picoquic_connection_id_t connection_id;
+    uint8_t stateless_reset_token[16];
+} new_connection_id_frame_t;
+
+typedef struct stop_sending_frame {
+    uint64_t stream_id;
+    uint16_t application_error_code;
+} stop_sending_frame_t;
+
+typedef struct ack_block {
+    uint64_t gap;
+    uint64_t additional_ack_block;
+} ack_block_t;
+
+typedef struct ack_frame {
+    uint8_t is_ack_ecn;
+    uint64_t largest_acknowledged;
+    uint64_t ack_delay;
+    uint64_t ecnx3[3];
+    /** \todo Fixme we do not support ACK frames with more than 63 ack blocks */
+    uint64_t ack_block_count;
+    uint64_t first_ack_block;
+    ack_block_t ack_blocks[63];
+} ack_frame_t;
+
+typedef struct path_challenge_frame {
+    uint8_t data[8];
+} path_challenge_frame_t;
+
+typedef struct path_response_frame {
+    uint64_t data;
+} path_response_frame_t;
+
+typedef struct crypto_frame {
+    uint64_t offset;
+    uint64_t length;
+    uint8_t* crypto_data_ptr; /* Start of the data, not contained in the structure */
+} crypto_frame_t;
+
+typedef struct new_token_frame {
+    uint64_t token_length;
+    uint8_t* token_ptr; /* Start of the data, not contained in the structure */
+} new_token_frame_t;
+
 /* Init of transport parameters */
 void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode);
 
@@ -845,6 +950,10 @@ void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2);
 
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
+
+/* Small internal function */
+uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t current_time, int epoch, int *ack_needed);
 
 /* handling of ACK logic */
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 

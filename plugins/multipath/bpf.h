@@ -48,6 +48,24 @@ typedef struct {
     addr_data_t rem_addrs[MAX_ADDRS];
 } bpf_data;
 
+typedef struct add_address_frame {
+    uint8_t has_port;
+    uint8_t ip_vers;
+    uint8_t address_id;
+    /* This is an hack... An ipv4 address will fit inside */
+    struct sockaddr_in6 addr;
+} add_address_frame_t;
+
+typedef struct mp_new_connection_id_frame {
+    uint64_t path_id;
+    new_connection_id_frame_t ncidf;
+} mp_new_connection_id_frame_t;
+
+typedef struct mp_ack_frame {
+    uint64_t path_id;
+    ack_frame_t ack;
+} mp_ack_frame_t;
+
 static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 {
     bpf_data *bpfd = (bpf_data *) my_malloc(cnx, sizeof(bpf_data));
@@ -218,38 +236,6 @@ static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_
     return ret;
 }
 
-static uint8_t* helper_decode_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
-    uint64_t current_time, int *ack_needed)
-{
-    protoop_arg_t outs[1];
-    protoop_arg_t args[5];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) current_time;
-    args[3] = (protoop_arg_t) 0;
-    args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, MP_NEW_CONNECTION_ID_TYPE, 5, args, NULL);
-    bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
-    *ack_needed = (int) outs[0];
-    return bytes;
-}
-
-static uint8_t* helper_decode_mp_ack_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, uint64_t current_time, int *ack_needed)
-{
-    protoop_arg_t outs[1];
-    protoop_arg_t args[5];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) current_time;
-    args[3] = (protoop_arg_t) 0;
-    args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, MP_ACK_TYPE, 5, args, NULL);
-    bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
-    *ack_needed = (int) outs[0];
-    return bytes;
-}
-
 static int helper_prepare_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max, size_t *consumed)
 {
@@ -261,20 +247,4 @@ static int helper_prepare_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *consumed = (size_t) outs[0];
     return ret;
-}
-
-static uint8_t* helper_decode_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-    const uint8_t* bytes_max, int *ack_needed)
-{
-    protoop_arg_t outs[1];
-    protoop_arg_t args[5];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) 0;
-    args[3] = (protoop_arg_t) 0;
-    args[4] = (protoop_arg_t) *ack_needed;
-    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_DECODE_FRAME, ADD_ADDRESS_TYPE, 5, args, NULL);
-    bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
-    *ack_needed = (int) outs[0];
-    return bytes;
 }

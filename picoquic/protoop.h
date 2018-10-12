@@ -39,17 +39,26 @@ typedef char* protoop_id_t;
 /* @{ */ 
 
 /**
- * Decode and process the frame whose the type is provided as parameter.
- * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
- * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode
- * \param[in] current_time \b uint64_t Time of reception of the packet
- * \param[in] epoch \b int Epoch of the received packet
- * \param[in] ack_needed \b int Current value indicating if the reception of previous frames requires replying with an ACK frame
+ * Parse the frame on the wire pointed by \p bytes whose the type is provided as parameter and provides the structure \p frame containing the frame information.
+ * \param[in] bytes \b uint8_t* Pointer to the start of the in binary format to parse
+ * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to parse
  * 
  * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
- * \param[out] ack_needed \b int Set to 1 if the decoded frame requires replying with an ACK frame 
+ * \param[out] frame \b void* Pointer to the structure malloc'ed in the context memory containing the frame information
+ * \param[out] ack_needed \b int Indicates if the parsed frame requires replying with an ACK frame
+ * \param[out] is_retransmittable \b int Indicates if the parsed frame should be retransmitted if the packet carrying it is lost
  */
-static const protoop_id_t PROTOOP_PARAM_DECODE_FRAME = "decode_frame";
+static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
+
+/**
+ * Process the parsed frame /p frame whose the type is provided as parameter.
+ * \param[in] frame \b void* Pointer to the structure malloc'ed in the context memory containing the frame information. Don't free it.
+ * \param[in] current_time \b uint64_t Time of reception of the packet containing that frame
+ * \param[in] epoch \b int Epoch of the received packet containing the frame
+ * 
+ * \return \b int Error code, 0 iff everything is fine.
+ */
+static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
 
 /* @} */ 
 
