@@ -14,7 +14,7 @@ protoop_arg_t state_changed(picoquic_cnx_t *cnx)
     if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
         clock_gettime(CLOCK_MONOTONIC, &metrics->handshake_metrics.t_end);
         // Send it somewhere
-    } else if (cnx->cnx_state == picoquic_state_closing) {
+    } else if (cnx->cnx_state == picoquic_state_disconnected) {
         cop2_path_metrics *path = metrics->established_metrics;
         while(path != NULL) {
             // Send it somewhere
