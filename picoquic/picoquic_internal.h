@@ -931,8 +931,8 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 /* Hooks for reception and sending of QUIC packets before encryption */  // TODO: Maybe the two above and below should be merged
-void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t* path);
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t* path);
+void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,

@@ -1290,7 +1290,7 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
-            picoquic_received_segment(cnx, (size_t)*consumed, picoquic_get_incoming_path(cnx, &ph));
+            picoquic_received_segment(cnx, ph_ptr, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, ph_ptr), *consumed);
             /* Ensure bytes are in the context */
             uint8_t *cnx_bytes = my_malloc(cnx, packet_length);
             if (!cnx_bytes) {

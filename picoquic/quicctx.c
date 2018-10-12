@@ -1670,12 +1670,12 @@ void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
         socket);
 }
 
-void picoquic_received_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t *path) {
-    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, len, path);
+void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, ph, path, length);
 }
 
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, size_t len, picoquic_path_t *path) {
-    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, len, path);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, ph, path, length);
 }
 
 bool is_private(in_addr_t t) {
@@ -1856,11 +1856,15 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, &protoop_noop);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
     register_noparam_protoop(cnx,PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PRINTF, &protoop_printf);
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
+
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, "received_packet", &protoop_noop);
     register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
@@ -1868,9 +1872,6 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, "before_sending_segment", &protoop_noop);
 
     /** \todo document these */
-    register_noparam_protoop(cnx, "stream_opened", &protoop_noop);
-    register_noparam_protoop(cnx, "stream_closed", &protoop_noop);
-    register_noparam_protoop(cnx, "connection_state_changed", &protoop_noop);
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
 }

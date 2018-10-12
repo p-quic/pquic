@@ -361,6 +361,39 @@ static const protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET = "finaliz
  */
 static const protoop_id_t PROTOOP_NOPARAM_PACKET_WAS_LOST = "packet_was_lost";
 
+
+/**
+ * Observer-only anchor that must be triggered whenever the connection state has changed.
+ * Using the setter \b picoquic_set_cnx_state() ensures this requirement.
+ *
+ * No parameters are given to this protoop as the connection state already holds this information.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED = "connection_state_changed";
+
+
+/*
+    MP: We may want to merge the two ops below into one a define a separate set of enums to describe the stream states
+    as defined in the QUIC specs, e.g. https://tools.ietf.org/html/draft-ietf-quic-transport-15#section-9.2.
+*/
+
+/**
+ * Observer-only anchor that must be triggered whenever a stream is opened.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_STREAM_OPENED = "stream_opened";
+
+
+/**
+ * Observer-only anchor that must be triggered whenever a stream is closed.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED = "stream_closed";
+
+/**/
+
+/**
+ * 
+ */
+
+
 /* @} */
 
 #endif

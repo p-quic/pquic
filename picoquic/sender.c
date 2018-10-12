@@ -767,7 +767,16 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     picoquic_path_t * path_x, uint64_t current_time)
 {
     /* MP: Instead of hooking the following operation every time this function is called, we place it here */
-    picoquic_before_sending_segment(cnx, length + checksum_overhead, path_x);
+    picoquic_packet_header *ph = my_malloc(cnx, sizeof(picoquic_packet_header));
+    memset(ph, 0, sizeof(picoquic_packet_header));
+    if (ph != NULL) {
+        picoquic_cnx_t *pcnx = cnx;
+        if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, ph, &pcnx, false) == 0) {
+            picoquic_before_sending_segment(cnx, ph, path_x, length + checksum_overhead);
+        }
+        my_free(cnx, ph);
+    }
+
 
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
     protoop_arg_t args [10];
