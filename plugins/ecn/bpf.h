@@ -22,6 +22,12 @@ typedef struct {
     uint64_t ecn_ack_ce_counter;
 } bpf_data;
 
+typedef struct ecn_frame {
+    uint64_t ect0;
+    uint64_t ect1;
+    uint64_t ectce;
+} ecn_frame_t;
+
 static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 {
     bpf_data *bpfd = (bpf_data *) my_malloc(cnx, sizeof(bpf_data));

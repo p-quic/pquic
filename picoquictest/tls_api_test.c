@@ -1737,6 +1737,10 @@ int ping_pong_test()
 
         ret = tls_api_one_sim_round(test_ctx, &simulated_time, &was_active);
 
+        if (ret != 0) {
+            printf("Oh fuch\n");
+        }
+
         if (ping_pong_ctx.pong_received != 0 && picoquic_is_cnx_backlog_empty(test_ctx->cnx_client) && picoquic_is_cnx_backlog_empty(test_ctx->cnx_server)) {
             break;
         }

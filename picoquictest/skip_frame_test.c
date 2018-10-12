@@ -85,8 +85,8 @@ static uint8_t test_frame_type_stream_blocked[] = {
     0x80, 1, 0, 0,
     0x80, 0x01, 0, 0
 };
-static uint8_t test_frame_type_stream_id_needed[] = {
-    picoquic_frame_type_stream_id_needed,
+static uint8_t test_frame_type_stream_id_blocked[] = {
+    picoquic_frame_type_stream_id_blocked,
     0x41, 0
 };
 static uint8_t test_frame_type_new_connection_id[] = {
@@ -187,7 +187,7 @@ static test_skip_frames_t test_skip_list[] = {
     TEST_SKIP_ITEM("ping", test_frame_type_ping, 0, 0, 3),
     TEST_SKIP_ITEM("blocked", test_frame_type_blocked, 0, 0, 3),
     TEST_SKIP_ITEM("stream_blocked", test_frame_type_stream_blocked, 0, 0, 3),
-    TEST_SKIP_ITEM("stream_id_needed", test_frame_type_stream_id_needed, 0, 0, 3),
+    TEST_SKIP_ITEM("stream_id_blocked", test_frame_type_stream_id_blocked, 0, 0, 3),
     TEST_SKIP_ITEM("new_connection_id", test_frame_type_new_connection_id, 0, 0, 3),
     TEST_SKIP_ITEM("stop_sending", test_frame_type_stop_sending, 0, 0, 3),
     TEST_SKIP_ITEM("challenge", test_frame_type_path_challenge, 1, 0, 3),
@@ -265,6 +265,7 @@ static int skip_test_packet(uint8_t * bytes, size_t bytes_max)
     size_t byte_index = 0;
 
     picoquic_cnx_t cnx = { 0 };
+    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     while (ret == 0 && byte_index < bytes_max) {
@@ -303,6 +304,7 @@ int skip_frame_test()
     int fuzz_fail = 0;
 
     picoquic_cnx_t cnx = { 0 };
+    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; i < nb_test_skip_list; i++) {

@@ -283,8 +283,8 @@ char const* picoquic_log_frame_names(uint8_t frame_type)
     case picoquic_frame_type_stream_blocked:
         frame_name = "stream_blocked";
         break;
-    case picoquic_frame_type_stream_id_needed:
-        frame_name = "stream_id_needed";
+    case picoquic_frame_type_stream_id_blocked:
+        frame_name = "stream_id_blocked";
         break;
     case picoquic_frame_type_new_connection_id:
         frame_name = "new_connection_id";
@@ -1277,7 +1277,7 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             byte_index += picoquic_log_stream_blocked_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
-        case picoquic_frame_type_stream_id_needed: /* STREAM_ID_NEEDED */
+        case picoquic_frame_type_stream_id_blocked: /* STREAM_ID_BLOCKED */
             /* No payload */
             fprintf(F, "    %s frame\n", picoquic_log_frame_names(frame_id));
             byte_index++;

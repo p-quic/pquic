@@ -2,8 +2,6 @@ set_next_wake_time replace set_next_wake_time.o
 retransmit_needed_by_packet replace retransmit_needed_by_packet.o
 retransmit_needed replace retransmit_needed.o
 prepare_packet_ready replace prepare_packet_ready.o
-decode_frame param 0x0d replace decode_ack_frame.o
-decode_frame param 0x0b replace decode_new_connection_id_frame.o
 update_rtt replace update_rtt.o
 process_ack_range replace process_ack_range.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o

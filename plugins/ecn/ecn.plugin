@@ -1,6 +1,7 @@
 before_sending_packet replace before_sending_packet.o
 received_packet replace received_packet.o
-decode_frame param 0x0d replace decode_ack_frame.o
-decode_frame param 0x28 replace decode_ecn_frame.o
+process_frame param 0x0d replace process_ack_frame.o
+parse_frame param 0x28 replace parse_ecn_frame.o
+process_frame param 0x28 replace process_ecn_frame.o
 prepare_ecn_frame replace prepare_ecn_frame.o
 prepare_packet_ready replace prepare_packet_ready.o
