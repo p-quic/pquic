@@ -6,7 +6,7 @@
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
 #define MAX_QUEUED_REPAIR_SYMBOLS 150
-#define DEFAULT_N 11
+#define DEFAULT_N 10
 #define DEFAULT_K 9
 
 typedef uint32_t fec_block_number;
@@ -104,7 +104,12 @@ static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fe
     if (bff->repair_symbols_queue_length == 0)
         return 0;
     repair_symbol_t *rs = bff->repair_symbols_queue[bff->repair_symbols_queue_head].repair_symbol;
-    size_t amount = (rs->data_length - bff->queue_byte_offset) <= bytes_max ? (rs->data_length - bff->queue_byte_offset) : bytes_max;
+    // FIXME: temporarily ensure that the repair symbols are not split into multiple frames
+    if (bytes_max < rs->data_length) {
+        PROTOOP_PRINTF(cnx, "NOT ENOUGH BYTES TO SEND SYMBOL: %u < %u", bytes_max, rs->data_length);
+        return 0;
+    }
+    size_t amount = ((rs->data_length - bff->queue_byte_offset) <= bytes_max) ? (rs->data_length - bff->queue_byte_offset) : bytes_max;
     // copy
     my_memcpy(bytes, rs->data, amount);
     // move forward in the symbol's buffer
@@ -133,35 +138,52 @@ static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fe
     }
     return amount;
 }
-
 static inline int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, size_t *consumed, uint8_t *bytes) {
     if (bytes_max < sizeof(fec_frame_header_t))
         return -1;
     fec_frame_header_t ffh;
+    *consumed = 0;
     // copy the frame payload
-    get_repair_payload_from_queue(cnx, bff, bytes_max - sizeof(fec_frame_header_t), &ffh, bytes + sizeof(fec_frame_header_t));
+    size_t payload_size = get_repair_payload_from_queue(cnx, bff, bytes_max - sizeof(fec_frame_header_t), &ffh, bytes + sizeof(fec_frame_header_t));
+    if (!payload_size)
+        return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
     // copy the frame header
     write_fec_frame_header(&ffh, bytes);
-    *consumed = sizeof(fec_frame_header_t) + ffh.data_length;
+    *consumed += sizeof(fec_frame_header_t) + ffh.data_length;
+    PROTOOP_PRINTF(cnx, "WRITE FEC FRAME: FBN = %u, SN = %u, bytes_max = %u, consumed = %u\n", ffh.repair_fec_payload_id.fec_block_number, ffh.repair_fec_payload_id.symbol_number, bytes_max, *consumed);
     return 0;
 }
 
-static inline void generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
-    // TODO: perform the generation and remove the 6 following lines
-    uint8_t *data = (uint8_t *) "lorem ipsum lorem upsum";
-    repair_symbol_t* generated_symbols[2];
-    repair_fpid_t rfpid;
-    rfpid.raw = 0;
-    generated_symbols[0] = malloc_repair_symbol(cnx, rfpid, data, 11);
-    generated_symbols[1] = malloc_repair_symbol(cnx, rfpid, data, 23);
-    uint8_t number_of_symbols = 2;
-    // end TODO remove
-    uint8_t i;
-    for (i = 0 ; i < number_of_symbols ; i++) {
-        generated_symbols[i]->fec_block_number = bff->current_block_number;
-        generated_symbols[i]->symbol_number = i;
+static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
+//    // TODO: perform the generation and remove the 6 following lines
+//    uint8_t *data = (uint8_t *) "lorem ipsum lorem upsum";
+//    repair_symbol_t* generated_symbols[2];
+//    repair_fpid_t rfpid;
+//    rfpid.raw = 0;
+//    generated_symbols[0] = malloc_repair_symbol_with_data(cnx, rfpid, data, 11);
+//    generated_symbols[1] = malloc_repair_symbol_with_data(cnx, rfpid, data, 23);
+//    uint8_t number_of_symbols = 2;
+//    // end TODO remove
+
+
+    protoop_arg_t args[1];
+    protoop_arg_t outs[1];
+    args[0] = (protoop_arg_t) bff->current_block;
+    protoop_params_t pp = get_pp_noparam("fec_generate_repair_symbols", 1, args, outs);
+    int ret = (int) plugin_run_protoop(cnx, &pp);
+
+    if (!ret) {
+        PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
+        uint8_t i = 0;
+        for_each_repair_symbol(bff->current_block, repair_symbol_t *rs) {
+            rs->fec_block_number = bff->current_block_number;
+            rs->symbol_number = i++;
+            PROTOOP_PRINTF(cnx, "FBN = %u, SN = %u", rs->fec_block_number, rs->symbol_number);
+        }
+
+        queue_repair_symbols(cnx, bff, bff->current_block->repair_symbols, bff->current_block->total_repair_symbols, bff->current_block);
     }
-    queue_repair_symbols(cnx, bff, generated_symbols, number_of_symbols, bff->current_block);
+    return ret;
 }
 
 static inline int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {

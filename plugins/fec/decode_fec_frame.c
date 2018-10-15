@@ -19,8 +19,7 @@ static inline void cpy(uint8_t *bytes, char *str, int len) {
  */
 protoop_arg_t decode_fec_frame(picoquic_cnx_t *cnx)
 {
-    char str[40];
-    helper_protoop_printf(cnx, "DECODED FEC FRAME\n", NULL, 0);
+    PROTOOP_PRINTF(cnx, "DECODED FEC FRAME !\n");
     protoop_arg_t args[8];
     uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (uint8_t *) cnx->protoop_inputv[1];
@@ -30,16 +29,10 @@ protoop_arg_t decode_fec_frame(picoquic_cnx_t *cnx)
     fec_frame_header_t frame_header;
     frame.header = &frame_header;
     parse_fec_frame_header(frame.header, bytes);
-    args[0] = frame.header->data_length;
-    args[1] = frame.header->fin_bit;
-    args[2] = frame.header->nss;
-    args[3] = frame.header->nrs;
-    args[4] = frame.header->repair_fec_payload_id.raw;
-    args[5] = frame.header->repair_fec_payload_id.fec_block_number;
-    args[6] = frame.header->repair_fec_payload_id.symbol_number;
-    cpy(bytes + sizeof(fec_frame_header_t), str, frame.header->data_length);
-    args[7] = (protoop_arg_t) str;
-    helper_protoop_printf(cnx, "FRAME LENGTH = %u, FIN = %u, nss = %u, nrs = %u, fpid = %lu, block_number = %u, offset = %u, payload = \"%s\"\n", args, 8);
+    PROTOOP_PRINTF(cnx, "FRAME DATA LENGTH = %u\n", frame.header->data_length);
+    PROTOOP_PRINTF(cnx, "FRAME LENGTH = %u, FIN = %u, nss = %u, nrs = %u, block_number = %u, offset = %u\n",
+            frame.header->data_length, frame.header->fin_bit, frame.header->nss, frame.header->nrs, frame.header->repair_fec_payload_id.fec_block_number, frame.header->repair_fec_payload_id.symbol_number);
+
     if (frame.header->data_length > (bytes_max - bytes))
         return 0;
     bytes += sizeof(fec_frame_header_t);

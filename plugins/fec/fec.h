@@ -11,10 +11,18 @@
 #define PREPARE_MP_ACK_FRAME (PROTOOPID_SENDER + 0x49)
 #define PREPARE_ADD_ADDRESS_FRAME (PROTOOPID_SENDER + 0x4a)
 
-#define FEC_TYPE 0x1b
-#define SOURCE_FPID_TYPE 0x1c
+#define FEC_TYPE 0x28
+#define SOURCE_FPID_TYPE 0x29
 
 #define DEFAULT_FEC_SCHEME "xor"
+
+#define for_each_source_symbol(fb, ____ss) \
+    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_source_symbols; ____i++, ____keep = !____keep ) \
+        for (____ss = fb->source_symbols[____i] ; ____keep ; ____keep = !____keep)
+
+#define for_each_repair_symbol(fb, ____ss) \
+    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_repair_symbols; ____i++, ____keep = !____keep ) \
+        for (____ss = fb->repair_symbols[____i] ; ____keep ; ____keep = !____keep)
 
 typedef union {
     uint32_t raw;
@@ -171,13 +179,13 @@ static inline void write_sfpid_frame(source_fpid_frame_t *frame_to_write, uint8_
 }
 
 // assumes that size if safe
-static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_fpid_t source_fpid, uint8_t *data, uint16_t size) {
+static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_fpid_t source_fpid, uint16_t size) {
     source_symbol_t *s = (source_symbol_t *) my_malloc(cnx, sizeof(source_symbol_t));
     uint8_t *data_cpy = (uint8_t *) my_malloc(cnx, size);
     if (!s || !data_cpy)
         return NULL;
-
-    my_memcpy(data_cpy, data, size);
+    my_memset(s, 0, sizeof(source_symbol_t));
+    my_memset(data_cpy, 0, size);
     s->source_fec_payload_id = source_fpid;
     s->data = data_cpy;
     s->data_length = size;
@@ -185,16 +193,39 @@ static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_
 }
 
 // assumes that size if safe
-static inline repair_symbol_t *malloc_repair_symbol(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid, uint8_t *data, uint16_t size) {
+static inline source_symbol_t *malloc_source_symbol_with_data(picoquic_cnx_t *cnx, source_fpid_t source_fpid,
+                                                              uint8_t *data, uint16_t size) {
+    source_symbol_t *s = malloc_source_symbol(cnx, source_fpid, size);
+    if (!s)
+        return NULL;
+    my_memcpy(s->data, data, size);
+    return s;
+}
+
+// assumes that size if safe
+static inline repair_symbol_t *malloc_repair_symbol(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
+                                                    uint16_t size) {
     repair_symbol_t *s = (repair_symbol_t *) my_malloc(cnx, sizeof(repair_symbol_t));
     uint8_t *data_cpy = (uint8_t *) my_malloc(cnx, size);
     if (!s || !data_cpy)
         return NULL;
 
-    my_memcpy(data_cpy, data, size);
+    my_memset(s, 0, sizeof(repair_symbol_t));
+    my_memset(data_cpy, 0, size);
     s->repair_fec_payload_id = repair_fpid;
     s->data = data_cpy;
     s->data_length = size;
+    return s;
+}
+
+// assumes that size if safe
+static inline repair_symbol_t *malloc_repair_symbol_with_data(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
+                                                              uint8_t *data, uint16_t size) {
+    repair_symbol_t *s = malloc_repair_symbol(cnx, repair_fpid, size);
+    if (!s)
+        return NULL;
+
+    my_memcpy(s->data, data, size);
     return s;
 }
 
