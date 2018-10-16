@@ -24,7 +24,7 @@ protoop_arg_t packet_sent(picoquic_cnx_t *cnx)
     path_metrics->metrics.data_sent += cnx->protoop_inputv[2];
     path_metrics->metrics.pkt_sent++;
     if (path_metrics == &metrics->handshake_metrics) {
-        complete_path(path_metrics, path);
+        complete_path(path_metrics, cnx, path);
     }
     return 0;
 }

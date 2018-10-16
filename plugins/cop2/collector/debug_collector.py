@@ -66,6 +66,10 @@ if __name__ == "__main__":
         while buf:
             path = {'time_elapsed': buf.read('Q')}
 
+            path['odcid'] = buf.next(buf.read('B')).hex()
+            path['dcid'] = buf.next(buf.read('B')).hex()
+            path['scid'] = buf.next(buf.read('B')).hex()
+
             local_addr_len = buf.read('I')
             if local_addr_len:
                 family = buf.read('H', peek=True)

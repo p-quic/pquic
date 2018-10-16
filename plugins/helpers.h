@@ -452,7 +452,7 @@ static uint8_t* helper_frames_uint16_decode(uint8_t* bytes, const uint8_t* bytes
 }
 
 
-static inline uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
+static __attribute__((always_inline)) uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
 {
     if (bytes + sizeof(*n) <= bytes_max) {
         *n = PICOPARSE_64(bytes);

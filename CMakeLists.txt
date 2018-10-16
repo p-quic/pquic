@@ -72,7 +72,7 @@ SET(PLUGINS_COP2
     plugins/cop2/check_ooo_stream_frame.c
     plugins/cop2/check_spurious_stream_frame.c
     plugins/cop2/packet_lost.c
-)
+        )
 
 SET(PLUGINS_MULTIPATH
     plugins/multipath/get_destination_connection_id.c
