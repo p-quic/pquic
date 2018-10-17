@@ -103,14 +103,6 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
  * Therefore, the operation is directly attached to the protocol operation ID.
  */
 
-/* @{ */
-
-/**
- * Processes the frames in the given payload
- */
-static const protoop_id_t PROTOOP_NOPARAM_DECODE_FRAMES = "decode_frames";
-
-
 
 /**
  * Decode the STREAM frame and process its content.
@@ -617,28 +609,21 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED;
 extern protoop_id_t PROTOOP_NOPARAM_FAST_RETRANSMIT;
 
 /**
- * Observer-only anchor that must be triggered when the Retransmission Timeout mechanism is triggered
+ * Logs the frames in the given file.
+ * \param[in] F \b FILE* The file on which to write
+ * \param[in] cnx \b picoquic_cnx_t* The picoquic connection
+ * \param[in] cnx_id64 \b uint64_t The 64bits connection ID
+ * \param[in] bytes \b uint8_t* Pointer to the frames buffer to log
+ * \param[in] length \b size_t size of the frames buffer
  *
- * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ * \return \b size_t amount of bytes read
  */
-#define PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT "retransmission_timeout"
-extern protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
+static const protoop_id_t PROTOOP_NOPARAM_LOG_FRAMES = {
+        .id = "log_frames",
+        .hash = 0,
+};
 
-/**
- * Observer-only anchor that must be triggered when the Tail Loss Probe mechanism is triggered
- *
- * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
- */
-#define PROTOOPID_NOPARAM_TAIL_LOSS_PROBE "tail_loss_probe"
-extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
 
-/**
- * Select the path on which the next packet will be sent.
- *
- * \return \b picoquic_path_t* The path on which the next packet will be sent.
- */
-#define PROTOOPID_NOPARAM_SELECT_SENDING_PATH "select_sending_path"
-extern protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH;
 /* @} */
 
 #endif

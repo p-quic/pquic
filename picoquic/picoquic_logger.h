@@ -38,4 +38,6 @@ const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev);
 void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2);
 
+void picoquic_log_frames_cnx(FILE* F, picoquic_cnx_t *cnx, uint64_t cnx_id64, uint8_t* bytes, size_t length);
+
 #endif /* PICOQUIC_LOGGER_H */
