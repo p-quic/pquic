@@ -23,12 +23,13 @@ protoop_arg_t check_spurious_stream_frame(picoquic_cnx_t *cnx)
     int ret = helper_parse_stream_header(bytes, (size_t)(bytes_end - bytes), (protoop_arg_t*[]){&stream_id, &offset, &data_length, (protoop_arg_t *) &fin, &consumed});
     if (ret == 0) {
         picoquic_stream_head *stream = picoquic_find_stream(cnx, stream_id, false);
+        uint64_t consumed_offset = stream == NULL ? 0 : stream->consumed_offset;
         cop2_path_metrics *path_metrics = find_metrics_for_path(cnx, get_cop2_metrics(cnx), path);
-        if(offset + data_length < stream->consumed_offset) {  // We already received the whole segment
+        if(offset + data_length < consumed_offset) {  // We already received the whole segment
             path_metrics->metrics.data_dupl += data_length;
             path_metrics->metrics.pkt_dupl++;
-        } else if (offset < stream->consumed_offset) {  // We already received a part of the segment
-            path_metrics->metrics.data_dupl += data_length - (stream->consumed_offset - offset);
+        } else if (offset < consumed_offset) {  // We already received a part of the segment
+            path_metrics->metrics.data_dupl += data_length - (consumed_offset - offset);
             path_metrics->metrics.pkt_dupl++;
         }
     }
