@@ -1,3 +1,4 @@
+#include <picoquic_logger.h>
 #include "picoquic_internal.h"
 #include "block_framework.h"
 #include "memory.h"
@@ -355,6 +356,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
             args[2] = (protoop_arg_t) ph.epoch;
             args[3] = picoquic_current_time();
             args[4] = (protoop_arg_t) cnx->path[0];
+            picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, fb->source_symbols[i]->data_length - ph.offset);
             pp = get_pp_noparam("decode_frames", 5, args, outs);
             // TODO: trigger ack for packet
             ret = (int) plugin_run_protoop(cnx, &pp);
