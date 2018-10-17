@@ -165,7 +165,7 @@ int release_elf(plugin_t *plugin) {
     return 0;
 }
 
-uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len) {
+uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len, char **error_msg) {
     uint64_t ret;
     if (plugin->vm == NULL) {
         return -1;
@@ -179,6 +179,7 @@ uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len) {
     } else {
         /* Interpreted */
         ret = ubpf_exec(plugin->vm, mem, mem_len);
+        *error_msg = ubpf_get_error_msg(plugin->vm);
     } 
 
     /* printf("0x%"PRIx64"\n", ret); */
