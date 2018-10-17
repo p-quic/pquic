@@ -61,14 +61,6 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
         }
     }
 
-// same loop as above, but with a regular for loop
-//    for (i = 0 ; i < fec_block->total_source_symbols ; i++) {
-//        if (fec_block->source_symbols[i]) {
-//            xor(ss->data, fec_block->source_symbols[i]->data, ss->data,
-//                    MIN(ss->data_length, fec_block->source_symbols[i]->data_length));
-//        }
-//    }
-
     PROTOOP_PRINTF(cnx, "RECOVERING BLOCK %u (XOR)\n", fec_block->fec_block_number);
     fec_block->source_symbols[missing_offset] = ss;
     return 0;

@@ -92,7 +92,7 @@ typedef struct {
 } source_symbol_t;
 
 typedef struct __attribute__((__packed__)) {
-    fec_frame_header_t *header;
+    fec_frame_header_t header;
     uint8_t *data;
 } fec_frame_t;
 

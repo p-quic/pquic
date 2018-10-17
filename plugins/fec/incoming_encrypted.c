@@ -20,7 +20,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_inputv[1];
     bpf_state *state = get_bpf_state(cnx);
-    state->current_packet = bytes + ph->offset;
-    state->current_packet_length = ph->payload_length;
+    state->current_packet = bytes;
+    state->current_packet_length = (uint16_t) ph->offset + ph->payload_length;
     return 0;
 }

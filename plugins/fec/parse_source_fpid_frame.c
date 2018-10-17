@@ -8,7 +8,7 @@
  *
  * Output: uint8_t* bytes
  */
-protoop_arg_t decode_source_fpid_frame(picoquic_cnx_t *cnx)
+protoop_arg_t parse_source_fpid_frame(picoquic_cnx_t *cnx)
 {
     protoop_arg_t args[2];
     uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
@@ -20,18 +20,17 @@ protoop_arg_t decode_source_fpid_frame(picoquic_cnx_t *cnx)
     if (bytes_max-bytes < sizeof(source_fpid_frame_t)){
         return 0;
     }
-    // ubpf is big endian so it is ok
-    source_fpid_frame_t *frame = (source_fpid_frame_t*) bytes;
-    bpf_state *state = get_bpf_state(cnx);
-    uint8_t *payload = state->current_packet;
-    source_symbol_t *ss = malloc_source_symbol_with_data(cnx, frame->source_fpid, payload, state->current_packet_length);
-    if (!received_source_symbol_helper(cnx, state, ss)) {
-        free_source_symbol(cnx, ss);
-    }
+    source_fpid_frame_t *frame = my_malloc(cnx, sizeof(source_fpid_frame_t));
+    if (!frame)
+        return PICOQUIC_ERROR_MEMORY;
+    parse_sfpid_frame(frame, bytes);
     bytes += sizeof(source_fpid_frame_t);
     args[0] = frame->source_fpid.raw;
     PROTOOP_PRINTF(cnx, "Parse FEC-proteceted packet with FPID = %u (block = %u)\n", frame->source_fpid.raw, frame->source_fpid.fec_block_number);
-    // TODO: split processing from decoding
-    // TODO: processing
+    cnx->protoop_outputc_callee = 3;
+    cnx->protoop_outputv[0] = (protoop_arg_t) frame;
+    cnx->protoop_outputv[1] = (protoop_arg_t) false;
+    cnx->protoop_outputv[2] = (protoop_arg_t) false;
+
     return (protoop_arg_t) bytes;
 }

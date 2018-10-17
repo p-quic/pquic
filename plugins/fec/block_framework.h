@@ -125,7 +125,6 @@ static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fe
     protoop_arg_t args[2];
     args[0] = amount;
     args[1] = bytes_max;
-    helper_protoop_printf(cnx, "DEQUEUE %u BYTES, BYTES_MAX = %u\n", args, 2);
     if (bff->queue_byte_offset == rs->data_length) {
         // this symbol has been sent: free the symbol and remove it from the queue
         remove_item_at_index(cnx, bff, bff->repair_symbols_queue_head);
@@ -134,7 +133,6 @@ static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fe
         bff->queue_piece_offset = 0;
         bff->repair_symbols_queue_length--;
         args[0] = (uint32_t) bff->repair_symbols_queue_length;
-        helper_protoop_printf(cnx, "QUEUE LENGTH = %u\n", args, 1);
     }
     return amount;
 }
@@ -155,17 +153,6 @@ static inline int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bf
 }
 
 static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
-//    // TODO: perform the generation and remove the 6 following lines
-//    uint8_t *data = (uint8_t *) "lorem ipsum lorem upsum";
-//    repair_symbol_t* generated_symbols[2];
-//    repair_fpid_t rfpid;
-//    rfpid.raw = 0;
-//    generated_symbols[0] = malloc_repair_symbol_with_data(cnx, rfpid, data, 11);
-//    generated_symbols[1] = malloc_repair_symbol_with_data(cnx, rfpid, data, 23);
-//    uint8_t number_of_symbols = 2;
-//    // end TODO remove
-
-
     protoop_arg_t args[1];
     protoop_arg_t outs[1];
     args[0] = (protoop_arg_t) bff->current_block;
@@ -178,7 +165,6 @@ static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_f
         for_each_repair_symbol(bff->current_block, repair_symbol_t *rs) {
             rs->fec_block_number = bff->current_block_number;
             rs->symbol_number = i++;
-            PROTOOP_PRINTF(cnx, "FBN = %u, SN = %u", rs->fec_block_number, rs->symbol_number);
         }
 
         queue_repair_symbols(cnx, bff, bff->current_block->repair_symbols, bff->current_block->total_repair_symbols, bff->current_block);
@@ -187,11 +173,9 @@ static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_f
 }
 
 static inline int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {
-    // TODO: uncomment that and free it the right way
     free_fec_block(cnx, ff->current_block, true);
     ff->current_block_number++;
     ff->current_block = malloc_fec_block(cnx, ff->current_block_number);
-    helper_protoop_printf(cnx, "SENT BLOCK!!\n", NULL, 0);
     if (!ff->current_block)
         return -1;
     ff->current_block->total_source_symbols = ff->k;

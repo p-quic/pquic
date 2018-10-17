@@ -95,8 +95,8 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
     ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
     ubpf_register(vm, 0x3d, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
-
     /* This value is reserved. DO NOT OVERRIDE IT! */
+    ubpf_register(vm, 0x3e, "picoquic_record_pn_received", picoquic_record_pn_received);
     ubpf_register(vm, 0x3f, "picoquic_memory_bound_error", picoquic_memory_bound_error);
 }
 

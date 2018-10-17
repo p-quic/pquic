@@ -106,6 +106,13 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
 /* @{ */
 
 /**
+ * Processes the frames in the given payload
+ */
+static const protoop_id_t PROTOOP_NOPARAM_DECODE_FRAMES = "decode_frames";
+
+
+
+/**
  * Decode the STREAM frame and process its content.
  * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode

@@ -2284,7 +2284,6 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
     int epoch = (int) cnx->protoop_inputv[3];
     int ack_needed = (int) cnx->protoop_inputv[4];
-
     protoop_save_outputs(cnx, ack_needed);
     return (protoop_arg_t) picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 0);
 }
@@ -3674,13 +3673,65 @@ void picoquic_after_decoding_frames(picoquic_cnx_t *cnx, picoquic_path_t* path_x
         path_x, ack_needed);
 }
 
+
+/*static protoop_arg_t decode_frames(picoquic_cnx_t *cnx) {
+    uint8_t* bytes = (uint8_t  *) cnx->protoop_inputv[0];
+    size_t bytes_max_size = cnx->protoop_inputv[1];
+    int epoch =  (int)cnx->protoop_inputv[2];
+    uint64_t current_time = cnx->protoop_inputv[3];
+    picoquic_path_t* path_x = (picoquic_path_t *) cnx->protoop_inputv[4];
+
+
+    const uint8_t *bytes_max = bytes + bytes_max_size;
+    int ack_needed = 0;
+    picoquic_packet_context_enum pc = picoquic_context_from_epoch(epoch);
+    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
+
+    while (bytes != NULL && bytes < bytes_max) {
+        uint8_t first_byte = bytes[0];
+
+        if (PICOQUIC_IN_RANGE(first_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+            if (epoch != 1 && epoch != 3) {
+                DBG_PRINTF("Data frame (0x%x), when only TLS stream is expected", first_byte);
+                picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+                bytes = NULL;
+                break;
+            }
+
+            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time);
+            ack_needed = 1;
+
+        } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
+                   && first_byte != picoquic_frame_type_path_challenge
+                   && first_byte != picoquic_frame_type_path_response
+                   && first_byte != picoquic_frame_type_connection_close
+                   && first_byte != picoquic_frame_type_crypto_hs
+                   && first_byte != picoquic_frame_type_ack
+                   && first_byte != picoquic_frame_type_ack_ecn) {
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+            bytes = NULL;
+            break;
+
+        } else {
+            bytes = picoquic_decode_frame(cnx, first_byte, bytes, bytes_max, current_time, epoch, &ack_needed);
+        }
+    }
+
+    if (bytes != NULL && ack_needed != 0) {
+        cnx->latest_progress_time = current_time;
+        pkt_ctx->ack_needed = 1;
+    }
+
+    return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
+}*/
+
 /*
  * Decoding of the received frames.
  *
  * In some cases, the expected frames are "restricted" to only ACK, STREAM 0 and PADDING.
  */
 
-int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
+int picoquic_decode_frames_old(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x)
 {
     const uint8_t *bytes_max = bytes + bytes_max_size;
