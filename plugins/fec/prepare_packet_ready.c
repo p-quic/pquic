@@ -249,7 +249,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
 
                         // FIXME: remember the address of the frame and write it afterwards, at the protection moment
-                        if (stream != NULL && send_buffer_min_max - checksum_overhead - length > sizeof(source_fpid_frame_t) + 1 + header_length
+                        if (stream != NULL && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)
+                             && send_buffer_min_max - checksum_overhead - length > sizeof(source_fpid_frame_t) + 1 + header_length
                              && send_buffer_min_max - checksum_overhead - length - 1 - sizeof(source_fpid_frame_t) - header_length > 15) {
                             // add the source fpid frames
                             source_fpid_frame_t spf;
