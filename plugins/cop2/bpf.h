@@ -46,7 +46,7 @@ typedef struct st_cop2_path_metrics {
     struct timespec t_start;
     struct timespec t_end;
 
-    picoquic_connection_id_t odcid;
+    picoquic_connection_id_t icid;
     picoquic_connection_id_t dcid;  /* We may want to add a kind of CID update message */
     picoquic_connection_id_t scid;  /* Or just send all the CIDs that were used on this path */
 
@@ -100,10 +100,10 @@ static __attribute__((always_inline)) int copy_path(char *dst, cop2_path_metrics
     long elapsed = TIME_SUBTRACT_MS(path->t_start, path->t_end);
     my_memcpy(dst + copied, &elapsed, sizeof(long));
     copied += sizeof(long);
-    *(dst + copied) = path->odcid.id_len;
+    *(dst + copied) = path->icid.id_len;
     copied += sizeof(uint8_t);
-    my_memcpy(dst + copied, &path->odcid.id, path->odcid.id_len);
-    copied += path->odcid.id_len;
+    my_memcpy(dst + copied, &path->icid.id, path->icid.id_len);
+    copied += path->icid.id_len;
     *(dst + copied) = path->dcid.id_len;
     copied += sizeof(uint8_t);
     my_memcpy(dst + copied, &path->dcid.id, path->dcid.id_len);
@@ -144,7 +144,7 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
         }
 
         my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
-        my_memcpy(&path_metrics->odcid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
+        my_memcpy(&path_metrics->icid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
         my_memcpy(&path_metrics->dcid, &cnx->remote_cnxid, sizeof(picoquic_connection_id_t));
         my_memcpy(&path_metrics->scid, &cnx->local_cnxid, sizeof(picoquic_connection_id_t));
         my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
@@ -158,8 +158,8 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 }
 
 static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path_metrics, picoquic_cnx_t *cnx, picoquic_path_t *path) {
-    if (path_metrics->odcid.id_len == 0 && cnx->initial_cnxid.id_len > 0) {
-        my_memcpy(&path_metrics->odcid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
+    if (path_metrics->icid.id_len == 0 && cnx->initial_cnxid.id_len > 0) {
+        my_memcpy(&path_metrics->icid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
     }
     if (path_metrics->dcid.id_len == 0 && cnx->remote_cnxid.id_len > 0) {
         my_memcpy(&path_metrics->dcid, &cnx->remote_cnxid, sizeof(picoquic_connection_id_t));

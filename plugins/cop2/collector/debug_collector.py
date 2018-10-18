@@ -66,7 +66,7 @@ if __name__ == "__main__":
         while buf:
             path = {'time_elapsed': buf.read('Q')}
 
-            path['odcid'] = buf.next(buf.read('B')).hex()
+            path['icid'] = buf.next(buf.read('B')).hex()
             path['dcid'] = buf.next(buf.read('B')).hex()
             path['scid'] = buf.next(buf.read('B')).hex()
 
