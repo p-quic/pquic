@@ -74,7 +74,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
                 /* Only retransmit the newest packet (indicated by should retransmit being 2) */
                 should_retransmit = 2;
                 bpfd->tlp_last_asked = current_time;
-                reason = PROTOOP_NOPARAM_TAIL_LOSS_PROBE:
+                reason = PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
             }
         } else {
             bpfd->tlp_time = 0;

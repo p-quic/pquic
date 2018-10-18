@@ -116,7 +116,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         if (ret == 0 && retransmit_possible &&
             (length = helper_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             if (reason != NULL) {
-                protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
+                helper_packet_was_retransmitted(cnx, reason, packet);
             }
             /* Set the new checksum length */
             checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);

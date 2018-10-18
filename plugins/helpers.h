@@ -46,7 +46,7 @@ static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_
     plugin_run_protoop(cnx, &pp);
 }
 
-static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit)
+static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, protoop_id_t *reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
@@ -55,6 +55,9 @@ static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_pack
     protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *timer_based_retransmit = (int) outs[0];
+    if (reason != NULL) {
+        *reason = (protoop_id_t) outs[1];
+    }
     return ret;
 }
 
@@ -658,6 +661,15 @@ static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, pr
     }
 
     *consumed = byte_index;
+    return ret;
+}
+
+static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, protoop_id_t reason, picoquic_packet_t *p)
+{
+    protoop_arg_t args[1], outs[0];
+    args[0] = (protoop_arg_t) p;
+    protoop_params_t pp = get_pp_noparam(reason, 1, args, outs);
+    int ret = (int) plugin_run_protoop(cnx, &pp);
     return ret;
 }
 
