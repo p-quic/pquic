@@ -31,6 +31,12 @@ typedef struct {
     uint64_t pkt_ooo;
     uint64_t pkt_dupl;
 
+    /* event counts */
+    uint64_t frt_fired;
+    uint64_t ert_fired;
+    uint64_t rto_fired;
+    uint64_t tlp_fired;
+
     /* time in msec */
     uint64_t smoothed_rtt;
     uint64_t rtt_variance;

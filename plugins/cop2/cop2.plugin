@@ -5,3 +5,6 @@ update_rtt post rtt_updated.o
 decode_stream_frame pre check_ooo_stream_frame.o
 decode_stream_frame pre check_spurious_stream_frame.o
 packet_was_lost pre packet_lost.o
+fast_retransmit post fast_retransmit.o
+retransmission_timeout post retransmission_timeout.o
+tail_loss_probe post tail_loss_probe.o

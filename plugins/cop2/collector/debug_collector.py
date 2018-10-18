@@ -92,6 +92,10 @@ if __name__ == "__main__":
             path['pkt_lost'] = buf.read('Q')
             path['pkt_ooo'] = buf.read('Q')
             path['pkt_dupl'] = buf.read('Q')
+            path['frt_fired'] = buf.read('Q')
+            path['ert_fired'] = buf.read('Q')
+            path['rto_fired'] = buf.read('Q')
+            path['tlp_fired'] = buf.read('Q')
             path['mean_rtt'] = buf.read('Q')
             path['rtt_variance'] = buf.read('Q')
 
