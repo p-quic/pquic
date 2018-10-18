@@ -875,7 +875,9 @@ static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
     int should_retransmit = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, outs,
         p, current_time, *timer_based);
     *timer_based = (int) outs[0];
-    *reason = (protoop_id_t) outs[1];
+    if (reason != NULL) {
+        *reason = (protoop_id_t) outs[1];
+    }
     return should_retransmit;
 }
 
@@ -1118,7 +1120,9 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
         pc, path_x, current_time, packet, send_buffer_max, *is_cleartext_mode, *header_length);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
-    *reason = (protoop_id_t) outs[2];
+    if (reason != NULL) {
+        *reason = (protoop_id_t) outs[2];
+    }
     return ret;
 }
 
@@ -1285,8 +1289,7 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
                 while (p != NULL)
                 {
                     if (p->ptype < picoquic_packet_0rtt_protected) {
-                        protoop_id_t reason = NULL;
-                        if (picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, &reason)) {
+                        if (picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL)) {
                             blocked = 0;
                         }
                         break;
@@ -1423,8 +1426,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 picoquic_packet_t* p = path_x->pkt_ctx[pc].retransmit_oldest;
 
-                protoop_id_t reason = NULL;
-                if (p != NULL && ret == 0 && picoquic_retransmit_needed_by_packet(cnx, p, current_time, /* &ph,*/ &timer_based, &reason)) {
+                if (p != NULL && ret == 0 && picoquic_retransmit_needed_by_packet(cnx, p, current_time, /* &ph,*/ &timer_based, NULL)) {
                     blocked = 0;
                 }
                 else if (picoquic_is_ack_needed(cnx, current_time, pc, path_x)) {
