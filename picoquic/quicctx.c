@@ -1864,6 +1864,9 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_TAIL_LOSS_PROBE, &protoop_noop);
 
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, "received_packet", &protoop_noop);

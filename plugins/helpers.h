@@ -203,7 +203,7 @@ static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_
 static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc,
     picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length)
+    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t *reason)
 {
     protoop_arg_t outs[2];
     protoop_arg_t args[7];
@@ -218,6 +218,7 @@ static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
+    *reason = (protoop_id_t) outs[2];
     return ret;
 }
 

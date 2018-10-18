@@ -275,6 +275,7 @@ static const protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME = "set_next_wake_ti
  * \return \b int The length of the retransmission
  * \param[out] is_cleartext_mode \b int Indicates if the retransmission is a cleartext one
  * \param[out] header_length \b uint32_t The length of the header of the retransmitted packet
+ * \param[out] reason \b protoop_id_t Iff the return value is greater than zero, this indicates which mechanism triggered the retransmission
  */
 static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED = "retransmit_needed";
 
@@ -286,6 +287,7 @@ static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED = "retransmit_needed
  * 
  * \return \int Iff non-zero, the packet should be retransmitted
  * \param[out] timer_based \b int Iff non-zero, indicates that the retransmission is due to RTO
+ * \param[out] reason \b protoop_id_t Iff the return value is non-zero, this indicates which mechanism triggered the retransmission
  */
 static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET = "retransmit_needed_by_packet";
 
@@ -399,8 +401,27 @@ static const protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED = "stream_closed";
 /**/
 
 /**
- * 
+ * Observer-only anchor that must be triggered when the Fast Retransmit mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
  */
+static const protoop_id_t PROTOOP_NOPARAM_FAST_RETRANSMIT = "fast_retransmit";
+
+
+/**
+ * Observer-only anchor that must be triggered when the Retransmission Timeout mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ */
+static const protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT = "retransmission_timeout";
+
+
+/**
+ * Observer-only anchor that must be triggered when the Tail Loss Probe mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ */
+static const protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE = "tail_loss_probe";
 
 
 /* @} */

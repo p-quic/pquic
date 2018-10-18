@@ -29,6 +29,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     uint32_t length = 0;
     bool stop = false;
+    protoop_id_t reason = NULL;
 
     for (int i = 0; i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
@@ -45,7 +46,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
             length = 0;
             /* Get the packet type */
 
-            should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit);
+            should_retransmit = helper_retransmit_needed(cnx, p, current_time, &timer_based_retransmit, &reason);
             //dbg_print(cnx, should_retransmit);
 
             if (should_retransmit == 0) {
@@ -245,7 +246,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     cnx->protoop_outputv[0] = is_cleartext_mode;
     cnx->protoop_outputv[1] = header_length;
-    cnx->protoop_outputc_callee = 2;
+    cnx->protoop_outputv[2] = reason;
+    cnx->protoop_outputc_callee = 3;
 
     return (protoop_arg_t) ((int) length);
 }
