@@ -107,6 +107,7 @@ int cleartext_aead_test()
             DBG_PRINTF("%s", "Could not create client connection context.\n");
             ret = -1;
         }
+        register_protocol_operations(cnx_client);
     }
 
     if (ret == 0) {
@@ -134,6 +135,7 @@ int cleartext_aead_test()
             DBG_PRINTF("%s", "Cleartext encryption contexts no not match.\n");
             ret = -1;
         }
+        register_protocol_operations(cnx_server);
     }
 
     /* Create a packet from client to server, encrypt, decrypt */
@@ -230,6 +232,7 @@ int cleartext_aead_vector_test_one(picoquic_connection_id_t test_id, uint8_t * c
         } else {
             ret = picoquic_start_client_cnx(cnx_client);
         }
+        register_protocol_operations(cnx_client);
     }
 
     if (ret == 0) {
@@ -445,6 +448,7 @@ int cleartext_pn_enc_test()
         } else {
             ret = picoquic_start_client_cnx(cnx_client);
         }
+        register_protocol_operations(cnx_client);
     }
 
     if (ret == 0) {
@@ -462,6 +466,7 @@ int cleartext_pn_enc_test()
             DBG_PRINTF("%s", "Could not create server connection context.\n");
             ret = -1;
         }
+        register_protocol_operations(cnx_server);
     }
 
     /* Try to encrypt a sequence number */
@@ -556,6 +561,7 @@ int cleartext_pn_vector_test()
             DBG_PRINTF("%s", "Could not create server connection context.\n");
             ret = -1;
         }
+        register_protocol_operations(cnx_server);
     }
 
     /* Try to decrypt the test vector */

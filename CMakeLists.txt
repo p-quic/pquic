@@ -17,6 +17,7 @@ INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
 SET(PICOQUIC_LIBRARY_FILES
+    picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c
     picoquic/http0dot9.c
@@ -63,6 +64,37 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/transport_param_test.c
 )
 
+SET(PLUGINS_COP2
+    plugins/cop2/cnx_state_changed.c
+    plugins/cop2/packet_received.c
+    plugins/cop2/packet_sent.c
+    plugins/cop2/rtt_updated.c
+    plugins/cop2/check_ooo_stream_frame.c
+    plugins/cop2/check_spurious_stream_frame.c
+    plugins/cop2/packet_lost.c
+    plugins/cop2/fast_retransmit.c
+    plugins/cop2/retransmission_timeout.c
+    plugins/cop2/tail_loss_probe.c
+)
+
+SET(PLUGINS_MULTIPATH
+    plugins/multipath/get_destination_connection_id.c
+    plugins/multipath/get_incoming_path.c
+    plugins/multipath/parse_add_address_frame.c
+    plugins/multipath/parse_mp_ack_frame.c
+    plugins/multipath/parse_mp_new_connection_id_frame.c
+    plugins/multipath/predict_packet_header_length.c
+    plugins/multipath/prepare_add_address_frame.c
+    plugins/multipath/prepare_mp_ack_frame.c
+    plugins/multipath/prepare_mp_new_connection_id_frame.c
+    plugins/multipath/prepare_packet_ready.c
+    plugins/multipath/process_add_address_frame.c
+    plugins/multipath/process_mp_ack_frame.c
+    plugins/multipath/process_mp_new_connection_id_frame.c
+    plugins/multipath/process_possible_ack_of_ack_frame.c
+    plugins/multipath/set_next_wake_time.c
+)
+
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
 
@@ -84,6 +116,14 @@ INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
 ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
+)
+
+ADD_LIBRARY(plugins-cop2
+    ${PLUGINS_COP2}
+)
+
+ADD_LIBRARY(plugins-multipath
+    ${PLUGINS_MULTIPATH}
 )
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c

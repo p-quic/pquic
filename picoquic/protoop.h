@@ -76,7 +76,8 @@ static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
  * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode
  * \param[in] current_time \b uint64_t Time of reception of the frame
- * 
+ * \param[in] path \b picoquic_path_t* The path on which the frame was received
+ *
  * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
  */
 static const protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME = "decode_stream_frame";
@@ -92,6 +93,12 @@ static const protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME = "decode_stream_f
  * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.
  */
 static const protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT = "update_rtt";
+
+// MP: Do we really want the RTT computation to be pluggable ?
+// This a metric that is used in many places and often part of more complex mechanisms.
+// I certainly wouldn't want a plugin to modify the RTT computation without being in charge of every other mechanisms
+// that is using it.
+// I would rather be in favor of plugins to define a separate metrics accessible via the cnx.
 
 /**
  * Process "ack_range" blocks contained in an ACK frame and release acknowledged packets in the retransmit queue.
@@ -268,6 +275,7 @@ static const protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME = "set_next_wake_ti
  * \return \b int The length of the retransmission
  * \param[out] is_cleartext_mode \b int Indicates if the retransmission is a cleartext one
  * \param[out] header_length \b uint32_t The length of the header of the retransmitted packet
+ * \param[out] reason \b protoop_id_t Iff the return value is greater than zero, this indicates which mechanism triggered the retransmission
  */
 static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED = "retransmit_needed";
 
@@ -279,6 +287,7 @@ static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED = "retransmit_needed
  * 
  * \return \int Iff non-zero, the packet should be retransmitted
  * \param[out] timer_based \b int Iff non-zero, indicates that the retransmission is due to RTO
+ * \param[out] reason \b protoop_id_t Iff the return value is non-zero, this indicates which mechanism triggered the retransmission
  */
 static const protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET = "retransmit_needed_by_packet";
 
@@ -352,6 +361,68 @@ static const protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE = "prepare_mtu_probe
  * \return \b size_t The length of the buffer that will be sent
  */
 static const protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET = "finalize_and_protect_packet";
+
+
+/**
+ * Observer-only anchor that must be triggered by all mechanisms that declare packets as lost
+ * and trigger retransmissions.
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet that was lost
+ * \param[in] path_x \b picoquic_path_t* The path on which the packet was lost
+ */
+static const protoop_id_t PROTOOP_NOPARAM_PACKET_WAS_LOST = "packet_was_lost";
+
+
+/**
+ * Observer-only anchor that must be triggered whenever the connection state has changed.
+ * Using the setter \b picoquic_set_cnx_state() ensures this requirement.
+ *
+ * No parameters are given to this protoop as the connection state already holds this information.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED = "connection_state_changed";
+
+
+/*
+    MP: We may want to merge the two ops below into one a define a separate set of enums to describe the stream states
+    as defined in the QUIC specs, e.g. https://tools.ietf.org/html/draft-ietf-quic-transport-15#section-9.2.
+*/
+
+/**
+ * Observer-only anchor that must be triggered whenever a stream is opened.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_STREAM_OPENED = "stream_opened";
+
+
+/**
+ * Observer-only anchor that must be triggered whenever a stream is closed.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED = "stream_closed";
+
+/**/
+
+/**
+ * Observer-only anchor that must be triggered when the Fast Retransmit mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ */
+static const protoop_id_t PROTOOP_NOPARAM_FAST_RETRANSMIT = "fast_retransmit";
+
+
+/**
+ * Observer-only anchor that must be triggered when the Retransmission Timeout mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ */
+static const protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT = "retransmission_timeout";
+
+
+/**
+ * Observer-only anchor that must be triggered when the Tail Loss Probe mechanism is triggered
+ *
+ * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
+ */
+static const protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE = "tail_loss_probe";
+
 
 /* @} */
 

@@ -112,8 +112,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         stream = helper_find_ready_stream(cnx);
         packet->pc = pc;
 
+        protoop_id_t reason = NULL;
         if (ret == 0 && retransmit_possible &&
-            (length = helper_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length)) > 0) {
+            (length = helper_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
+            if (reason != NULL) {
+                helper_packet_was_retransmitted(cnx, reason, packet);
+            }
             /* Set the new checksum length */
             checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
             /* Check whether it makes sense to add an ACK at the end of the retransmission */
@@ -174,7 +178,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
                         if (path_x->challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
                             //DBG_PRINTF("%s\n", "Too many challenge retransmits, disconnect");
-                            cnx->cnx_state = picoquic_state_disconnected;
+                            picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                             helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
                             length = 0;
                         }
