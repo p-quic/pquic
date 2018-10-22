@@ -17,7 +17,7 @@ typedef enum {
 } plugin_type_enum;
 
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
 int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte);
 

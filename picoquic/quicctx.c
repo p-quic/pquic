@@ -940,6 +940,8 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
+    cnx->transactions = NULL;
+    cnx->current_transaction = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -1033,7 +1035,8 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL, NULL);
+        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL,
+            previous_state, state);
     }
 }
 
@@ -1496,6 +1499,13 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             free(current_post);
         }
 
+        protoop_transaction_t *current_tr, *tmp_tr;
+        HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
+            HASH_DEL(cnx->transactions, current_tr);
+            queue_free(current_tr->slot_queue);
+            free(current_tr);
+        }
+
         free(cnx);
     }
 }
@@ -1852,6 +1862,19 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
 int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
 {
     return register_param_protoop(cnx, pid, NO_PARAM, op);
+}
+
+size_t reserve_frame(picoquic_cnx_t* cnx, reserve_frame_slot_t* slot)
+{
+    if (!cnx->current_transaction) {
+        printf("ERROR: reserve_frame can only be called by plugins with transactions!\n");
+        return 0;
+    }
+    int err = queue_enqueue(cnx->current_transaction->slot_queue, slot);
+    if (err) {
+        return 0;
+    }
+    return slot->nb_bytes;
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)

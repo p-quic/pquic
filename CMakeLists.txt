@@ -31,6 +31,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/picosocks.c
     picoquic/picosplay.c
     picoquic/plugin.c
+    picoquic/queue.c
     picoquic/quicctx.c
     picoquic/sacks.c
     picoquic/sender.c
@@ -84,15 +85,13 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/parse_mp_ack_frame.c
     plugins/multipath/parse_mp_new_connection_id_frame.c
     plugins/multipath/predict_packet_header_length.c
-    plugins/multipath/prepare_add_address_frame.c
-    plugins/multipath/prepare_mp_ack_frame.c
-    plugins/multipath/prepare_mp_new_connection_id_frame.c
-    plugins/multipath/prepare_packet_ready.c
-    plugins/multipath/process_add_address_frame.c
     plugins/multipath/process_mp_ack_frame.c
     plugins/multipath/process_mp_new_connection_id_frame.c
     plugins/multipath/process_possible_ack_of_ack_frame.c
     plugins/multipath/set_next_wake_time.c
+    plugins/multipath/write_add_address_frame.c
+    plugins/multipath/write_mp_ack_frame.c
+    plugins/multipath/write_mp_new_connection_id_frame.c
 )
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)

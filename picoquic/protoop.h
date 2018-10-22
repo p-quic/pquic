@@ -51,7 +51,7 @@ typedef char* protoop_id_t;
 static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
 
 /**
- * Process the parsed frame /p frame whose the type is provided as parameter.
+ * Process the parsed frame \p frame whose the type is provided as parameter.
  * \param[in] frame \b void* Pointer to the structure malloc'ed in the context memory containing the frame information. Don't free it.
  * \param[in] current_time \b uint64_t Time of reception of the packet containing that frame
  * \param[in] epoch \b int Epoch of the received packet containing the frame
@@ -59,6 +59,18 @@ static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
  * \return \b int Error code, 0 iff everything is fine.
  */
 static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
+
+/**
+ * Write the frame whose the type is provided as parameter.
+ * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
+ * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
+ * \param[in] frame_ctx \b void* The context of the frame to write. If no NULL, it has to be allocated in context memory and has to be free'd.
+ * \param[in] consumed \b int Current value of consumed
+ * 
+ * \return \b int Error code, 0 iff everything was fine
+ * \param[out] consumed \b int The number of bytes written in \p bytes
+ */
+static const protoop_id_t PROTOOP_PARAM_WRITE_FRAME = "write_frame";
 
 /* @} */ 
 
@@ -423,6 +435,13 @@ static const protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT = "retransmissi
  */
 static const protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE = "tail_loss_probe";
 
+
+/**
+ * Select the path on which the next packet will be sent.
+ *
+ * \return \b picoquic_path_t* The path on which the next packet will be sent.
+ */
+static const protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH = "select_sending_path";
 
 /* @} */
 

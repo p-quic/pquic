@@ -2306,6 +2306,20 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
 }
 
 /**
+ * See PROTOOP_NOPARM_SELECT_SENDING_PATH
+ */
+protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
+{
+    /* Set the path to be the initial one */
+    return (protoop_arg_t) cnx->path[0];
+}
+
+picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
+{
+    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
+}
+
+/**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
  * cnx->protoop_inputv[1] = picoquic_packet_t* packet
  * cnx->protoop_inputv[2] = uint64_t current_time
@@ -2329,8 +2343,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
      */
     size_t send_length = (size_t) cnx->protoop_inputv[5];
 
-    /* Set the path to be the initial one */
-    path_x = cnx->path[0];
+    path_x = picoquic_select_sending_path(cnx);
 
     int ret = 0;
     /* TODO: manage multiple streams. */
@@ -2435,6 +2448,26 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
+                    /* Find if reservations were made */
+                    protoop_transaction_t *curr_tr, *tmp_tr;
+                    reserve_frame_slot_t *rfs;
+                    protoop_arg_t outs[PROTOOPARGS_MAX];
+                    HASH_ITER(hh, cnx->transactions, curr_tr, tmp_tr) {
+                        while (queue_peek(curr_tr->slot_queue) != NULL) {
+                            rfs = (reserve_frame_slot_t *) queue_dequeue(curr_tr->slot_queue);
+                            /* TODO FIXME */
+                            ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                                &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx, data_bytes);
+                            data_bytes = (size_t) outs[0];
+                            /* TODO FIXME consumed */
+                            if (ret == 0) {
+                                length += (uint32_t) data_bytes;
+                            }
+                            /* It was reserved by the plugin, so it is a my_free */
+                            my_free(cnx, rfs);
+                        }
+                    }
+
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                         send_buffer_min_max - checksum_overhead - length, &data_bytes)
                         == 0) {
@@ -2740,6 +2773,8 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     /** \todo Refactor API */
     register_noparam_protoop(cnx, "prepare_packet_ready", &prepare_packet_ready);
+
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
 
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED, &retransmit_needed);
