@@ -249,8 +249,8 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                         } else {
                             /* max(2 * SRTT, 1.5 * SRTT + WCDelAckT) */
                             bpfd->tlp_time = p_last->send_time + 2 * path_x->smoothed_rtt;
-                            if (p_last->send_time + 3 / 2 * path_x->smoothed_rtt + path_x->max_ack_delay > bpfd->tlp_time) {
-                                bpfd->tlp_time = p_last->send_time + 3 / 2 * path_x->smoothed_rtt + path_x->max_ack_delay;
+                            if (p_last->send_time + path_x->smoothed_rtt * 3 / 2 + path_x->max_ack_delay > bpfd->tlp_time) {
+                                bpfd->tlp_time = p_last->send_time + path_x->smoothed_rtt * 3 / 2 + path_x->max_ack_delay;
                             }
                         }
                         if (bpfd->tlp_time < next_time) {
