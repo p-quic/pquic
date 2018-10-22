@@ -86,7 +86,7 @@ typedef struct plugin {
 plugin_t *load_elf(void *code, size_t code_len);
 plugin_t *load_elf_file(const char *code_filename);
 int release_elf(plugin_t *plugin);
-uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len);
+uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len, char **error_msg);
 
 
 #endif

@@ -381,6 +381,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
 
+    char *error_msg = NULL;
+
     /* First save previous args, and update context with new ones
      * Notice that we store ALL array of protoop_inputv and protoop_outputv.
      * With this, even if the called plugin tried to modify the input arguments,
@@ -435,14 +437,14 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
-        exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t));
+        exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
 
     /* The actual protocol operation */
     if (popst->replace) {
         DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
-        status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t));
+        status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
     } else if (popst->core) {
         status = popst->core(cnx);
     } else {
@@ -454,7 +456,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     tmp = popst->post;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
-        exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t));
+        exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
 
