@@ -47,7 +47,7 @@ protoop_arg_t parse_datagram_frame(picoquic_cnx_t* cnx)
 exit:
     cnx->protoop_outputc_callee = 3;
     cnx->protoop_outputv[0] = (protoop_arg_t) frame;
-    cnx->protoop_outputv[1] = (protoop_arg_t) true;
-    cnx->protoop_outputv[2] = (protoop_arg_t) false;
+    cnx->protoop_outputv[1] = (protoop_arg_t) true; // should be acked asap
+    cnx->protoop_outputv[2] = (protoop_arg_t) false; // must not be retransmitted
     return (protoop_arg_t) bytes;
 }

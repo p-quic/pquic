@@ -68,7 +68,7 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/parse_datagram_frame.c
     plugins/datagram/send_datagram.c
     plugins/datagram/process_datagram_frame.c
-)
+        plugins/datagram/is_datagram_frame_congestion_controlled.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
