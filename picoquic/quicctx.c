@@ -900,6 +900,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 
     if (cnx) {
         register_protocol_operations(cnx);
+        /* Also initialize reserve queue */
+        cnx->reserved_frames = queue_init();
     }
 
     /* The following lines should be uncommented only for testing purpose */
@@ -1499,10 +1501,14 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             free(current_post);
         }
 
+        /* Delete pending reserved frames, if any */
+        queue_free(cnx->reserved_frames);
+
         protoop_transaction_t *current_tr, *tmp_tr;
         HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
             HASH_DEL(cnx->transactions, current_tr);
-            queue_free(current_tr->slot_queue);
+            /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+            queue_free(current_tr->block_queue);
             free(current_tr);
         }
 
@@ -1864,17 +1870,29 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
     return register_param_protoop(cnx, pid, NO_PARAM, op);
 }
 
-size_t reserve_frame(picoquic_cnx_t* cnx, reserve_frame_slot_t* slot)
+size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots)
 {
     if (!cnx->current_transaction) {
-        printf("ERROR: reserve_frame can only be called by plugins with transactions!\n");
+        printf("ERROR: s can only be called by plugins with transactions!\n");
         return 0;
     }
-    int err = queue_enqueue(cnx->current_transaction->slot_queue, slot);
+    /* Well, or we could use queues instead ? */
+    reserve_frames_block_t *block = malloc(sizeof(reserve_frames_block_t));
+    if (!block) {
+        return 0;
+    }
+    block->nb_frames = nb_frames;
+    block->total_bytes = 0;
+    for (int i = 0; i < nb_frames; i++) {
+        block->total_bytes += slots[i].nb_bytes;
+    }
+    block->frames = slots;
+    int err = queue_enqueue(cnx->current_transaction->block_queue, block);
     if (err) {
+        free(block);
         return 0;
     }
-    return slot->nb_bytes;
+    return block->total_bytes;
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)

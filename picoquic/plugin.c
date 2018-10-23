@@ -301,8 +301,8 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
     }
 
     strncpy(t->name, token, PROTOOPTRANSACTIONNAME_MAX);
-    t->slot_queue = queue_init();
-    if (!t->slot_queue) {
+    t->block_queue = queue_init();
+    if (!t->block_queue) {
         printf("Cannot allocate memory for sending queue!\n");
         free(t);
         return NULL;

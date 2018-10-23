@@ -2448,16 +2448,48 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
-                    /* Find if reservations were made */
-                    protoop_transaction_t *curr_tr, *tmp_tr;
                     reserve_frame_slot_t *rfs;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
-                    HASH_ITER(hh, cnx->transactions, curr_tr, tmp_tr) {
-                        while (queue_peek(curr_tr->slot_queue) != NULL) {
-                            rfs = (reserve_frame_slot_t *) queue_dequeue(curr_tr->slot_queue);
-                            /* TODO FIXME */
-                            ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                    /* First empty the reserved frames */
+                    while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
+                           rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
+                        rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
+                        ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx, data_bytes);
+                        data_bytes = (size_t) outs[0];
+                        /* TODO FIXME consumed */
+                        if (ret == 0) {
+                            length += (uint32_t) data_bytes;
+                        }
+                        /* It was reserved by the plugin, so it is a my_free */
+                        my_free(cnx, rfs);
+                    }
+
+                    /* Only if there is no reservation pending, look for other reservations */
+                    if (!rfs) {
+                        /* Find if reservations were made */
+                        protoop_transaction_t *curr_tr, *tmp_tr;
+                        reserve_frames_block_t *block;
+                        /* FIXME this is not fair... Introduce DRR */
+                        HASH_ITER(hh, cnx->transactions, curr_tr, tmp_tr) {
+                            /* FIXME */
+                            while (queue_peek(curr_tr->block_queue) != NULL) {
+                                block = (reserve_frames_block_t *) queue_dequeue(curr_tr->block_queue);
+                                for (int i = 0; i < block->nb_frames; i++) {
+                                    /* Not the most efficient way, but will do the trick */
+                                    queue_enqueue(cnx->reserved_frames, &block->frames[i]);
+                                }
+                                /* Free the block */
+                                free(block);
+                            }
+                        }
+
+                        /* And now try to send those frames */
+                        while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
+                               rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
+                            rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
+                            ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                                    &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx, data_bytes);
                             data_bytes = (size_t) outs[0];
                             /* TODO FIXME consumed */
                             if (ret == 0) {

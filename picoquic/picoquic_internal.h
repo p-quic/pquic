@@ -451,6 +451,13 @@ typedef struct reserve_frame_slot {
     void *frame_ctx;
 } reserve_frame_slot_t;
 
+typedef struct reserve_frames_block {
+    size_t total_bytes;
+    uint8_t nb_frames;
+    /* The following pointer is an array! */
+    reserve_frame_slot_t *frames;
+} reserve_frames_block_t;
+
 /**
  * Book an occasion to send the frame whose details are given in \p slot.
  * \param[in] cnx The context of the connection
@@ -458,13 +465,13 @@ typedef struct reserve_frame_slot {
  * 
  * \return The number of bytes reserved, or 0 if an error occurred
  */
-size_t reserve_frame(picoquic_cnx_t* cnx, reserve_frame_slot_t* slot);
+size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
 
 #define PROTOOPTRANSACTIONNAME_MAX 100
 
 typedef struct protoop_transaction {
     char name[PROTOOPTRANSACTIONNAME_MAX];
-    queue_t *slot_queue; /* Send reservation queue */
+    queue_t *block_queue; /* Send reservation queue */
     UT_hash_handle hh; /* Make the structure hashable */
 } protoop_transaction_t;
 
@@ -645,6 +652,9 @@ typedef struct st_picoquic_cnx_t {
     picoquic_path_t ** path;
     int nb_paths;
     int nb_path_alloc;
+
+    /* Management of pending frames to be sent due to reservations */
+    queue_t *reserved_frames;
 
     /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */

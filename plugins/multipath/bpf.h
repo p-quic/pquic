@@ -157,7 +157,7 @@ static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t pat
     rfs->frame_type = MP_NEW_CONNECTION_ID_TYPE;
     rfs->frame_ctx = mncic;
     rfs->nb_bytes = 52; /* This is the max value, in practice it won't be so much, but spare the estimation process here */
-    reserve_frame(cnx, rfs);
+    reserve_frames(cnx, 1, rfs);
 }
 
 static void reserve_add_address_frame(picoquic_cnx_t *cnx)
@@ -180,7 +180,7 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
     rfs->frame_type = ADD_ADDRESS_TYPE;
     rfs->frame_ctx = aac;
     rfs->nb_bytes = frame_size_v4 * aac->nb_addrs;
-    reserve_frame(cnx, rfs);
+    reserve_frames(cnx, 1, rfs);
 }
 
 static void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_packet_context_enum pc)
@@ -199,7 +199,7 @@ static void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     rfs->frame_type = MP_ACK_TYPE;
     rfs->frame_ctx = mac;
     rfs->nb_bytes = 14; /* This might probably change... */
-    reserve_frame(cnx, rfs);
+    reserve_frames(cnx, 1, rfs);
 }
 
 /* Other multipath functions */
