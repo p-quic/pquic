@@ -31,6 +31,95 @@ static inline bpf_state *get_bpf_state_2(picoquic_cnx_t *cnx)
 }
 
 
+static inline uint32_t format_connection_id(uint8_t* bytes, size_t bytes_max, picoquic_connection_id_t cnx_id)
+{
+    uint32_t copied = cnx_id.id_len;
+    if (copied > bytes_max || copied == 0) {
+        copied = 0;
+    } else {
+        my_memcpy(bytes, cnx_id.id, copied);
+    }
+
+    return copied;
+}
+
+
+
+static inline void headint_encode_32(uint8_t* bytes, uint64_t sequence_number)
+{
+    uint8_t* x = bytes;
+
+    *x++ = (uint8_t)(((sequence_number >> 24) | 0xC0) & 0xFF);
+    *x++ = (uint8_t)((sequence_number >> 16) & 0xFF);
+    *x++ = (uint8_t)((sequence_number >> 8) & 0xFF);
+    *x++ = (uint8_t)(sequence_number & 0xFF);
+}
+
+static inline int is_connection_id_null(picoquic_connection_id_t cnx_id)
+{
+    return (cnx_id.id_len == 0) ? 1 : 0;
+}
+
+
+/**
+ * See PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID
+ */
+static inline picoquic_connection_id_t *get_destination_connection_id(
+        picoquic_cnx_t* cnx, picoquic_packet_type_enum packet_type,
+        picoquic_path_t* path_x)
+{
+
+    picoquic_connection_id_t *dest_cnx_id = NULL;
+
+    if ((packet_type == picoquic_packet_initial ||
+         packet_type == picoquic_packet_0rtt_protected)
+        && is_connection_id_null(cnx->remote_cnxid))
+    {
+        dest_cnx_id = &cnx->initial_cnxid;
+    }
+    else
+    {
+        dest_cnx_id = &cnx->remote_cnxid;
+    }
+
+    return dest_cnx_id;
+}
+
+static inline void write_header(picoquic_cnx_t *cnx, picoquic_packet_t *packet, uint8_t *bytes) {
+    picoquic_packet_type_enum packet_type = packet->ptype;
+    protoop_arg_t args[2];
+    protoop_arg_t outs[1];
+    args[0] = packet_type;
+    args[1] = (protoop_arg_t) cnx->path[0];
+
+
+    picoquic_connection_id_t dest_cnx_id = * (picoquic_connection_id_t*) get_destination_connection_id(cnx, packet_type, cnx->path[0]);
+
+    /* Create a short packet -- using 32 bit sequence numbers for now */
+    uint8_t K = (packet_type == picoquic_packet_1rtt_protected_phi0) ? 0 : 0x40;
+    const uint8_t C = 0x30;
+    uint8_t spin_vec = (uint8_t)(cnx->spin_vec);
+    uint8_t spin_bit = (uint8_t)((cnx->current_spin) << 2);
+
+    if (!cnx->spin_edge) spin_vec = 0;
+    else {
+        cnx->spin_edge = 0;
+        uint64_t dt = picoquic_current_time() - cnx->spin_last_trigger;
+        if (dt > PICOQUIC_SPIN_VEC_LATE) { // DELAYED
+            spin_vec = 1;
+            // fprintf(stderr, "Delayed Outgoing Spin=%d DT=%ld\n", cnx->current_spin, dt);
+        }
+    }
+
+    uint32_t length = 0;
+    bytes[length++] = (K | C | spin_bit | spin_vec);
+    length += format_connection_id(&bytes[length], PICOQUIC_MAX_PACKET_SIZE - length, dest_cnx_id);
+
+    headint_encode_32(&bytes[length], packet->sequence_number);
+    length += 4;
+}
+
+
 /**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
  * cnx->protoop_inputv[1] = picoquic_packet_t* packet
@@ -124,7 +213,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->send_time = current_time;
             packet->send_path = path_x;
 
-            if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) || path_x->cwin <= path_x->bytes_in_transit)
+            bpf_state *state = get_bpf_state(cnx);
+            PROTOOP_PRINTF(cnx, "PREPARE_PACKET_READY\n");
+            if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL && !has_repair_symbols_to_send(state->block_fec_framework)) || path_x->cwin <= path_x->bytes_in_transit)
                 && helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
                 && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)) {
                 if (ret == 0 && send_buffer_max > path_x->send_mtu
@@ -137,6 +228,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 else {
                     length = 0;
                 }
+                PROTOOP_PRINTF(cnx, "BLOCKED SOMEWHERE\n");
             }
             else {
                 if (path_x->challenge_verified == 0 && current_time >= (path_x->challenge_time + path_x->retransmit_timer)) {
@@ -162,11 +254,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     block_fec_framework_t *bff = state->block_fec_framework;
 
 
+                    PROTOOP_PRINTF(cnx, "BEGIN_TO_SEND_DATA\n");
                     if (has_repair_symbols_to_send(bff)) {
+                        PROTOOP_PRINTF(cnx, "SYMBOLS TO SEND\n");
                         ret = helper_write_fec_frame(cnx, state, bytes+length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
 
                         if (ret == 0) {
-                            // TODO: if we use varint (unlikely), the following won't work anymore
                             length += (uint32_t)data_bytes;
                             length_frames += (uint32_t)data_bytes;
                             if (data_bytes > 0) {
@@ -175,7 +268,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         } else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
                             ret = 0;
                         }
-//                        PROTOOP_PRINTF(cnx, "ADDED FEC FRAME\n");
+                        PROTOOP_PRINTF(cnx, "ADDED FEC FRAME\n");
+                    } else {
+                        PROTOOP_PRINTF(cnx, "NO SYMBOL TO SEND\n");
                     }
 
                     if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -248,6 +343,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             }
                         }
 
+                        if (stream == NULL && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)) {
+                            PROTOOP_PRINTF(cnx, "DO THE FLUSHING\n");
+                            flush_fec_block(cnx, state->block_fec_framework);
+                        }
+
                         // FIXME: remember the address of the frame and write it afterwards, at the protection moment
                         if (stream != NULL && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)
                              && send_buffer_min_max - checksum_overhead - length > sizeof(source_fpid_frame_t) + 1 + header_length
@@ -267,6 +367,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 length_frames += (uint32_t) data_bytes;
                                 if (data_bytes > 0) {
                                     is_pure_ack = 0;
+                                    state->has_sent_stream_data = true;
                                 }
                             } else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
                                 ret = 0;
@@ -277,7 +378,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         while (stream != NULL && send_buffer_min_max - checksum_overhead - length > sizeof(fec_frame_header_t) + 1 + header_length) {
                             // FIXME: quick hack to ensure that the repair symbols are not split
                             ret = helper_prepare_stream_frame(cnx, stream, &bytes[length],
-                                                                send_buffer_min_max - (sizeof(fec_frame_header_t) + 1) - checksum_overhead - length, &data_bytes);
+                                                                send_buffer_min_max - (sizeof(fec_frame_header_t) + 1) - checksum_overhead - header_length - length, &data_bytes);
 
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
@@ -299,6 +400,13 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 ret = 0;
                                 break;
                             }
+                        }
+
+                        if (stream == NULL
+                         && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)
+                         && state->has_sent_stream_data) {
+                            state->has_sent_stream_data = false;
+                            state->should_check_block_flush = true;
                         }
 
                         if (length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
@@ -339,9 +447,15 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
     }
 
+
+    uint8_t *data = NULL;
     if (sfpid && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)){
-        PROTOOP_PRINTF(cnx, "PROTECT PACKET, BLOCK NUMBER = %u", (uint32_t) sfpid->fec_block_number);
-        protect_packet(cnx, sfpid, bytes + header_length, (uint16_t) (length_frames));
+        data = my_malloc(cnx, header_length + length_frames);
+        if (!data) {
+            return PICOQUIC_ERROR_MEMORY;
+        }
+        my_memcpy(data + header_length, bytes + header_length, length_frames);
+        write_header(cnx, packet, data);
     }
 
 
@@ -349,6 +463,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                          ret, length, header_length, checksum_overhead,
                                          &send_length, send_buffer, send_buffer_min_max, path_x, current_time);
 
+    if (sfpid && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)){
+        protect_packet(cnx, sfpid, data, (uint16_t) (header_length + length_frames));
+        my_free(cnx, data);
+    }
     helper_cnx_set_next_wake_time(cnx, current_time);
 
     cnx->protoop_outputc_callee = 2;

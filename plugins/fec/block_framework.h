@@ -30,7 +30,7 @@ typedef struct {
 } block_fec_framework_t;
 
 
-static inline block_fec_framework_t *new_block_fec_framework(picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) block_fec_framework_t *new_block_fec_framework(picoquic_cnx_t *cnx) {
     block_fec_framework_t *bff = my_malloc(cnx, sizeof(block_fec_framework_t));
     if (!bff)
         return NULL;
@@ -47,33 +47,33 @@ static inline block_fec_framework_t *new_block_fec_framework(picoquic_cnx_t *cnx
     return bff;
 }
 
-static inline bool ready_to_send(block_fec_framework_t *bff) {
+static __attribute__((always_inline)) bool ready_to_send(block_fec_framework_t *bff) {
     return (bff->current_block->current_source_symbols == bff->k);
 }
 
-static inline bool has_repair_symbols_to_send(block_fec_framework_t *bff) {
+static __attribute__((always_inline)) bool has_repair_symbols_to_send(block_fec_framework_t *bff) {
     return bff->repair_symbols_queue_length > 0;
 }
 
-static inline bool has_repair_symbol_at_index(block_fec_framework_t *bff, int idx) {
+static __attribute__((always_inline)) bool has_repair_symbol_at_index(block_fec_framework_t *bff, int idx) {
     return bff->repair_symbols_queue[idx].repair_symbol != NULL;
 }
 
-static inline void remove_item_at_index(picoquic_cnx_t *cnx, block_fec_framework_t *bff, int idx) {
+static __attribute__((always_inline)) void remove_item_at_index(picoquic_cnx_t *cnx, block_fec_framework_t *bff, int idx) {
     free_repair_symbol(cnx, bff->repair_symbols_queue[idx].repair_symbol);
     bff->repair_symbols_queue[idx].repair_symbol = NULL;
     bff->repair_symbols_queue[idx].nss = 0;
     bff->repair_symbols_queue[idx].nrs = 0;
 }
 
-static inline void put_item_at_index(block_fec_framework_t *bff, int idx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs) {
+static __attribute__((always_inline)) void put_item_at_index(block_fec_framework_t *bff, int idx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs) {
     bff->repair_symbols_queue[idx].repair_symbol = rs;
     bff->repair_symbols_queue[idx].nss = nss;
     bff->repair_symbols_queue[idx].nrs = nrs;
 }
 
 // adds a repair symbol in the queue waiting for the symbol to be sent
-static inline void queue_repair_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, repair_symbol_t *rs, fec_block_t *fb){
+static __attribute__((always_inline)) void queue_repair_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, repair_symbol_t *rs, fec_block_t *fb){
     int idx = ((uint32_t) rs->repair_fec_payload_id.source_fpid.raw) % MAX_QUEUED_REPAIR_SYMBOLS;
     if (has_repair_symbol_at_index(bff, idx)) {
         remove_item_at_index(cnx, bff, idx);
@@ -93,14 +93,14 @@ static inline void queue_repair_symbol(picoquic_cnx_t *cnx, block_fec_framework_
 }
 
 // adds a repair symbol in the queue waiting for the symbol to be sent
-static inline void queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff, repair_symbol_t *rss[], int number_of_symbols, fec_block_t *fec_block){
+static __attribute__((always_inline)) void queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff, repair_symbol_t *rss[], int number_of_symbols, fec_block_t *fec_block){
     int i;
     for (i = 0 ; i < number_of_symbols ; i++) {
         queue_repair_symbol(cnx, bff, rss[i], fec_block);
     }
 }
 
-static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, fec_frame_header_t *ffh, uint8_t *bytes){
+static __attribute__((always_inline)) size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, fec_frame_header_t *ffh, uint8_t *bytes){
     if (bff->repair_symbols_queue_length == 0)
         return 0;
     repair_symbol_t *rs = bff->repair_symbols_queue[bff->repair_symbols_queue_head].repair_symbol;
@@ -136,7 +136,7 @@ static inline size_t get_repair_payload_from_queue(picoquic_cnx_t *cnx, block_fe
     }
     return amount;
 }
-static inline int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, size_t *consumed, uint8_t *bytes) {
+static __attribute__((always_inline)) int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, size_t *consumed, uint8_t *bytes) {
     if (bytes_max < sizeof(fec_frame_header_t))
         return -1;
     fec_frame_header_t ffh;
@@ -152,7 +152,7 @@ static inline int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bf
     return 0;
 }
 
-static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
+static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
     protoop_arg_t args[1];
     protoop_arg_t outs[1];
     args[0] = (protoop_arg_t) bff->current_block;
@@ -172,7 +172,7 @@ static inline int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_f
     return ret;
 }
 
-static inline int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {
+static __attribute__((always_inline)) int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {
     free_fec_block(cnx, ff->current_block, true);
     ff->current_block_number++;
     ff->current_block = malloc_fec_block(cnx, ff->current_block_number);
@@ -183,7 +183,7 @@ static inline int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {
     return 0;
 }
 
-static inline int protect_source_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, source_symbol_t *ss){
+static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, source_symbol_t *ss){
     if (!add_source_symbol_to_fec_block(ss, bff->current_block))
         return -1;
     if (ready_to_send(bff)) {
@@ -193,7 +193,19 @@ static inline int protect_source_symbol(picoquic_cnx_t *cnx, block_fec_framework
     return 0;
 }
 
-static inline void destroy_block_fec_framework(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
+static __attribute__((always_inline)) int flush_fec_block(picoquic_cnx_t *cnx, block_fec_framework_t *bff) {
+    fec_block_t *fb = bff->current_block;
+    if (fb->current_source_symbols >= 1) {
+        fb->total_source_symbols = fb->current_source_symbols;
+        fb->total_repair_symbols = fb->current_source_symbols < fb->total_repair_symbols ? fb->current_source_symbols : fb->total_repair_symbols;
+        PROTOOP_PRINTF(cnx, "FLUSH FEC BLOCK: %u source symbols, %u repair symbols\n", fb->total_source_symbols, fb->total_repair_symbols);
+        generate_and_queue_repair_symbols(cnx, bff);
+        sent_block(cnx, bff);
+    }
+    return 0;
+}
+
+static __attribute__((always_inline)) void destroy_block_fec_framework(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
     my_free(cnx, bff->current_block);
     my_free(cnx, bff);
 }

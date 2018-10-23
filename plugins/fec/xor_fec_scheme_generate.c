@@ -10,18 +10,27 @@
 #endif
 
 
-static inline void xor(uint8_t *a, uint8_t *b, uint8_t *container, int size) {
+static inline void xor(uint8_t *a, uint8_t *b, uint8_t *container, int size_a, int size_b) {
+    int size = MIN(size_a, size_b);
     int n_64 = size/8;
     int i;
     uint64_t *a64 = (uint64_t  *) a;
     uint64_t *b64 = (uint64_t  *) b;
     uint64_t *container64 = (uint64_t  *) container;
     // should be faster by doing XOR on 8-bytes words directly
-    for (i = 0 ; i < size/8 ; i++) {
-        container64[i] = a64[i] ^ b64[i];
-    }
-    for (i = (size/8)*8 ; i < size ; i++) {
+//    for (i = 0 ; i < n_64 ; i++) {
+//        container64[i] = a64[i] ^ b64[i];
+//    }
+//    for (i = n_64*8 ; i < size ; i++) {
+    for (i = 0 ; i < size ; i++) {
         container[i] = a[i] ^ b[i];
+    }
+    if (size_a < size_b) {
+        for (; i < size_b ; i++)
+            container[i] = b[i];
+    } else {
+        for (; i < size_b ; i++)
+            container[i] = a[i];
     }
 }
 
@@ -52,14 +61,16 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
     rfpid.fec_block_number = fec_block->fec_block_number;
     repair_symbol_t *rs = malloc_repair_symbol(cnx, rfpid, max_length);
 
+
+    int i = 0;
     for_each_source_symbol(fec_block, source_symbol_t *source_symbol) {
         if (source_symbol) {
             xor(rs->data, source_symbol->data, rs->data,
-                MIN(rs->data_length, source_symbol->data_length));
+                rs->data_length, source_symbol->data_length);
+            i++;
         }
     }
 
-    PROTOOP_PRINTF(cnx, "MAX_LENGTH = %u, RS LENGTH = %u\n", max_length, rs->data_length);
     rs->fec_scheme_specific = 0;
     fec_block->repair_symbols[0] = rs;
     return 0;

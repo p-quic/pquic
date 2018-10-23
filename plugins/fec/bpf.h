@@ -6,6 +6,8 @@
 
 
 typedef struct {
+    bool has_sent_stream_data;
+    bool should_check_block_flush;
     char underlying_fec_scheme[8];
     uint32_t oldest_fec_block_number : 24;
     uint8_t *current_packet;
@@ -317,7 +319,9 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
     source_symbol_t *ss = malloc_source_symbol_with_data(cnx, *source_fpid, data, length);
     if (!ss)
         return -1;
-    PROTOOP_PRINTF(cnx, "PROTECT PACKET OF SIZE %u\n", (unsigned long) length);
+    PROTOOP_PRINTF(cnx, "PROTECT PACKET OF SIZE %u, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+            (unsigned long) length,
+            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
     int ret = protect_source_symbol(cnx, state->block_fec_framework, ss);
     if (ret) {
         free_source_symbol(cnx, ss);
@@ -342,21 +346,21 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
     }
     protoop_params_t pp = get_pp_noparam("fec_recover", 1, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
-    for (int i = 0 ; i < n_to_recover ; i++) {
-        //c();
+    for (int idx = 0 ; idx < n_to_recover ; idx++) {
+        int i = to_recover[idx];
         int already_received = 0;
         ret = parse_packet_header(cnx, &ph, fb->source_symbols[i]->data, fb->source_symbols[i]->data_length, &already_received);
         if (!ret) {
             picoquic_record_pn_received(cnx, cnx->path[0],
                                             ph.pc, ph.pn64,
                                             picoquic_current_time());
-            PROTOOP_PRINTF(cnx, "DECODING FRAMES OF RECOVERED SYMBOL: pn = %u, ph.offset = %u\n", ph.pn, ph.offset);
+            PROTOOP_PRINTF(cnx, "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %x (%llx), ph.offset = %u, len_frames = %u, pl = %u\n", (protoop_arg_t) i, ph.pn, ph.pn64, ph.offset, fb->source_symbols[i]->data_length - ph.offset, ph.payload_length);
             args[0] = (protoop_arg_t) fb->source_symbols[i]->data + ph.offset;
-            args[1] = fb->source_symbols[i]->data_length - ph.offset;
+            args[1] = ph.payload_length;
             args[2] = (protoop_arg_t) ph.epoch;
             args[3] = picoquic_current_time();
             args[4] = (protoop_arg_t) cnx->path[0];
-            picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, fb->source_symbols[i]->data_length - ph.offset);
+            picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, ph.payload_length);
             pp = get_pp_noparam("decode_frames", 5, args, outs);
             // TODO: trigger ack for packet
             ret = (int) plugin_run_protoop(cnx, &pp);
