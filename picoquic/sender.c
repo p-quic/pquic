@@ -544,8 +544,27 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
 {
     picoquic_packet_context_enum pc = packet->pc;
 
-    /* Account for bytes in transit, for congestion control */
-    path_x->bytes_in_transit += length;
+    /* Account for bytes in transit, for congestion control, if the packet contains at least one congestion-controlled frame */
+    if (!packet->is_evaluated) {
+        int ret = 0;
+        int byte_index = packet->offset;
+        size_t frame_length = 0;
+        size_t frame_is_pure_ack = 0;
+        while (ret == 0 && byte_index < packet->length && !packet->is_congestion_controlled) {
+            uint8_t frame_type = packet->bytes[byte_index];
+            if (!packet->is_congestion_controlled &&
+                protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, frame_type, 0, NULL)) {
+                packet->is_congestion_controlled = 1;
+            }
+            ret = picoquic_skip_frame(cnx, &packet->bytes[byte_index], packet->length - byte_index, &frame_length,
+                                      &frame_is_pure_ack);
+            byte_index += frame_length;
+        }
+    }
+
+    if (packet->is_congestion_controlled) {
+        path_x->bytes_in_transit += length;
+    }
 
     /* Manage the double linked packet list for retransmissions */
     packet->previous_packet = NULL;
@@ -597,13 +616,13 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         p->next_packet->previous_packet = p->previous_packet;
     }
 
-    /* Account for bytes in transit, for congestion control */
-
-    if (p->send_path->bytes_in_transit > dequeued_length) {
-        p->send_path->bytes_in_transit -= dequeued_length;
-    }
-    else {
-        p->send_path->bytes_in_transit = 0;
+    /* Account for bytes in transit, for congestion control, only if the packet is marked as contributing to congestion */
+    if (p->is_congestion_controlled) {
+        if (p->send_path->bytes_in_transit > dequeued_length) {
+            p->send_path->bytes_in_transit -= dequeued_length;
+        } else {
+            p->send_path->bytes_in_transit = 0;
+        }
     }
 
     if (should_free) {

@@ -34,7 +34,6 @@ int datagram_test()
         return -1;
     }
     uint8_t *pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM, out, bytes, bytes + 5);
-    printf("pret %p bytes %p diff %d\n", (void *) pret, (void *) bytes, (int) (pret - bytes));
     if (pret != bytes + 5) {
         DBG_PRINTF("Unable to parse simple frame with no explicit length\n");
         my_free(&cnx, bytes);

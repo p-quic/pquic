@@ -60,6 +60,13 @@ static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
  */
 static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
 
+/**
+ * Returns whether the frame type provided as parameter is subject to congestion control.
+ *
+ * \return \b bool 0 iff not congestion controlled
+ */
+static const protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED = "is_frame_congestion_controlled";
+
 /* @} */ 
 
 /**
