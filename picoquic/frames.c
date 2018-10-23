@@ -1117,28 +1117,27 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
 
                 if (length >= space) {
                     length = space;
-                } else {
-                    /* This is going to be a trial and error process */
-                    size_t l_len = 0;
+                }
+                /* This is going to be a trial and error process */
+                size_t l_len = 0;
 
-                    /* Try a simple encoding */
-                    bytes[0] |= 2; /* Indicates presence of length */
+                /* Try a simple encoding */
+                bytes[0] |= 2; /* Indicates presence of length */
+                l_len = picoquic_varint_encode(bytes + byte_index, space,
+                    (uint64_t)length);
+                if (l_len == 0 || (l_len == space && length > 0)) {
+                    /* Will not try a silly encoding */
+                    consumed = 0;
+                    ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+                } else if (length + l_len > space) {
+                    /* try a shorter packet */
+                    length = space - l_len;
                     l_len = picoquic_varint_encode(bytes + byte_index, space,
                         (uint64_t)length);
-                    if (l_len == 0 || (l_len == space && length > 0)) {
-                        /* Will not try a silly encoding */
-                        consumed = 0;
-                        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-                    } else if (length + l_len > space) {
-                        /* try a shorter packet */
-                        length = space - l_len;
-                        l_len = picoquic_varint_encode(bytes + byte_index, space,
-                            (uint64_t)length);
-                        byte_index += l_len;
-                    } else {
-                        /* This is good */
-                        byte_index += l_len;
-                    }
+                    byte_index += l_len;
+                } else {
+                    /* This is good */
+                    byte_index += l_len;
                 }
             }
 
