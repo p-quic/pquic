@@ -121,6 +121,7 @@ int TlsStreamFrameTest();
 int draft13_vector_test();
 int fuzz_test();
 int random_tester_test();
+int datagram_test();
 
 #ifdef __cplusplus
 }

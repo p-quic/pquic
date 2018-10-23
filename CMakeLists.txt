@@ -61,6 +61,13 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/ticket_store_test.c
     picoquictest/tls_api_test.c
     picoquictest/transport_param_test.c
+    picoquictest/datagram.c
+)
+
+SET(PLUGINS_DATAGRAM
+    plugins/datagram/parse_datagram_frame.c
+    plugins/datagram/send_datagram.c
+    plugins/datagram/process_datagram_frame.c
 )
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
@@ -84,6 +91,10 @@ INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
 ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
+)
+
+ADD_LIBRARY(plugins-datagram
+    ${PLUGINS_DATAGRAM}
 )
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
