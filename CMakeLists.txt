@@ -71,6 +71,7 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/send_datagram.c
     plugins/datagram/process_datagram_frame.c
     plugins/datagram/is_datagram_frame_congestion_controlled.c
+    plugins/datagram/write_datagram_frame.c
 )
 
 SET(PLUGINS_COP2
@@ -127,6 +128,7 @@ ADD_LIBRARY(picoquic-core
 
 ADD_LIBRARY(plugins-datagram
     ${PLUGINS_DATAGRAM}
+)
 
 ADD_LIBRARY(plugins-cop2
     ${PLUGINS_COP2}
