@@ -17,6 +17,7 @@ INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
 SET(PICOQUIC_LIBRARY_FILES
+    picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c
     picoquic/http0dot9.c
@@ -30,6 +31,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/picosocks.c
     picoquic/picosplay.c
     picoquic/plugin.c
+    picoquic/queue.c
     picoquic/quicctx.c
     picoquic/sacks.c
     picoquic/sender.c
@@ -68,7 +70,37 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/parse_datagram_frame.c
     plugins/datagram/send_datagram.c
     plugins/datagram/process_datagram_frame.c
-        plugins/datagram/is_datagram_frame_congestion_controlled.c)
+    plugins/datagram/is_datagram_frame_congestion_controlled.c
+)
+
+SET(PLUGINS_COP2
+    plugins/cop2/cnx_state_changed.c
+    plugins/cop2/packet_received.c
+    plugins/cop2/packet_sent.c
+    plugins/cop2/rtt_updated.c
+    plugins/cop2/check_ooo_stream_frame.c
+    plugins/cop2/check_spurious_stream_frame.c
+    plugins/cop2/packet_lost.c
+    plugins/cop2/fast_retransmit.c
+    plugins/cop2/retransmission_timeout.c
+    plugins/cop2/tail_loss_probe.c
+)
+
+SET(PLUGINS_MULTIPATH
+    plugins/multipath/get_destination_connection_id.c
+    plugins/multipath/get_incoming_path.c
+    plugins/multipath/parse_add_address_frame.c
+    plugins/multipath/parse_mp_ack_frame.c
+    plugins/multipath/parse_mp_new_connection_id_frame.c
+    plugins/multipath/predict_packet_header_length.c
+    plugins/multipath/process_mp_ack_frame.c
+    plugins/multipath/process_mp_new_connection_id_frame.c
+    plugins/multipath/process_possible_ack_of_ack_frame.c
+    plugins/multipath/set_next_wake_time.c
+    plugins/multipath/write_add_address_frame.c
+    plugins/multipath/write_mp_ack_frame.c
+    plugins/multipath/write_mp_new_connection_id_frame.c
+)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
@@ -95,6 +127,13 @@ ADD_LIBRARY(picoquic-core
 
 ADD_LIBRARY(plugins-datagram
     ${PLUGINS_DATAGRAM}
+
+ADD_LIBRARY(plugins-cop2
+    ${PLUGINS_COP2}
+)
+
+ADD_LIBRARY(plugins-multipath
+    ${PLUGINS_MULTIPATH}
 )
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c

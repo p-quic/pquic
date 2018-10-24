@@ -13,10 +13,12 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <time.h>
 #include "plugin.h"
 #include "memcpy.h"
 #include "memory.h"
 #include "tls_api.h"
+#include "endianness.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -28,8 +30,10 @@ register_functions(struct ubpf_vm *vm)
     /* specific API related */
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     ubpf_register(vm, 0x01, "get_opaque_data", get_opaque_data);
+    ubpf_register(vm, 0x02, "reserve_frames", reserve_frames);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
+    ubpf_register(vm, 0x09, "picoquic_current_time", picoquic_current_time);
     /* for memory */
     ubpf_register(vm, 0x10, "my_malloc", my_malloc);
     ubpf_register(vm, 0x11, "my_free", my_free);
@@ -38,9 +42,18 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
     ubpf_register(vm, 0x19, "my_memset", my_memset);
 
+    ubpf_register(vm, 0x1a, "clock_gettime", clock_gettime);
+
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);
     ubpf_register(vm, 0x21, "setsockopt", setsockopt);
+    ubpf_register(vm, 0x22, "socket", socket);
+    ubpf_register(vm, 0x23, "connect", connect);
+    ubpf_register(vm, 0x24, "send", send);
+    ubpf_register(vm, 0x25, "inet_aton", inet_aton);
+
+    ubpf_register(vm, 0x2a, "my_htons", my_htons);
+    ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
@@ -52,6 +65,10 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
     ubpf_register(vm, 0x37, "picoquic_compare_connection_id", picoquic_compare_connection_id);
     ubpf_register(vm, 0x38, "picoquic_create_path", picoquic_create_path);
+    ubpf_register(vm, 0x39, "picoquic_compare_addr", picoquic_compare_addr);
+    ubpf_register(vm, 0x3a, "picoquic_parse_stream_header", picoquic_parse_stream_header);
+    ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
+    ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

@@ -1,15 +1,18 @@
+be.qdeconinck.multipath
 parse_frame param 0x26 replace parse_mp_new_connection_id_frame.o
 process_frame param 0x26 replace process_mp_new_connection_id_frame.o
-prepare_mp_new_connection_id_frame replace prepare_mp_new_connection_id_frame.o
-prepare_packet_ready replace prepare_packet_ready.o
+write_frame param 0x26 replace write_mp_new_connection_id_frame.o
 parse_frame param 0x27 replace parse_mp_ack_frame.o
 process_frame param 0x27 replace process_mp_ack_frame.o
-process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
-prepare_mp_ack_frame replace prepare_mp_ack_frame.o
-prepare_add_address_frame replace prepare_add_address_frame.o
+write_frame param 0x27 replace write_mp_ack_frame.o
 parse_frame param 0x22 replace parse_add_address_frame.o
 process_frame param 0x22 replace process_add_address_frame.o
+write_frame param 0x22 replace write_add_address_frame.o
+process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
 get_incoming_path replace get_incoming_path.o
 set_next_wake_time replace set_next_wake_time.o
 get_destination_connection_id replace get_destination_connection_id.o
 predict_packet_header_length replace predict_packet_header_length.o
+connection_state_changed post connection_state_changed.o
+select_sending_path replace select_sending_path.o
+received_segment post after_received_segment.o

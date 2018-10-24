@@ -46,7 +46,7 @@ static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_
     plugin_run_protoop(cnx, &pp);
 }
 
-static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit)
+static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, protoop_id_t *reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
@@ -55,6 +55,9 @@ static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_pack
     protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *timer_based_retransmit = (int) outs[0];
+    if (reason != NULL) {
+        *reason = (protoop_id_t) outs[1];
+    }
     return ret;
 }
 
@@ -203,7 +206,7 @@ static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_
 static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc,
     picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length)
+    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t *reason)
 {
     protoop_arg_t outs[2];
     protoop_arg_t args[7];
@@ -218,6 +221,7 @@ static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
+    *reason = (protoop_id_t) outs[2];
     return ret;
 }
 
@@ -452,7 +456,7 @@ static uint8_t* helper_frames_uint16_decode(uint8_t* bytes, const uint8_t* bytes
 }
 
 
-static inline uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
+static __attribute__((always_inline)) uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
 {
     if (bytes + sizeof(*n) <= bytes_max) {
         *n = PICOPARSE_64(bytes);
@@ -590,6 +594,82 @@ static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* byte
     protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, 3, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     *consumed = (size_t) outs[0];
+    return ret;
+}
+
+/**
+ *  return_values must contain 5 pointers to:
+ *
+ *  uint64_t* stream_id
+ *  uint64_t* offset
+ *  size_t* data_length
+ *  int* fin
+    size_t* consumed
+ */
+static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, protoop_arg_t** return_values) {
+    int ret = 0;
+    int len = bytes[0] & 2;
+    int off = bytes[0] & 4;
+    uint64_t length = 0;
+    size_t l_stream = 0;
+    size_t l_len = 0;
+    size_t l_off = 0;
+    size_t byte_index = 1;
+
+    uint64_t* stream_id = *(return_values);
+    uint64_t* offset = *(return_values + 1);
+    size_t* data_length = *(return_values + 2);
+    int* fin = (int *) *(return_values + 3);
+    size_t* consumed = *(return_values + 4);
+
+    *fin = bytes[0] & 1;
+
+    if (bytes_max > byte_index) {
+        l_stream = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, stream_id);
+        byte_index += l_stream;
+    }
+
+    if (off == 0) {
+        *offset = 0;
+    } else if (bytes_max > byte_index) {
+        l_off = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, offset);
+        byte_index += l_off;
+    }
+
+    if (bytes_max < byte_index || l_stream == 0 || (off != 0 && l_off == 0)) {
+        //DBG_PRINTF("stream frame header too large: first_byte=0x%02x, bytes_max=%" PRIst, bytes[0], bytes_max);
+        *data_length = 0;
+        byte_index = bytes_max;
+        ret = -1;
+    } else if (len == 0) {
+        *data_length = bytes_max - byte_index;
+    } else {
+        if (bytes_max > byte_index) {
+            l_len = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &length);
+            byte_index += l_len;
+            *data_length = (size_t)length;
+        }
+
+        if (l_len == 0 || bytes_max < byte_index) {
+            //DBG_PRINTF("stream frame header too large: first_byte=0x%02x, bytes_max=%" PRIst, bytes[0], bytes_max);
+            byte_index = bytes_max;
+            ret = -1;
+        } else if (byte_index + length > bytes_max) {
+            //DBG_PRINTF("stream data past the end of the packet: first_byte=0x%02x, data_length=%" PRIst ", max_bytes=%" PRIst, bytes[0], *data_length, bytes_max);
+            ret = -1;
+        }
+    }
+
+    *consumed = byte_index;
+    return ret;
+}
+
+static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, protoop_id_t reason, picoquic_packet_t *p)
+{
+    protoop_arg_t args[1], outs[0];
+    args[0] = (protoop_arg_t) p;
+    protoop_params_t pp = get_pp_noparam(reason, 1, args, outs);
+    int ret = (int) plugin_run_protoop(cnx, &pp);
     return ret;
 }
 

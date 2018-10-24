@@ -16,6 +16,21 @@
 #define MP_ACK_TYPE 0x27
 
 typedef struct {
+    uint64_t path_id;
+} mp_new_connection_id_ctx_t;
+
+typedef struct {
+    size_t nb_addrs;
+    struct sockaddr_in sas[4];
+    uint32_t if_indexes[4];
+} add_address_ctx_t;
+
+typedef struct {
+    picoquic_path_t *path_x;
+    picoquic_packet_context_enum pc;
+} mp_ack_ctx_t;
+
+typedef struct {
     picoquic_path_t *path;
     uint64_t path_id;
     uint8_t state; /* 0: proposed, 1: ready, 2: active, 3: unusable, 4: closed */
@@ -125,6 +140,66 @@ static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current
     int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &cnx->path[0]->peer_addr);
     /* TODO cope with possible errors */
     pd->path = cnx->path[cnx_path_index];
+}
+
+static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)
+{
+    mp_new_connection_id_ctx_t *mncic = (mp_new_connection_id_ctx_t *) my_malloc(cnx, sizeof(mp_new_connection_id_ctx_t));
+    if (!mncic) {
+        return;
+    }
+    mncic->path_id = path_id;
+    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    if (!rfs) {
+        my_free(cnx, mncic);
+        return;
+    }
+    rfs->frame_type = MP_NEW_CONNECTION_ID_TYPE;
+    rfs->frame_ctx = mncic;
+    rfs->nb_bytes = 52; /* This is the max value, in practice it won't be so much, but spare the estimation process here */
+    reserve_frames(cnx, 1, rfs);
+}
+
+static void reserve_add_address_frame(picoquic_cnx_t *cnx)
+{
+    add_address_ctx_t *aac = (add_address_ctx_t *) my_malloc(cnx, sizeof(add_address_ctx_t));
+    if (!aac) {
+        return;
+    }
+    aac->nb_addrs = picoquic_getaddrs_v4(aac->sas, aac->if_indexes, 4);
+    if (aac->nb_addrs == 0) {
+        my_free(cnx, aac);
+        return;
+    }
+    int frame_size_v4 = 9;
+    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    if (!rfs) {
+        my_free(cnx, aac);
+        return;
+    }
+    rfs->frame_type = ADD_ADDRESS_TYPE;
+    rfs->frame_ctx = aac;
+    rfs->nb_bytes = frame_size_v4 * aac->nb_addrs;
+    reserve_frames(cnx, 1, rfs);
+}
+
+static void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_packet_context_enum pc)
+{
+    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) my_malloc(cnx, sizeof(mp_ack_ctx_t));
+    if (!mac) {
+        return;
+    }
+    mac->path_x = path_x;
+    mac->pc = pc;
+    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    if (!rfs) {
+        my_free(cnx, mac);
+        return;
+    }
+    rfs->frame_type = MP_ACK_TYPE;
+    rfs->frame_ctx = mac;
+    rfs->nb_bytes = 14; /* This might probably change... */
+    reserve_frames(cnx, 1, rfs);
 }
 
 /* Other multipath functions */

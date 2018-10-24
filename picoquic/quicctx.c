@@ -900,6 +900,10 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 
     if (cnx) {
         register_protocol_operations(cnx);
+        /* Also initialize reserve queue */
+        cnx->reserved_frames = queue_init();
+        /* TODO change this arbitrary value */
+        cnx->drr_increase_round = 250;
     }
 
     /* The following lines should be uncommented only for testing purpose */
@@ -907,6 +911,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     // plugin_insert_transaction(cnx, "plugins/ecn/ecn.plugin");
     // plugin_insert_transaction(cnx, "plugins/multipath/multipath.plugin");
     // plugin_insert_transaction(cnx, "plugins/tlp/tlp.plugin");
+    // plugin_insert_transaction(cnx, "plugins/cop2/cop2.plugin");
 
     return cnx;
 }
@@ -939,6 +944,8 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
+    cnx->transactions = NULL;
+    cnx->current_transaction = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -1025,6 +1032,16 @@ uint64_t picoquic_get_cnx_start_time(picoquic_cnx_t* cnx)
 picoquic_state_enum picoquic_get_cnx_state(picoquic_cnx_t* cnx)
 {
     return cnx->cnx_state;
+}
+
+void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
+{
+    picoquic_state_enum previous_state = cnx->cnx_state;
+    cnx->cnx_state = state;
+    if(previous_state != cnx->cnx_state) {
+        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL,
+            previous_state, state);
+    }
 }
 
 uint64_t picoquic_is_0rtt_available(picoquic_cnx_t* cnx)
@@ -1271,7 +1288,7 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
             for (size_t i = 0; i < picoquic_nb_supported_versions; i++) {
                 if (proposed_version == picoquic_supported_versions[i].version) {
                     cnx->version_index = (int)i;
-                    cnx->cnx_state = picoquic_state_client_renegotiate;
+                    picoquic_set_cnx_state(cnx, picoquic_state_client_renegotiate);
 
                     break;
                 }
@@ -1303,12 +1320,12 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
     if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
         cnx->local_error = local_error;
-        cnx->cnx_state = picoquic_state_disconnecting;
+        picoquic_set_cnx_state(cnx, picoquic_state_disconnecting);
 
         DBG_PRINTF("Protocol error (%x)", local_error);
     } else if (cnx->cnx_state < picoquic_state_client_ready) {
         cnx->local_error = local_error;
-        cnx->cnx_state = picoquic_state_handshake_failure;
+        picoquic_set_cnx_state(cnx, picoquic_state_handshake_failure);
 
         DBG_PRINTF("Protocol error %x", local_error);
     }
@@ -1332,7 +1349,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
     if (cnx != NULL) {
         if (cnx->cnx_state < picoquic_state_disconnected) {
             /* Give the application a chance to clean up its state */
-            cnx->cnx_state = picoquic_state_disconnected;
+            picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
             if (cnx->callback_fn) {
                 (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
             }
@@ -1484,6 +1501,17 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             }
 
             free(current_post);
+        }
+
+        /* Delete pending reserved frames, if any */
+        queue_free(cnx->reserved_frames);
+
+        protoop_transaction_t *current_tr, *tmp_tr;
+        HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
+            HASH_DEL(cnx->transactions, current_tr);
+            /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+            queue_free(current_tr->block_queue);
+            free(current_tr);
         }
 
         free(cnx);
@@ -1658,6 +1686,14 @@ void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
     protoop_prepare_and_run_noparam(cnx, "before_sending_packet", NULL,
         socket);
+}
+
+void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, ph, path, length);
+}
+
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, ph, path, length);
 }
 
 bool is_private(in_addr_t t) {
@@ -1842,15 +1878,52 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
     return register_param_protoop(cnx, pid, NO_PARAM, op);
 }
 
+size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots)
+{
+    if (!cnx->current_transaction) {
+        printf("ERROR: s can only be called by plugins with transactions!\n");
+        return 0;
+    }
+    /* Well, or we could use queues instead ? */
+    reserve_frames_block_t *block = malloc(sizeof(reserve_frames_block_t));
+    if (!block) {
+        return 0;
+    }
+    block->nb_frames = nb_frames;
+    block->total_bytes = 0;
+    for (int i = 0; i < nb_frames; i++) {
+        block->total_bytes += slots[i].nb_bytes;
+    }
+    block->frames = slots;
+    int err = queue_enqueue(cnx->current_transaction->block_queue, block);
+    if (err) {
+        free(block);
+        return 0;
+    }
+    return block->total_bytes;
+}
+
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, &protoop_noop);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
     register_noparam_protoop(cnx,PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PRINTF, &protoop_printf);
 
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_TAIL_LOSS_PROBE, &protoop_noop);
+
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, "received_packet", &protoop_noop);
     register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
+    register_noparam_protoop(cnx, "received_segment", &protoop_noop);
+    register_noparam_protoop(cnx, "before_sending_segment", &protoop_noop);
+
+    /** \todo document these */
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
 }

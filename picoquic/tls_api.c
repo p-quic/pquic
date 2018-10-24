@@ -1584,7 +1584,7 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
                         }
                         else {
                             if (cnx->crypto_context[3].aead_encrypt != NULL) {
-                                cnx->cnx_state = picoquic_state_client_almost_ready;
+                                picoquic_set_cnx_state(cnx, picoquic_state_client_almost_ready);
                             }
                         }
                     }
@@ -1595,11 +1595,11 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
                        The server does not send any further packets, so, we can switch into ready state here.
                     */
                     if (data_pushed == 0 && ((ptls_context_t*)cnx->quic->tls_master_ctx)->require_client_authentication == 1) {
-                        cnx->cnx_state = picoquic_state_server_ready;
+                        picoquic_set_cnx_state(cnx, picoquic_state_server_ready);
                     }
                     else {
                         if (cnx->crypto_context[3].aead_encrypt != NULL) {
-                            cnx->cnx_state = picoquic_state_server_almost_ready;
+                            picoquic_set_cnx_state(cnx, picoquic_state_server_almost_ready);
                         }
                     }
                     break;
@@ -1631,7 +1631,7 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
             {
                 if (ptls_handshake_is_complete(ctx->tls))
                 {
-                    cnx->cnx_state = picoquic_state_server_almost_ready;
+                    picoquic_set_cnx_state(cnx, picoquic_state_server_almost_ready);
                 }
             }
 

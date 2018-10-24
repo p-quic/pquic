@@ -32,6 +32,7 @@
 #include "picosocks.h"
 #include "uthash.h"
 #include "protoop.h"
+#include "queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -440,6 +441,42 @@ typedef uint16_t param_id_t;
 typedef uint16_t opaque_id_t;
 typedef uint64_t protoop_arg_t;
 
+typedef char* transaction_id_t;
+
+/* This structure is used for sending booking purposes */
+typedef struct reserve_frame_slot {
+    size_t nb_bytes;
+    uint64_t frame_type;
+    /* TODO FIXME position */
+    void *frame_ctx;
+} reserve_frame_slot_t;
+
+typedef struct reserve_frames_block {
+    size_t total_bytes;
+    uint8_t nb_frames;
+    /* The following pointer is an array! */
+    reserve_frame_slot_t *frames;
+} reserve_frames_block_t;
+
+/**
+ * Book an occasion to send the frame whose details are given in \p slot.
+ * \param[in] cnx The context of the connection
+ * \param[in] slot Information about the frame booking
+ * 
+ * \return The number of bytes reserved, or 0 if an error occurred
+ */
+size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
+
+#define PROTOOPTRANSACTIONNAME_MAX 100
+
+typedef struct protoop_transaction {
+    char name[PROTOOPTRANSACTIONNAME_MAX];
+    queue_t *block_queue; /* Send reservation queue */
+    uint16_t budget; /* Sending budget */
+    uint16_t max_budget; /* Maximum value of the budget */
+    UT_hash_handle hh; /* Make the structure hashable */
+} protoop_transaction_t;
+
 typedef struct {
     protoop_id_t pid;
     param_id_t param;
@@ -618,9 +655,19 @@ typedef struct st_picoquic_cnx_t {
     int nb_paths;
     int nb_path_alloc;
 
+    /* Management of pending frames to be sent due to reservations */
+    queue_t *reserved_frames;
+    /* Number of bytes given to frames by round */
+    uint16_t drr_increase_round;
+    /* Keep a pointer to the next transaction to look at first */
+    protoop_transaction_t *first_drr;
+
     /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
+
+    /* FIXME move me to a safe place */
+    protoop_transaction_t *transactions;
 
     /* Opaque field for free use by plugins */
     size_t opaque_size_taken;
@@ -636,7 +683,10 @@ typedef struct st_picoquic_cnx_t {
     protoop_arg_t protoop_outputv[PROTOOPARGS_MAX];
 
     int protoop_outputc_callee; /* Modified by the callee */
+    protoop_arg_t protoop_output; /* Only available for post calls */
 
+    protoop_transaction_t *current_transaction; /* This should not be modified by the plugins... */
+    
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
      * Therefore, each context has its own memory space that should contain everything
      * needed for the given connection.
@@ -948,6 +998,7 @@ void picoquic_log_picotls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
 const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev);
 void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     const char* label1, const char* label2);
+char const* picoquic_log_state_name(picoquic_state_enum state);
 
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
 
@@ -987,8 +1038,9 @@ picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t strea
 void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
+void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
-uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time);
+uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x);
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
@@ -1037,6 +1089,9 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 /* Hooks for reception and sending of packets */
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
+/* Hooks for reception and sending of QUIC packets before encryption */  // TODO: Maybe the two above and below should be merged
+void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
@@ -1059,6 +1114,7 @@ protoop_arg_t protoop_true(picoquic_cnx_t *cnx);
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
+#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || STREAM_RESET_SENT(stream)) && ((stream->stream_flags & picoquic_stream_flag_reset_received) != 0 && (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
 
 #ifdef __cplusplus
 }

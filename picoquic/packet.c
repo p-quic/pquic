@@ -966,7 +966,7 @@ int picoquic_incoming_server_cleartext(
 #endif
 
     if (cnx->cnx_state == picoquic_state_client_init_sent || cnx->cnx_state == picoquic_state_client_init_resent) {
-        cnx->cnx_state = picoquic_state_client_handshake_start;
+        picoquic_set_cnx_state(cnx, picoquic_state_client_handshake_start);
     }
 
     int restricted = cnx->cnx_state != picoquic_state_client_handshake_start && cnx->cnx_state != picoquic_state_client_handshake_progress;
@@ -1052,7 +1052,7 @@ int picoquic_incoming_stateless_reset(
     picoquic_cnx_t* cnx)
 {
     /* Stateless reset. The connection should be abandonned */
-    cnx->cnx_state = picoquic_state_disconnected;
+    picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
 
     if (cnx->callback_fn) {
         (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
@@ -1154,10 +1154,10 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 if (ret == 0) {
                     if (closing_received) {
                         if (cnx->client_mode) {
-                            cnx->cnx_state = picoquic_state_disconnected;
+                            picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                         }
                         else {
-                            cnx->cnx_state = picoquic_state_draining;
+                            picoquic_set_cnx_state(cnx, picoquic_state_draining);
                         }
                     }
                     else {
@@ -1290,6 +1290,7 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
+            picoquic_received_segment(cnx, ph_ptr, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, ph_ptr), *consumed);
             /* Ensure bytes are in the context */
             uint8_t *cnx_bytes = my_malloc(cnx, packet_length);
             if (!cnx_bytes) {

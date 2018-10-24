@@ -5,18 +5,14 @@
 #include "memory.h"
 
 /**
- * cnx->protoop_inputv[0] = uint8_t* bytes
- * cnx->protoop_inputv[1] = size_t bytes_max
- * size_t consumed = cnx->protoop_inputv[2]
- *
- * Output: int ret
- * cnx->protoop_outputv[0] = size_t consumed
+ * See PROTOOP_PARAM_WRITE_FRAME
  */
-protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
+protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
-    size_t consumed = (size_t) cnx->protoop_inputv[2];
+    add_address_ctx_t *aac = (add_address_ctx_t *) cnx->protoop_inputv[2];
+    size_t consumed = (size_t) cnx->protoop_inputv[3];
 
     picoquic_path_t *path_0 = cnx->path[0];
     uint16_t port;
@@ -31,16 +27,10 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
     }
 
     int ret = 0;
+    int frame_size_v4 = 9;
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    /* Only cope with v4 so far, v6 for later */
-    struct sockaddr_in sas[4];
-    uint32_t if_indexes[4];
-    int nb_addrs = picoquic_getaddrs_v4(sas, if_indexes, 4);
-
-    int frame_size_v4 = 9;
-
-    if (bytes_max < nb_addrs * frame_size_v4) {
+    if (bytes_max < aac->nb_addrs * frame_size_v4) {
         /* A valid frame, with our encoding, uses at least 13 bytes.
          * If there is not enough space, don't attempt to encode it.
          */
@@ -54,7 +44,7 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
         int addr_id = 0;
         struct sockaddr_in *sa;
 
-        for (int i = 0; i < nb_addrs; i++) {
+        for (int i = 0; i < aac->nb_addrs; i++) {
             /* First record the address */
             addr_index = bpfd->nb_loc_addrs;
             addr_id = addr_index + 1;
@@ -63,13 +53,13 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
                 ret = PICOQUIC_ERROR_MEMORY;
                 break;
             }
-            my_memcpy(sa, &sas[i], sizeof(struct sockaddr_in));
+            my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_in));
             /* Take the port from the current path 0 */
             my_memcpy(&sa->sin_port, &port, 2);
             bpfd->loc_addrs[addr_index].id = addr_id;
             bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
             bpfd->loc_addrs[addr_index].is_v6 = false;
-            bpfd->loc_addrs[addr_index].if_index = if_indexes[i];
+            bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
 
             /* Encode the first byte */
             bytes[byte_index++] = ADD_ADDRESS_TYPE;
@@ -96,6 +86,8 @@ protoop_arg_t prepare_add_address_frame(picoquic_cnx_t* cnx)
 
         consumed = byte_index;
     }
+
+    my_free(cnx, aac);
     
     cnx->protoop_outputc_callee = 1;
     cnx->protoop_outputv[0] = (protoop_arg_t) consumed;

@@ -22,6 +22,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_path_t* send_path = p->send_path;
     int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
+    protoop_id_t reason = NULL;
 
     if (delta_seq > 3) {
         /*
@@ -29,6 +30,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
          * more than N packets were seen at the receiver after this one.
          */
         should_retransmit = 1;
+        reason = PROTOOP_NOPARAM_FAST_RETRANSMIT;
     } else {
         int64_t delta_t = send_path->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
 
@@ -62,6 +64,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             } else {
                 should_retransmit = 1;
                 timer_based = 1;
+                reason = PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
             }
         }
 
@@ -71,6 +74,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
                 /* Only retransmit the newest packet (indicated by should retransmit being 2) */
                 should_retransmit = 2;
                 bpfd->tlp_last_asked = current_time;
+                reason = PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
             }
         } else {
             bpfd->tlp_time = 0;
@@ -79,7 +83,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     }
 
     cnx->protoop_outputv[0] = (protoop_arg_t) timer_based;
-    cnx->protoop_outputc_callee = 1;
+    cnx->protoop_outputv[1] = (protoop_arg_t) reason;
+    cnx->protoop_outputc_callee = 2;
 
     return (protoop_arg_t) should_retransmit;
 }

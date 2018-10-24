@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "memory.h"
+#include "picoquic_internal.h"
 
-int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_transaction_t *t, plugin_type_enum pte, char *elf_fname) {
     /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
     if (pte == plugin_replace && popst->replace) {
         printf("Replace plugin already inserted!\n");
@@ -17,6 +19,8 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, plugi
         printf("Failed to insert %s\n", elf_fname);
         return 1;
     }
+    /* Record the transaction plugin comes from */
+    new_plugin->t = t;
 
     /* We cope with (nearly) all bad cases, so now insert */
     observer_node_t *new_node;
@@ -51,7 +55,7 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, plugi
     return 0;
 }
 
-int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_id_t pid, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_transaction_t *t, protoop_id_t pid, plugin_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst = post->params;
     /* Sanity check */
     if (post->is_parametrable) {
@@ -59,10 +63,10 @@ int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_id_t pid,
         return 1;
     }
 
-    return plugin_plug_elf_param_struct(popst, pte, elf_fname);
+    return plugin_plug_elf_param_struct(popst, t, pte, elf_fname);
 }
 
-int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst;
     bool created_popst = false;
     /* Sanity check */
@@ -81,7 +85,7 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, p
         }
     }
 
-    int err = plugin_plug_elf_param_struct(popst, pte, elf_fname);
+    int err = plugin_plug_elf_param_struct(popst, t, pte, elf_fname);
 
     if (err) {
         if (created_popst) {
@@ -100,7 +104,7 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_id_t pid, p
     return 0;
 }
 
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
@@ -121,8 +125,8 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plu
     }
 
     /* Again, two cases: either it is parametric or not */
-    return param != NO_PARAM ? plugin_plug_elf_param(post, pid, param, pte, elf_fname) :
-        plugin_plug_elf_noparam(post, pid, pte, elf_fname);
+    return param != NO_PARAM ? plugin_plug_elf_param(post, t, pid, param, pte, elf_fname) :
+        plugin_plug_elf_noparam(post, t, pid, pte, elf_fname);
 }
 
 int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte) {
@@ -210,7 +214,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
     return 0;
 }
 
-bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
+bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoop_transaction_t *t,
     char *plugin_dirname, protoop_id_t inserted_pid, param_id_t *param, plugin_type_enum *pte)
 {
     /* Part one: extract protocol operation id */
@@ -276,7 +280,37 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line,
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
     strcat(abs_path, token);
-    return plugin_plug_elf(cnx, inserted_pid, *param, *pte, abs_path) == 0;
+    return plugin_plug_elf(cnx, t, inserted_pid, *param, *pte, abs_path) == 0;
+}
+
+protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *line) {
+    /* Part one: extract transaction id */
+    char *token = strsep(&line, " ");
+    if (token == NULL) {
+        printf("No token for protocol operation id extracted!\n");
+        return false;
+    }
+
+    /* Handle end of line  FIXME Move me later when parameters are present */
+    token[strcspn(token, "\r\n")] = 0;
+
+    protoop_transaction_t *t = malloc(sizeof(protoop_transaction_t));
+    if (!t) {
+        printf("Cannot allocate memory for transaction!\n");
+        return NULL;
+    }
+
+    strncpy(t->name, token, PROTOOPTRANSACTIONNAME_MAX);
+    t->block_queue = queue_init();
+    if (!t->block_queue) {
+        printf("Cannot allocate memory for sending queue!\n");
+        free(t);
+        return NULL;
+    }
+    /* TODO make this value configurable */
+    t->max_budget = 7500;
+    t->budget = t->max_budget;
+    return t;
 }
 
 typedef struct pid_node {
@@ -307,12 +341,24 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
 
+    read = getline(&line, &len, file);
+    if (read == -1) {
+        printf("Error in the file %s\n", plugin_fname);
+        return 1;
+    }
+
+    protoop_transaction_t *t = plugin_parse_transaction_line(cnx, line);
+    if (!t) {
+        printf("Cannot extract transaction line in file %s\n", plugin_fname);
+        return 1;
+    }
+
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
         if (len <= 1) {
             continue;
         }
-        ok = insert_plugin_from_transaction_line(cnx, line, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
+        ok = insert_plugin_from_transaction_line(cnx, line, t, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -337,6 +383,12 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         tmp = pid_stack_top->next;
         free(pid_stack_top);
         pid_stack_top = tmp;
+    }
+
+    if (!ok) {
+        free(t);
+    } else {
+        HASH_ADD_STR(cnx->transactions, name, t);
     }
 
     if (line) {
@@ -388,6 +440,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
      * With this, even if the called plugin tried to modify the input arguments,
      * they will remain unchanged at caller side.
      */
+    protoop_transaction_t *old_transaction = cnx->current_transaction;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
     uint64_t *caller_inputv[PROTOOPARGS_MAX];
@@ -437,6 +490,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
+        cnx->current_transaction = tmp->observer->t;
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
@@ -444,8 +498,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     /* The actual protocol operation */
     if (popst->replace) {
         DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
+        cnx->current_transaction = popst->replace->t;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
     } else if (popst->core) {
+        cnx->current_transaction = NULL;
         status = popst->core(cnx);
     } else {
         printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid);
@@ -454,11 +510,16 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     /* Finally, is there any post to run? */
     tmp = popst->post;
+    if (tmp) {
+        cnx->protoop_output = status;
+    }
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
+        cnx->current_transaction = tmp->observer->t;
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
+    cnx->protoop_output = 0;
 
     int outputc = cnx->protoop_outputc_callee;
 
@@ -486,6 +547,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
      * it will likely not specify the outputc value, as it expects it to remain 0...
      */
     cnx->protoop_outputc_callee = caller_outputc;
+
+    /* Also restore the transaction context */
+    cnx->current_transaction = old_transaction;
 
     return status;
 }
