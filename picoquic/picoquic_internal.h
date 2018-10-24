@@ -472,6 +472,8 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
 typedef struct protoop_transaction {
     char name[PROTOOPTRANSACTIONNAME_MAX];
     queue_t *block_queue; /* Send reservation queue */
+    uint16_t budget; /* Sending budget */
+    uint16_t max_budget; /* Maximum value of the budget */
     UT_hash_handle hh; /* Make the structure hashable */
 } protoop_transaction_t;
 
@@ -655,6 +657,10 @@ typedef struct st_picoquic_cnx_t {
 
     /* Management of pending frames to be sent due to reservations */
     queue_t *reserved_frames;
+    /* Number of bytes given to frames by round */
+    uint16_t drr_increase_round;
+    /* Keep a pointer to the next transaction to look at first */
+    protoop_transaction_t *first_drr;
 
     /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */

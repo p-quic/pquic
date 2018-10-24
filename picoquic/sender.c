@@ -2319,6 +2319,66 @@ picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
     return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
 }
 
+protoop_transaction_t *get_next_transaction(picoquic_cnx_t *cnx, protoop_transaction_t *t)
+{
+    if (t->hh.next != NULL) {
+        return t->hh.next;
+    }
+    /* Otherwise, it is the first one */
+    return cnx->transactions;
+}
+
+/* This implements a deficit round robin with bursts */
+void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
+{
+    if (!cnx->first_drr) {
+        cnx->first_drr = cnx->transactions;
+    }
+    /* Find if reservations were made */
+    protoop_transaction_t *tr, *tmp_tr;
+    reserve_frames_block_t *block;
+
+    /* It's a two step process: check between how many transactions the increase should be shared */
+    uint8_t candidate_to_increase = 0;
+    /* FIXME this is not fair... Introduce DRR */
+    HASH_ITER(hh, cnx->transactions, tr, tmp_tr) {
+        if (tr->budget < tr->max_budget) {
+            candidate_to_increase++;
+        }
+    }
+
+    uint16_t increase = 0;
+    if (candidate_to_increase > 0) {
+        increase = cnx->drr_increase_round / candidate_to_increase;
+    }
+
+    tr = cnx->first_drr;
+
+    do {
+        if (tr->budget < tr->max_budget) {
+            tr->budget += increase;
+            if (tr->budget > tr->max_budget) {
+                tr->budget = tr->max_budget;
+            }
+        }
+
+        while ((block = queue_peek(tr->block_queue)) != NULL && block->total_bytes < tr->budget) {
+            block = (reserve_frames_block_t *) queue_dequeue(tr->block_queue);
+            for (int i = 0; i < block->nb_frames; i++) {
+                /* Not the most efficient way, but will do the trick */
+                queue_enqueue(cnx->reserved_frames, &block->frames[i]);
+            }
+            /* Consume the budget */
+            tr->budget -= block->total_bytes;
+            /* Free the block */
+            free(block);
+        }
+    } while ((tr = get_next_transaction(cnx, tr)) != cnx->first_drr);
+
+    /* Finally, put the first pointer to the next one */
+    cnx->first_drr = get_next_transaction(cnx, tr);
+}
+
 /**
  * cnx->protoop_inputv[0] = picoquic_path_t *path_x
  * cnx->protoop_inputv[1] = picoquic_packet_t* packet
@@ -2450,6 +2510,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 if (cnx->cnx_state != picoquic_state_disconnected) {
                     reserve_frame_slot_t *rfs;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
+
+                    /* First enqueue frames that can be fairly sent */
+                    picoquic_frame_fair_reserve(cnx);
                     /* First empty the reserved frames */
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
@@ -2463,41 +2526,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                         /* It was reserved by the plugin, so it is a my_free */
                         my_free(cnx, rfs);
-                    }
-
-                    /* Only if there is no reservation pending, look for other reservations */
-                    if (!rfs) {
-                        /* Find if reservations were made */
-                        protoop_transaction_t *curr_tr, *tmp_tr;
-                        reserve_frames_block_t *block;
-                        /* FIXME this is not fair... Introduce DRR */
-                        HASH_ITER(hh, cnx->transactions, curr_tr, tmp_tr) {
-                            /* FIXME */
-                            while (queue_peek(curr_tr->block_queue) != NULL) {
-                                block = (reserve_frames_block_t *) queue_dequeue(curr_tr->block_queue);
-                                for (int i = 0; i < block->nb_frames; i++) {
-                                    /* Not the most efficient way, but will do the trick */
-                                    queue_enqueue(cnx->reserved_frames, &block->frames[i]);
-                                }
-                                /* Free the block */
-                                free(block);
-                            }
-                        }
-
-                        /* And now try to send those frames */
-                        while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
-                               rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
-                            rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
-                            ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
-                                    &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx, data_bytes);
-                            data_bytes = (size_t) outs[0];
-                            /* TODO FIXME consumed */
-                            if (ret == 0) {
-                                length += (uint32_t) data_bytes;
-                            }
-                            /* It was reserved by the plugin, so it is a my_free */
-                            my_free(cnx, rfs);
-                        }
                     }
 
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],

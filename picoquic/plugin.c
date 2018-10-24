@@ -307,6 +307,9 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
         free(t);
         return NULL;
     }
+    /* TODO make this value configurable */
+    t->max_budget = 7500;
+    t->budget = t->max_budget;
     return t;
 }
 

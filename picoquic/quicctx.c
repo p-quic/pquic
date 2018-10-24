@@ -902,6 +902,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         register_protocol_operations(cnx);
         /* Also initialize reserve queue */
         cnx->reserved_frames = queue_init();
+        /* TODO change this arbitrary value */
+        cnx->drr_increase_round = 250;
     }
 
     /* The following lines should be uncommented only for testing purpose */
