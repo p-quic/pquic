@@ -26,6 +26,11 @@
 struct ubpf_vm;
 typedef uint64_t (*ubpf_jit_fn)(void *mem, size_t mem_len);
 
+/*
+ * Return the cause of the error if the VM crashed, or NULL otherwise
+ */
+char *ubpf_get_error_msg(const struct ubpf_vm *vm);
+
 struct ubpf_vm *ubpf_create(void);
 void ubpf_destroy(struct ubpf_vm *vm);
 
