@@ -71,7 +71,7 @@ static const protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED = "is_fra
  * Write the frame whose the type is provided as parameter.
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
- * \param[in] frame_ctx \b void* The context of the frame to write. If no NULL, it has to be allocated in context memory and has to be free'd.
+ * \param[in] frame_ctx \b void* The context of the frame to write. If not NULL, it has to be allocated in context memory and has to be free'd.
  * \param[in] consumed \b int Current value of consumed
  * 
  * \return \b int Error code, 0 iff everything was fine

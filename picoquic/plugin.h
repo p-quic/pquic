@@ -11,6 +11,7 @@
 #include <stdarg.h>
 
 typedef enum {
+    plugin_extern,
     plugin_replace,
     plugin_pre,
     plugin_post
@@ -87,8 +88,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 # define N_ARGS_HELPER1(...) N_ARGS_HELPER2(__VA_ARGS__)
 # define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
 
-# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
-# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, true, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, true, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_extern_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_extern_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
 #elif defined(__GNUC__)
@@ -110,7 +113,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
 #endif
 
-static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, protoop_arg_t *outputv, unsigned int n_args, ...)
+static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, bool caller, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
   int i;
   va_list ap;
@@ -123,7 +126,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
     DBG_PLUGIN_PRINTF("  %lu", arg);
   }
   va_end(ap);
-  protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv};
+  protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
   return plugin_run_protoop(cnx, &pp);
 }
 

@@ -809,7 +809,7 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     args[7] = (protoop_arg_t) send_buffer_max;
     args[8] = (protoop_arg_t) path_x;
     args[9] = (protoop_arg_t) current_time;
-    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, .inputc = 10, .inputv = args, .outputv = NULL};
+    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, .inputc = 10, .inputv = args, .outputv = NULL, .caller_is_intern = true };
     *send_length  = (size_t) plugin_run_protoop(cnx, &pp);
 }
 

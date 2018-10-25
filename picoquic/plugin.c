@@ -8,9 +8,19 @@
 
 int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_transaction_t *t, plugin_type_enum pte, char *elf_fname) {
     /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
-    if (pte == plugin_replace && popst->replace) {
+    if ((pte == plugin_replace || pte == plugin_extern) && popst->replace) {
         printf("Replace plugin already inserted!\n");
         return 1;
+    }
+
+    if (!popst->intern && (pte == plugin_pre || pte == plugin_post)) {
+        printf("External plugin cannot have observers!\n");
+        return 1;
+    }
+
+    if (popst->intern && pte == plugin_extern && (popst->core || popst->pre != NULL || popst->post != NULL)) {
+        printf("An internal plugin already exists!\n");
+        return -1;
     }
 
     /* Then check if we can load the plugin! */
@@ -25,6 +35,9 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
     /* We cope with (nearly) all bad cases, so now insert */
     observer_node_t *new_node;
     switch (pte) {
+    case plugin_extern:
+        popst->intern = false;
+        /* this falls through intentionally */
     case plugin_replace:
         popst->replace = new_plugin;
         break;
@@ -164,6 +177,11 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
      */
     observer_node_t *to_remove;
     switch (pte) {
+    case plugin_extern:
+        if (popst->intern) {
+            printf("Trying to unplug non-existing external plugin for proto op id %s\n", pid);
+        }
+        /* this falls through intentionally */
     case plugin_replace:
         if (!popst->replace) {
             printf("Trying to unplug non-existing replace plugin for proto op id %s...\n", pid);
@@ -261,6 +279,8 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoo
         *pte = plugin_pre;
     } else if (strncmp(token, "post", 4) == 0) {
         *pte = plugin_post;
+    } else if (strncmp(token, "extern", 6) == 0) {
+        *pte = plugin_extern;
     } else {
         printf("Cannot extract the type of the plugin: %s\n", token);
         return false;
@@ -484,6 +504,15 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         }
     } else {
         popst = post->params;
+    }
+
+    if (pp->caller_is_intern != popst->intern) {
+        if (pp->caller_is_intern) {
+            printf("FATAL ERROR: Intern caller cannot call extern protocol operation with id %s and param %u\n", pp->pid, pp->param);
+        } else {
+            printf("FATAL ERROR: Extern caller cannot call intern protocol operation with id %s and param %u\n", pp->pid, pp->param);
+        }
+        exit(-1);
     }
 
     /* First, is there any pre to run? */

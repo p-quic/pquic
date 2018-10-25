@@ -480,6 +480,7 @@ typedef struct protoop_transaction {
 typedef struct {
     protoop_id_t pid;
     param_id_t param;
+    bool caller_is_intern;
     int inputc;
     protoop_arg_t *inputv;
     protoop_arg_t *outputv;
@@ -499,6 +500,8 @@ typedef struct {
     param_id_t param; /* Key of the parameter. If its value is -1, it has no parameter */
     protocol_operation core; /* The default operation, kept for unplugging feature */
     plugin_t *replace; /* Exclusive plugin replacing the code operation */
+    bool intern;  /* intern operations can only be called by plugins and have observers,
+                   * extern operations can only be called by the application and have no observers */
     observer_node_t *pre; /* List of observers, probing just before function invocation */
     observer_node_t *post; /* List of observers, probing just after function returns */
     UT_hash_handle hh; /* Make the structure hashable */
