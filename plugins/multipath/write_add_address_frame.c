@@ -10,7 +10,7 @@
 protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
-    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     add_address_ctx_t *aac = (add_address_ctx_t *) cnx->protoop_inputv[2];
     size_t consumed = (size_t) cnx->protoop_inputv[3];
 
@@ -30,7 +30,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     int frame_size_v4 = 9;
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    if (bytes_max < aac->nb_addrs * frame_size_v4) {
+    if (bytes_max - bytes < aac->nb_addrs * frame_size_v4) {
         /* A valid frame, with our encoding, uses at least 13 bytes.
          * If there is not enough space, don't attempt to encode it.
          */

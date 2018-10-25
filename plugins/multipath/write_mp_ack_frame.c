@@ -9,7 +9,7 @@
 protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     mp_ack_ctx_t *mac = (mp_ack_ctx_t *) cnx->protoop_inputv[2];
     size_t consumed = (size_t) cnx->protoop_inputv[3];
     
@@ -39,7 +39,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     /* Check that there is enough room in the packet, and something to acknowledge */
     if (pkt_ctx->first_sack_item.start_of_sack_range == (uint64_t)((int64_t)-1)) {
         consumed = 0;
-    } else if (bytes_max < 14) {
+    } else if (bytes_max - bytes < 14) {
         /* A valid ACK, with our encoding, uses at least 13 bytes.
         * If there is not enough space, don't attempt to encode it.
         */
@@ -49,24 +49,24 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         /* Encode the first byte */
         bytes[byte_index++] = mp_ack_type_byte;
         /* Encode the path ID */
-        if (byte_index < bytes_max) {
-            l_path_id = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+        if (byte_index < bytes_max - bytes) {
+            l_path_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 pd->path_id);
             byte_index += l_path_id;
         }
         /* Encode the largest seen */
-        if (byte_index < bytes_max) {
-            l_largest = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+        if (byte_index < bytes_max - bytes) {
+            l_largest = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 pkt_ctx->first_sack_item.end_of_sack_range);
             byte_index += l_largest;
         }
         /* Encode the ack delay */
-        if (byte_index < bytes_max) {
+        if (byte_index < bytes_max - bytes) {
             if (current_time > pkt_ctx->time_stamp_largest_received) {
                 ack_delay = current_time - pkt_ctx->time_stamp_largest_received;
                 ack_delay >>= cnx->local_parameters.ack_delay_exponent;
             }
-            l_delay = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+            l_delay = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 ack_delay);
             byte_index += l_delay;
         }
@@ -76,15 +76,15 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             num_block_index = byte_index;
             byte_index++;
             /* Encode the size of the first ack range */
-            if (byte_index < bytes_max) {
+            if (byte_index < bytes_max - bytes) {
                 ack_range = pkt_ctx->first_sack_item.end_of_sack_range - pkt_ctx->first_sack_item.start_of_sack_range;
-                l_first_range = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+                l_first_range = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                     ack_range);
                 byte_index += l_first_range;
             }
         }
 
-        if (l_path_id == 0 || l_delay == 0 || l_largest == 0 || l_first_range == 0 || byte_index > bytes_max) {
+        if (l_path_id == 0 || l_delay == 0 || l_largest == 0 || l_first_range == 0 || byte_index > (size_t) (bytes_max - bytes)) {
             /* not enough space */
             consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
@@ -96,16 +96,16 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
                 size_t l_gap = 0;
                 size_t l_range = 0;
 
-                if (byte_index < bytes_max) {
+                if (byte_index < (size_t) (bytes_max - bytes)) {
                     ack_gap = lowest_acknowledged - next_sack->end_of_sack_range - 2; /* per spec */
                     l_gap = picoquic_varint_encode(bytes + byte_index,
-                        bytes_max - byte_index, ack_gap);
+                        (size_t) (bytes_max - bytes) - byte_index, ack_gap);
                 }
 
-                if (byte_index + l_gap < bytes_max) {
+                if (byte_index + l_gap < (size_t) (bytes_max - bytes)) {
                     ack_range = next_sack->end_of_sack_range - next_sack->start_of_sack_range;
                     l_range = picoquic_varint_encode(bytes + byte_index + l_gap,
-                        bytes_max - byte_index - l_gap, ack_range);
+                        (size_t) (bytes_max - bytes) - byte_index - l_gap, ack_range);
                 }
 
                 if (l_gap == 0 || l_range == 0) {

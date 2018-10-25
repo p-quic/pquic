@@ -10,7 +10,7 @@
 protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
-    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     mp_new_connection_id_ctx_t *mncic = (mp_new_connection_id_ctx_t *) cnx->protoop_inputv[2];
     size_t consumed = (size_t) cnx->protoop_inputv[3];
 
@@ -18,7 +18,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     int new_path_index = 0;
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    if (bytes_max < 28) {
+    if (bytes_max - bytes < 28) {
         /* A valid frame, with our encoding, uses at least 13 bytes.
          * If there is not enough space, don't attempt to encode it.
          */
@@ -58,15 +58,15 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* Encode the first byte */
         bytes[byte_index++] = MP_NEW_CONNECTION_ID_TYPE;
 
-        if (byte_index < bytes_max) {
+        if (byte_index < bytes_max - bytes) {
             /* Path ID */
-            path_id_l = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+            path_id_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
                 mncic->path_id);
             byte_index += path_id_l;
         }
-        if (byte_index < bytes_max) {
+        if (byte_index < bytes_max - bytes) {
             /* Seq */
-            seq_l = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
+            seq_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
                 0);
             byte_index += seq_l;
         }
