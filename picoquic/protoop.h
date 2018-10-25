@@ -170,7 +170,7 @@ static const protoop_id_t PROTOOP_NOPARAM_FIND_READY_STREAM = "find_ready_stream
 static const protoop_id_t PROTOOP_NOPARAM_IS_ACK_NEEDED = "is_ack_needed";
 
 /**
- * Chec if the TLS stream is ready to send.
+ * Check if the TLS stream is ready to send.
  * 
  * \return \b int Iff non-zero, indicates that the TLS stream is ready
  */
