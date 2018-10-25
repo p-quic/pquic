@@ -3,7 +3,7 @@
 #include "../helpers.h"
 #include "bpf.h"
 
-protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
+protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
     picoquic_path_t *path_x = cnx->path[0];
     bpf_data *bpfd = get_bpf_data(cnx);
@@ -40,6 +40,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 my_memcpy(&pd->path->peer_addr, adr->sa, pd->path->peer_addr_len);
             }
         }
+
+        /* A (very) simple round-robin */
         if (pd->state == 2) {
             if (path_x == cnx->path[0]) {
                 path_x = pd->path;
