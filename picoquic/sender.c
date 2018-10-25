@@ -2350,6 +2350,11 @@ protoop_transaction_t *get_next_transaction(picoquic_cnx_t *cnx, protoop_transac
 /* This implements a deficit round robin with bursts */
 void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
 {
+    /* If there is no transaction, there is no frame to reserve! */
+    if (!cnx->transactions) {
+        return;
+    }
+    /* Handle the first call */
     if (!cnx->first_drr) {
         cnx->first_drr = cnx->transactions;
     }
