@@ -19,7 +19,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             pd->state = 2;
             addr_data_t *adl = NULL;
             addr_data_t *adr = NULL;
-            if (pd->path_id == 2) {
+            if (pd->path_id == 2 && bpfd->loc_addrs[0].sa != NULL && bpfd->rem_addrs[0].sa) {
                 pd->loc_addr_id = 1;
                 adl = &bpfd->loc_addrs[0];
                 pd->path->local_addr_len = (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
@@ -29,7 +29,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 adr = &bpfd->rem_addrs[0];
                 pd->path->peer_addr_len = (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
                 my_memcpy(&pd->path->peer_addr, adr->sa, pd->path->peer_addr_len);
-            } else {
+            } else if (pd->path_id == 4 && bpfd->loc_addrs[1].sa != NULL && bpfd->rem_addrs[0].sa) {
                 // Path id is 4
                 pd->loc_addr_id = 2;
                 adl = &bpfd->loc_addrs[1];
