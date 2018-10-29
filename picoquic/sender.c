@@ -2553,6 +2553,14 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 }
                             }
                         }
+                        /* if present, send path response. This ensures we send it on the right path */
+                        if (path_x->challenge_response_to_send && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
+                            /* This is not really clean, but it will work */
+                            bytes[length] = picoquic_frame_type_path_response;
+                            memcpy(&bytes[length+1], path_x->challenge_response, PICOQUIC_CHALLENGE_LENGTH);
+                            path_x->challenge_response_to_send = 0;
+                            length += PICOQUIC_CHALLENGE_LENGTH + 1;
+                        }
                         /* If present, send misc frame */
                         while (cnx->first_misc_frame != NULL) {
                             ret = picoquic_prepare_first_misc_frame(cnx, &bytes[length],

@@ -55,6 +55,7 @@ static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
  * \param[in] frame \b void* Pointer to the structure malloc'ed in the context memory containing the frame information. Don't free it.
  * \param[in] current_time \b uint64_t Time of reception of the packet containing that frame
  * \param[in] epoch \b int Epoch of the received packet containing the frame
+ * \param[in] path_x \b picoquic_path_t* The path on which the frame was received
  * 
  * \return \b int Error code, 0 iff everything is fine.
  */

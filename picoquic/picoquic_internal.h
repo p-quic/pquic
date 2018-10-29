@@ -395,14 +395,17 @@ typedef struct st_picoquic_path_t {
     int local_addr_len;
     unsigned long if_index_local;
 
+#define PICOQUIC_CHALLENGE_LENGTH 8
     /* Challenge used for this path */
     uint64_t challenge;
     uint64_t challenge_time;
+    uint8_t challenge_response[PICOQUIC_CHALLENGE_LENGTH];
     uint8_t challenge_repeat_count;
 #define PICOQUIC_CHALLENGE_REPEAT_MAX 4
     /* flags */
     unsigned int mtu_probe_sent : 1;
     unsigned int challenge_verified : 1;
+    unsigned int challenge_response_to_send : 1;
 
     /* Time measurement */
     uint64_t max_ack_delay;
@@ -1004,7 +1007,7 @@ char const* picoquic_log_state_name(picoquic_state_enum state);
 
 /* Small internal function */
 uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
-    uint64_t current_time, int epoch, int *ack_needed);
+    uint64_t current_time, int epoch, int* ack_needed, picoquic_path_t* path_x);
 
 /* handling of ACK logic */
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 

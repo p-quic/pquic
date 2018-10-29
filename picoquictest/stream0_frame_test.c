@@ -314,7 +314,7 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
         int ack_needed;
         uint8_t* bytes = picoquic_decode_frame(&cnx, picoquic_frame_type_crypto_hs, 
-            test->list[i].packet, test->list[i].packet + test->list[i].packet_length, 0, test_epoch, &ack_needed);
+            test->list[i].packet, test->list[i].packet + test->list[i].packet_length, 0, test_epoch, &ack_needed, NULL);
         if (NULL == bytes) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;
