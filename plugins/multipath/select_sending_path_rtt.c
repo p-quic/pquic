@@ -18,8 +18,13 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
         if (pd->state == 2) {
             path_c = pd->path;
 
-            if (!path_c->challenge_verified && path_c->challenge_time == 0) {
+            if (!path_c->challenge_verified && path_c->challenge_time + path_c->retransmit_timer < picoquic_current_time() && path_c->challenge_repeat_count < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 /* Start the challenge! */
+                return (protoop_arg_t) path_c;
+            }
+
+            if (path_c->challenge_response_to_send) {
+                /* Reply as soon as possible! */
                 return (protoop_arg_t) path_c;
             }
 
@@ -39,7 +44,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (path_c->cwin <= path_c->bytes_in_transit) {
                 continue;
             }
-            if (path_x && path_c->challenge_verified && path_x->smoothed_rtt < path_c->smoothed_rtt) {
+            if (path_x && path_x->smoothed_rtt < path_c->smoothed_rtt) {
                 continue;
             }
             path_x = path_c;
