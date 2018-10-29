@@ -28,6 +28,11 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 return (protoop_arg_t) path_c;
             }
 
+            if (path_c->ping_received) {
+                /* We need some action from the path! */
+                return (protoop_arg_t) path_c;
+            }
+
             /* Don't consider invalid paths */
             if (!path_c->challenge_verified) {
                 continue;
