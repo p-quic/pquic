@@ -3635,6 +3635,13 @@ static protoop_arg_t process_ignore_frame(picoquic_cnx_t* cnx)
     return 0;
 }
 
+static protoop_arg_t process_ping_frame(picoquic_cnx_t* cnx)
+{
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[3];
+    path_x->ping_received = 1;
+    return 0;
+}
+
 /**
  * See PROTOOP_PARAM_PARSE_FRAME
  */
@@ -3874,7 +3881,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_data, &process_max_data_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_stream_data, &process_max_stream_data_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_stream_id, &process_max_stream_id_frame);
-    register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ping, &process_ignore_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ping, &process_ping_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_blocked, &process_ignore_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_stream_blocked, &process_ignore_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_stream_id_blocked, &process_ignore_frame);

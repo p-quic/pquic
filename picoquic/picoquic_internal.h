@@ -406,6 +406,7 @@ typedef struct st_picoquic_path_t {
     unsigned int mtu_probe_sent : 1;
     unsigned int challenge_verified : 1;
     unsigned int challenge_response_to_send : 1;
+    unsigned int ping_received : 1;
 
     /* Time measurement */
     uint64_t max_ack_delay;
