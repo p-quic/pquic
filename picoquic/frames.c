@@ -31,8 +31,6 @@
  * Frames private declarations
  * ****************************************************/
 
-static const size_t challenge_length = 8;
-
 
 /**
  * Frame decoder function
@@ -3325,7 +3323,7 @@ protoop_arg_t parse_path_challenge_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if (bytes_max - bytes <= (int) challenge_length) {
+    if (bytes_max - bytes <= (int) PICOQUIC_CHALLENGE_LENGTH) {
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_path_challenge);
         bytes = NULL;
         my_free(cnx, frame);
@@ -3334,8 +3332,8 @@ protoop_arg_t parse_path_challenge_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    memcpy(&frame->data, bytes+1, challenge_length);
-    bytes += challenge_length+1;
+    memcpy(&frame->data, bytes+1, PICOQUIC_CHALLENGE_LENGTH);
+    bytes += PICOQUIC_CHALLENGE_LENGTH+1;
 
     protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
     return (protoop_arg_t) bytes;
@@ -3347,17 +3345,13 @@ protoop_arg_t parse_path_challenge_frame(picoquic_cnx_t* cnx)
 protoop_arg_t process_path_challenge_frame(picoquic_cnx_t* cnx)
 {
     path_challenge_frame_t* frame = (path_challenge_frame_t *) cnx->protoop_inputv[0];
+    picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[3];
     /*
     * Queue a response frame as response to path challenge.
-    * TODO: ensure it goes out on the same path as the incoming challenge.
+    * The response should be force-sent by the sender itself!
     */
-    uint8_t frame_buffer[258];
-
-    frame_buffer[0] = picoquic_frame_type_path_response;
-    memcpy(frame_buffer+1, &frame->data , challenge_length);
-
-    // Ignore return code. If cannot send the response, consider it "lost"
-    picoquic_queue_misc_frame(cnx, frame_buffer, challenge_length+1);
+    memcpy(path_x->challenge_response, &frame->data, PICOQUIC_CHALLENGE_LENGTH);
+    path_x->challenge_response_to_send = 1;
 
     return 0;
 }
@@ -3371,7 +3365,7 @@ protoop_arg_t decode_path_challenge_frame(picoquic_cnx_t *cnx)
     const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     int ack_needed = (int) cnx->protoop_inputv[4];
 
-    if (bytes_max - bytes <= (int) challenge_length) {
+    if (bytes_max - bytes <= (int) PICOQUIC_CHALLENGE_LENGTH) {
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_path_challenge);
         bytes = NULL;
 
@@ -3383,12 +3377,12 @@ protoop_arg_t decode_path_challenge_frame(picoquic_cnx_t *cnx)
         uint8_t frame_buffer[258];
 
         frame_buffer[0] = picoquic_frame_type_path_response;
-        memcpy(frame_buffer+1, bytes+1, challenge_length);
+        memcpy(frame_buffer+1, bytes+1, PICOQUIC_CHALLENGE_LENGTH);
 
         // Ignore return code. If cannot send the response, consider it "lost"
-        picoquic_queue_misc_frame(cnx, frame_buffer, challenge_length+1);
+        picoquic_queue_misc_frame(cnx, frame_buffer, PICOQUIC_CHALLENGE_LENGTH+1);
 
-        bytes += challenge_length+1;
+        bytes += PICOQUIC_CHALLENGE_LENGTH+1;
     }
 
     protoop_save_outputs(cnx, ack_needed);
@@ -3449,54 +3443,11 @@ protoop_arg_t process_path_response_frame(picoquic_cnx_t* cnx)
         original_frame[0] = picoquic_frame_type_path_response;
         uint64_t data_network_order = htobe64(frame->data);
         memcpy(&original_frame[1], &data_network_order, 8);
-        cnx->callback_fn(cnx, 0, &original_frame[0], challenge_length+1,
+        cnx->callback_fn(cnx, 0, &original_frame[0], PICOQUIC_CHALLENGE_LENGTH+1,
                          picoquic_callback_challenge_response, cnx->callback_ctx);
     }
 
     return 0;
-}
-
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_path_response_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    uint64_t response;
-
-    if ((bytes = picoquic_frames_uint64_decode(bytes+1, bytes_max, &response)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_path_response);
-
-    } else {
-        int found_challenge = 0;
-        /*
-         * Check that the challenge corresponds to something that was sent locally
-         */
-        for (int i = 0; i < cnx->nb_paths; i++) {
-            if (response == cnx->path[i]->challenge) {
-                /* TODO: verify that the network addresses match the path */
-                found_challenge = 1;
-                cnx->path[i]->challenge_verified = 1;
-            }
-        }
-
-        if (found_challenge == 0 && cnx->callback_fn != NULL) {
-            cnx->callback_fn(cnx, 0, bytes-(challenge_length+1), challenge_length+1,
-                             picoquic_callback_challenge_response, cnx->callback_ctx);
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-uint8_t* picoquic_decode_path_response_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max)
-{
-    return (uint8_t *) protoop_prepare_and_run_noparam(cnx, "decode_path_response_frame", NULL,
-        bytes, bytes_max);
 }
 
 /**
@@ -3684,6 +3635,13 @@ static protoop_arg_t process_ignore_frame(picoquic_cnx_t* cnx)
     return 0;
 }
 
+static protoop_arg_t process_ping_frame(picoquic_cnx_t* cnx)
+{
+    picoquic_path_t* path_x = (picoquic_path_t*) cnx->protoop_inputv[3];
+    path_x->ping_received = 1;
+    return 0;
+}
+
 /**
  * See PROTOOP_PARAM_PARSE_FRAME
  */
@@ -3718,7 +3676,7 @@ static protoop_arg_t parse_padding_or_ping_frame(picoquic_cnx_t* cnx)
 }
 
 uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
-    uint64_t current_time, int epoch, int *ack_needed)
+    uint64_t current_time, int epoch, int* ack_needed, picoquic_path_t* path_x)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_PARSE_FRAME, first_byte, outs,
@@ -3727,7 +3685,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
     *ack_needed |= (int) outs[1];
     if (bytes && frame) {
         int err = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_PROCESS_FRAME, first_byte, outs,
-            frame, current_time, epoch);
+            frame, current_time, epoch, path_x);
         if (err) {
             bytes = NULL;
         }
@@ -3779,7 +3737,7 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
             break;
 
         } else {
-            bytes = picoquic_decode_frame(cnx, first_byte, bytes, bytes_max, current_time, epoch, &ack_needed);
+            bytes = picoquic_decode_frame(cnx, first_byte, bytes, bytes_max, current_time, epoch, &ack_needed, path_x);
         }
     }
 
@@ -3923,7 +3881,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_data, &process_max_data_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_stream_data, &process_max_stream_data_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_stream_id, &process_max_stream_id_frame);
-    register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ping, &process_ignore_frame);
+    register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ping, &process_ping_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_blocked, &process_ignore_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_stream_blocked, &process_ignore_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_stream_id_blocked, &process_ignore_frame);

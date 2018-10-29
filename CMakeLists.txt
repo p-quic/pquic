@@ -117,13 +117,16 @@ ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
 
-ADD_LIBRARY(plugins-cop2
-    ${PLUGINS_COP2}
-)
+# They add lot of noise at compile time without actually compiling them...
+if(${COMPILE_CLION})
+    ADD_LIBRARY(plugins-cop2
+        ${PLUGINS_COP2}
+    )
 
-ADD_LIBRARY(plugins-multipath
-    ${PLUGINS_MULTIPATH}
-)
+    ADD_LIBRARY(plugins-multipath
+        ${PLUGINS_MULTIPATH}
+    )
+endif()
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
                             picoquicfirst/getopt.c )
