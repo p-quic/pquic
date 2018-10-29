@@ -191,7 +191,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                         ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
                          (stream = helper_find_ready_stream(cnx)) != NULL) || has_repair_symbols_to_send(state->block_fec_framework)
                          || state->should_check_block_flush) {
-                        PROTOOP_PRINTF(cnx, "SHOULD_CHECK_FLUSH = %d, has_symbols = %u\n", (protoop_arg_t) state->should_check_block_flush,  (protoop_arg_t) has_repair_symbols_to_send(state->block_fec_framework));
                         if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                             blocked = 0;
                         }

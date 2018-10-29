@@ -17,11 +17,10 @@ static inline void xor(uint8_t *a, uint8_t *b, uint8_t *container, int size_a, i
     uint64_t *b64 = (uint64_t  *) b;
     uint64_t *container64 = (uint64_t  *) container;
     // should be faster by doing XOR on 8-bytes words directly
-//    for (i = 0 ; i < n_64 ; i++) {
-//        container64[i] = a64[i] ^ b64[i];
-//    }
-//    for (i = n_64*8 ; i < size ; i++) {
-    for (i = 0 ; i < size ; i++) {
+    for (i = 0 ; i < n_64 ; i++) {
+        container64[i] = a64[i] ^ b64[i];
+    }
+    for (i = n_64*8 ; i < size ; i++) {
         container[i] = a[i] ^ b[i];
     }
     if (size_a < size_b) {

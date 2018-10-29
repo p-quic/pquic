@@ -214,7 +214,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->send_path = path_x;
 
             bpf_state *state = get_bpf_state(cnx);
-            PROTOOP_PRINTF(cnx, "PREPARE_PACKET_READY\n");
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL && !has_repair_symbols_to_send(state->block_fec_framework)) || path_x->cwin <= path_x->bytes_in_transit)
                 && helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
                 && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)) {
@@ -228,7 +227,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 else {
                     length = 0;
                 }
-                PROTOOP_PRINTF(cnx, "BLOCKED SOMEWHERE\n");
             }
             else {
                 if (path_x->challenge_verified == 0 && current_time >= (path_x->challenge_time + path_x->retransmit_timer)) {
@@ -254,9 +252,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     block_fec_framework_t *bff = state->block_fec_framework;
 
 
-                    PROTOOP_PRINTF(cnx, "BEGIN_TO_SEND_DATA\n");
                     if (has_repair_symbols_to_send(bff)) {
-                        PROTOOP_PRINTF(cnx, "SYMBOLS TO SEND\n");
                         ret = helper_write_fec_frame(cnx, state, bytes+length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
 
                         if (ret == 0) {
@@ -268,9 +264,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         } else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
                             ret = 0;
                         }
-                        PROTOOP_PRINTF(cnx, "ADDED FEC FRAME\n");
-                    } else {
-                        PROTOOP_PRINTF(cnx, "NO SYMBOL TO SEND\n");
                     }
 
                     if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -344,7 +337,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
 
                         if (stream == NULL && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)) {
-                            PROTOOP_PRINTF(cnx, "DO THE FLUSHING\n");
                             flush_fec_block(cnx, state->block_fec_framework);
                         }
 
