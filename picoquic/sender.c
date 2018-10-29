@@ -2542,11 +2542,17 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
                         rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
                         ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
-                                &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx, data_bytes);
+                                &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
                         /* TODO FIXME consumed */
-                        if (ret == 0) {
+                        if (ret == 0 && data_bytes <= rfs->nb_bytes) {
                             length += (uint32_t) data_bytes;
+                        } else {
+                            if (data_bytes > rfs->nb_bytes) {
+                                fprintf("WARNING: transaction %s reserved frame %u for %u bytes, but wrote %u; erasing the frame\n",
+                                    cnx->current_transaction->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                            }
+                            memset(&bytes[length], 0, rfs->nb_bytes);
                         }
                         /* It was reserved by the plugin, so it is a my_free */
                         my_free(cnx, rfs);
