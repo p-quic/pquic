@@ -11,38 +11,9 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     path_data_t *pd = NULL;
     uint8_t selected_path_index = 255;
     bool has_multiple_paths = false;
+    start_using_path_if_possible(cnx);
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
-        /* If we are the client, activate the path */
-        /* FIXME hardcoded */
-        if (cnx->client_mode && pd->state == 1 && pd->path_id % 2 == 0) {
-            pd->state = 2;
-            addr_data_t *adl = NULL;
-            addr_data_t *adr = NULL;
-            if (pd->path_id == 2 && bpfd->loc_addrs[0].sa != NULL && bpfd->rem_addrs[0].sa) {
-                pd->loc_addr_id = 1;
-                adl = &bpfd->loc_addrs[0];
-                pd->path->local_addr_len = (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-                my_memcpy(&pd->path->local_addr, adl->sa, pd->path->local_addr_len);
-                pd->path->if_index_local = (unsigned long) adl->if_index;
-                pd->rem_addr_id = 1;
-                adr = &bpfd->rem_addrs[0];
-                pd->path->peer_addr_len = (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-                my_memcpy(&pd->path->peer_addr, adr->sa, pd->path->peer_addr_len);
-            } else if (pd->path_id == 4 && bpfd->loc_addrs[1].sa != NULL && bpfd->rem_addrs[0].sa) {
-                // Path id is 4
-                pd->loc_addr_id = 2;
-                adl = &bpfd->loc_addrs[1];
-                pd->path->local_addr_len = (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-                my_memcpy(&pd->path->local_addr, adl->sa, pd->path->local_addr_len);
-                pd->path->if_index_local = (unsigned long) adl->if_index;
-                pd->rem_addr_id = 1;
-                adr = &bpfd->rem_addrs[0];
-                pd->path->peer_addr_len = (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-                my_memcpy(&pd->path->peer_addr, adr->sa, pd->path->peer_addr_len);
-            }
-        }
-
         /* Lowest RTT-based scheduler */
         if (pd->state == 2) {
             path_c = pd->path;
