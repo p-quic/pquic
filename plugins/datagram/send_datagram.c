@@ -6,7 +6,6 @@
 
 protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 {
-    PROTOOP_PRINTF(cnx, "send_datagram_frame called \n");
     char *payload = (char *) cnx->protoop_inputv[0];
     size_t len = (size_t) cnx->protoop_inputv[1];
 
@@ -15,12 +14,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         return 1;
     }
-    slot->frame_type = 0x1c;
-    slot->frame_ctx = my_malloc(cnx, len);
-    if (slot->frame_ctx == NULL) {
-        PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
-        return 1;
-    }
+    slot->frame_type = 0x1d;
     slot->nb_bytes = 1 + varint_len(len) + len;  // Unfortunately we are always forced to account for the length field
 
     struct iovec* message = my_malloc(cnx, sizeof(struct iovec));
@@ -29,18 +23,22 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         my_free(cnx, slot);
         return 1;
     }
-    message->iov_base = my_malloc(cnx, len);
+    message->iov_base = my_malloc(cnx, (unsigned int) len);
     message->iov_len = len;
     if (message->iov_base == NULL) {
         PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
+        my_free(cnx, message);
         my_free(cnx, slot);
         return 1;
     }
-    my_memcpy(message->iov_base, payload, slot->nb_bytes);
+    my_memcpy(message->iov_base, payload, len);
     slot->frame_ctx = message;
     size_t reserved_size = reserve_frames(cnx, 1, slot);
-    if (reserved_size <= 0) {
+    if (reserved_size < slot->nb_bytes) {
         PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
+        my_free(cnx, message->iov_base);
+        my_free(cnx, message);
+        my_free(cnx, slot);
         return 1;
     }
     return 0;

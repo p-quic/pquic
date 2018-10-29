@@ -14,7 +14,7 @@ uint8_t* copy_to_cnx(picoquic_cnx_t *cnx, const void *src, size_t src_len) {
     return ptr;
 }
 
-int datagram_test()
+static int datagram_parse_test()
 {
     int ret = 0;
 
@@ -71,4 +71,103 @@ int datagram_test()
     my_free(&cnx, bytes);
 
     return ret;
+}
+
+static int datagram_write_test() {
+    int ret = 0;
+
+    picoquic_cnx_t cnx = { 0 };
+    protoop_arg_t out[1] = {0};
+    init_memory_management(&cnx);
+    register_protocol_operations(&cnx);
+    ret = plugin_insert_transaction(&cnx, "plugins/datagram/datagram.plugin");
+    if (ret) {
+        DBG_PRINTF("Unable to load datagram plugin\n");
+        return ret;
+    }
+
+    uint8_t *bytes = copy_to_cnx(&cnx, (char[]){0xa, 0xb, 0xc, 0xd}, 4);
+    if (bytes == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+
+    struct iovec *message = (struct iovec*) my_malloc(&cnx, sizeof(struct iovec));
+    if (message == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+    message->iov_base = bytes;
+    message->iov_len = 4;
+
+    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(&cnx, sizeof(reserve_frame_slot_t));
+    if (slot == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+
+    slot->frame_type = FRAME_TYPE_DATAGRAM_WITH_LEN;
+    slot->nb_bytes = 1 + varint_len(message->iov_len) + message->iov_len;
+    slot->frame_ctx = message;
+
+    uint8_t *buffer = my_malloc(&cnx, (unsigned int) slot->nb_bytes);
+    if (buffer == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+
+    protoop_arg_t pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, buffer, buffer + slot->nb_bytes, message, 0);
+    if (pret) {
+        DBG_PRINTF("Protoop write frame failed with error code %d\n", ret);
+        return -1;
+    }
+    if (out[0] != slot->nb_bytes) {
+        DBG_PRINTF("write_frame consumed %d bytes, expected %d\n", out[0], slot->nb_bytes);
+        return -1;
+    }
+    //debug_dump(buffer, slot->nb_bytes);
+
+    memset(buffer, 0, slot->nb_bytes);
+    slot->frame_type = FRAME_TYPE_DATAGRAM;
+    slot->nb_bytes = 1 + 4;
+    bytes = copy_to_cnx(&cnx, (char[]){0xa, 0xb, 0xc, 0xd}, 4);
+    if (bytes == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+
+    message = (struct iovec*) my_malloc(&cnx, sizeof(struct iovec));
+    if (message == NULL) {
+        DBG_PRINTF("Unable to allocate memory in cnx\n");
+        return -1;
+    }
+    message->iov_base = bytes;
+    message->iov_len = 4;
+
+    pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM, out, buffer, buffer + slot->nb_bytes, message, 0);
+    if (pret) {
+        DBG_PRINTF("Protoop write frame failed with error code %d\n", ret);
+        return -1;
+    }
+    if (out[0] != slot->nb_bytes) {
+        DBG_PRINTF("write_frame consumed %d bytes, expected %d\n", out[0], slot->nb_bytes);
+        return -1;
+    }
+    //debug_dump(buffer, 6);
+
+    return ret;
+}
+
+int datagram_test() {
+    int ret = datagram_parse_test();
+    if (ret) {
+        DBG_PRINTF("datagram_parse test failed\n");
+        return ret;
+    }
+    ret = datagram_write_test();
+    if (ret) {
+        DBG_PRINTF("datagram_write test failed\n");
+        return ret;
+    }
+    return 0;
 }

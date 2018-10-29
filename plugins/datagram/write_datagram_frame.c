@@ -9,7 +9,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
     struct iovec *message = (struct iovec *) cnx->protoop_inputv[2];
-    size_t consumed = (size_t) cnx->protoop_inputv[3];
+    size_t consumed = 0;
 
     if (message != NULL) {
         if (message->iov_base != NULL) {
