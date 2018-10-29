@@ -65,7 +65,6 @@ static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
  * \param[in] frame_ctx \b void* The context of the frame to write. If no NULL, it has to be allocated in context memory and has to be free'd.
- * \param[in] consumed \b int Current value of consumed
  * 
  * \return \b int Error code, 0 iff everything was fine
  * \param[out] consumed \b int The number of bytes written in \p bytes
