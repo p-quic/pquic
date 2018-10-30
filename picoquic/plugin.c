@@ -20,7 +20,7 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
 
     if (popst->intern && pte == plugin_extern && (popst->core || popst->pre || popst->post)) {
         printf("An internal plugin already exists!\n");
-        return -1;
+        return 1;
     }
 
     /* Then check if we can load the plugin! */
@@ -180,6 +180,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
     case plugin_extern:
         if (popst->intern) {
             printf("Trying to unplug non-existing external plugin for proto op id %s\n", pid);
+            return 1;
         }
         /* this falls through intentionally */
     case plugin_replace:
