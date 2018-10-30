@@ -63,6 +63,17 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/ticket_store_test.c
     picoquictest/tls_api_test.c
     picoquictest/transport_param_test.c
+    picoquictest/datagram.c
+)
+
+SET(PLUGINS_DATAGRAM
+    plugins/datagram/parse_datagram_frame.c
+    plugins/datagram/send_datagram.c
+    plugins/datagram/process_datagram_frame.c
+    plugins/datagram/is_datagram_frame_congestion_controlled.c
+    plugins/datagram/write_datagram_frame.c
+    plugins/datagram/get_datagram_socket.c
+    plugins/datagram/cnx_state_changed.c
 )
 
 SET(PLUGINS_COP2
@@ -126,6 +137,9 @@ if(${COMPILE_CLION})
     ADD_LIBRARY(plugins-multipath
         ${PLUGINS_MULTIPATH}
     )
+    ADD_LIBRARY(plugins-datagram
+        ${PLUGINS_DATAGRAM}
+    )
 endif()
 
 ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
@@ -133,6 +147,17 @@ ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
 TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${PTLS_CORE}
     ${PTLS_OPENSSL}    
+    ${PTLS_MINICRYPTO}
+    ${OPENSSL_LIBRARIES}
+    ${UBPF}
+    ${CMAKE_DL_LIBS}
+)
+
+ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c)
+
+TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
+    ${PTLS_CORE}
+    ${PTLS_OPENSSL}
     ${PTLS_MINICRYPTO}
     ${OPENSSL_LIBRARIES}
     ${UBPF}

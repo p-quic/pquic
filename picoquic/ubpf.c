@@ -51,6 +51,9 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x23, "connect", connect);
     ubpf_register(vm, 0x24, "send", send);
     ubpf_register(vm, 0x25, "inet_aton", inet_aton);
+    ubpf_register(vm, 0x26, "socketpair", socketpair);
+    ubpf_register(vm, 0x27, "write", write);
+    ubpf_register(vm, 0x28, "close", close);
 
     ubpf_register(vm, 0x2a, "my_htons", my_htons);
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);

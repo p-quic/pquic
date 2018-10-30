@@ -68,12 +68,12 @@ int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual);
 #define DBG_PRINTF(fmt, ...)                                                                 \
     debug_printf("%s:%u [%s]: " fmt "\n",                                                    \
         __FILE__ + MAX(DBG_PRINTF_FILENAME_MAX, sizeof(__FILE__)) - DBG_PRINTF_FILENAME_MAX, \
-        __LINE__, __FUNCTION__, __VA_ARGS__)
+        __LINE__, __FUNCTION__, ##__VA_ARGS__)
 
-#define DBG_FATAL_PRINTF(fmt, ...)                    \
-    do {                                              \
-        DBG_PRINTF("(FATAL) " fmt "\n", __VA_ARGS__); \
-        exit(1);                                      \
+#define DBG_FATAL_PRINTF(fmt, ...)                      \
+    do {                                                \
+        DBG_PRINTF("(FATAL) " fmt "\n", ##__VA_ARGS__); \
+        exit(1);                                        \
     } while (0)
 
 #else

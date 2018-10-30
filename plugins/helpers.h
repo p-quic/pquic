@@ -12,6 +12,7 @@ static inline protoop_params_t get_pp_noparam(protoop_id_t pid, int inputc, prot
     protoop_params_t pp;
     pp.pid = pid;
     pp.param = NO_PARAM;
+    pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
@@ -22,6 +23,7 @@ static inline protoop_params_t get_pp_param(protoop_id_t pid, param_id_t param, 
     protoop_params_t pp;
     pp.pid = pid;
     pp.param = param;
+    pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;

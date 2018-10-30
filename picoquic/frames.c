@@ -1036,7 +1036,7 @@ protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
 
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
 {
-    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FIND_READY_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL};
+    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FIND_READY_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
     return (picoquic_stream_head *) plugin_run_protoop(cnx, &pp);
 }
 
@@ -1218,7 +1218,7 @@ protoop_arg_t is_tls_stream_ready(picoquic_cnx_t *cnx)
 
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
 {
-    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_IS_TLS_STREAM_READY, .inputc = 0, .inputv = NULL, .outputv = NULL};
+    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_IS_TLS_STREAM_READY, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
     return (int) plugin_run_protoop(cnx, &pp);
 }
 
@@ -3893,6 +3893,8 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_crypto_hs, &process_crypto_hs_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_new_token, &process_ignore_frame);
     register_param_protoop(cnx, PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ack_ecn, &process_ack_frame_maybe_ecn);
+
+    register_param_protoop_default(cnx, PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, &protoop_true);
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);

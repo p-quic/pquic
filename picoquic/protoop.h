@@ -62,10 +62,17 @@ static const protoop_id_t PROTOOP_PARAM_PARSE_FRAME = "parse_frame";
 static const protoop_id_t PROTOOP_PARAM_PROCESS_FRAME = "process_frame";
 
 /**
+ * Returns whether the frame type provided as parameter is subject to congestion control.
+ *
+ * \return \b bool 0 iff not congestion controlled
+ */
+static const protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED = "is_frame_congestion_controlled";
+
+/**
  * Write the frame whose the type is provided as parameter.
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
- * \param[in] frame_ctx \b void* The context of the frame to write. If no NULL, it has to be allocated in context memory and has to be free'd.
+ * \param[in] frame_ctx \b void* The context of the frame to write. If not NULL, it has to be allocated in context memory and has to be free'd.
  * 
  * \return \b int Error code, 0 iff everything was fine
  * \param[out] consumed \b int The number of bytes written in \p bytes

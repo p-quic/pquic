@@ -204,6 +204,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_evaluated : 1;
     unsigned int is_pure_ack : 1;
     unsigned int contains_crypto : 1;
+    unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
 
     uint8_t bytes[PICOQUIC_MAX_PACKET_SIZE];
 } picoquic_packet_t;
