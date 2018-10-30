@@ -18,7 +18,7 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
         return 1;
     }
 
-    if (popst->intern && pte == plugin_extern && (popst->core || popst->pre != NULL || popst->post != NULL)) {
+    if (popst->intern && pte == plugin_extern && (popst->core || popst->pre || popst->post)) {
         printf("An internal plugin already exists!\n");
         return -1;
     }
