@@ -277,7 +277,7 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoo
     token[strcspn(token, "\r\n")] = 0;
 
     char abs_path[250];
-    strcpy(abs_path, plugin_dirname);
+    strncpy(abs_path, plugin_dirname, 250);
     strcat(abs_path, "/");
     strcat(abs_path, token);
     return plugin_plug_elf(cnx, t, inserted_pid, *param, *pte, abs_path) == 0;
@@ -293,6 +293,12 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
 
     /* Handle end of line  FIXME Move me later when parameters are present */
     token[strcspn(token, "\r\n")] = 0;
+
+    if (strchr(token, '.') == token + strlen(token)) {
+        /* No hierarchical name found, refuse it! */
+        printf("The name of the transaction is not hierarchical; discard it!\n");
+        return NULL;
+    }
 
     protoop_transaction_t *t = malloc(sizeof(protoop_transaction_t));
     if (!t) {
@@ -329,7 +335,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     }
 
     char buf[250];
-    strcpy(buf, plugin_fname);
+    strncpy(buf, plugin_fname, 250);
     char *line = NULL;
     size_t len = 0;
     ssize_t read = 0;
