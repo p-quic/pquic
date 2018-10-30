@@ -1173,7 +1173,8 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
         else {
             /* Compare the packet address to the current path value */
             if (picoquic_compare_addr((struct sockaddr *)&path_x->peer_addr,
-                (struct sockaddr *)addr_from) != 0)
+                (struct sockaddr *)addr_from) != 0 &&
+                ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
             {
                 uint8_t buffer[16];
                 size_t challenge_length;

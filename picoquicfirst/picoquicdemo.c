@@ -846,6 +846,25 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
     }
+    /* QDC: please fixme please */
+#ifdef _WINDOWS
+    int option_value = 1;
+    if (sock_af[i] == AF_INET6) {
+        ret = setsockopt(sockets->s_socket[i], IPPROTO_IPV6, IPV6_PKTINFO, (char*)&option_value, sizeof(int));
+    }
+    else {
+        ret = setsockopt(sockets->s_socket[i], IPPROTO_IP, IP_PKTINFO, (char*)&option_value, sizeof(int));
+    }
+#else
+    int val = 1;
+    ret = setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, (char*)&val, sizeof(int));
+#ifdef IP_PKTINFO
+    ret = setsockopt(fd, IPPROTO_IP, IP_PKTINFO, (char*)&val, sizeof(int));
+#else
+    /* The IP_PKTINFO structure is not defined on BSD */
+    ret = setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, (char*)&val, sizeof(int));
+#endif
+#endif
 
     /* Create QUIC context */
     current_time = picoquic_current_time();
