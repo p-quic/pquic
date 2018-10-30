@@ -4,6 +4,7 @@ CMAKE_POLICY(SET CMP0003 NEW)
 PROJECT(picoquic)
 
 SET(CMAKE_C_STANDARD 11)
+SET(COMPILE_CLION 1)
 
 # FIND_PACKAGE(PkgConfig REQUIRED)
 
@@ -72,6 +73,8 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/process_datagram_frame.c
     plugins/datagram/is_datagram_frame_congestion_controlled.c
     plugins/datagram/write_datagram_frame.c
+    plugins/datagram/get_datagram_socket.c
+    plugins/datagram/cnx_state_changed.c
 )
 
 SET(PLUGINS_COP2
