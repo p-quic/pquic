@@ -2497,9 +2497,13 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->send_time = current_time;
             packet->send_path = path_x;
 
+            /* First enqueue frames that can be fairly sent, if any */
+            picoquic_frame_fair_reserve(cnx);
+
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) || path_x->cwin <= path_x->bytes_in_transit)
                 && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
-                && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)) {
+                && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)
+                && queue_peek(cnx->reserved_frames) == NULL) {
                 if (ret == 0 && send_buffer_max > path_x->send_mtu
                     && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                     length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
@@ -2535,8 +2539,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     reserve_frame_slot_t *rfs;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
 
-                    /* First enqueue frames that can be fairly sent */
-                    picoquic_frame_fair_reserve(cnx);
                     /* First empty the reserved frames */
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
