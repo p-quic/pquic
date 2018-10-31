@@ -18,7 +18,8 @@ typedef uint16_t access_key_t;
 
 /**
  * Get a specific field belonging to the connection context \p cnx
- * 
+ *
+ * \param cnx The connection context
  * \param ak The key of the field to get
  * \param param A parameter for the key. Its meaning depends on the accessed field
  * 
@@ -27,9 +28,34 @@ typedef uint16_t access_key_t;
 protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param);
 
 /**
+ * Set a specific field belonging to the connection context \p cnx to the value \p val
+ *
+ * \param cnx The connection context
+ * \param ak The key of the field to set
+ * \param param A parameter for the key. Its meaning depends on the accessed field
+ * \param val The value to set
+ */
+void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t val);
+
+/**
  * @}
  */
 
+/**
+ * @defgroup GETSET_PARAMETERS_PARAM Transport parameters values for \p param
+ */
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL 0x00
+#define TRANSPORT_PARAMETER_INITIAL_MAX_DATA 0x01
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR 0x02
+#define TRANSPORT_PARAMETER_IDLE_TIMEOUT 0x03
+#define TRANSPORT_PARAMETER_PREFERRED_ADDRESS 0x04
+#define TRANSPORT_PARAMETER_MAX_PACKET_SIZE 0x05
+#define TRANSPORT_PARAMETER_STATELESS_RESET_TOKEN 0x06
+#define TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT 0x07
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR 0x08
+#define TRANSPORT_PARAMETER_MIGRATION_DISABLED 0x09
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE 0x0a
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR 0x0b
 /**
  * @defgroup GETSET_CNX_AK Connection Access Keys
  * 
@@ -132,6 +158,12 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param);
 #define CNX_AK_NB_PATHS 0x2d
 /** The pointer to the path with its index provided by \p param */
 #define CNX_AK_PATH 0x2e
+/** The pointer to the congestion control algorithm */
+#define CNX_AK_CONGESTION_CONTROL_ALGORITHM 0x2f
+/** The pointer to the TLS stream with the epoch \p param */
+#define CNX_AK_TLS_STREAM 0x30
+/** The pointer to the encryption/decryption objects for the epoch \p param */
+#define CNX_AK_CRYPTO_CONTEXT 0x31
 
 /**
  * @}
