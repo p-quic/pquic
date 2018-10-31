@@ -321,7 +321,7 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
         return NULL;
     }
 
-    protoop_transaction_t *t = malloc(sizeof(protoop_transaction_t));
+    protoop_transaction_t *t = calloc(1, sizeof(protoop_transaction_t));
     if (!t) {
         printf("Cannot allocate memory for transaction!\n");
         return NULL;
@@ -428,7 +428,11 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
 }
 
 void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {
-    picoquic_opaque_meta_t *ometas = cnx->opaque_metas;
+    if (!cnx->current_transaction) {
+        printf("ERROR: get_opaque_data can only be called by plugins with transactions!\n");
+        return NULL;
+    }
+    picoquic_opaque_meta_t *ometas = cnx->current_transaction->opaque_metas;
     if (oid >= OPAQUE_ID_MAX) {
         /* Invalid ID */
         return NULL;
