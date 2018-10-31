@@ -549,7 +549,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
         int ret = 0;
         int byte_index = packet->offset;
         size_t frame_length = 0;
-        size_t frame_is_pure_ack = 0;
+        int frame_is_pure_ack = 0;
         while (ret == 0 && byte_index < packet->length && !packet->is_congestion_controlled) {
             uint8_t frame_type = packet->bytes[byte_index];
             if (!packet->is_congestion_controlled &&
