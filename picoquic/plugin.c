@@ -441,14 +441,15 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
         *allocated = 0;
         return ometas[oid].start_ptr;
     }
-    if (ometas[oid].start_ptr == NULL && cnx->opaque_size_taken + size > OPAQUE_SIZE) {
-        /* Trying to allocate space, but no enough space left */
+    /* Try to allocate memory with my_malloc */
+    ometas[oid].start_ptr = my_malloc(cnx, size);
+    if (!ometas[oid].start_ptr) {
+        /* No space left... */
         return NULL;
     }
-    /* Allocate some space on the opaque stack and returns the pointer */
-    ometas[oid].start_ptr = cnx->opaque + cnx->opaque_size_taken;
+
+    /* Keep track of some meta data and returns the pointer */
     ometas[oid].size = size;
-    cnx->opaque_size_taken += size;
     *allocated = 1;
     return ometas[oid].start_ptr;
 }

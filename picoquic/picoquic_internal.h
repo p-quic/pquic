@@ -677,9 +677,7 @@ typedef struct st_picoquic_cnx_t {
     protoop_transaction_t *transactions;
 
     /* Opaque field for free use by plugins */
-    size_t opaque_size_taken;
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
-    char opaque[OPAQUE_SIZE];
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...
