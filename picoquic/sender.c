@@ -2549,7 +2549,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             length += (uint32_t) data_bytes;
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
-                                fprintf("WARNING: transaction %s reserved frame %u for %u bytes, but wrote %u; erasing the frame\n",
+                                printf("WARNING: transaction %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
                                     cnx->current_transaction->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
                             }
                             memset(&bytes[length], 0, rfs->nb_bytes);

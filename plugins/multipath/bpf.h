@@ -3,7 +3,7 @@
 #include "memcpy.h"
 #include "../helpers.h"
 
-#define MP_OPAQUE_ID 0x10
+#define MP_OPAQUE_ID 0x00
 #define MAX_PATHS 8
 #define MAX_ADDRS 8
 

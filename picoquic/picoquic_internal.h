@@ -465,19 +465,29 @@ typedef struct reserve_frames_block {
 /**
  * Book an occasion to send the frame whose details are given in \p slot.
  * \param[in] cnx The context of the connection
- * \param[in] slot Information about the frame booking
+ * \param[in] nb_frames The number of frames concerned by the booking
+ * \param[in] slots Information about the frames' booking
  * 
  * \return The number of bytes reserved, or 0 if an error occurred
  */
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
 
+/* Structure keeping track of the start pointer of the opaque data and its size */
+typedef struct st_picoquic_opaque_meta_t {
+    void *start_ptr;
+    size_t size;
+} picoquic_opaque_meta_t;
+
 #define PROTOOPTRANSACTIONNAME_MAX 100
+#define OPAQUE_ID_MAX 0x10
 
 typedef struct protoop_transaction {
     char name[PROTOOPTRANSACTIONNAME_MAX];
     queue_t *block_queue; /* Send reservation queue */
     uint16_t budget; /* Sending budget */
     uint16_t max_budget; /* Maximum value of the budget */
+    /* Opaque field for free use by plugins */
+    picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
     UT_hash_handle hh; /* Make the structure hashable */
 } protoop_transaction_t;
 
@@ -538,14 +548,7 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx);
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
-#define OPAQUE_SIZE 200 /* In bytes */
-#define OPAQUE_ID_MAX 0x80
 
-/* Structure keeping track of the start pointer of the opaque data and its size */
-typedef struct st_picoquic_opaque_meta_t {
-    void *start_ptr;
-    size_t size;
-} picoquic_opaque_meta_t;
 
 /* 
  * Per connection context.
@@ -675,11 +678,6 @@ typedef struct st_picoquic_cnx_t {
 
     /* FIXME move me to a safe place */
     protoop_transaction_t *transactions;
-
-    /* Opaque field for free use by plugins */
-    size_t opaque_size_taken;
-    picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
-    char opaque[OPAQUE_SIZE];
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...

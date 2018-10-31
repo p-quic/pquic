@@ -1882,7 +1882,7 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots)
 {
     if (!cnx->current_transaction) {
-        printf("ERROR: s can only be called by plugins with transactions!\n");
+        printf("ERROR: reserve_frames can only be called by plugins with transactions!\n");
         return 0;
     }
     /* Well, or we could use queues instead ? */
