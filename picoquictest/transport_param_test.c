@@ -30,41 +30,41 @@
  * Then, add fuzz testing.
  */
 
-#define TRANSPORT_PREFERED_ADDRESS_NULL \
+#define TRANSPORT_PREFERRED_ADDRESS_NULL \
     { 0, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 0, \
     { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },0 }, \
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }} 
 
 static picoquic_tp_t transport_param_test1 = {
-    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test2 = {
-    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test3 = {
-    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 0, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 0, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test4 = {
-    65535, 0, 0, 0x400000, 65532, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65532, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test5 = {
-    0x1000000, 0, 0, 0x1000000, 4, 0, 255, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 4, 0, 255, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test6 = {
-    0x10000, 0, 0, 0xffffffff, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x10000, 0, 0, 0xffffffff, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test7 = {
-    8192, 0, 0, 16384, 5, 0, 10, 1472, 17, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    8192, 0, 0, 16384, 5, 0, 10, 1472, 17, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test8 = {
-    65535, 0, 0, 0x400000, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test9 = {
@@ -75,7 +75,7 @@ static picoquic_tp_t transport_param_test9 = {
 };
 
 static picoquic_tp_t transport_param_test10 = {
-    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 1, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 1, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static uint8_t transport_param_reset_secret[PICOQUIC_RESET_SECRET_SIZE] = {
@@ -227,21 +227,21 @@ static int transport_param_compare(picoquic_tp_t* param, picoquic_tp_t* ref) {
     else if (param->idle_timeout != ref->idle_timeout) {
         ret = -1;
     }
-    else if (param->prefered_address.ipVersion != ref->prefered_address.ipVersion) {
+    else if (param->preferred_address.ipVersion != ref->preferred_address.ipVersion) {
         ret = -1;
     }
-    else if (param->prefered_address.ipVersion != 0) {
-        int ip_len = (param->prefered_address.ipVersion == 4) ? 4 : 16;
-        if (memcmp(param->prefered_address.ipAddress, ref->prefered_address.ipAddress, ip_len) != 0) {
+    else if (param->preferred_address.ipVersion != 0) {
+        int ip_len = (param->preferred_address.ipVersion == 4) ? 4 : 16;
+        if (memcmp(param->preferred_address.ipAddress, ref->preferred_address.ipAddress, ip_len) != 0) {
             ret = -1;
         }
-        else if (param->prefered_address.port != ref->prefered_address.port) {
+        else if (param->preferred_address.port != ref->preferred_address.port) {
             ret = -1;
         }
-        else if (picoquic_compare_connection_id(&param->prefered_address.connection_id, &ref->prefered_address.connection_id) != 0) {
+        else if (picoquic_compare_connection_id(&param->preferred_address.connection_id, &ref->preferred_address.connection_id) != 0) {
             ret = -1;
         }
-        else if (memcmp(param->prefered_address.statelessResetToken, ref->prefered_address.statelessResetToken, 16) != 0) {
+        else if (memcmp(param->preferred_address.statelessResetToken, ref->preferred_address.statelessResetToken, 16) != 0) {
             ret = -1;
         }
     }

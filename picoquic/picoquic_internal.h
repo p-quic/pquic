@@ -247,13 +247,13 @@ typedef enum {
     picoquic_tp_initial_max_stream_data_uni = 11
 } picoquic_tp_enum;
 
-typedef struct st_picoquic_tp_prefered_address_t {
+typedef struct st_picoquic_tp_preferred_address_t {
     uint8_t ipVersion; /* enum { IPv4(4), IPv6(6), (15) } -- 0 if no parameter specified */
     uint8_t ipAddress[16]; /* opaque ipAddress<4..2 ^ 8 - 1> */
     uint16_t port;
     picoquic_connection_id_t connection_id; /*  opaque connectionId<0..18>; */
     uint8_t statelessResetToken[16];
-} picoquic_tp_prefered_address_t;
+} picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
     uint32_t initial_max_stream_data_bidi_local;
@@ -266,7 +266,7 @@ typedef struct st_picoquic_tp_t {
     uint32_t max_packet_size;
     uint8_t ack_delay_exponent;
     unsigned int migration_disabled; 
-    picoquic_tp_prefered_address_t prefered_address;
+    picoquic_tp_preferred_address_t preferred_address;
 } picoquic_tp_t;
 
 /*
