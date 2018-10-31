@@ -465,7 +465,8 @@ typedef struct reserve_frames_block {
 /**
  * Book an occasion to send the frame whose details are given in \p slot.
  * \param[in] cnx The context of the connection
- * \param[in] slot Information about the frame booking
+ * \param[in] nb_frames The number of frames concerned by the booking
+ * \param[in] slots Information about the frames' booking
  * 
  * \return The number of bytes reserved, or 0 if an error occurred
  */
