@@ -4,6 +4,7 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
 #include "memcpy.h"
+#include "getset.h"
 
 #define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
 #define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
@@ -146,7 +147,9 @@ static int helper_should_send_max_data(picoquic_cnx_t* cnx)
 {
     int ret = 0;
 
-    if (2 * cnx->data_received > cnx->maxdata_local)
+    uint64_t data_received = (uint64_t) get_cnx(cnx, CNX_AK_DATA_RECEIVED, 0);
+    uint64_t maxdata_local = (uint64_t) get_cnx(cnx, CNX_AK_MAXDATA_LOCAL, 0);
+    if (2 * data_received > maxdata_local)
         ret = 1;
 
     return ret;
@@ -157,7 +160,8 @@ static int helper_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * pat
 {
     int ret = 0;
 
-    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    if ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
         ret = 1;
     }
 

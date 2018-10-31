@@ -140,7 +140,7 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     size_t frame_length = 0;
 
     if (ret == 0 && p->ptype == picoquic_packet_0rtt_protected) {
-        cnx->nb_zero_rtt_acked++;
+        set_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0) + 1);
     }
 
     byte_index = p->offset;

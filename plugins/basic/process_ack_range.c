@@ -31,7 +31,7 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 picoquic_packet_t* next = p->next_packet;
                 picoquic_path_t * old_path = p->send_path;
 
-                if (cnx->congestion_alg != NULL) {
+                if ((picoquic_congestion_algorithm_t *) get_cnx(cnx, CNX_AK_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
                     helper_congestion_algorithm_notify(cnx, old_path,
                         picoquic_congestion_notification_acknowledgement, 0, p->length, 0, current_time);
                 }

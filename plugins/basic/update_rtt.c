@@ -45,7 +45,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                 if (pkt_ctx->latest_time_acknowledged < packet->send_time) {
                     pkt_ctx->latest_time_acknowledged = packet->send_time;
                 }
-                cnx->latest_progress_time = current_time;
+                set_cnx(cnx, CNX_AK_LATEST_PROGRESS_TIME, 0, current_time);
 
                 if (rtt_estimate > 0) {
                     picoquic_path_t * old_path = packet->send_path;
@@ -98,7 +98,8 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                         old_path->retransmit_timer = PICOQUIC_MIN_RETRANSMIT_TIMER;
                     }
 
-                    if (cnx->congestion_alg != NULL) {
+                    picoquic_congestion_algorithm_t *congestion_alg = (picoquic_congestion_algorithm_t *) get_cnx(cnx, CNX_AK_CONGESTION_CONTROL_ALGORITHM, 0);
+                    if (congestion_alg != NULL) {
                         helper_congestion_algorithm_notify(cnx, old_path,
                             picoquic_congestion_notification_rtt_measurement,
                             rtt_estimate, 0, 0, current_time);

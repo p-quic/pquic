@@ -30,8 +30,10 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
     bool stop = false;
     protoop_id_t reason = NULL;
 
-    for (int i = 0; i < cnx->nb_paths; i++) {
-        picoquic_path_t* orig_path = cnx->path[i];
+    int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
+
+    for (int i = 0; i < nb_paths; i++) {
+        picoquic_path_t* orig_path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
         picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
@@ -96,11 +98,13 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         packet_is_pure_ack = p->is_pure_ack;
                     }
 
+                    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+
                     if (contains_crypto) {
                         length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected, path_x);
                         packet->ptype = picoquic_packet_0rtt_protected;
                         packet->offset = length;
-                    } else if (cnx->cnx_state < picoquic_state_client_ready) {
+                    } else if (cnx_state < picoquic_state_client_ready) {
                         should_retransmit = 0;
                     } else {
                         length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0, path_x);
@@ -194,23 +198,15 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         }
 
                         if (should_retransmit != 0) {
-                            /*
-                            if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
-                                // protoop_printf(cnx, (protoop_arg_t) p->pc);
-                                DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
-                                    p->ptype, p->pc,
-                                    (unsigned long long)p->sequence_number, cnx->client_mode);
-                            }
-                            */
-
+                            int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
                             /* special case for the client initial */
-                            if (p->ptype == picoquic_packet_initial && cnx->client_mode != 0) {
+                            if (p->ptype == picoquic_packet_initial && client_mode != 0) {
                                 while (length < (send_buffer_max - checksum_length)) {
                                     new_bytes[length++] = 0;
                                 }
                             }
                             packet->length = length;
-                            cnx->nb_retransmission_total++;
+                            set_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0, get_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0) + 1);
 
                             helper_congestion_algorithm_notify(cnx, old_path,
                                 (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,

@@ -2,8 +2,6 @@ be.qdeconinck.basic
 set_next_wake_time replace set_next_wake_time.o
 retransmit_needed_by_packet replace retransmit_needed_by_packet.o
 retransmit_needed replace retransmit_needed.o
-prepare_packet_ready replace prepare_packet_ready.o
 update_rtt replace update_rtt.o
 process_ack_range replace process_ack_range.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
-prepare_ack_frame replace prepare_ack_frame.o
