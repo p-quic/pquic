@@ -434,6 +434,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
     }
     picoquic_opaque_meta_t *ometas = cnx->current_transaction->opaque_metas;
     if (oid >= OPAQUE_ID_MAX) {
+        printf("ERROR: plugin from transaction %s ask for opaque id %u >= max opaque id %d\n", cnx->current_transaction->name, oid, OPAQUE_ID_MAX);
         /* Invalid ID */
         return NULL;
     }

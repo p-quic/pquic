@@ -479,7 +479,7 @@ typedef struct st_picoquic_opaque_meta_t {
 } picoquic_opaque_meta_t;
 
 #define PROTOOPTRANSACTIONNAME_MAX 100
-#define OPAQUE_ID_MAX 0x80
+#define OPAQUE_ID_MAX 0x10
 
 typedef struct protoop_transaction {
     char name[PROTOOPTRANSACTIONNAME_MAX];
