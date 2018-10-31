@@ -19,6 +19,7 @@
 #include "memory.h"
 #include "tls_api.h"
 #include "endianness.h"
+#include "getset.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -31,6 +32,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     ubpf_register(vm, 0x01, "get_opaque_data", get_opaque_data);
     ubpf_register(vm, 0x02, "reserve_frames", reserve_frames);
+    ubpf_register(vm, 0x03, "get_cnx", get_cnx);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
     ubpf_register(vm, 0x09, "picoquic_current_time", picoquic_current_time);

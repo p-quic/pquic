@@ -20,6 +20,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c
+    picoquic/getset.c
     picoquic/http0dot9.c
     picoquic/intformat.c
     picoquic/logger.c
