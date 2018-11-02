@@ -10,9 +10,9 @@
  */
 protoop_arg_t check_spurious_stream_frame(picoquic_cnx_t *cnx)
 {
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_end = (const uint8_t *) cnx->protoop_inputv[1];
-    picoquic_path_t *path = (picoquic_path_t *) cnx->protoop_inputv[3];
+    uint8_t *bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t *bytes_end = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 3);
 
     uint64_t stream_id;
     uint64_t offset;
