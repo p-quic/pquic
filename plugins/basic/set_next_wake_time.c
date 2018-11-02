@@ -146,7 +146,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     }
 
     /* reset the connection at its new logical position */
-    picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
+    picoquic_reinsert_cnx_by_wake_time(cnx, next_time);
 }
 
 /**
@@ -279,7 +279,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
     }
 
     /* reset the connection at its new logical position */
-    picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
+    picoquic_reinsert_cnx_by_wake_time(cnx, next_time);
 
     return 0;
 }

@@ -565,6 +565,11 @@ void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, 
     picoquic_insert_cnx_by_wake_time(quic, cnx);
 }
 
+void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time)
+{
+    picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
+}
+
 picoquic_cnx_t* picoquic_get_earliest_cnx_to_wake(picoquic_quic_t* quic, uint64_t max_wake_time)
 {
     picoquic_cnx_t * cnx = quic->cnx_wake_first;
