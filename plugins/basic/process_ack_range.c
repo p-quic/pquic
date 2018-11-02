@@ -3,13 +3,7 @@
 #include "../helpers.h"
 
 /**
- * picoquic_packet_context_enum pc = cnx->protoop_inputv[0]
- * uint64_t highest = cnx->protoop_inputv[1]
- * uint64_t range = cnx->protoop_inputv[2]
- * picoquic_packet_t* ppacket = cnx->protoop_inputv[3]
- * uint64_t current_time = cnx->protoop_inputv[4]
- *
- * Output: int ret
+ * See PROTOOP_NOPARAM_PROCESS_ACK_RANGE
  */
 protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 {

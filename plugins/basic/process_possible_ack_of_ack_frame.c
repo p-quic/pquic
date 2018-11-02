@@ -126,9 +126,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
 }
 
 /**
- * picoquic_packet_t* p = cnx->protoop_inputv[0]
- *
- * Output: none
+ * See PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {

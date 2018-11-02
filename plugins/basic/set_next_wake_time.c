@@ -150,7 +150,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 }
 
 /**
- * cnx->protoop_inputv[0] = uint64_t current_time
+ * See PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME
  */
 protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 {

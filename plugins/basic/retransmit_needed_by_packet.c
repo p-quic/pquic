@@ -3,12 +3,7 @@
 #include "../helpers.h"
 
 /**
- * cnx->protoop_inputv[0] = picoquic_packet *p NOT NULL
- * cnx->protoop_inputv[1] = uint64_t current_time
- * cnx->protoop_inputv[2] = int timer_based
- * 
- * Output: should retransmit (int)
- * cnx->protoop_outputv[0] = int timer_based
+ * See PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET
  */
 protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 {

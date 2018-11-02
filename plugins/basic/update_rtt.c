@@ -3,13 +3,7 @@
 #include "../helpers.h"
 
 /**
- * uint64_t largest = cnx->protoop_inputv[0]
- * uint64_t current_time = cnx->protoop_inputv[1]
- * uint64_t ack_delay = cnx->protoop_inputv[2]
- * picoquic_packet_context_enum pc = cnx->protoop_inputv[3]
- * picoquic_path_t* path_x = cnx->protoop_inputv[4]
- *
- * Output: picoquic_packet_t* packet
+ * See PROTOOP_NOPARAM_UPDATE_RTT
  */
 protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 {

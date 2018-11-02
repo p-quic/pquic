@@ -4,17 +4,7 @@
 #include "../helpers.h"
 
 /**
- * cnx->protoop_inputv[0] = picoquic_packet_context_enum pc
- * cnx->protoop_inputv[1] = picoquic_path_t * path_x
- * cnx->protoop_inputv[2] = uint64_t current_time
- * cnx->protoop_inputv[3] = picoquic_packet* packet
- * cnx->protoop_inputv[4] = size_t send_buffer_max
- * cnx->protoop_inputv[5] = int is_cleartext_mode
- * cnx->protoop_inputv[6] = uint32_t header_length
- *
- * Regular output: int length
- * cnx->protoop_outputv[0] = int is_cleartext_mode
- * cnx->protoop_outputv[1] = uint32_t header_length
+ * See PROTOOP_NOPARAM_RETRANSMIT_NEEDED
  */
 protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 {

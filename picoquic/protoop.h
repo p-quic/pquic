@@ -195,15 +195,6 @@ static const protoop_id_t PROTOOP_NOPARAM_IS_TLS_STREAM_READY = "is_tls_stream_r
 static const protoop_id_t PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED = "check_stream_frame_already_acked";
 
 /**
- * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
- * picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_inputv[1];
- * struct sockaddr* addr_from = (struct sockaddr *) cnx->protoop_inputv[2];
- * uint64_t current_time = (uint64_t) cnx->protoop_inputv[3];
- *
- * Output: return code (int)
- */
-
-/**
  * Process an incoming packet which is 1-RTT protected.
  * \param[in] bytes \b uint8_t* Pointer to the start of the received packet
  * \param[in] ph \b picoquic_packet_header* Packet header information structure
