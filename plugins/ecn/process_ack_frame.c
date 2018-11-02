@@ -41,11 +41,11 @@ static void picoquic_newreno_enter_recovery(picoquic_path_t* path_x,
  */
 protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
 { 
-    ack_frame_t *frame = (ack_frame_t *) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
-    int epoch = (int) cnx->protoop_inputv[2];
+    ack_frame_t *frame = (ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
 
-    picoquic_path_t* path_x = cnx->path[0];
+    picoquic_path_t* path_x = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, 0);
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     uint8_t first_byte = (frame->is_ack_ecn) ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack;
 
@@ -67,9 +67,9 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         return 1;
     } else {
         if (frame->is_ack_ecn) {
-            cnx->ecn_ect0_total_remote = frame->ecnx3[0];
-            cnx->ecn_ect1_total_remote = frame->ecnx3[1];
-            cnx->ecn_ce_total_remote = frame->ecnx3[2];
+            set_cnx(cnx, CNX_AK_ECN_ECT0_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[0]);
+            set_cnx(cnx, CNX_AK_ECN_ECT1_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[1]);
+            set_cnx(cnx, CNX_AK_ECN_CE_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[2]);
         }
 
         /* Attempt to update the RTT */
@@ -143,6 +143,8 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
     }
 
     bpfd->ecn_ack_ce_counter = bpfd->ecn_ect_ce_remote_pkts;
+
+    /** FIXME BROKEN Reserve ECN frame when needed */
 
     return 0;
 }

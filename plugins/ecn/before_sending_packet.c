@@ -3,6 +3,7 @@
 #include "bpf.h"
 
 /**
+ * See "before_sending_packet"
  * cnx->protoop_inputv[0] = SOCKET_TYPE socket
  * 
  * Output: None
@@ -10,7 +11,7 @@
 protoop_arg_t before_sending_packet(picoquic_cnx_t *cnx)
 {
     /* FIXME only for Linux! */
-    int socket = (int) cnx->protoop_inputv[0];
+    int socket = (int) get_cnx(cnx, CNX_AK_INPUT, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     uint32_t flag = 1 << socket;
