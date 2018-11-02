@@ -136,7 +136,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         if (path_x->challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
                             //DBG_PRINTF("%s\n", "Too many challenge retransmits, disconnect");
                             picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
-                            helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
+                            helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close);
                             length = 0;
                         }
                     }

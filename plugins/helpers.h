@@ -80,15 +80,14 @@ static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_pat
 }
 
 static void helper_callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes,
-    size_t length, picoquic_call_back_event_t fin_or_event, void* callback_ctx)
+    size_t length, picoquic_call_back_event_t fin_or_event)
 {
-    protoop_arg_t args[5];
+    protoop_arg_t args[4];
     args[0] = (protoop_arg_t) stream_id;
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) length;
     args[3] = (protoop_arg_t) fin_or_event;
-    args[4] = (protoop_arg_t) callback_ctx;
-    protoop_params_t pp = get_pp_noparam("callback_function", 5, args, NULL);
+    protoop_params_t pp = get_pp_noparam("callback_function", 4, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 

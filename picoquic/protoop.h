@@ -241,7 +241,6 @@ static const protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY = "congest
  * \param[in] bytes \b uint8_t* Pointer to the received data
  * \param[in] length \b size_t Length of the received data
  * \param[in] fin_or_event \b picoquic_call_back_event_t Event type
- * \param[in] callback_ctx \b void* The context provided to the callback
  * 
  * \todo link to callback events
  */

@@ -1621,10 +1621,9 @@ protoop_arg_t callback_function(picoquic_cnx_t *cnx)
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
     size_t length = (size_t) cnx->protoop_inputv[2];
     picoquic_call_back_event_t fin_or_event = (picoquic_call_back_event_t) cnx->protoop_inputv[3];
-    void* callback_ctx = (void *) cnx->protoop_inputv[4];
 
     if (cnx->callback_fn) {
-        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, callback_ctx);
+        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx);
     }
 
     return 0;
