@@ -164,6 +164,10 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define CNX_AK_TLS_STREAM 0x30
 /** The pointer to the encryption/decryption objects for the epoch \p param */
 #define CNX_AK_CRYPTO_CONTEXT 0x31
+/** The input of the protocol operation number \p param */
+#define CNX_AK_INPUT 0x32
+/** The output of the protocol operation number \p param */
+#define CNX_AK_OUTPUT 0x33
 
 /**
  * @}

@@ -1,5 +1,6 @@
 #include "picoquic_internal.h"
 #include "plugin.h"
+#include "../helpers.h"
 
 /**
  * cnx->protoop_inputv[0] = picoquic_packet *p NOT NULL
@@ -11,9 +12,9 @@
  */
 protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_t *p = (picoquic_packet_t *) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
-    int timer_based = (int) cnx->protoop_inputv[2];
+    picoquic_packet_t *p = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    int timer_based = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
 
     picoquic_packet_context_enum pc = p->pc;
     picoquic_path_t* send_path = p->send_path;
@@ -66,9 +67,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
         }
     }
 
-    cnx->protoop_outputv[0] = (protoop_arg_t) timer_based;
-    cnx->protoop_outputv[1] = (protoop_arg_t) reason;
-    cnx->protoop_outputc_callee = 2;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) timer_based);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) reason);
 
     return (protoop_arg_t) should_retransmit;
 }

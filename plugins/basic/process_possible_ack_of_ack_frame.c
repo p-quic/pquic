@@ -132,7 +132,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {
-    picoquic_packet_t* p = (picoquic_packet_t*) cnx->protoop_inputv[0];
+    picoquic_packet_t* p = (picoquic_packet_t*) get_cnx(cnx, CNX_AK_INPUT, 0);
 
     int ret = 0;
     size_t byte_index;

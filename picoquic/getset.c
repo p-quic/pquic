@@ -149,6 +149,15 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
             return 0;
         }
         return (protoop_arg_t) &cnx->crypto_context[param];
+    case CNX_AK_INPUT:
+        if (param >= cnx->protoop_inputc) {
+            printf("ERROR: trying to get input %u, but there are only %d inputs available\n", param, cnx->protoop_inputc);
+            return 0;
+        }
+        return cnx->protoop_inputv[param];
+    case CNX_AK_OUTPUT:
+        printf("ERROR: trying to get an output\n");
+        return 0;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -356,6 +365,19 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case CNX_AK_CRYPTO_CONTEXT:
         printf("ERROR: setting the crypto context is not implemented!\n");
+        break;
+    case CNX_AK_INPUT:
+        printf("ERROR: trying to set an input\n");
+        break;
+    case CNX_AK_OUTPUT:
+        if (param > cnx->protoop_outputc_callee) {
+            printf("ERROR: trying to set output %u but only %d outputs so far... You need to insert them sequentially!\n", param, cnx->protoop_outputc_callee);
+            return;
+        }
+        cnx->protoop_outputv[param] = val;
+        if (param == cnx->protoop_outputc_callee) {
+            cnx->protoop_outputc_callee++;
+        }
         break;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);

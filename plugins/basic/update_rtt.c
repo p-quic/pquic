@@ -13,11 +13,11 @@
  */
 protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 {
-    uint64_t largest = (uint64_t) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
-    uint64_t ack_delay = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[3];
-    picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[4];
+    uint64_t largest = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    uint64_t ack_delay = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 2);
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, CNX_AK_INPUT, 3);
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 4);
 
     picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
     picoquic_packet_t* packet = pkt_ctx->retransmit_newest;

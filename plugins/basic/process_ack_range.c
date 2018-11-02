@@ -13,11 +13,11 @@
  */
 protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
-    uint64_t highest = (uint64_t) cnx->protoop_inputv[1];
-    uint64_t range = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet_t* ppacket = (picoquic_packet_t*) cnx->protoop_inputv[3];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t highest = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    uint64_t range = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 2);
+    picoquic_packet_t* ppacket = (picoquic_packet_t*) get_cnx(cnx, CNX_AK_INPUT, 3);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 4);
 
     picoquic_packet_t* p = ppacket;
     int ret = 0;
@@ -59,8 +59,6 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 
     ppacket = p;
 
-    cnx->protoop_outputc_callee = 1;
-    cnx->protoop_outputv[0] = (protoop_arg_t) ppacket;
-
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) ppacket);
     return (protoop_arg_t) ret;
 }

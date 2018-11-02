@@ -154,7 +154,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
  */
 protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 {
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 0);
     int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
     uint64_t latest_progress_time = (uint64_t) get_cnx(cnx, CNX_AK_LATEST_PROGRESS_TIME, 0);
     uint64_t next_time = latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - client_mode);

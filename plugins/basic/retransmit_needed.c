@@ -18,13 +18,13 @@
  */
 protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
-    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet_t* packet = (picoquic_packet_t *) cnx->protoop_inputv[3];
-    size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
-    int is_cleartext_mode = (int) cnx->protoop_inputv[5];
-    uint32_t header_length = (uint32_t) cnx->protoop_inputv[6];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 2);
+    picoquic_packet_t* packet = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 3);
+    size_t send_buffer_max = (size_t) get_cnx(cnx, CNX_AK_INPUT, 4);
+    int is_cleartext_mode = (int) get_cnx(cnx, CNX_AK_INPUT, 5);
+    uint32_t header_length = (uint32_t) get_cnx(cnx, CNX_AK_INPUT, 6);
 
     uint32_t length = 0;
     bool stop = false;
@@ -231,10 +231,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         }
     }
 
-    cnx->protoop_outputv[0] = is_cleartext_mode;
-    cnx->protoop_outputv[1] = header_length;
-    cnx->protoop_outputv[2] = (protoop_arg_t) reason;
-    cnx->protoop_outputc_callee = 3;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) is_cleartext_mode);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) header_length);
+    set_cnx(cnx, CNX_AK_OUTPUT, 2, (protoop_arg_t) reason);
 
     return (protoop_arg_t) ((int) length);
 }
