@@ -5,34 +5,28 @@
 #include "../helpers.h"
 
 /**
- * cnx->protoop_inputv[0] = picoquic_packet_context_enum pc
- * cnx->protoop_inputv[1] = picoquic_path_t * path_x
- * cnx->protoop_inputv[2] = uint64_t current_time
- * cnx->protoop_inputv[3] = picoquic_packet* packet
- * cnx->protoop_inputv[4] = size_t send_buffer_max
- * cnx->protoop_inputv[5] = int is_cleartext_mode
- * cnx->protoop_inputv[6] = uint32_t header_length
- *
- * Regular output: int length
- * cnx->protoop_outputv[0] = int is_cleartext_mode
- * cnx->protoop_outputv[1] = uint32_t header_length
+ * See PROTOOP_NOPARAM_RETRANSMIT_NEEDED
  */
 protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) cnx->protoop_inputv[0];
-    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet_t* packet = (picoquic_packet_t *) cnx->protoop_inputv[3];
-    size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
-    int is_cleartext_mode = (int) cnx->protoop_inputv[5];
-    uint32_t header_length = (uint32_t) cnx->protoop_inputv[6];
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 2);
+    picoquic_packet_t* packet = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 3);
+    size_t send_buffer_max = (size_t) get_cnx(cnx, CNX_AK_INPUT, 4);
+    int is_cleartext_mode = (int) get_cnx(cnx, CNX_AK_INPUT, 5);
+    uint32_t header_length = (uint32_t) get_cnx(cnx, CNX_AK_INPUT, 6);
 
     uint32_t length = 0;
     bool stop = false;
     protoop_id_t reason = NULL;
 
-    for (int i = 0; i < cnx->nb_paths; i++) {
-        picoquic_path_t* orig_path = cnx->path[i];
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
+    int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
+
+    for (int i = 0; i < nb_paths; i++) {
+        picoquic_path_t* orig_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
         picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
@@ -107,7 +101,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         length = helper_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected, path_x);
                         packet->ptype = picoquic_packet_0rtt_protected;
                         packet->offset = length;
-                    } else if (cnx->cnx_state < picoquic_state_client_ready) {
+                    } else if (cnx_state < picoquic_state_client_ready) {
                         should_retransmit = 0;
                     } else {
                         length = helper_predict_packet_header_length(cnx, picoquic_packet_1rtt_protected_phi0, path_x);
@@ -208,18 +202,18 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 /*
                                 DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
                                     p->ptype, p->pc,
-                                    (unsigned long long)p->sequence_number, cnx->client_mode);
+                                    (unsigned long long)p->sequence_number, client_mode);
                                     */
                             }
 
                             /* special case for the client initial */
-                            if (p->ptype == picoquic_packet_initial && cnx->client_mode != 0) {
+                            if (p->ptype == picoquic_packet_initial && client_mode != 0) {
                                 while (length < (send_buffer_max - checksum_length)) {
                                     new_bytes[length++] = 0;
                                 }
                             }
                             packet->length = length;
-                            cnx->nb_retransmission_total++;
+                            set_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0, get_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0) + 1);
 
                             helper_congestion_algorithm_notify(cnx, old_path,
                                 (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
@@ -244,10 +238,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         }
     }
 
-    cnx->protoop_outputv[0] = is_cleartext_mode;
-    cnx->protoop_outputv[1] = header_length;
-    cnx->protoop_outputv[2] = (protoop_arg_t) reason;
-    cnx->protoop_outputc_callee = 3;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) is_cleartext_mode);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) header_length);
+    set_cnx(cnx, CNX_AK_OUTPUT, 2, (protoop_arg_t) reason);
 
     return (protoop_arg_t) ((int) length);
 }
