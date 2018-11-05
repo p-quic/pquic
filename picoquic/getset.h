@@ -38,6 +38,26 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param);
 void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the path \p path
+ * 
+ * \param path The path structure pointer
+ * \param ak The key of the field to get
+ * \param param A parameter for the key. Its meaning depends on the accessed field
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param);
+
+/**
+ * Set a specific field belonging to the path context \p path to the value \p val
+ * \param path The path structure pointer
+ * \param ak The key of the field to set
+ * \param param A parameter for the key. Its meaning depends on the accessed field
+ * \param val The value to set
+ */
+void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_arg_t val);
+
+/**
  * @}
  */
 
@@ -57,9 +77,11 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE 0x0a
 #define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR 0x0b
 /**
+ * @}
+ * 
  * @defgroup GETSET_CNX_AK Connection Access Keys
  * 
- * \brief Those access keys are dedicated to the \p get_cnx call.
+ * \brief Those access keys are dedicated to the \p get_cnx and \p set_cnx calls.
  * 
  * @{
  */
@@ -166,6 +188,85 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define CNX_AK_CRYPTO_CONTEXT 0x31
 /** The retry token length */
 #define CNX_AK_RETRY_TOKEN_LENGTH 0x32
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_PATH_AK Path Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_path and \p set_path calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the struct sockaddr of the peer */
+#define PATH_AK_PEER_ADDR 0x00
+/** The length of the peer addr structure */
+#define PATH_AK_PEER_ADDR_LEN 0x01
+/** The pointer to the local struct sockaddr */
+#define PATH_AK_LOCAL_ADDR 0x02
+/** The length of the local addr structure */
+#define PATH_AK_LOCAL_ADDR_LEN 0x03
+/** The local interface index */
+#define PATH_AK_IF_INDEX_LOCAL 0x04
+/** The challenge value */
+#define PATH_AK_CHALLENGE 0x05
+/** The last challenge time */
+#define PATH_AK_CHALLENGE_TIME 0x06
+/** The challenge response value pointer */
+#define PATH_AK_CHALLENGE_RESPONSE 0x07
+/** The number of time the challenge was repeated */
+#define PATH_AK_CHALLENGE_REPEAT_COUNT 0x08
+/** Flag for a MTU probe sent */
+#define PATH_AK_MTU_PROBE_SENT 0x09
+/** Flag indicating that the challenge was verified */
+#define PATH_AK_CHALLENGE_VERIFIED 0x0a
+/** Flag indicating that there is a challenge response to send */
+#define PATH_AK_CHALLENGE_RESPONSE_TO_SEND 0x0b
+/** Flag indicating that a ping was received */
+#define PATH_AK_PING_RECEIVED 0x0c
+/** The max ack delay, as uint64_t */
+#define PATH_AK_MAX_ACK_DELAY 0x0d
+/** The smoothed RTT, as uint64_t */
+#define PATH_AK_SMOOTHED_RTT 0x0e
+/** The RTT variance, as uint64_t */
+#define PATH_AK_RTT_VARIANT 0x0f
+/** The retransmit timer, as uint64_t */
+#define PATH_AK_RETRANSMIT_TIMER 0x10
+/** The min RTT, as uint64_t */
+#define PATH_AK_RTT_MIN 0x11
+/** The max spurious RTT, as uint64_t */
+#define PATH_AK_MAX_SPURIOUS_RTT 0x12
+/** The max reordering delay */
+#define PATH_AK_MAX_REORDER_DELAY 0x13
+/** The max reordering gap */
+#define PATH_AK_MAX_REORDER_GAP 0x14
+/** The send MTU */
+#define PATH_AK_SEND_MTU 0x15
+/** The maximum MTU that was tried */
+#define PATH_AK_SEND_MTU_MAX_TRIED 0x16
+/** The congestion window */
+#define PATH_AK_CWIN 0x17
+/** The number of bytes in flight */
+#define PATH_AK_BYTES_IN_TRANSIT 0x18
+/** The pointer to the congestion control algorithm state */
+#define PATH_AK_CONGESTION_ALGORITHM_STATE 0x19
+/** The pacing packet time in nano second, as uint64_t */
+#define PATH_AK_PACKET_TIME_NANO_SEC 0x1a
+/** The pacing reminder in nano second, as uint64_t */
+#define PATH_AK_PACING_REMINDER_NANO_SEC 0x1b
+/** The pacing margin in micro second, as uint64_t */
+#define PATH_AK_PACING_MARGIN_MICROS 0x1c
+/** The next pacing time, as uint64_t */
+#define PATH_AK_NEXT_PACING_TIME 0x1d
+/** The pointer to the local connection ID */
+#define PATH_AK_LOCAL_CID 0x1e
+/** The pointer to the remote connection ID */
+#define PATH_AK_REMOTE_CID 0x1f
+/** The pointer to the reset secret */
+#define PATH_AK_RESET_SECRET 0x20
+/** The pointer to the packet context with the picoquic_packet_context_enum \p param */
+#define PATH_AK_PKT_CTX 0x21
 
 /**
  * @}

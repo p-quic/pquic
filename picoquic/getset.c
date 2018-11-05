@@ -378,3 +378,195 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     }
 }
+
+protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
+{
+    switch(ak) {
+    case PATH_AK_PEER_ADDR:
+        return (protoop_arg_t) &path->peer_addr;
+    case PATH_AK_PEER_ADDR_LEN:
+        return path->peer_addr_len;
+    case PATH_AK_LOCAL_ADDR:
+        return (protoop_arg_t) &path->local_addr;
+    case PATH_AK_LOCAL_ADDR_LEN:
+        return path->local_addr_len;
+    case PATH_AK_IF_INDEX_LOCAL:
+        return path->if_index_local;
+    case PATH_AK_CHALLENGE:
+        return path->challenge;
+    case PATH_AK_CHALLENGE_TIME:
+        return path->challenge_time;
+    case PATH_AK_CHALLENGE_RESPONSE:
+        return (protoop_arg_t) path->challenge_response;
+    case PATH_AK_CHALLENGE_REPEAT_COUNT:
+        return path->challenge_repeat_count;
+    case PATH_AK_MTU_PROBE_SENT:
+        return path->mtu_probe_sent;
+    case PATH_AK_CHALLENGE_VERIFIED:
+        return path->challenge_verified;
+    case PATH_AK_CHALLENGE_RESPONSE_TO_SEND:
+        return path->challenge_response_to_send;
+    case PATH_AK_PING_RECEIVED:
+        return path->ping_received;
+    case PATH_AK_MAX_ACK_DELAY:
+        return path->max_ack_delay;
+    case PATH_AK_SMOOTHED_RTT:
+        return path->smoothed_rtt;
+    case PATH_AK_RTT_VARIANT:
+        return path->rtt_variant;
+    case PATH_AK_RETRANSMIT_TIMER:
+        return path->retransmit_timer;
+    case PATH_AK_RTT_MIN:
+        return path->rtt_min;
+    case PATH_AK_MAX_SPURIOUS_RTT:
+        return path->max_spurious_rtt;
+    case PATH_AK_MAX_REORDER_DELAY:
+        return path->max_reorder_delay;
+    case PATH_AK_MAX_REORDER_GAP:
+        return path->max_reorder_gap;
+    case PATH_AK_SEND_MTU:
+        return path->send_mtu;
+    case PATH_AK_SEND_MTU_MAX_TRIED:
+        return path->send_mtu_max_tried;
+    case PATH_AK_CWIN:
+        return path->cwin;
+    case PATH_AK_BYTES_IN_TRANSIT:
+        return path->bytes_in_transit;
+    case PATH_AK_CONGESTION_ALGORITHM_STATE:
+        return (protoop_arg_t) path->congestion_alg_state;
+    case PATH_AK_PACKET_TIME_NANO_SEC:
+        return path->packet_time_nano_sec;
+    case PATH_AK_PACING_REMINDER_NANO_SEC:
+        return path->pacing_reminder_nano_sec;
+    case PATH_AK_PACING_MARGIN_MICROS:
+        return path->pacing_margin_micros;
+    case PATH_AK_NEXT_PACING_TIME:
+        return path->next_pacing_time;
+    case PATH_AK_LOCAL_CID:
+        return (protoop_arg_t) &path->local_cnxid;
+    case PATH_AK_REMOTE_CID:
+        return (protoop_arg_t) &path->remote_cnxid;
+    case PATH_AK_RESET_SECRET:
+        return (protoop_arg_t) &path->reset_secret;
+    case PATH_AK_PKT_CTX:
+        if (param >= picoquic_nb_packet_context) {
+            printf("ERROR: accessing pc %u but max value is %u\n", param, picoquic_nb_packet_context);
+            return 0;
+        }
+        return (protoop_arg_t) &path->pkt_ctx[param];
+    default:
+        printf("ERROR: unknown path access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_arg_t val)
+{
+    switch(ak) {
+    case PATH_AK_PEER_ADDR:
+        printf("ERROR: setting the peer addr is not implemented!\n");
+        break;
+    case PATH_AK_PEER_ADDR_LEN:
+        path->peer_addr_len = (int) val;
+        break;
+    case PATH_AK_LOCAL_ADDR:
+        printf("ERROR: setting the local addr is not implemented!\n");
+        break;
+    case PATH_AK_LOCAL_ADDR_LEN:
+        path->local_addr_len = (int) val;
+        break;
+    case PATH_AK_IF_INDEX_LOCAL:
+        path->if_index_local = (int) val;
+        break;
+    case PATH_AK_CHALLENGE:
+        path->challenge = val;
+        break;
+    case PATH_AK_CHALLENGE_TIME:
+        path->challenge_time =val;
+        break;
+    case PATH_AK_CHALLENGE_RESPONSE:
+        printf("ERROR: setting the challenge response is not implemented!\n");
+        break;
+    case PATH_AK_CHALLENGE_REPEAT_COUNT:
+        path->challenge_repeat_count = (uint8_t) val;
+        break;
+    case PATH_AK_MTU_PROBE_SENT:
+        path->mtu_probe_sent = val;
+        break;
+    case PATH_AK_CHALLENGE_VERIFIED:
+        path->challenge_verified = val;
+        break;
+    case PATH_AK_CHALLENGE_RESPONSE_TO_SEND:
+        path->challenge_response_to_send = val;
+        break;
+    case PATH_AK_PING_RECEIVED:
+        path->ping_received = val;
+        break;
+    case PATH_AK_MAX_ACK_DELAY:
+        path->max_ack_delay = val;
+        break;
+    case PATH_AK_SMOOTHED_RTT:
+        path->smoothed_rtt = val;
+        break;
+    case PATH_AK_RTT_VARIANT:
+        path->rtt_variant = val;
+        break;
+    case PATH_AK_RETRANSMIT_TIMER:
+        path->retransmit_timer = val;
+        break;
+    case PATH_AK_RTT_MIN:
+        path->rtt_min = val;
+        break;
+    case PATH_AK_MAX_SPURIOUS_RTT:
+        path->max_spurious_rtt = val;
+        break;
+    case PATH_AK_MAX_REORDER_DELAY:
+        path->max_reorder_delay = val;
+        break;
+    case PATH_AK_MAX_REORDER_GAP:
+        path->max_reorder_gap = val;
+        break;
+    case PATH_AK_SEND_MTU:
+        path->send_mtu = val;
+        break;
+    case PATH_AK_SEND_MTU_MAX_TRIED:
+        path->send_mtu_max_tried = val;
+        break;
+    case PATH_AK_CWIN:
+        path->cwin = val;
+        break;
+    case PATH_AK_BYTES_IN_TRANSIT:
+        path->bytes_in_transit = val;
+        break;
+    case PATH_AK_CONGESTION_ALGORITHM_STATE:
+        printf("ERROR: setting the congestion algorithm state is not implemented!\n");
+        break;
+    case PATH_AK_PACKET_TIME_NANO_SEC:
+        path->packet_time_nano_sec = val;
+        break;
+    case PATH_AK_PACING_REMINDER_NANO_SEC:
+        path->pacing_reminder_nano_sec = val;
+        break;
+    case PATH_AK_PACING_MARGIN_MICROS:
+        path->pacing_margin_micros = val;
+        break;
+    case PATH_AK_NEXT_PACING_TIME:
+        path->next_pacing_time = val;
+        break;
+    case PATH_AK_LOCAL_CID:
+        printf("ERROR: setting the local CID is not implemented!\n");
+        break;
+    case PATH_AK_REMOTE_CID:
+        printf("ERROR: setting the remote CID is not implemented!\n");
+        break;
+    case PATH_AK_RESET_SECRET:
+        printf("ERROR: setting the reset secret is not implemented!\n");
+        break;
+    case PATH_AK_PKT_CTX:
+        printf("ERROR: setting the pkt ctx is not implemented!\n");
+        break;
+    default:
+        printf("ERROR: unknown path access key %u\n", ak);
+        break;
+    }
+}
