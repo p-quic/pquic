@@ -64,34 +64,38 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
  * @{
  */
 
+/** The input of the protocol operation number \p param */
+#define CNX_AK_INPUT 0x00
+/** The output of the protocol operation number \p param */
+#define CNX_AK_OUTPUT 0x01
 /** The proposed QUIC version, as a uint32_t */
-#define CNX_AK_PROPOSED_VERSION 0x00
+#define CNX_AK_PROPOSED_VERSION 0x02
 /** Whether 0-RTT is accepted */
-#define CNX_AK_IS_0RTT_ACCEPTED 0x01
+#define CNX_AK_IS_0RTT_ACCEPTED 0x03
 /** Whether remote parameters were received */
-#define CNX_AK_REMOTE_PARMETERS_RECEIVED 0x02
+#define CNX_AK_REMOTE_PARMETERS_RECEIVED 0x04
 /** Current value of the spin bit */
-#define CNX_AK_CURRENT_SPIN 0x03
+#define CNX_AK_CURRENT_SPIN 0x05
 /** Is this connection the client side? */
-#define CNX_AK_CLIENT_MODE 0x04
+#define CNX_AK_CLIENT_MODE 0x06
 /** Previous spin bit */
-#define CNX_AK_PREV_SPIN 0x05
+#define CNX_AK_PREV_SPIN 0x07
 /** Valid Edge Counter, makes spin bit RTT measurements more reliable */
-#define CNX_AK_SPIN_VEC 0x06
+#define CNX_AK_SPIN_VEC 0x08
 /** Internal signalling from incoming to outgoing: we just spinned it */
-#define CNX_AK_SPIN_EDGE 0x07
+#define CNX_AK_SPIN_EDGE 0x09
 /** Timestamp of the incoming packet that triggered the spinning, in uint64_t */
-#define CNX_AK_SPIN_LAST_TRIGGER 0x08
+#define CNX_AK_SPIN_LAST_TRIGGER 0x0a
 /** The local parameter with the value provided by \p param */
-#define CNX_AK_LOCAL_PARAMETER 0x09
+#define CNX_AK_LOCAL_PARAMETER 0x0b
 /** The remote parameter with the value provided by \p param */
-#define CNX_AK_REMOTE_PARAMETER 0x0a
+#define CNX_AK_REMOTE_PARAMETER 0x0c
 /** On clients, maximum 0RTT size accepted by server */
-#define CNX_AK_MAX_EARLY_DATA_SIZE 0x0b
+#define CNX_AK_MAX_EARLY_DATA_SIZE 0x0d
 /** The connection state, as defined by \p picoquic_state_enum */
-#define CNX_AK_STATE 0x0c
+#define CNX_AK_STATE 0x0e
 /** The pointer to the initial connection ID */
-#define CNX_AK_INITIAL_CID 0x0d
+#define CNX_AK_INITIAL_CID 0x0f
 /** The start time of the connection, as uint64_t */
 #define CNX_AK_START_TIME 0x10
 /** The application error code, as uint16_t */
@@ -160,12 +164,8 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define CNX_AK_TLS_STREAM 0x30
 /** The pointer to the encryption/decryption objects for the epoch \p param */
 #define CNX_AK_CRYPTO_CONTEXT 0x31
-/** The input of the protocol operation number \p param */
-#define CNX_AK_INPUT 0x32
-/** The output of the protocol operation number \p param */
-#define CNX_AK_OUTPUT 0x33
 /** The retry token length */
-#define CNX_AK_RETRY_TOKEN_LENGTH 0x34
+#define CNX_AK_RETRY_TOKEN_LENGTH 0x32
 
 /**
  * @}
