@@ -33,14 +33,17 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 /* If the packet contained an ACK frame, perform the ACK of ACK pruning logic */
                 helper_process_possible_ack_of_ack_frame(cnx, p);
 
+                uint32_t old_path_send_mtu = (uint32_t) get_path(old_path, PATH_AK_SEND_MTU, 0);
+
                 /* If packet is larger than the current MTU, update the MTU */
-                if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
-                    old_path->send_mtu = (uint32_t)(p->length + p->checksum_overhead);
-                    old_path->mtu_probe_sent = 0;
+                if ((p->length + p->checksum_overhead) > old_path_send_mtu) {
+                    set_path(old_path, PATH_AK_SEND_MTU, 0, (protoop_arg_t)(p->length + p->checksum_overhead));
+                    set_path(old_path, PATH_AK_MTU_PROBE_SENT, 0, 0);
                 }
 
                 /* Any acknowledgement shows progress */
-                p->send_path->pkt_ctx[pc].nb_retransmit = 0;
+                picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(old_path, PATH_AK_PKT_CTX, pc);
+                pkt_ctx->nb_retransmit = 0;
 
                 helper_dequeue_retransmit_packet(cnx, p, 1);
                 p = next;

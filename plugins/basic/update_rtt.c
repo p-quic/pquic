@@ -13,7 +13,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, CNX_AK_INPUT, 3);
     picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 4);
 
-    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
     picoquic_packet_t* packet = pkt_ctx->retransmit_newest;
 
     /* Check whether this is a new acknowledgement */
@@ -43,37 +43,41 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 
                 if (rtt_estimate > 0) {
                     picoquic_path_t * old_path = packet->send_path;
+                    uint64_t old_max_ack_delay = (uint64_t) get_path(old_path, PATH_AK_MAX_ACK_DELAY, 0);
 
-                    if (ack_delay > old_path->max_ack_delay) {
-                        old_path->max_ack_delay = ack_delay;
+                    if (ack_delay > old_max_ack_delay) {
+                        set_path(old_path, PATH_AK_MAX_ACK_DELAY, 0, ack_delay);
                     }
 
-                    if (old_path->smoothed_rtt == PICOQUIC_INITIAL_RTT && old_path->rtt_variant == 0) {
-                        old_path->smoothed_rtt = rtt_estimate;
-                        old_path->rtt_variant = rtt_estimate / 2;
-                        old_path->rtt_min = rtt_estimate;
-                        old_path->retransmit_timer = 3 * rtt_estimate + old_path->max_ack_delay;
-                        pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
+                    uint64_t old_smoothed_rtt = (uint64_t) get_path(old_path, PATH_AK_SMOOTHED_RTT, 0);
+                    uint64_t old_rtt_variant = (uint64_t) get_path(old_path, PATH_AK_RTT_VARIANT, 0);
+                    if (old_smoothed_rtt == PICOQUIC_INITIAL_RTT && old_rtt_variant == 0) {
+                        set_path(old_path, PATH_AK_SMOOTHED_RTT, 0, rtt_estimate);
+                        set_path(old_path, PATH_AK_RTT_VARIANT, 0, rtt_estimate / 2);
+                        set_path(old_path, PATH_AK_RTT_MIN, 0, rtt_estimate);
+                        set_path(old_path, PATH_AK_RETRANSMIT_TIMER, 0, 3 * rtt_estimate + old_max_ack_delay);
+                        pkt_ctx->ack_delay_local = get_path(old_path, PATH_AK_RTT_MIN, 0) / 4;
                         if (pkt_ctx->ack_delay_local < 1000) {
                             pkt_ctx->ack_delay_local = 1000;
                         }
                     } else {
                         /* Computation per RFC 6298 */
-                        int64_t delta_rtt = rtt_estimate - old_path->smoothed_rtt;
+                        int64_t delta_rtt = rtt_estimate - old_smoothed_rtt;
                         int64_t delta_rtt_average = 0;
-                        old_path->smoothed_rtt += delta_rtt / 8;
+                        set_path(old_path, PATH_AK_SMOOTHED_RTT, 0, old_smoothed_rtt + (delta_rtt) / 8);
 
                         if (delta_rtt < 0) {
-                            delta_rtt_average = (-delta_rtt) - old_path->rtt_variant;
+                            delta_rtt_average = (-delta_rtt) - old_rtt_variant;
                         } else {
-                            delta_rtt_average = delta_rtt - old_path->rtt_variant;
+                            delta_rtt_average = delta_rtt - old_rtt_variant;
                         }
-                        old_path->rtt_variant += delta_rtt_average / 4;
+                        set_path(old_path, PATH_AK_RTT_VARIANT, 0, old_rtt_variant + (delta_rtt_average) / 4);
 
-                        if (rtt_estimate < (int64_t)old_path->rtt_min) {
-                            old_path->rtt_min = rtt_estimate;
+                        uint64_t old_rtt_min = get_path(old_path, PATH_AK_RTT_MIN, 0);
+                        if (rtt_estimate < (int64_t)old_rtt_min) {
+                            set_path(old_path, PATH_AK_RTT_MIN, 0, rtt_estimate);
 
-                            pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
+                            pkt_ctx->ack_delay_local = get_path(old_path, PATH_AK_RTT_MIN, 0) / 4;
                             if (pkt_ctx->ack_delay_local < 1000) {
                                 pkt_ctx->ack_delay_local = 1000;
                             } else if (pkt_ctx->ack_delay_local > 10000) {
@@ -81,15 +85,21 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                             }
                         }
 
-                        if (4 * old_path->rtt_variant < old_path->rtt_min) {
-                            old_path->rtt_variant = old_path->rtt_min / 4;
+                        old_rtt_variant = (uint64_t) get_path(old_path, PATH_AK_RTT_VARIANT, 0);
+                        old_rtt_min = (uint64_t) get_path(old_path, PATH_AK_RTT_MIN, 0);
+                        if (4 * old_rtt_variant < old_rtt_min) {
+                            set_path(old_path, PATH_AK_RTT_VARIANT, 0, old_rtt_min / 4);
                         }
 
-                        old_path->retransmit_timer = old_path->smoothed_rtt + 4 * old_path->rtt_variant + old_path->max_ack_delay;
+                        old_max_ack_delay = (uint64_t) get_path(old_path, PATH_AK_MAX_ACK_DELAY, 0);
+                        old_rtt_variant = (uint64_t) get_path(old_path, PATH_AK_RTT_VARIANT, 0);
+                        old_smoothed_rtt = (uint64_t) get_path(old_path, PATH_AK_SMOOTHED_RTT, 0);
+                        set_path(old_path, PATH_AK_RETRANSMIT_TIMER, 0, old_smoothed_rtt + 4 * old_rtt_variant + old_max_ack_delay);
                     }
 
-                    if (PICOQUIC_MIN_RETRANSMIT_TIMER > old_path->retransmit_timer) {
-                        old_path->retransmit_timer = PICOQUIC_MIN_RETRANSMIT_TIMER;
+                    uint64_t old_retransmit_timer = (uint64_t) get_path(old_path, PATH_AK_RETRANSMIT_TIMER, 0);
+                    if (PICOQUIC_MIN_RETRANSMIT_TIMER > old_retransmit_timer) {
+                        set_path(old_path, PATH_AK_RETRANSMIT_TIMER, 0, PICOQUIC_MIN_RETRANSMIT_TIMER);
                     }
 
                     picoquic_congestion_algorithm_t *congestion_alg = (picoquic_congestion_algorithm_t *) get_cnx(cnx, CNX_AK_CONGESTION_CONTROL_ALGORITHM, 0);
