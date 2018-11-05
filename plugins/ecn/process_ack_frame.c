@@ -23,11 +23,12 @@ static void picoquic_newreno_enter_recovery(picoquic_path_t* path_x,
     picoquic_newreno_state_t* nr_state,
     uint64_t current_time)
 {
-    nr_state->ssthresh = path_x->cwin / 2;
+
+    nr_state->ssthresh = get_path(path_x, PATH_AK_CWIN, 0) / 2;
     if (nr_state->ssthresh < PICOQUIC_CWIN_MINIMUM) {
         nr_state->ssthresh = PICOQUIC_CWIN_MINIMUM;
     }
-    path_x->cwin = nr_state->ssthresh;
+    set_path(path_x, PATH_AK_CWIN, 0, nr_state->ssthresh);
 
     nr_state->recovery_start = current_time;
 
@@ -49,8 +50,9 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     uint8_t first_byte = (frame->is_ack_ecn) ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack;
 
-    picoquic_newreno_state_t *nrs = path_x->congestion_alg_state;
+    picoquic_newreno_state_t *nrs = (picoquic_newreno_state_t *) get_path(path_x, PATH_AK_CONGESTION_ALGORITHM_STATE, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
 
     if (epoch == 1) {
         protoop_arg_t args[1];
@@ -62,7 +64,7 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         }
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         return 1;
-    } else if (frame->largest_acknowledged >= path_x->pkt_ctx[pc].send_sequence) {
+    } else if (frame->largest_acknowledged >= pkt_ctx->send_sequence) {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         return 1;
     } else {

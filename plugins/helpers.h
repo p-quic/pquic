@@ -155,12 +155,15 @@ static int helper_should_send_max_data(picoquic_cnx_t* cnx)
 }
 
 /* Decide whether to send an MTU probe */
-static int helper_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
+static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
 {
     int ret = 0;
 
     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
-    if ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
+    unsigned int mtu_probe_sent = (unsigned int) get_path(path_x, PATH_AK_MTU_PROBE_SENT, 0);
+    uint32_t send_mtu_max_tried = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU_MAX_TRIED, 0);
+    uint32_t send_mtu = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU, 0);
+    if ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) && mtu_probe_sent == 0 && (send_mtu_max_tried == 0 || (send_mtu + 10) < send_mtu_max_tried)) {
         ret = 1;
     }
 
