@@ -65,10 +65,6 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return cnx->cnx_state;
     case CNX_AK_INITIAL_CID:
         return (protoop_arg_t) &cnx->initial_cnxid;
-    case CNX_AK_LOCAL_CID:
-        return (protoop_arg_t) &cnx->local_cnxid;
-    case CNX_AK_REMOTE_CID:
-        return (protoop_arg_t) &cnx->remote_cnxid;
     case CNX_AK_START_TIME:
         return cnx->start_time;
     case CNX_AK_APPLICATION_ERROR:
@@ -255,12 +251,6 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case CNX_AK_INITIAL_CID:
         printf("ERROR: setting initial CID is not implemented!\n");
-        break;
-    case CNX_AK_LOCAL_CID:
-        printf("ERROR: setting local CID is not implemented!\n");
-        break;
-    case CNX_AK_REMOTE_CID:
-        printf("ERROR: setting remote CID is not implemented!\n");
         break;
     case CNX_AK_START_TIME:
         cnx->start_time = (uint64_t) val;

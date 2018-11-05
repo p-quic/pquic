@@ -434,6 +434,10 @@ typedef struct st_picoquic_path_t {
     uint64_t next_pacing_time;
 
     /* QDC: Moved from the ctx */
+    /* Connection IDs */
+    picoquic_connection_id_t local_cnxid;
+    picoquic_connection_id_t remote_cnxid;
+    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     /* Sequence and retransmission state */
     picoquic_packet_context_t pkt_ctx[picoquic_nb_packet_context];
 
@@ -594,10 +598,7 @@ typedef struct st_picoquic_cnx_t {
     /* connection state, ID, etc. Todo: allow for multiple cnxid */
     picoquic_state_enum cnx_state;
     picoquic_connection_id_t initial_cnxid;
-    picoquic_connection_id_t local_cnxid;
-    picoquic_connection_id_t remote_cnxid;
     uint64_t start_time;
-    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     uint16_t application_error;
     uint16_t local_error;
     uint16_t remote_application_error;

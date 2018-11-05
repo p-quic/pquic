@@ -24,6 +24,7 @@
 #include "picoquictest_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include "../picoquic/memory.h"
 
 /* Start with a series of test vectors to test that 
  * encoding and decoding are OK. 
@@ -261,13 +262,16 @@ int transport_param_one_test(int mode, uint32_t version, uint32_t proposed_versi
     memset(&quic_ctx, 0, sizeof(quic_ctx));
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
+    struct sockaddr_in addr;
+    init_memory_management(&test_cnx);
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* initialize the connection object to the test parameters */
     memcpy(&test_cnx.local_parameters, param, sizeof(picoquic_tp_t));
     // test_cnx.version = version;
     test_cnx.version_index = picoquic_get_version_index(version);
     test_cnx.proposed_version = proposed_version;
-    memcpy(test_cnx.reset_secret, transport_param_reset_secret, PICOQUIC_RESET_SECRET_SIZE);
+    memcpy(test_cnx.path[0]->reset_secret, transport_param_reset_secret, PICOQUIC_RESET_SECRET_SIZE);
 
     ret = picoquic_prepare_transport_extensions(&test_cnx, mode, buffer, sizeof(buffer), &encoded);
 
@@ -302,6 +306,10 @@ int transport_param_decode_test(int mode, uint32_t version, uint32_t proposed_ve
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
 
+    struct sockaddr_in addr;
+    init_memory_management(&test_cnx);
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
+
     ret = picoquic_receive_transport_extensions(&test_cnx, mode,
         target, target_length, &decoded);
 
@@ -331,6 +339,10 @@ int transport_param_fuzz_test(int mode, uint32_t version, uint32_t proposed_vers
     memset(&quic_ctx, 0, sizeof(quic_ctx));
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
+
+    struct sockaddr_in addr;
+    init_memory_management(&test_cnx);
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* test for valid arguments */
     if (target_length < 8 || target_length > sizeof(buffer)) {

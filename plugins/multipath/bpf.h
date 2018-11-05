@@ -144,6 +144,12 @@ static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current
     int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &path_0->peer_addr);
     /* TODO cope with possible errors */
     pd->path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, cnx_path_index);
+    /* Also insert CIDs */
+    pd->path->local_cnxid.id_len = pd->local_cnxid.id_len;
+    my_memcpy(&pd->path->local_cnxid.id, &pd->local_cnxid.id, pd->path->local_cnxid.id_len);
+    pd->path->remote_cnxid.id_len = pd->remote_cnxid.id_len;
+    my_memcpy(&pd->path->remote_cnxid.id, &pd->remote_cnxid.id, pd->path->remote_cnxid.id_len);
+    my_memcpy(pd->path->reset_secret, pd->reset_secret, 16);
 }
 
 static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)

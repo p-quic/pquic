@@ -685,6 +685,18 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             /* Initialize the MTU */
             path_x->send_mtu = addr->sa_family == AF_INET ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
 
+            /* Initialize the connection IDs */
+            if (cnx->quic) {
+                picoquic_create_random_cnx_id(cnx->quic, &path_x->local_cnxid, cnx->quic->local_ctx_length);
+            }
+
+            path_x->remote_cnxid = picoquic_null_connection_id;
+            /* Initialize the reset secret to a random value. This
+			 * will prevent spurious matches to an all zero value, for example.
+			 * The real value will be set when receiving the transport parameters. 
+			 */
+            picoquic_public_random(path_x->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
+
             /* Initialize packet contexts */
             for (picoquic_packet_context_enum pc = 0;
                 pc < picoquic_nb_packet_context; pc++) {
@@ -745,6 +757,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         /* First initialize the memory management */
         init_memory_management(cnx);
 
+        cnx->quic = quic;
+        cnx->client_mode = client_mode;
         /* Should return 0, since this is the first path */
         ret = picoquic_create_path(cnx, start_time, addr);
 
@@ -754,9 +768,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         } else {
             cnx->next_wake_time = start_time;
             cnx->start_time = start_time;
-            cnx->client_mode = client_mode;
 
-            cnx->quic = quic;
             picoquic_insert_cnx_in_list(quic, cnx);
             picoquic_insert_cnx_by_wake_time(quic, cnx);
             /* Do not require verification for default path */
@@ -822,34 +834,26 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             if (picoquic_is_connection_id_null(initial_cnx_id)) {
                 picoquic_create_random_cnx_id(quic, &initial_cnx_id, 8);
             }
-            picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
 
             if (quic->cnx_id_callback_fn) {
-                quic->cnx_id_callback_fn(cnx->local_cnxid, picoquic_null_connection_id, quic->cnx_id_callback_ctx, &cnx->local_cnxid);
+                quic->cnx_id_callback_fn(cnx->path[0]->local_cnxid, picoquic_null_connection_id, quic->cnx_id_callback_ctx, &cnx->path[0]->local_cnxid);
             }
 
             cnx->initial_cnxid = initial_cnx_id;
-            cnx->remote_cnxid = picoquic_null_connection_id;
-            /* Initialize the reset secret to a random value. This
-			 * will prevent spurious matches to an all zero value, for example.
-			 * The real value will be set when receiving the transport parameters. 
-			 */
-            picoquic_public_random(cnx->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
         } else {
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].send_queue = NULL;
             }
             cnx->cnx_state = picoquic_state_server_init;
             cnx->initial_cnxid = initial_cnx_id;
-            cnx->remote_cnxid = remote_cnx_id;
-            picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
+            cnx->path[0]->remote_cnxid = remote_cnx_id;
 
             if (quic->cnx_id_callback_fn)
-                quic->cnx_id_callback_fn(cnx->local_cnxid, cnx->initial_cnxid,
-                    quic->cnx_id_callback_ctx, &cnx->local_cnxid);
+                quic->cnx_id_callback_fn(cnx->path[0]->local_cnxid, cnx->initial_cnxid,
+                    quic->cnx_id_callback_ctx, &cnx->path[0]->local_cnxid);
 
-            (void)picoquic_create_cnxid_reset_secret(quic, &cnx->local_cnxid,
-                cnx->reset_secret);
+            (void)picoquic_create_cnxid_reset_secret(quic, &cnx->path[0]->local_cnxid,
+                cnx->path[0]->reset_secret);
 
             cnx->version_index = picoquic_get_version_index(preferred_version);
             if (cnx->version_index < 0) {
@@ -904,8 +908,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     if (cnx != NULL) {
-        if (!picoquic_is_connection_id_null(cnx->local_cnxid)) {
-            (void)picoquic_register_cnx_id(quic, cnx, &cnx->local_cnxid);
+        if (!picoquic_is_connection_id_null(cnx->path[0]->local_cnxid)) {
+            (void)picoquic_register_cnx_id(quic, cnx, &cnx->path[0]->local_cnxid);
         }
 
         if (addr != NULL) {
@@ -1011,12 +1015,12 @@ unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x)
 
 picoquic_connection_id_t picoquic_get_local_cnxid(picoquic_cnx_t* cnx)
 {
-    return cnx->local_cnxid;
+    return cnx->path[0]->local_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_remote_cnxid(picoquic_cnx_t* cnx)
 {
-    return cnx->remote_cnxid;
+    return cnx->path[0]->remote_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_initial_cnxid(picoquic_cnx_t* cnx)
@@ -1026,12 +1030,12 @@ picoquic_connection_id_t picoquic_get_initial_cnxid(picoquic_cnx_t* cnx)
 
 picoquic_connection_id_t picoquic_get_client_cnxid(picoquic_cnx_t* cnx)
 {
-    return (cnx->client_mode)?cnx->local_cnxid: cnx->remote_cnxid;
+    return (cnx->client_mode)?cnx->path[0]->local_cnxid: cnx->path[0]->remote_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_server_cnxid(picoquic_cnx_t* cnx)
 {
-    return (cnx->client_mode) ? cnx->remote_cnxid : cnx->local_cnxid;
+    return (cnx->client_mode) ? cnx->path[0]->remote_cnxid : cnx->path[0]->local_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_logging_cnxid(picoquic_cnx_t* cnx)

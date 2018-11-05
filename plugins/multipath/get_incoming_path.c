@@ -11,27 +11,28 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
 {
     picoquic_packet_header* ph = (picoquic_packet_header*) get_cnx(cnx, CNX_AK_INPUT, 0);
     picoquic_path_t* path_from = NULL;
+    picoquic_path_t* path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
 
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_LOCAL_CID, 0);
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) &path_0->local_cnxid;
 
     if (picoquic_compare_connection_id(&ph->dest_cnx_id, initial_cnxid) == 0 ||
         picoquic_compare_connection_id(&ph->dest_cnx_id, local_cnxid) == 0) {
-        path_from = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+        path_from = path_0;
     } else {
+        int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
         bpf_data *bpfd = get_bpf_data(cnx);
-        for (int i = 0; i < bpfd->nb_proposed; i++) {
-            if (picoquic_compare_connection_id(&ph->dest_cnx_id, &bpfd->paths[i].local_cnxid) == 0) {
-                path_from = bpfd->paths[i].path;
-                /* We received a packet on it, the path can be now used */
-                /* TODO: cope with client/server situation with path ID eveness */
-                if (bpfd->paths[i].state == 1) {
-                    bpfd->paths[i].state = 2;
+        for (int i = 1; i < nb_paths; i++) {
+            picoquic_path_t *path_i = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
+            if (picoquic_compare_connection_id(&ph->dest_cnx_id, &path_i->local_cnxid) == 0) {
+                path_from = path_i;
+                path_data_t *pd = mp_get_path_data(bpfd, path_i);
+                if (pd->state == 1) {
+                    pd->state = 2;
                 }
                 break;
             }
         }
-
     }
 
     if (path_from == NULL) {

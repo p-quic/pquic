@@ -146,8 +146,8 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 
         my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
         picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
-        picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_REMOTE_CID, 0);
-        picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_LOCAL_CID, 0);
+        picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) &path->remote_cnxid;
+        picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) &path->local_cnxid;
         my_memcpy(&path_metrics->icid, initial_cnxid, sizeof(picoquic_connection_id_t));
         my_memcpy(&path_metrics->dcid, remote_cnxid, sizeof(picoquic_connection_id_t));
         my_memcpy(&path_metrics->scid, local_cnxid, sizeof(picoquic_connection_id_t));
@@ -163,8 +163,8 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 
 static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path_metrics, picoquic_cnx_t *cnx, picoquic_path_t *path) {
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
-    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_REMOTE_CID, 0);
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_LOCAL_CID, 0);
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) &path->remote_cnxid;
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) &path->local_cnxid;
     if (path_metrics->icid.id_len == 0 && initial_cnxid->id_len > 0) {
         my_memcpy(&path_metrics->icid, initial_cnxid, sizeof(picoquic_connection_id_t));
     }

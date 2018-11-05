@@ -18,24 +18,20 @@ protoop_arg_t get_destination_cnx_id(picoquic_cnx_t* cnx)
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
 
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
-    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_REMOTE_CID, 0);
 
     if ((packet_type == picoquic_packet_initial ||
          packet_type == picoquic_packet_0rtt_protected)
-        && remote_cnxid->id_len == 0) /* Unwrapped picoquic_is_connection_id_null */
+        && path_0->remote_cnxid.id_len == 0) /* Unwrapped picoquic_is_connection_id_null */
     {
         dest_cnx_id = initial_cnxid;
     }
     else if (path_x == path_0)
     {
-        dest_cnx_id = remote_cnxid;
+        dest_cnx_id = &path_0->remote_cnxid;
     }
     else
     {
-        bpf_data *bpfd = get_bpf_data(cnx);
-        path_data_t *pd = mp_get_path_data(bpfd, path_x);
-        /* TODO: ensure pd is not null... */
-        dest_cnx_id = &pd->remote_cnxid;
+        dest_cnx_id = &path_x->remote_cnxid;
     }
 
     return (protoop_arg_t) dest_cnx_id;

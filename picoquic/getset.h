@@ -92,10 +92,6 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define CNX_AK_STATE 0x0c
 /** The pointer to the initial connection ID */
 #define CNX_AK_INITIAL_CID 0x0d
-/** The pointer to the local connection ID */
-#define CNX_AK_LOCAL_CID 0x0e
-/** The pointer to the remote connection ID */
-#define CNX_AK_REMOTE_CID 0x0f
 /** The start time of the connection, as uint64_t */
 #define CNX_AK_START_TIME 0x10
 /** The application error code, as uint16_t */
