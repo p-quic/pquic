@@ -42,7 +42,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     uint64_t ack_delay;
     uint64_t num_block;
     uint64_t ecnx3[3];
-    picoquic_path_t *path_x = cnx->path[0];
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     if (bytes[0] == picoquic_frame_type_ack || bytes[0] == picoquic_frame_type_ack_ecn) {
@@ -148,13 +148,11 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
 }
 
 /**
- * picoquic_packet_t* p = cnx->protoop_inputv[0]
- *
- * Output: none
+ * See PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {
-    picoquic_packet_t* p = (picoquic_packet_t*) cnx->protoop_inputv[0];
+    picoquic_packet_t* p = (picoquic_packet_t*) get_cnx(cnx, CNX_AK_INPUT, 0);
 
     int ret = 0;
     size_t byte_index;
@@ -162,7 +160,7 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     size_t frame_length = 0;
 
     if (ret == 0 && p->ptype == picoquic_packet_0rtt_protected) {
-        cnx->nb_zero_rtt_acked++;
+        set_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0) + 1);
     }
 
     byte_index = p->offset;

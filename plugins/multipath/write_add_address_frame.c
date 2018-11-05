@@ -9,12 +9,12 @@
  */
 protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 {
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    add_address_ctx_t *aac = (add_address_ctx_t *) cnx->protoop_inputv[2];
-    size_t consumed = (size_t) cnx->protoop_inputv[3];
-
-    picoquic_path_t *path_0 = cnx->path[0];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t *bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    add_address_ctx_t *aac = (add_address_ctx_t *) get_cnx(cnx, CNX_AK_INPUT, 2);
+    
+    size_t consumed = 0;
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     uint16_t port;
 
     if (path_0->local_addr_len == sizeof(struct sockaddr_in)) {
@@ -88,9 +88,8 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     }
 
     my_free(cnx, aac);
-    
-    cnx->protoop_outputc_callee = 1;
-    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
 
     return (protoop_arg_t) ret;
 }

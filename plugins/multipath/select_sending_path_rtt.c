@@ -5,7 +5,8 @@
 
 protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
-    picoquic_path_t *path_x = cnx->path[0]; /* We should NEVER return NULL */
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0); /* We should NEVER return NULL */
+    picoquic_path_t *path_0 = path_x;
     picoquic_path_t *path_c = NULL;
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
@@ -38,10 +39,10 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
 
-            if (path_c != cnx->path[0]) {
+            if (path_c != path_0) {
                 has_multiple_paths = true;
                 /* Set the default path to be this one */
-                if (path_x == cnx->path[0]) {
+                if (path_x == path_0) {
                     path_x = path_c;
                     continue;
                 }

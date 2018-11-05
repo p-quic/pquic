@@ -5,7 +5,8 @@
 
 protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
-    picoquic_path_t *path_x = cnx->path[0];
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+    picoquic_path_t *path_0 = path_x;
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
     uint8_t selected_path_index = 255;
@@ -15,7 +16,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 
         /* A (very) simple round-robin */
         if (pd->state == 2) {
-            if (path_x == cnx->path[0]) {
+            if (path_x == path_0) {
                 path_x = pd->path;
                 selected_path_index = i;
             } else if (bpfd->last_path_index_sent != i) {

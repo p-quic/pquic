@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "memcpy.h"
 #include "../helpers.h"
+#include "getset.h"
 
 #define MP_OPAQUE_ID 0x00
 #define MAX_PATHS 8
@@ -138,10 +139,11 @@ static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
 static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
 {
     pd->state = 1;
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     /* By default, create the path with the current peer address of path 0 */
-    int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &cnx->path[0]->peer_addr);
+    int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &path_0->peer_addr);
     /* TODO cope with possible errors */
-    pd->path = cnx->path[cnx_path_index];
+    pd->path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, cnx_path_index);
 }
 
 static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)
@@ -327,8 +329,9 @@ static int helper_prepare_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
 }
 
 static void start_using_path_if_possible(picoquic_cnx_t* cnx) {
+    int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
     /* Prevent the server from starting using new paths */
-    if (!cnx->client_mode) {
+    if (!client_mode) {
         return;
     }
     bpf_data *bpfd = get_bpf_data(cnx);

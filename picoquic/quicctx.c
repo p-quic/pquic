@@ -395,6 +395,11 @@ int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const p
     return ret;
 }
 
+int picoquic_register_cnx_id_for_cnx(picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id)
+{
+    return picoquic_register_cnx_id(cnx->quic, cnx, cnx_id);
+}
+
 static void picoquic_set_hash_key_by_address(picoquic_net_id * key, struct sockaddr* addr)
 {
     memset(&key->saddr, 0, sizeof(struct sockaddr_storage));
@@ -718,6 +723,11 @@ void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id
         memset(cnx_id->id + 8, 0, sizeof(cnx_id->id) - id_length);
     }
     cnx_id->id_len = id_length;
+}
+
+void picoquic_create_random_cnx_id_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id, uint8_t id_length)
+{
+    picoquic_create_random_cnx_id(cnx->quic, cnx_id, id_length);
 }
 
 

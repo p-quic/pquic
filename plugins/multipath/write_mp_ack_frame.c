@@ -8,10 +8,11 @@
  */
 protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 {
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) cnx->protoop_inputv[2];
-    size_t consumed = (size_t) cnx->protoop_inputv[3];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t *bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) get_cnx(cnx, CNX_AK_INPUT, 2);
+    
+    size_t consumed = 0;
     
     uint64_t current_time = picoquic_current_time();
     picoquic_path_t *path_x = mac->path_x;
@@ -64,7 +65,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         if (byte_index < bytes_max - bytes) {
             if (current_time > pkt_ctx->time_stamp_largest_received) {
                 ack_delay = current_time - pkt_ctx->time_stamp_largest_received;
-                ack_delay >>= cnx->local_parameters.ack_delay_exponent;
+                ack_delay >>= (uint8_t) get_cnx(cnx, CNX_AK_LOCAL_PARAMETER, TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT);
             }
             l_delay = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 ack_delay);
@@ -142,10 +143,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         }
     }
 
-    helper_protoop_printf(cnx, "MP ACK done!\n", NULL, 0);
-
-    cnx->protoop_outputc_callee = 1;
-    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
 
     return (protoop_arg_t) ret;
 }

@@ -10,8 +10,8 @@
  */
 protoop_arg_t process_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
 { 
-    mp_new_connection_id_frame_t *frame = (mp_new_connection_id_frame_t *) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
+    mp_new_connection_id_frame_t *frame = (mp_new_connection_id_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     int new_path_index = 0;

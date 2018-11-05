@@ -168,6 +168,8 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 #define CNX_AK_INPUT 0x32
 /** The output of the protocol operation number \p param */
 #define CNX_AK_OUTPUT 0x33
+/** The retry token length */
+#define CNX_AK_RETRY_TOKEN_LENGTH 0x34
 
 /**
  * @}

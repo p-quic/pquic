@@ -10,9 +10,9 @@
  */
 protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 { 
-    mp_ack_frame_t *frame = (mp_ack_frame_t *) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
-    int epoch = (int) cnx->protoop_inputv[2];
+    mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
 
     bpf_data *bpfd = get_bpf_data(cnx);
 

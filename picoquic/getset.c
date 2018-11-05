@@ -158,6 +158,8 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
     case CNX_AK_OUTPUT:
         printf("ERROR: trying to get an output\n");
         return 0;
+    case CNX_AK_RETRY_TOKEN_LENGTH:
+        return cnx->retry_token_length;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -379,6 +381,8 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
             cnx->protoop_outputc_callee++;
         }
         break;
+    case CNX_AK_RETRY_TOKEN_LENGTH:
+        cnx->retry_token_length = (uint32_t) val;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         break;

@@ -10,8 +10,8 @@
  */
 protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
 {
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
 
     int ack_needed = 1;
     int is_retransmittable = 1;
@@ -19,10 +19,9 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
 
     if (!frame) {
         helper_protoop_printf(cnx, "Failed to allocate memory for add_address_frame_t\n", NULL, 0);
-        cnx->protoop_outputc_callee = 3;
-        cnx->protoop_outputv[0] = (protoop_arg_t) frame;
-        cnx->protoop_outputv[1] = (protoop_arg_t) ack_needed;
-        cnx->protoop_outputv[2] = (protoop_arg_t) is_retransmittable;
+        set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) frame);
+        set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) ack_needed);
+        set_cnx(cnx, CNX_AK_OUTPUT, 2, (protoop_arg_t) is_retransmittable);
         return (protoop_arg_t) NULL;
     }
 
@@ -33,10 +32,9 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
         /* No enough space for the ADD_ADDRESS header, won't work */
         my_free(cnx, frame);
         frame = NULL;
-        cnx->protoop_outputc_callee = 3;
-        cnx->protoop_outputv[0] = (protoop_arg_t) frame;
-        cnx->protoop_outputv[1] = (protoop_arg_t) ack_needed;
-        cnx->protoop_outputv[2] = (protoop_arg_t) is_retransmittable;
+        set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) frame);
+        set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) ack_needed);
+        set_cnx(cnx, CNX_AK_OUTPUT, 2, (protoop_arg_t) is_retransmittable);
         return (protoop_arg_t) NULL;
     }
 
@@ -46,8 +44,9 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
     frame->ip_vers = flags_and_ip_ver & 0x0F;
 
     /* Get the default port, if needed */
-    struct sockaddr_storage *sa_def = &cnx->path[0]->peer_addr;
-    int sa_def_length = cnx->path[0]->peer_addr_len;
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+    struct sockaddr_storage *sa_def = &path_0->peer_addr;
+    int sa_def_length = path_0->peer_addr_len;
     uint16_t port_def = 0;
 
     if (sa_def_length == sizeof(struct sockaddr_in)) {
@@ -93,10 +92,9 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
         bytes = NULL;
     }
 
-    cnx->protoop_outputc_callee = 3;
-    cnx->protoop_outputv[0] = (protoop_arg_t) frame;
-    cnx->protoop_outputv[1] = (protoop_arg_t) ack_needed;
-    cnx->protoop_outputv[2] = (protoop_arg_t) is_retransmittable;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) frame);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) ack_needed);
+    set_cnx(cnx, CNX_AK_OUTPUT, 2, (protoop_arg_t) is_retransmittable);
     return (protoop_arg_t) bytes;
 }
 
