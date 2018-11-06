@@ -25,7 +25,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
     for (int i = 0; i < nb_paths; i++) {
         picoquic_path_t* orig_path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
         picoquic_packet_context_t *orig_pkt_ctx = (picoquic_packet_context_t *) get_path(orig_path, PATH_AK_PKT_CTX, pc);
-        picoquic_packet_t* p = orig_pkt_ctx->retransmit_oldest;
+        picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(orig_pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
             int should_retransmit = 0;
@@ -110,7 +110,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
                 if (should_retransmit != 0) {
                     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-                    packet->sequence_number = pkt_ctx->send_sequence;
+                    packet->sequence_number = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
                     packet->send_path = path_x;
                     packet->pc = pc;
 
@@ -174,7 +174,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         length = 0;
                     } else {
                         if (timer_based_retransmit != 0) {
-                            if (orig_pkt_ctx->nb_retransmit > 4) {
+                            uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(orig_pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
+                            if (nb_retransmit > 4) {
                                 /*
                                 * Max retransmission count was exceeded. Disconnect.
                                 */
@@ -185,8 +186,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 stop = true;
                                 break;
                             } else {
-                                orig_pkt_ctx->nb_retransmit++;
-                                orig_pkt_ctx->latest_retransmit_time = current_time;
+                                set_pkt_ctx(orig_pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT, nb_retransmit + 1);
+                                set_pkt_ctx(orig_pkt_ctx, PKT_CTX_AK_LATEST_RETRANSMIT_TIME, current_time);
                             }
                         }
 

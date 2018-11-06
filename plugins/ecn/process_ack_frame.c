@@ -53,6 +53,7 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
     picoquic_newreno_state_t *nrs = (picoquic_newreno_state_t *) get_path(path_x, PATH_AK_CONGESTION_ALGORITHM_STATE, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
 
     if (epoch == 1) {
         protoop_arg_t args[1];
@@ -64,7 +65,7 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         }
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         return 1;
-    } else if (frame->largest_acknowledged >= pkt_ctx->send_sequence) {
+    } else if (frame->largest_acknowledged >= send_sequence) {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
         return 1;
     } else {

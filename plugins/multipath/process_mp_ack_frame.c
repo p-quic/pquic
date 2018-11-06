@@ -25,12 +25,13 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
     picoquic_path_t *path_x = bpfd->paths[path_index].path;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
 
     if (epoch == 1) {
         helper_protoop_printf(cnx, "MP ACK frame not expected in 0-RTT packet", NULL, 0);
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
-    } else if (frame->ack.largest_acknowledged >= pkt_ctx->send_sequence) {
+    } else if (frame->ack.largest_acknowledged >= send_sequence) {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     } else {

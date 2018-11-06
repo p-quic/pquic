@@ -43,7 +43,7 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 
                 /* Any acknowledgement shows progress */
                 picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(old_path, PATH_AK_PKT_CTX, pc);
-                pkt_ctx->nb_retransmit = 0;
+                set_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT, 0);
 
                 helper_dequeue_retransmit_packet(cnx, p, 1);
                 p = next;
