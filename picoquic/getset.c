@@ -595,13 +595,13 @@ protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
     case PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED:
         return pkt_ctx->latest_time_acknowledged;
     case PKT_CTX_AK_RETRANSMIT_NEWEST:
-        return (protoop_arg_t) &pkt_ctx->retransmit_newest;
+        return (protoop_arg_t) pkt_ctx->retransmit_newest;
     case PKT_CTX_AK_RETRANSMIT_OLDEST:
-        return (protoop_arg_t) &pkt_ctx->retransmit_oldest;
+        return (protoop_arg_t) pkt_ctx->retransmit_oldest;
     case PKT_CTX_AK_RETRANSMITTED_NEWEST:
-        return (protoop_arg_t) &pkt_ctx->retransmitted_newest;
+        return (protoop_arg_t) pkt_ctx->retransmitted_newest;
     case PKT_CTX_AK_RETRANSMITTED_OLDEST:
-        return (protoop_arg_t) &pkt_ctx->retransmitted_oldest;
+        return (protoop_arg_t) pkt_ctx->retransmitted_oldest;
     case PKT_CTX_AK_ACK_NEEDED:
         return pkt_ctx->ack_needed;
     default:
