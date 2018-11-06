@@ -13,11 +13,11 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     int timer_based = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
     bpf_data *bpfd = (bpf_data *) get_bpf_data(cnx);
 
-    picoquic_packet_context_enum pc = p->pc;
-    picoquic_path_t* send_path = p->send_path;
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
+    picoquic_path_t* send_path = (picoquic_path_t *) get_pkt(p, PKT_AK_SEND_PATH);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(send_path, PATH_AK_PKT_CTX, pc);
     uint64_t highest_acknowledged = get_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACKNOWLEDGED);
-    int64_t delta_seq = highest_acknowledged - p->sequence_number;
+    int64_t delta_seq = highest_acknowledged - get_pkt(p, PKT_AK_SEQUENCE_NUMBER);
     int should_retransmit = 0;
     protoop_id_t reason = NULL;
 
@@ -30,10 +30,12 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
         reason = PROTOOP_NOPARAM_FAST_RETRANSMIT;
     } else {
         uint64_t latest_time_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED);
-        int64_t delta_t = latest_time_acknowledged - p->send_time;
+        uint64_t send_time = (uint64_t) get_pkt(p, PKT_AK_SEND_TIME);
+        int64_t delta_t = latest_time_acknowledged - send_time;
 
         /* TODO: out of order delivery time ought to be dynamic */
-        if (delta_t > PICOQUIC_RACK_DELAY && p->ptype != picoquic_packet_0rtt_protected) {
+        picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+        if (delta_t > PICOQUIC_RACK_DELAY && ptype != picoquic_packet_0rtt_protected) {
             /*
              * RACK logic.
              * The latest acknowledged was sent more than X ms after this one.
@@ -52,7 +54,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 
         if (should_retransmit == 0) {
             /* Don't fire yet, because of possible out of order delivery */
-            int64_t time_out = current_time - p->send_time;
+            int64_t time_out = current_time - send_time;
             uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
             uint64_t retransmit_timer = (nb_retransmit == 0) ?
                 (uint64_t) get_path(send_path, PATH_AK_RETRANSMIT_TIMER, 0) : (1000000ull << (nb_retransmit - 1));

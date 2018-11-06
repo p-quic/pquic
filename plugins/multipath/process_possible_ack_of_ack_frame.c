@@ -160,24 +160,30 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     int frame_is_pure_ack = 0;
     size_t frame_length = 0;
 
-    if (ret == 0 && p->ptype == picoquic_packet_0rtt_protected) {
+    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+
+    if (ret == 0 && ptype == picoquic_packet_0rtt_protected) {
         set_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0) + 1);
     }
 
-    byte_index = p->offset;
+    uint32_t poffset = (uint32_t) get_pkt(p, PKT_AK_OFFSET); 
+    byte_index = poffset;
+    uint32_t plength = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
+    uint8_t *pbytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
 
-    while (ret == 0 && byte_index < p->length) {
-        if (p->bytes[byte_index] == picoquic_frame_type_ack || p->bytes[byte_index] == picoquic_frame_type_ack_ecn ||
-            p->bytes[byte_index] == MP_ACK_TYPE) {
-            int is_ecn = p->bytes[byte_index] == picoquic_frame_type_ack_ecn ? 1 : 0;
-            ret = process_ack_of_ack_frame(cnx, p->pc, &p->bytes[byte_index], p->length - byte_index, &frame_length, is_ecn);
+    while (ret == 0 && byte_index < plength) {
+        if (pbytes[byte_index] == picoquic_frame_type_ack || pbytes[byte_index] == picoquic_frame_type_ack_ecn ||
+            pbytes[byte_index] == MP_ACK_TYPE) {
+            int is_ecn = pbytes[byte_index] == picoquic_frame_type_ack_ecn ? 1 : 0;
+            ret = process_ack_of_ack_frame(cnx, pc, &pbytes[byte_index], plength - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
-        } else if (PICOQUIC_IN_RANGE(p->bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
-            ret = helper_process_ack_of_stream_frame(cnx, &p->bytes[byte_index], p->length - byte_index, &frame_length);
+        } else if (PICOQUIC_IN_RANGE(pbytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+            ret = helper_process_ack_of_stream_frame(cnx, &pbytes[byte_index], plength - byte_index, &frame_length);
             byte_index += frame_length;
         } else {
-            ret = helper_skip_frame(cnx, &p->bytes[byte_index],
-                p->length - byte_index, &frame_length, &frame_is_pure_ack);
+            ret = helper_skip_frame(cnx, &pbytes[byte_index],
+                plength - byte_index, &frame_length, &frame_is_pure_ack);
             byte_index += frame_length;
         }
     }

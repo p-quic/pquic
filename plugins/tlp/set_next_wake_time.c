@@ -53,13 +53,14 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
                 while (p != NULL)
                 {
-                    if (p->ptype < picoquic_packet_0rtt_protected) {
+                    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+                    if (ptype < picoquic_packet_0rtt_protected) {
                         if (helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL)) {
                             blocked = 0;
                         }
                         break;
                     }
-                    p = p->next_packet;
+                    p = (picoquic_packet_t *) get_pkt(p, PKT_AK_NEXT_PACKET);
                 }
 
                 if (blocked != 0)
@@ -118,24 +119,36 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                         next_time = get_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, PKT_CTX_AK_ACK_DELAY_LOCAL);
                     }
 
-                    while (p != NULL &&
-                        p->ptype == picoquic_packet_0rtt_protected &&
-                        p->is_evaluated == 1 &&
-                        p->contains_crypto == 0) {
-                        p = p->next_packet;
+                    if (p != NULL) {
+                        picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+                        int pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
+                        int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
+
+                        while (p != NULL &&
+                            ptype == picoquic_packet_0rtt_protected &&
+                            pis_evaluated == 1 &&
+                            pcontains_crypto == 0) {
+                            p = (picoquic_packet_t *) get_pkt(p, PKT_AK_NEXT_PACKET);
+                            if (p != NULL) {
+                                ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+                                pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
+                                pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
+                            }
+                        }
                     }
 
                     if (p != NULL) {
                         uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
+                        uint64_t send_time = (uint64_t) get_pkt(p, PKT_AK_SEND_TIME);
                         if (nb_retransmit == 0) {
                             uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, PATH_AK_RETRANSMIT_TIMER, 0);
-                            if (p->send_time + retransmit_timer_x < next_time) {
-                                next_time = p->send_time + retransmit_timer_x;
+                            if (send_time + retransmit_timer_x < next_time) {
+                                next_time = send_time + retransmit_timer_x;
                             }
                         }
                         else {
-                            if (p->send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
-                                next_time = p->send_time + (1000000ull << (nb_retransmit - 1));
+                            if (send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
+                                next_time = send_time + (1000000ull << (nb_retransmit - 1));
                             }
                         }
                     }
@@ -263,10 +276,12 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 /* Consider delayed RACK */
                 if (p != NULL) {
                     uint64_t latest_time_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED);
-                    if (latest_time_acknowledged > p->send_time
-                        && p->send_time + PICOQUIC_RACK_DELAY < next_time
-                        && p->ptype != picoquic_packet_0rtt_protected) {
-                        next_time = p->send_time + PICOQUIC_RACK_DELAY;
+                    uint64_t send_time = (uint64_t) get_pkt(p, PKT_AK_SEND_TIME);
+                    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+                    if (latest_time_acknowledged > send_time
+                        && send_time + PICOQUIC_RACK_DELAY < next_time
+                        && ptype != picoquic_packet_0rtt_protected) {
+                        next_time = send_time + PICOQUIC_RACK_DELAY;
                     }
 
                     /* Begin TLP code */
@@ -275,26 +290,27 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     
                     if (bpfd->tlp_nb < 3 && bpfd->tlp_time > 0) {
                         uint64_t smoothed_rtt_x = (uint64_t) get_path(path_x, PATH_AK_SMOOTHED_RTT, 0);
+                        uint64_t p_last_send_time = (uint64_t) get_pkt(p_last, PKT_AK_SEND_TIME);
                         /* Does it have multiple outstanding packets? */
                         if (p != p_last) {
                             /* max(2*SRTT, 10ms) */
                             
-                            bpfd->tlp_time = p_last->send_time + 2 * smoothed_rtt_x;
-                            if (p_last->send_time + 10000 > bpfd->tlp_time) {
-                                bpfd->tlp_time = p_last->send_time + 10000;
+                            bpfd->tlp_time = p_last_send_time + 2 * smoothed_rtt_x;
+                            if (p_last_send_time + 10000 > bpfd->tlp_time) {
+                                bpfd->tlp_time = p_last_send_time + 10000;
                             }
                         } else {
                             /* max(2 * SRTT, 1.5 * SRTT + WCDelAckT) */
-                            bpfd->tlp_time = p_last->send_time + 2 * smoothed_rtt_x;
+                            bpfd->tlp_time = p_last_send_time + 2 * smoothed_rtt_x;
                             uint64_t max_ack_delay_x = (uint64_t) get_path(path_x, PATH_AK_MAX_ACK_DELAY, 0);
-                            if (p_last->send_time + smoothed_rtt_x * 3 / 2 + max_ack_delay_x > bpfd->tlp_time) {
-                                bpfd->tlp_time = p_last->send_time + smoothed_rtt_x * 3 / 2 + max_ack_delay_x;
+                            if (p_last_send_time + smoothed_rtt_x * 3 / 2 + max_ack_delay_x > bpfd->tlp_time) {
+                                bpfd->tlp_time = p_last_send_time + smoothed_rtt_x * 3 / 2 + max_ack_delay_x;
                             }
                         }
                         if (bpfd->tlp_time < next_time) {
                             next_time = bpfd->tlp_time;
-                            if (p_last->send_time > bpfd->tlp_packet_send_time) {
-                                bpfd->tlp_packet_send_time = p_last->send_time;
+                            if (p_last_send_time > bpfd->tlp_packet_send_time) {
+                                bpfd->tlp_packet_send_time = p_last_send_time;
                             }
                         } else {
                             bpfd->tlp_time = 0;
@@ -305,13 +321,13 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
                     if (nb_retransmit == 0) {
                         uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, PATH_AK_RETRANSMIT_TIMER, 0);
-                        if (p->send_time + retransmit_timer_x < next_time) {
-                            next_time = p->send_time + retransmit_timer_x;
+                        if (send_time + retransmit_timer_x < next_time) {
+                            next_time = send_time + retransmit_timer_x;
                         }
                     }
                     else {
-                        if (p->send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
-                            next_time = p->send_time + (1000000ull << (nb_retransmit - 1));
+                        if (send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
+                            next_time = send_time + (1000000ull << (nb_retransmit - 1));
                         }
                     }
                 }
