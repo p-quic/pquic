@@ -78,6 +78,25 @@ protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak);
 void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the packet \p pkt
+ * 
+ * \param pkt The packet pointer
+ * \param ak The hey of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the packet \p pkt to the value \p val
+ * 
+ * \param pkt The packet pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val);
+
+/**
  * @}
  */
 
@@ -328,6 +347,47 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
 #define PKT_CTX_AK_RETRANSMITTED_OLDEST 0x0d
 /** Indicate if a ack is needed */
 #define PKT_CTX_AK_ACK_NEEDED 0x0e
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_PKT_AK Packet Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_pkt and \p set_pkt calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the previous packet */
+#define PKT_AK_PREVIOUS_PACKET 0x00
+/** The pointer to the next packet */
+#define PKT_AK_NEXT_PACKET 0x01
+/** The pointer of the path on which this packet is sent */
+#define PKT_AK_SEND_PATH 0x02
+/** The sequence number */
+#define PKT_AK_SEQUENCE_NUMBER 0x03
+/** The send time */
+#define PKT_AK_SEND_TIME 0x04
+/** The length of the packet,as uint32_t */
+#define PKT_AK_LENGTH 0x05
+/** The length difference between encrypted and unencrypted */
+#define PKT_AK_CHECKSUM_OVERHEAD 0x06
+/** The offset of the packet */
+#define PKT_AK_OFFSET 0x07
+/** The packet type, as picoquic_packet_type_enum */
+#define PKT_AK_TYPE 0x08
+/** The packet context, as picoquic_packet_context_enum */
+#define PKT_AK_CONTEXT 0x09
+/** Flag stating that the packet is evaluated */
+#define PKT_AK_IS_EVALUATED 0x0a
+/** Flag stating that the packet is a pure ACK */
+#define PKT_AK_IS_PURE_ACK 0x0b
+/** Flag stating that the packet contains crypto material */
+#define PKT_AK_CONTAINS_CRYPTO 0x0c
+/** Flag stating that the packet is under congestion control */
+#define PKT_AK_IS_CONGESTION_CONTROLLED 0x0d
+/** Pointer to the content of the packet */
+#define PKT_AK_BYTES 0x0e
 
 /**
  * @}

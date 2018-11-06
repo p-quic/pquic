@@ -660,6 +660,108 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         break;
     default:
         printf("ERROR: unknown pkt ctx access key %u\n", ak);
+        break;
+    }
+}
+
+protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
+{
+    switch(ak) {
+    case PKT_AK_PREVIOUS_PACKET:
+        return (protoop_arg_t) pkt->previous_packet;
+    case PKT_AK_NEXT_PACKET:
+        return (protoop_arg_t) pkt->next_packet;
+    case PKT_AK_SEND_PATH:
+        return (protoop_arg_t) pkt->send_path;
+    case PKT_AK_SEQUENCE_NUMBER:
+        return pkt->sequence_number;
+    case PKT_AK_SEND_TIME:
+        return pkt->send_time;
+    case PKT_AK_LENGTH:
+        return pkt->length;
+    case PKT_AK_CHECKSUM_OVERHEAD:
+        return pkt->checksum_overhead;
+    case PKT_AK_OFFSET:
+        return pkt->offset;
+    case PKT_AK_TYPE:
+        return pkt->ptype;
+    case PKT_AK_CONTEXT:
+        return pkt->pc;
+    case PKT_AK_IS_EVALUATED:
+        return pkt->is_evaluated;
+    case PKT_AK_IS_PURE_ACK:
+        return pkt->is_pure_ack;
+    case PKT_AK_CONTAINS_CRYPTO:
+        return pkt->contains_crypto;
+    case PKT_AK_IS_CONGESTION_CONTROLLED:
+        return pkt->is_congestion_controlled;
+    case PKT_AK_BYTES:
+        return (protoop_arg_t) pkt->bytes;
+    default:
+        printf("ERROR: unknown pkt access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case PKT_AK_PREVIOUS_PACKET:
+        printf("ERROR: setting the previous packet is not implemented!\n", ak);
+        break;
+    case PKT_AK_NEXT_PACKET:
+        printf("ERROR: setting the next packet is not implemented!\n", ak);
+        break;
+    case PKT_AK_SEND_PATH:
+        /* TODO check the path is valid pointer */
+        pkt->send_path = (picoquic_path_t *) val;
+        break;
+    case PKT_AK_SEQUENCE_NUMBER:
+        pkt->sequence_number = val;
+        break;
+    case PKT_AK_SEND_TIME:
+        pkt->send_time = val;
+        break;
+    case PKT_AK_LENGTH:
+        pkt->length = val;
+        break;
+    case PKT_AK_CHECKSUM_OVERHEAD:
+        pkt->checksum_overhead = val;
+        break;
+    case PKT_AK_OFFSET:
+        pkt->offset = val;
+        break;
+    case PKT_AK_TYPE:
+        if (val >= picoquic_packet_type_max) {
+            printf("ERROR: setting type %u but max value is %u\n", val, picoquic_packet_type_max);
+            break;
+        }
+        pkt->ptype = (picoquic_packet_type_enum) val;
+        break;
+    case PKT_AK_CONTEXT:
+        if (val >= picoquic_nb_packet_context) {
+            printf("ERROR: setting context %u but max value is %u\n", val, picoquic_nb_packet_context);
+            break;
+        }
+        pkt->pc = (picoquic_packet_context_enum) val;
+        break;
+    case PKT_AK_IS_EVALUATED:
+        pkt->is_evaluated = val;
+        break;
+    case PKT_AK_IS_PURE_ACK:
+        pkt->is_pure_ack = val;
+        break;
+    case PKT_AK_CONTAINS_CRYPTO:
+        pkt->contains_crypto = val;
+        break;
+    case PKT_AK_IS_CONGESTION_CONTROLLED:
+        pkt->is_congestion_controlled = val;
+        break;
+    case PKT_AK_BYTES:
+        printf("ERROR: setting bytes is not implemented!\n", ak);
+        break;
+    default:
+        printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;
     }
 }

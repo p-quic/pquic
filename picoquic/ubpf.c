@@ -38,6 +38,8 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x06, "set_path", set_path);
     ubpf_register(vm, 0x07, "get_pkt_ctx", get_pkt_ctx);
     ubpf_register(vm, 0x08, "set_pkt_ctx", set_pkt_ctx);
+    ubpf_register(vm, 0x09, "get_pkt", get_pkt);
+    ubpf_register(vm, 0x0a, "set_pkt", set_pkt);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x0e, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
     ubpf_register(vm, 0x0f, "picoquic_current_time", picoquic_current_time);
