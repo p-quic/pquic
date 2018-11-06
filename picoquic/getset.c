@@ -570,3 +570,96 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
         break;
     }
 }
+
+protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
+{
+    switch(ak) {
+    case PKT_CTX_AK_SEND_SEQUENCE:
+        return pkt_ctx->send_sequence;
+    case PKT_CTX_AK_FIRST_SACK_ITEM:
+        return (protoop_arg_t) &pkt_ctx->first_sack_item;
+    case PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED:
+        return pkt_ctx->time_stamp_largest_received;
+    case PKT_CTX_AK_HIGHEST_ACK_SENT:
+        return pkt_ctx->highest_ack_sent;
+    case PKT_CTX_AK_HIGHEST_ACK_TIME:
+        return pkt_ctx->highest_ack_time;
+    case PKT_CTX_AK_ACK_DELAY_LOCAL:
+        return pkt_ctx->ack_delay_local;
+    case PKT_CTX_AK_NB_RETRANSMIT:
+        return pkt_ctx->nb_retransmit;
+    case PKT_CTX_AK_LATEST_RETRANSMIT_TIME:
+        return pkt_ctx->latest_retransmit_time;
+    case PKT_CTX_AK_HIGHEST_ACKNOWLEDGED:
+        return pkt_ctx->highest_acknowledged;
+    case PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED:
+        return pkt_ctx->latest_time_acknowledged;
+    case PKT_CTX_AK_RETRANSMIT_NEWEST:
+        return (protoop_arg_t) &pkt_ctx->retransmit_newest;
+    case PKT_CTX_AK_RETRANSMIT_OLDEST:
+        return (protoop_arg_t) &pkt_ctx->retransmit_oldest;
+    case PKT_CTX_AK_RETRANSMITTED_NEWEST:
+        return (protoop_arg_t) &pkt_ctx->retransmitted_newest;
+    case PKT_CTX_AK_RETRANSMITTED_OLDEST:
+        return (protoop_arg_t) &pkt_ctx->retransmitted_oldest;
+    case PKT_CTX_AK_ACK_NEEDED:
+        return pkt_ctx->ack_needed;
+    default:
+        printf("ERROR: unknown pkt ctx access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case PKT_CTX_AK_SEND_SEQUENCE:
+        pkt_ctx->send_sequence = val;
+        break;
+    case PKT_CTX_AK_FIRST_SACK_ITEM:
+        printf("ERROR: setting the first sack item is not implemented!\n", ak);
+        break;
+    case PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED:
+        pkt_ctx->time_stamp_largest_received = val;
+        break;
+    case PKT_CTX_AK_HIGHEST_ACK_SENT:
+        pkt_ctx->highest_ack_sent = val;
+        break;
+    case PKT_CTX_AK_HIGHEST_ACK_TIME:
+        pkt_ctx->highest_ack_time = val;
+        break;
+    case PKT_CTX_AK_ACK_DELAY_LOCAL:
+        pkt_ctx->ack_delay_local = val;
+        break;
+    case PKT_CTX_AK_NB_RETRANSMIT:
+        pkt_ctx->nb_retransmit = val;
+        break;
+    case PKT_CTX_AK_LATEST_RETRANSMIT_TIME:
+        pkt_ctx->latest_retransmit_time = val;
+        break;
+    case PKT_CTX_AK_HIGHEST_ACKNOWLEDGED:
+        pkt_ctx->highest_acknowledged = val;
+        break;
+    case PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED:
+        pkt_ctx->latest_time_acknowledged = val;
+        break;
+    case PKT_CTX_AK_RETRANSMIT_NEWEST:
+        printf("ERROR: setting the retransmit newest is not implemented!\n", ak);
+        break;
+    case PKT_CTX_AK_RETRANSMIT_OLDEST:
+        printf("ERROR: setting the retransmit oldest is not implemented!\n", ak);
+        break;
+    case PKT_CTX_AK_RETRANSMITTED_NEWEST:
+        printf("ERROR: setting the retransmitted newest is not implemented!\n", ak);
+        break;
+    case PKT_CTX_AK_RETRANSMITTED_OLDEST:
+        printf("ERROR: setting the retransmitted oldest is not implemented!\n", ak);
+        break;
+    case PKT_CTX_AK_ACK_NEEDED:
+        pkt_ctx->ack_needed = val;
+        break;
+    default:
+        printf("ERROR: unknown pkt ctx access key %u\n", ak);
+        return 0;
+    }
+}

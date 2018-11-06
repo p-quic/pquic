@@ -50,12 +50,32 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param);
 
 /**
  * Set a specific field belonging to the path context \p path to the value \p val
+ *
  * \param path The path structure pointer
  * \param ak The key of the field to set
  * \param param A parameter for the key. Its meaning depends on the accessed field
  * \param val The value to set
  */
 void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_arg_t val);
+
+/**
+ * Get a specific field beloging to the packet context \p pkt_ctx
+ * 
+ * \param pkt_ctx The packet context pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the packet context \p pkt_ctx to the value \p val
+ * 
+ * \param pkt_ctx The packet context pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_arg_t val);
 
 /**
  * @}
@@ -267,6 +287,47 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
 #define PATH_AK_RESET_SECRET 0x20
 /** The pointer to the packet context with the picoquic_packet_context_enum \p param */
 #define PATH_AK_PKT_CTX 0x21
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_PKT_CTX_AK Packet context Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_pkt_ctx and \p set_pkt_ctx calls.
+ * 
+ * @{
+ */
+
+/** The send sequence */
+#define PKT_CTX_AK_SEND_SEQUENCE 0x00
+/** Pointer to the first sack item */
+#define PKT_CTX_AK_FIRST_SACK_ITEM 0x01
+/** The largest timestamp received */
+#define PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED 0x02
+/** The highest ack number sent */
+#define PKT_CTX_AK_HIGHEST_ACK_SENT 0x03
+/** The highest ack sent time */
+#define PKT_CTX_AK_HIGHEST_ACK_TIME 0x04
+/** The local ack delay */
+#define PKT_CTX_AK_ACK_DELAY_LOCAL 0x05
+/** The number of retransmitted packets */
+#define PKT_CTX_AK_NB_RETRANSMIT 0x06
+/** The latest retransmitted time */
+#define PKT_CTX_AK_LATEST_RETRANSMIT_TIME 0x07
+/** The highest packet number acknowledged */
+#define PKT_CTX_AK_HIGHEST_ACKNOWLEDGED 0x08
+/** The time at which the hisghest acknowledged was sent */
+#define PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED 0x09
+/** The pointer to the newest retransmit packet */
+#define PKT_CTX_AK_RETRANSMIT_NEWEST 0x0a
+/** The pointer to the oldest retransmit packet */
+#define PKT_CTX_AK_RETRANSMIT_OLDEST 0x0b
+/** The pointer to the newest retransmitted packet */
+#define PKT_CTX_AK_RETRANSMITTED_NEWEST 0x0c
+/** The pointer to the oldest retransmitted packet */
+#define PKT_CTX_AK_RETRANSMITTED_OLDEST 0x0d
+/** Indicate if a ack is needed */
+#define PKT_CTX_AK_ACK_NEEDED 0x0e
 
 /**
  * @}
