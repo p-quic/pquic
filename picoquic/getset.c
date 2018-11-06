@@ -617,7 +617,7 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         pkt_ctx->send_sequence = val;
         break;
     case PKT_CTX_AK_FIRST_SACK_ITEM:
-        printf("ERROR: setting the first sack item is not implemented!\n", ak);
+        printf("ERROR: setting the first sack item is not implemented!\n");
         break;
     case PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED:
         pkt_ctx->time_stamp_largest_received = val;
@@ -644,16 +644,16 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         pkt_ctx->latest_time_acknowledged = val;
         break;
     case PKT_CTX_AK_RETRANSMIT_NEWEST:
-        printf("ERROR: setting the retransmit newest is not implemented!\n", ak);
+        printf("ERROR: setting the retransmit newest is not implemented!\n");
         break;
     case PKT_CTX_AK_RETRANSMIT_OLDEST:
-        printf("ERROR: setting the retransmit oldest is not implemented!\n", ak);
+        printf("ERROR: setting the retransmit oldest is not implemented!\n");
         break;
     case PKT_CTX_AK_RETRANSMITTED_NEWEST:
-        printf("ERROR: setting the retransmitted newest is not implemented!\n", ak);
+        printf("ERROR: setting the retransmitted newest is not implemented!\n");
         break;
     case PKT_CTX_AK_RETRANSMITTED_OLDEST:
-        printf("ERROR: setting the retransmitted oldest is not implemented!\n", ak);
+        printf("ERROR: setting the retransmitted oldest is not implemented!\n");
         break;
     case PKT_CTX_AK_ACK_NEEDED:
         pkt_ctx->ack_needed = val;
@@ -707,10 +707,10 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
     case PKT_AK_PREVIOUS_PACKET:
-        printf("ERROR: setting the previous packet is not implemented!\n", ak);
+        printf("ERROR: setting the previous packet is not implemented!\n");
         break;
     case PKT_AK_NEXT_PACKET:
-        printf("ERROR: setting the next packet is not implemented!\n", ak);
+        printf("ERROR: setting the next packet is not implemented!\n");
         break;
     case PKT_AK_SEND_PATH:
         /* TODO check the path is valid pointer */
@@ -733,14 +733,14 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case PKT_AK_TYPE:
         if (val >= picoquic_packet_type_max) {
-            printf("ERROR: setting type %u but max value is %u\n", val, picoquic_packet_type_max);
+            printf("ERROR: setting type %lu but max value is %u\n", val, picoquic_packet_type_max);
             break;
         }
         pkt->ptype = (picoquic_packet_type_enum) val;
         break;
     case PKT_AK_CONTEXT:
         if (val >= picoquic_nb_packet_context) {
-            printf("ERROR: setting context %u but max value is %u\n", val, picoquic_nb_packet_context);
+            printf("ERROR: setting context %lu but max value is %u\n", val, picoquic_nb_packet_context);
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;
@@ -758,10 +758,10 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         pkt->is_congestion_controlled = val;
         break;
     case PKT_AK_BYTES:
-        printf("ERROR: setting bytes is not implemented!\n", ak);
+        printf("ERROR: setting bytes is not implemented!\n");
         break;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
-        return 0;
+        break;
     }
 }
