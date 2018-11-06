@@ -14,7 +14,7 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
     picoquic_path_t* path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
 
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) &path_0->local_cnxid;
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path_0, PATH_AK_LOCAL_CID, 0);
 
     if (picoquic_compare_connection_id(&ph->dest_cnx_id, initial_cnxid) == 0 ||
         picoquic_compare_connection_id(&ph->dest_cnx_id, local_cnxid) == 0) {
@@ -24,7 +24,8 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
         bpf_data *bpfd = get_bpf_data(cnx);
         for (int i = 1; i < nb_paths; i++) {
             picoquic_path_t *path_i = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-            if (picoquic_compare_connection_id(&ph->dest_cnx_id, &path_i->local_cnxid) == 0) {
+            picoquic_connection_id_t *local_cnxid_x = (picoquic_connection_id_t *) get_path(path_i, PATH_AK_LOCAL_CID, 0);
+            if (picoquic_compare_connection_id(&ph->dest_cnx_id, local_cnxid_x) == 0) {
                 path_from = path_i;
                 path_data_t *pd = mp_get_path_data(bpfd, path_i);
                 if (pd->state == 1) {

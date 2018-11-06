@@ -16,13 +16,14 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     size_t consumed = 0;
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     uint16_t port;
+    int local_addr_len_0 = (int) get_path(path_0, PATH_AK_LOCAL_ADDR_LEN, 0);
 
-    if (path_0->local_addr_len == sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *si = (struct sockaddr_in *) &path_0->local_addr;
+    if (local_addr_len_0 == sizeof(struct sockaddr_in)) {
+        struct sockaddr_in *si = (struct sockaddr_in *) get_path(path_0, PATH_AK_LOCAL_ADDR, 0);
         my_memcpy(&port, &si->sin_port, 2);
     } else {
         /* v6 */
-        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) &path_0->local_addr;
+        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) get_path(path_0, PATH_AK_LOCAL_ADDR, 0);
         my_memcpy(&port, &si6->sin6_port, 2);
     }
 

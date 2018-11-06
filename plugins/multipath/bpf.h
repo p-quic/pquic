@@ -136,20 +136,24 @@ static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
     return pd;
 }
 
-static void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
 {
     pd->state = 1;
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     /* By default, create the path with the current peer address of path 0 */
-    int cnx_path_index = picoquic_create_path(cnx, current_time, (struct sockaddr *) &path_0->peer_addr);
+    struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, PATH_AK_PEER_ADDR, 0);
+    int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
     pd->path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, cnx_path_index);
     /* Also insert CIDs */
-    pd->path->local_cnxid.id_len = pd->local_cnxid.id_len;
-    my_memcpy(&pd->path->local_cnxid.id, &pd->local_cnxid.id, pd->path->local_cnxid.id_len);
-    pd->path->remote_cnxid.id_len = pd->remote_cnxid.id_len;
-    my_memcpy(&pd->path->remote_cnxid.id, &pd->remote_cnxid.id, pd->path->remote_cnxid.id_len);
-    my_memcpy(pd->path->reset_secret, pd->reset_secret, 16);
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_LOCAL_CID, 0);
+    local_cnxid->id_len = pd->local_cnxid.id_len;
+    my_memcpy(&local_cnxid->id, &pd->local_cnxid.id, pd->local_cnxid.id_len);
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_REMOTE_CID, 0);
+    remote_cnxid->id_len = pd->remote_cnxid.id_len;
+    my_memcpy(&remote_cnxid->id, &pd->remote_cnxid.id, pd->remote_cnxid.id_len);
+    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, PATH_AK_RESET_SECRET, 0);
+    my_memcpy(reset_secret, pd->reset_secret, 16);
 }
 
 static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)

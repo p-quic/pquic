@@ -25,7 +25,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_first_range = 0;
-    picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
+    picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
     picoquic_sack_item_t* next_sack = pkt_ctx->first_sack_item.next_sack;
     uint64_t ack_delay = 0;
     uint64_t ack_range = 0;

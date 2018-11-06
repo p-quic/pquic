@@ -45,8 +45,8 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
 
     /* Get the default port, if needed */
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
-    struct sockaddr_storage *sa_def = &path_0->peer_addr;
-    int sa_def_length = path_0->peer_addr_len;
+    struct sockaddr_storage *sa_def = (struct sockaddr_storage *) get_path(path_0, PATH_AK_PEER_ADDR, 0);
+    int sa_def_length = (int) get_path(path_0, PATH_AK_PEER_ADDR_LEN, 0);
     uint16_t port_def = 0;
 
     if (sa_def_length == sizeof(struct sockaddr_in)) {

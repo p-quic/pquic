@@ -69,7 +69,8 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     /* Find the oldest ACK range, in order to calibrate the
      * extension of the largest number to 64 bits */
 
-    picoquic_sack_item_t* first_sack = &path_x->pkt_ctx[pc].first_sack_item;
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    picoquic_sack_item_t* first_sack = &pkt_ctx->first_sack_item;
     picoquic_sack_item_t* target_sack = first_sack;
     while (first_sack != NULL && target_sack->next_sack != NULL) {
         target_sack = target_sack->next_sack;

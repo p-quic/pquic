@@ -27,7 +27,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     for (int i = 0; i < nb_paths; i++) {
         picoquic_path_t* orig_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-        picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
+        picoquic_packet_context_t *orig_pkt_ctx = (picoquic_packet_context_t *) get_path(orig_path, PATH_AK_PKT_CTX, pc);
+        picoquic_packet_t* p = orig_pkt_ctx->retransmit_oldest;
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
             int should_retransmit = 0;
@@ -57,7 +58,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
             } else {
                 /* TLP: if should_retransmit is 2, set p as being the newest packet to be retransmitted */
                 if (should_retransmit == 2) {
-                    p = orig_path->pkt_ctx[p->pc].retransmit_newest;
+                    p = orig_pkt_ctx->retransmit_newest;
                 }
 
                 /* check if this is an ACK only packet */
@@ -115,7 +116,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 }
 
                 if (should_retransmit != 0) {
-                    packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
+                    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+                    packet->sequence_number = pkt_ctx->send_sequence;
                     packet->send_path = path_x;
                     packet->pc = pc;
 
@@ -127,10 +129,11 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         is_cleartext_mode = 1;
                     }
 
-                    if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
+                    uint32_t old_send_mtu = (uint32_t) get_path(old_path, PATH_AK_SEND_MTU, 0);
+                    if ((p->length + p->checksum_overhead) > old_send_mtu) {
                         /* MTU probe was lost, presumably because of packet too big */
-                        old_path->mtu_probe_sent = 0;
-                        old_path->send_mtu_max_tried = (uint32_t)(p->length + p->checksum_overhead);
+                        set_path(old_path, PATH_AK_MTU_PROBE_SENT, 0, 0);
+                        set_path(old_path, PATH_AK_SEND_MTU_MAX_TRIED, 0, (protoop_arg_t)(p->length + p->checksum_overhead));
                         /* MTU probes should not be retransmitted */
                         packet_is_pure_ack = 1;
                         do_not_detect_spurious = 0;
@@ -179,7 +182,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         length = 0;
                     } else {
                         if (timer_based_retransmit != 0) {
-                            if (orig_path->pkt_ctx[pc].nb_retransmit > 4) {
+                            if (orig_pkt_ctx->nb_retransmit > 4) {
                                 /*
                                 * Max retransmission count was exceeded. Disconnect.
                                 */
@@ -190,13 +193,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 stop = true;
                                 break;
                             } else {
-                                orig_path->pkt_ctx[pc].nb_retransmit++;
-                                orig_path->pkt_ctx[pc].latest_retransmit_time = current_time;
+                                orig_pkt_ctx->nb_retransmit++;
+                                orig_pkt_ctx->latest_retransmit_time = current_time;
                             }
                         }
 
                         if (should_retransmit != 0) {
-
                             if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
                                 // protoop_printf(cnx, (protoop_arg_t) p->pc);
                                 /*

@@ -14,7 +14,7 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
 
     uint32_t header_length = 0;
     picoquic_path_t* path_0 = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, 0);
-    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) &path_0->remote_cnxid;
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, PATH_AK_REMOTE_CID, 0);
 
     if (packet_type == picoquic_packet_1rtt_protected_phi0 || 
         packet_type == picoquic_packet_1rtt_protected_phi1) {
@@ -25,7 +25,8 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
             bpf_data *bpfd = get_bpf_data(cnx);
             path_data_t *pd = mp_get_path_data(bpfd, path_x);
             /* TODO cope with pd NULL */
-            header_length = 1 + path_x->remote_cnxid.id_len + 4;
+            picoquic_connection_id_t *remote_cnxid_x = (picoquic_connection_id_t *) get_path(path_x, PATH_AK_REMOTE_CID, 0);
+            header_length = 1 + remote_cnxid_x->id_len + 4;
         }
     }
     else {
@@ -44,7 +45,7 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
         }
 
         /* add srce-id length */
-        picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) &path_x->local_cnxid;
+        picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path_x, PATH_AK_LOCAL_CID, 0);
         header_length += local_cnxid->id_len;
 
         /* add length of payload length and packet number */
