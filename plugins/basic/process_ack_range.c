@@ -17,17 +17,20 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
     int ret = 0;
     /* Compare the range to the retransmit queue */
     while (p != NULL && range > 0) {
-        if (p->sequence_number > highest) {
-            p = p->next_packet;
+        uint64_t sequence_number = get_pkt(p, PKT_AK_SEQUENCE_NUMBER);
+        if (sequence_number > highest) {
+            p = (picoquic_packet_t*) get_pkt(p, PKT_AK_NEXT_PACKET);
         } else {
-            if (p->sequence_number == highest) {
+            if (sequence_number == highest) {
                 /* TODO: RTT Estimate */
-                picoquic_packet_t* next = p->next_packet;
-                picoquic_path_t * old_path = p->send_path;
+                picoquic_packet_t* next = (picoquic_packet_t*) get_pkt(p, PKT_AK_NEXT_PACKET);
+                picoquic_path_t * old_path = (picoquic_path_t *) get_pkt(p, PKT_AK_SEND_PATH);
+
+                uint32_t length = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
 
                 if ((picoquic_congestion_algorithm_t *) get_cnx(cnx, CNX_AK_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
                     helper_congestion_algorithm_notify(cnx, old_path,
-                        picoquic_congestion_notification_acknowledgement, 0, p->length, 0, current_time);
+                        picoquic_congestion_notification_acknowledgement, 0, length, 0, current_time);
                 }
 
                 /* If the packet contained an ACK frame, perform the ACK of ACK pruning logic */
@@ -36,8 +39,9 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 uint32_t old_path_send_mtu = (uint32_t) get_path(old_path, PATH_AK_SEND_MTU, 0);
 
                 /* If packet is larger than the current MTU, update the MTU */
-                if ((p->length + p->checksum_overhead) > old_path_send_mtu) {
-                    set_path(old_path, PATH_AK_SEND_MTU, 0, (protoop_arg_t)(p->length + p->checksum_overhead));
+                uint32_t checksum_overhead = (uint32_t) get_pkt(p, PKT_AK_CHECKSUM_OVERHEAD);
+                if ((length + checksum_overhead) > old_path_send_mtu) {
+                    set_path(old_path, PATH_AK_SEND_MTU, 0, (protoop_arg_t)(length + checksum_overhead));
                     set_path(old_path, PATH_AK_MTU_PROBE_SENT, 0, 0);
                 }
 

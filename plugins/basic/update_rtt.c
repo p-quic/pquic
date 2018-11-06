@@ -25,27 +25,32 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {
             /* if the ACK is reasonably recent, use it to update the RTT */
             /* find the stored copy of the largest acknowledged packet */
+            uint64_t sequence_number = get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
 
-            while (packet != NULL && packet->sequence_number > largest) {
-                packet = packet->next_packet;
+            while (packet != NULL && sequence_number > largest) {
+                packet = (picoquic_packet_t *) get_pkt(packet, PKT_AK_NEXT_PACKET);
+                if (packet != NULL) {
+                    sequence_number = get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
+                }
             }
 
-            if (packet == NULL || packet->sequence_number < largest) {
+            if (packet == NULL || sequence_number < largest) {
                 /* There is no copy of this packet in store. It may have
                  * been deleted because too old, or maybe already
                  * retransmitted */
             } else {
                 uint64_t acknowledged_time = current_time - ack_delay;
-                int64_t rtt_estimate = acknowledged_time - packet->send_time;
+                uint64_t send_time = (uint64_t) get_pkt(packet, PKT_AK_SEND_TIME);
+                int64_t rtt_estimate = acknowledged_time - send_time;
 
                 uint64_t latest_time_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED);
-                if (latest_time_acknowledged < packet->send_time) {
-                    set_pkt_ctx(pkt_ctx, PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED, packet->send_time);
+                if (latest_time_acknowledged < send_time) {
+                    set_pkt_ctx(pkt_ctx, PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED, send_time);
                 }
                 set_cnx(cnx, CNX_AK_LATEST_PROGRESS_TIME, 0, current_time);
 
                 if (rtt_estimate > 0) {
-                    picoquic_path_t * old_path = packet->send_path;
+                    picoquic_path_t * old_path = (picoquic_path_t *) get_pkt(packet, PKT_AK_SEND_PATH);
                     uint64_t old_max_ack_delay = (uint64_t) get_path(old_path, PATH_AK_MAX_ACK_DELAY, 0);
 
                     if (ack_delay > old_max_ack_delay) {
