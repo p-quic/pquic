@@ -149,6 +149,16 @@ static const protoop_id_t PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION = "check
 static const protoop_id_t PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME = "process_possible_ack_of_ack_frame";
 
 /**
+ * Process possible ACK of ACK range, and clean the associated SACK_ITEM
+ * \param[in] first_sack \b picoquic_sack_item_t* The pointer to the first SACK item
+ * \param[in] start_range \b uint64_t The start of the ACKed range
+ * \param[in] end_range \b uint64_t The end of the ACKed range
+ * 
+ * \warning This protocol operation CANNOT be pluginized so far!
+ */
+static const protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE = "process_ack_of_ack_range";
+
+/**
  * Update the ack status if the packet that was acknowledged contained a STREAM frame.
  * \param[in] bytes \b uint8_t* Pointer to the beginning of the STREAM frame in the packet
  * \param[in] bytes_max \b size_t Maximum size that can be read
@@ -195,15 +205,6 @@ static const protoop_id_t PROTOOP_NOPARAM_IS_TLS_STREAM_READY = "is_tls_stream_r
 static const protoop_id_t PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED = "check_stream_frame_already_acked";
 
 /**
- * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
- * picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_inputv[1];
- * struct sockaddr* addr_from = (struct sockaddr *) cnx->protoop_inputv[2];
- * uint64_t current_time = (uint64_t) cnx->protoop_inputv[3];
- *
- * Output: return code (int)
- */
-
-/**
  * Process an incoming packet which is 1-RTT protected.
  * \param[in] bytes \b uint8_t* Pointer to the start of the received packet
  * \param[in] ph \b picoquic_packet_header* Packet header information structure
@@ -241,7 +242,6 @@ static const protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY = "congest
  * \param[in] bytes \b uint8_t* Pointer to the received data
  * \param[in] length \b size_t Length of the received data
  * \param[in] fin_or_event \b picoquic_call_back_event_t Event type
- * \param[in] callback_ctx \b void* The context provided to the callback
  * 
  * \todo link to callback events
  */

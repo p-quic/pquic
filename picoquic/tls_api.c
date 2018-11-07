@@ -1687,6 +1687,12 @@ int picoquic_create_cnxid_reset_secret(picoquic_quic_t* quic, picoquic_connectio
     return (ret);
 }
 
+int picoquic_create_cnxid_reset_secret_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id,
+    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE])
+{
+    return picoquic_create_cnxid_reset_secret(cnx->quic, cnx_id, reset_secret);
+}
+
 void picoquic_set_tls_certificate_chain(picoquic_quic_t* quic, ptls_iovec_t* certs, size_t count)
 {
     ptls_context_t* ctx = (ptls_context_t*)quic->tls_master_ctx;

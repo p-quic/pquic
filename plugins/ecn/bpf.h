@@ -1,6 +1,7 @@
 #include "picoquic_internal.h"
 #include "memory.h"
 #include "memcpy.h"
+#include "getset.h"
 
 #define ECN_OPAQUE_ID 0x01
 

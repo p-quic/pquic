@@ -19,6 +19,7 @@
 #include "memory.h"
 #include "tls_api.h"
 #include "endianness.h"
+#include "getset.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -31,18 +32,35 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     ubpf_register(vm, 0x01, "get_opaque_data", get_opaque_data);
     ubpf_register(vm, 0x02, "reserve_frames", reserve_frames);
+    ubpf_register(vm, 0x03, "get_cnx", get_cnx);
+    ubpf_register(vm, 0x04, "set_cnx", set_cnx);
+    ubpf_register(vm, 0x05, "get_path", get_path);
+    ubpf_register(vm, 0x06, "set_path", set_path);
+    ubpf_register(vm, 0x07, "get_pkt_ctx", get_pkt_ctx);
+    ubpf_register(vm, 0x08, "set_pkt_ctx", set_pkt_ctx);
+    ubpf_register(vm, 0x09, "get_pkt", get_pkt);
+    ubpf_register(vm, 0x0a, "set_pkt", set_pkt);
+    ubpf_register(vm, 0x0b, "get_sack_item", get_sack_item);
+    ubpf_register(vm, 0x0c, "set_sack_item", set_sack_item);
+    ubpf_register(vm, 0x0d, "get_cnxid", get_cnxid);
+    ubpf_register(vm, 0x0e, "set_cnxid", set_cnxid);
+    ubpf_register(vm, 0x0f, "get_stream_head", get_stream_head);
+    ubpf_register(vm, 0x10, "set_stream_head", set_stream_head);
+    ubpf_register(vm, 0x11, "get_crypto_context", get_crypto_context);
+    ubpf_register(vm, 0x12, "set_crypto_context", set_crypto_context);
+    ubpf_register(vm, 0x13, "get_ph", get_ph);
+    ubpf_register(vm, 0x14, "set_ph", set_ph);
     /* specific to picoquic, how to remove this dependency ? */
-    ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
-    ubpf_register(vm, 0x09, "picoquic_current_time", picoquic_current_time);
+    ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
+    ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);
     /* for memory */
-    ubpf_register(vm, 0x10, "my_malloc", my_malloc);
-    ubpf_register(vm, 0x11, "my_free", my_free);
-    ubpf_register(vm, 0x12, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1a, "my_malloc", my_malloc);
+    ubpf_register(vm, 0x1b, "my_free", my_free);
+    ubpf_register(vm, 0x1c, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1d, "my_memcpy", my_memcpy);
+    ubpf_register(vm, 0x1e, "my_memset", my_memset);
 
-    ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
-    ubpf_register(vm, 0x19, "my_memset", my_memset);
-
-    ubpf_register(vm, 0x1a, "clock_gettime", clock_gettime);
+    ubpf_register(vm, 0x1f, "clock_gettime", clock_gettime);
 
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);
@@ -61,9 +79,9 @@ register_functions(struct ubpf_vm *vm)
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
-    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id", picoquic_create_random_cnx_id);
-    ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret", picoquic_create_cnxid_reset_secret);
-    ubpf_register(vm, 0x34, "picoquic_register_cnx_id", picoquic_register_cnx_id);
+    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx); 
+    ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
+    ubpf_register(vm, 0x34, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
     ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
     ubpf_register(vm, 0x37, "picoquic_compare_connection_id", picoquic_compare_connection_id);

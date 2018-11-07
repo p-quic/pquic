@@ -6,8 +6,8 @@
 
 protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 {
-    char *payload = (char *) cnx->protoop_inputv[0];
-    size_t len = (size_t) cnx->protoop_inputv[1];
+    char *payload = (char *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    size_t len = (size_t) get_cnx(cnx, CNX_AK_INPUT, 1);
 
     reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
     if (slot == NULL) {

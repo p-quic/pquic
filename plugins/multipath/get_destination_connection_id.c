@@ -5,35 +5,34 @@
 #include "memory.h"
 
 /**
- * picoquic_packet_type_enum packet_type = cnx->protoop_inputv[0]
- * picoquic_path_t* path_x = cnx->protoop_inputv[1]
- *
- * Output: picoquic_connection_id_t* dest_cnx_id
+ * See PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID
  */
 protoop_arg_t get_destination_cnx_id(picoquic_cnx_t* cnx)
 {
     /* Don't use all the argument here */
-    picoquic_packet_type_enum packet_type = (picoquic_packet_type_enum) cnx->protoop_inputv[0];
-    picoquic_path_t *path_x = (picoquic_path_t *) cnx->protoop_inputv[1];
+    picoquic_packet_type_enum packet_type = (picoquic_packet_type_enum) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
 
     picoquic_connection_id_t *dest_cnx_id = NULL;
 
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+
+    picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
+    picoquic_connection_id_t *remote_cnxid_0 = (picoquic_connection_id_t *) get_path(path_0, PATH_AK_REMOTE_CID, 0);
+
     if ((packet_type == picoquic_packet_initial ||
          packet_type == picoquic_packet_0rtt_protected)
-        && cnx->remote_cnxid.id_len == 0) /* Unwrapped picoquic_is_connection_id_null */
+        && get_cnxid(remote_cnxid_0, CNXID_AK_LEN) == 0) /* Unwrapped picoquic_is_connection_id_null */
     {
-        dest_cnx_id = &cnx->initial_cnxid;
+        dest_cnx_id = initial_cnxid;
     }
-    else if (path_x == cnx->path[0])
+    else if (path_x == path_0)
     {
-        dest_cnx_id = &cnx->remote_cnxid;
+        dest_cnx_id = remote_cnxid_0;
     }
     else
     {
-        bpf_data *bpfd = get_bpf_data(cnx);
-        path_data_t *pd = mp_get_path_data(bpfd, path_x);
-        /* TODO: ensure pd is not null... */
-        dest_cnx_id = &pd->remote_cnxid;
+        dest_cnx_id = (picoquic_connection_id_t *) get_path(path_x, PATH_AK_REMOTE_CID, 0);
     }
 
     return (protoop_arg_t) dest_cnx_id;

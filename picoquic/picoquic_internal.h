@@ -247,13 +247,13 @@ typedef enum {
     picoquic_tp_initial_max_stream_data_uni = 11
 } picoquic_tp_enum;
 
-typedef struct st_picoquic_tp_prefered_address_t {
+typedef struct st_picoquic_tp_preferred_address_t {
     uint8_t ipVersion; /* enum { IPv4(4), IPv6(6), (15) } -- 0 if no parameter specified */
     uint8_t ipAddress[16]; /* opaque ipAddress<4..2 ^ 8 - 1> */
     uint16_t port;
     picoquic_connection_id_t connection_id; /*  opaque connectionId<0..18>; */
     uint8_t statelessResetToken[16];
-} picoquic_tp_prefered_address_t;
+} picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
     uint32_t initial_max_stream_data_bidi_local;
@@ -266,7 +266,7 @@ typedef struct st_picoquic_tp_t {
     uint32_t max_packet_size;
     uint8_t ack_delay_exponent;
     unsigned int migration_disabled; 
-    picoquic_tp_prefered_address_t prefered_address;
+    picoquic_tp_preferred_address_t preferred_address;
 } picoquic_tp_t;
 
 /*
@@ -434,6 +434,10 @@ typedef struct st_picoquic_path_t {
     uint64_t next_pacing_time;
 
     /* QDC: Moved from the ctx */
+    /* Connection IDs */
+    picoquic_connection_id_t local_cnxid;
+    picoquic_connection_id_t remote_cnxid;
+    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     /* Sequence and retransmission state */
     picoquic_packet_context_t pkt_ctx[picoquic_nb_packet_context];
 
@@ -594,10 +598,7 @@ typedef struct st_picoquic_cnx_t {
     /* connection state, ID, etc. Todo: allow for multiple cnxid */
     picoquic_state_enum cnx_state;
     picoquic_connection_id_t initial_cnxid;
-    picoquic_connection_id_t local_cnxid;
-    picoquic_connection_id_t remote_cnxid;
     uint64_t start_time;
-    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     uint16_t application_error;
     uint16_t local_error;
     uint16_t remote_application_error;
@@ -814,6 +815,7 @@ void picoquic_queue_stateless_packet(picoquic_quic_t* quic, picoquic_stateless_p
 
 /* Registration of connection ID in server context */
 int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id);
+int picoquic_register_cnx_id_for_cnx(picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id);
 
 /* handling of retransmission queue */
 void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free);
@@ -845,10 +847,12 @@ void picoquic_update_pacing_data(picoquic_path_t * path_x);
 /* Next time is used to order the list of available connections,
      * so ready connections are polled first */
 void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint64_t next_time);
+void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
 void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time);
 
 void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t * cnx_id, uint8_t id_length);
+void picoquic_create_random_cnx_id_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id, uint8_t id_length);
 
 /* Integer parsing macros */
 #define PICOPARSE_16(b) ((((uint16_t)(b)[0]) << 8) | (b)[1])

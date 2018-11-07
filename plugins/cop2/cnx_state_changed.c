@@ -11,10 +11,11 @@
 protoop_arg_t state_changed(picoquic_cnx_t *cnx)
 {
     cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
-    if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    if (cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) {
         clock_gettime(CLOCK_MONOTONIC, &metrics->handshake_metrics.t_end);
         // Send it somewhere
-    } else if (cnx->cnx_state == picoquic_state_disconnected) {
+    } else if (cnx_state == picoquic_state_disconnected) {
         cop2_path_metrics *path = metrics->established_metrics;
         while(path != NULL) {
             // Send it somewhere
