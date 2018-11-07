@@ -23,13 +23,16 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     picoquic_crypto_context_t *crypto_context_2 = (picoquic_crypto_context_t *) get_cnx(cnx, CNX_AK_CRYPTO_CONTEXT, 2);
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
 
-    if (tls_stream_0->send_queue == NULL) {
+    picoquic_stream_data *tls_stream_0_send_queue = (picoquic_stream_data *) get_stream_head(tls_stream_0, STREAM_HEAD_AK_SEND_QUEUE);
+
+    if (tls_stream_0_send_queue == NULL) {
+        picoquic_stream_data *tls_stream_1_send_queue = (picoquic_stream_data *) get_stream_head(tls_stream_1, STREAM_HEAD_AK_SEND_QUEUE);
         if (crypto_context_1->aead_encrypt != NULL &&
-            tls_stream_1->send_queue != NULL) {
+            tls_stream_1_send_queue != NULL) {
             pc_ready_flag |= 1 << picoquic_packet_context_application;
         }
         else if (crypto_context_2->aead_encrypt != NULL &&
-            tls_stream_1->send_queue == NULL) {
+            tls_stream_1_send_queue == NULL) {
             pc_ready_flag |= 1 << picoquic_packet_context_handshake;
         }
     }

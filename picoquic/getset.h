@@ -135,6 +135,26 @@ protoop_arg_t get_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak);
 void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the stream_head \p stream_head
+ * 
+ * \param stream_head The stream head pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the stream_head \p stream_head to the value \p val
+ * 
+ * \param cnxid The stream head pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop_arg_t val);
+
+
+/**
  * @}
  */
 
@@ -458,6 +478,21 @@ void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t v
 #define CNXID_AK_ID 0x00
 /** The length of the connection ID */
 #define CNXID_AK_LEN 0x01
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_STREAM_HEAD_AK Stream head Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_stream_head and \p set_stream_head calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the sending queue */
+#define STREAM_HEAD_AK_SEND_QUEUE 0x00
+/** The offset of consumed data */
+#define STREAM_HEAD_AK_CONSUMED_OFFSET 0x01
 
 /**
  * @}

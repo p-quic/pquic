@@ -826,3 +826,31 @@ void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t v
         break;
     }
 }
+
+protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak)
+{
+    switch(ak) {
+    case STREAM_HEAD_AK_SEND_QUEUE:
+        return (protoop_arg_t) stream_head->send_queue;
+    case STREAM_HEAD_AK_CONSUMED_OFFSET:
+        return stream_head->consumed_offset; 
+    default:
+        printf("ERROR: unknown stream head access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case STREAM_HEAD_AK_SEND_QUEUE:
+        printf("ERROR: setting send queue is not implemented!\n");
+        break;
+    case STREAM_HEAD_AK_CONSUMED_OFFSET:
+        stream_head->consumed_offset = val;
+        break;
+    default:
+        printf("ERROR: unknown stream head access key %u\n", ak);
+        break;
+    }
+}

@@ -44,6 +44,8 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x0c, "set_sack_item", set_sack_item);
     ubpf_register(vm, 0x0d, "get_cnxid", get_cnxid);
     ubpf_register(vm, 0x0e, "set_cnxid", set_cnxid);
+    ubpf_register(vm, 0x0f, "get_stream_head", get_stream_head);
+    ubpf_register(vm, 0x10, "set_stream_head", set_stream_head);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
     ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);
