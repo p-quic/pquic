@@ -6,7 +6,7 @@
 #ifndef GETSET_H
 #define GETSET_H
 
-#include "picoquic_internal.h"
+#include "picoquic.h"
 
 typedef uint16_t access_key_t;
 

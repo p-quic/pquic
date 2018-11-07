@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -60,7 +60,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
             uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
-            if (path_x && path_x->smoothed_rtt < path_c->smoothed_rtt) {
+            if (path_x && smoothed_rtt_c < smoothed_rtt_x) {
                 continue;
             }
             path_x = path_c;

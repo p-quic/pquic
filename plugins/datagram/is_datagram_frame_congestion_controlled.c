@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 
 #ifdef DATAGRAM_CONGESTION_CONTROLLED
 #define DCC true

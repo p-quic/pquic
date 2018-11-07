@@ -31,8 +31,8 @@
 #include "ubpf.h"
 #include "picosocks.h"
 #include "uthash.h"
-#include "protoop.h"
 #include "queue.h"
+#include "plugin.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,42 +66,6 @@ extern "C" {
 #define PICOQUIC_CWIN_MINIMUM (2 * PICOQUIC_MAX_PACKET_SIZE)
 
 #define PICOQUIC_SPIN_VEC_LATE 1000 /* in microseconds : reaction time beyond which to mark a spin bit edge as 'late' */
-
-/*
- * Types of frames
- */
-typedef enum {
-    picoquic_frame_type_padding = 0,
-    picoquic_frame_type_reset_stream = 1,
-    picoquic_frame_type_connection_close = 2,
-    picoquic_frame_type_application_close = 3,
-    picoquic_frame_type_max_data = 4,
-    picoquic_frame_type_max_stream_data = 5,
-    picoquic_frame_type_max_stream_id = 6,
-    picoquic_frame_type_ping = 7,
-    picoquic_frame_type_blocked = 8,
-    picoquic_frame_type_stream_blocked = 9,
-    picoquic_frame_type_stream_id_blocked = 0x0a,
-    picoquic_frame_type_new_connection_id = 0x0b,
-    picoquic_frame_type_stop_sending = 0x0c,
-    picoquic_frame_type_ack = 0x0d,
-    picoquic_frame_type_path_challenge = 0x0e,
-    picoquic_frame_type_path_response = 0x0f,
-    picoquic_frame_type_stream_range_min = 0x10,
-    picoquic_frame_type_stream_range_max = 0x17,
-    picoquic_frame_type_crypto_hs = 0x18,
-    picoquic_frame_type_new_token = 0x19,
-    picoquic_frame_type_ack_ecn = 0x1a
-} picoquic_frame_type_enum_t;
-
-/*
- * Efficient range operations that assume range containing bitfields.
- * Namely, it assumes max&min==min, min&bits==0, max&bits==bits.
- */
-#define PICOQUIC_IN_RANGE(v, min, max)                  (((v) & ~((min)^(max))) == (min))
-// Is v between min and max and has all given bits set/clear?
-#define PICOQUIC_BITS_SET_IN_RANGE(  v, min, max, bits) (((v) & ~((min)^(max)^(bits))) == ((min)^(bits)))
-#define PICOQUIC_BITS_CLEAR_IN_RANGE(v, min, max, bits) (((v) & ~((min)^(max)^(bits))) == (min))
 
 
 /*
@@ -445,36 +409,8 @@ typedef struct st_picoquic_path_t {
 
 /* Typedef for plugins */
 typedef struct state plugin_state_t;
-typedef uint16_t param_id_t;
-typedef uint16_t opaque_id_t;
-typedef uint64_t protoop_arg_t;
 
 typedef char* transaction_id_t;
-
-/* This structure is used for sending booking purposes */
-typedef struct reserve_frame_slot {
-    size_t nb_bytes;
-    uint64_t frame_type;
-    /* TODO FIXME position */
-    void *frame_ctx;
-} reserve_frame_slot_t;
-
-typedef struct reserve_frames_block {
-    size_t total_bytes;
-    uint8_t nb_frames;
-    /* The following pointer is an array! */
-    reserve_frame_slot_t *frames;
-} reserve_frames_block_t;
-
-/**
- * Book an occasion to send the frame whose details are given in \p slot.
- * \param[in] cnx The context of the connection
- * \param[in] nb_frames The number of frames concerned by the booking
- * \param[in] slots Information about the frames' booking
- * 
- * \return The number of bytes reserved, or 0 if an error occurred
- */
-size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
 
 /* Structure keeping track of the start pointer of the opaque data and its size */
 typedef struct st_picoquic_opaque_meta_t {
@@ -495,17 +431,7 @@ typedef struct protoop_transaction {
     UT_hash_handle hh; /* Make the structure hashable */
 } protoop_transaction_t;
 
-typedef struct {
-    protoop_id_t pid;
-    param_id_t param;
-    bool caller_is_intern;
-    int inputc;
-    protoop_arg_t *inputv;
-    protoop_arg_t *outputv;
-} protoop_params_t;
-
 #define PROTOOPNAME_MAX 100
-#define NO_PARAM (param_id_t) -1
 
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
@@ -537,8 +463,6 @@ typedef struct {
     protocol_operation_param_struct_t *params; /* This is a hash map */
     UT_hash_handle hh; /* Make the structure hashable */
 } protocol_operation_struct_t;
-
-#define PROTOOPARGS_MAX 10 /* Minimum required value... */
 
 /* Register functions */
 int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
@@ -703,108 +627,75 @@ typedef struct st_picoquic_cnx_t {
     char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
 
-/** 
- * Frame structures 
- */
-#define REASONPHRASELENGTH_MAX 200
+/* Moved here before we don't want plugins to use it */
 
-typedef struct padding_or_ping_frame {
-    int is_ping;
-    int num_block; /** How many consecutive frames? */
-} padding_or_ping_frame_t;
+/* Helper macros */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 
-typedef struct reset_stream_frame {
-    uint64_t stream_id;
-    uint16_t app_error_code;
-    uint64_t final_offset;
-} reset_stream_frame_t;
+/* C99-style: anonymous argument referenced by __VA_ARGS__, empty arg not OK */
 
-typedef struct connection_close_frame {
-    uint16_t error_code;
-    uint64_t frame_type;
-    uint64_t reason_phrase_length;
-    /** \todo Remove fix-length char */
-    char reason_phrase[REASONPHRASELENGTH_MAX];
-} connection_close_frame_t;
+# define N_ARGS(...) N_ARGS_HELPER1(__VA_ARGS__, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+# define N_ARGS_HELPER1(...) N_ARGS_HELPER2(__VA_ARGS__)
+# define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, ...) n
 
-typedef struct application_close_frame {
-    uint16_t error_code;
-    uint64_t reason_phrase_length;
-    /** \todo Remove fix-length char */
-    char reason_phrase[REASONPHRASELENGTH_MAX];
-} application_close_frame_t;
+# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, true, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, true, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_extern_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_prepare_and_run_extern_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+# define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
-typedef struct max_data_frame {
-    uint64_t maximum_data;
-} max_data_frame_t;
+#elif defined(__GNUC__)
 
-typedef struct max_stream_data_frame {
-    uint64_t stream_id;
-    uint64_t maximum_stream_data;
-} max_stream_data_frame_t;
+/* GCC-style: named argument, empty arg is OK */
 
-typedef struct max_stream_id_frame {
-    uint64_t maximum_stream_id;
-} max_stream_id_frame_t;
+# define N_ARGS(args...) N_ARGS_HELPER1(args, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+# define N_ARGS_HELPER1(args...) N_ARGS_HELPER2(args)
+# define N_ARGS_HELPER2(x1, x2, x3, x4, x5, x6, x7, x8, x9, n, x...) n
 
-typedef struct blocked_frame {
-    uint64_t offset;
-} blocked_frame_t;
 
-typedef struct stream_blocked_frame {
-    uint64_t stream_id;
-    uint64_t offset;
-} stream_blocked_frame_t;
+# define protoop_prepare_and_run_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_noparam_helper(cnx, pid, NO_PARAM, outputv, N_ARGS(args), args)
+# define protoop_prepare_and_run_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_noparam_helper(cnx, pid, param, outputv, N_ARGS(args), args)
+# define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(args), args)
 
-typedef struct stream_id_blocked_frame {
-    uint64_t stream_id;
-} stream_id_blocked_frame_t;
+#else
 
-typedef struct new_connection_id_frame {
-    uint64_t sequence;
-    picoquic_connection_id_t connection_id;
-    uint8_t stateless_reset_token[16];
-} new_connection_id_frame_t;
+#error variadic macros for your compiler here
 
-typedef struct stop_sending_frame {
-    uint64_t stream_id;
-    uint16_t application_error_code;
-} stop_sending_frame_t;
+#endif
 
-typedef struct ack_block {
-    uint64_t gap;
-    uint64_t additional_ack_block;
-} ack_block_t;
+static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, bool caller, protoop_arg_t *outputv, unsigned int n_args, ...)
+{
+  int i;
+  va_list ap;
 
-typedef struct ack_frame {
-    uint8_t is_ack_ecn;
-    uint64_t largest_acknowledged;
-    uint64_t ack_delay;
-    uint64_t ecnx3[3];
-    /** \todo Fixme we do not support ACK frames with more than 63 ack blocks */
-    uint64_t ack_block_count;
-    uint64_t first_ack_block;
-    ack_block_t ack_blocks[63];
-} ack_frame_t;
+  va_start(ap, n_args);
+  protoop_arg_t args[n_args];
+  DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
+  for (i = 0; i < n_args; i++) {
+    args[i] = va_arg(ap, protoop_arg_t);
+    DBG_PLUGIN_PRINTF("  %lu", arg);
+  }
+  va_end(ap);
+  protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
+  return plugin_run_protoop(cnx, &pp);
+}
 
-typedef struct path_challenge_frame {
-    uint8_t data[8];
-} path_challenge_frame_t;
+static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int n_args, ...)
+{
+  int i;
+  va_list ap;
 
-typedef struct path_response_frame {
-    uint64_t data;
-} path_response_frame_t;
+  va_start(ap, n_args);
+  DBG_PLUGIN_PRINTF("%u saved:", n_args);
+  for (i = 0; i < n_args; i++) {
+    cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
+    DBG_PLUGIN_PRINTF("  %lu", arg);
+  }
+  cnx->protoop_outputc_callee = n_args;
+  va_end(ap);
+}
 
-typedef struct crypto_frame {
-    uint64_t offset;
-    uint64_t length;
-    uint8_t* crypto_data_ptr; /* Start of the data, not contained in the structure */
-} crypto_frame_t;
-
-typedef struct new_token_frame {
-    uint64_t token_length;
-    uint8_t* token_ptr; /* Start of the data, not contained in the structure */
-} new_token_frame_t;
+/* End of plugins helper functions */
 
 /* Init of transport parameters */
 void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode);
@@ -847,7 +738,6 @@ void picoquic_update_pacing_data(picoquic_path_t * path_x);
 /* Next time is used to order the list of available connections,
      * so ready connections are polled first */
 void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint64_t next_time);
-void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
 void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time);
 
@@ -865,9 +755,7 @@ void picoformat_16(uint8_t* bytes, uint16_t n16);
 void picoformat_32(uint8_t* bytes, uint32_t n32);
 void picoformat_64(uint8_t* bytes, uint64_t n64);
 
-size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
 void picoquic_varint_encode_16(uint8_t* bytes, uint16_t n16);
-size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
 uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64);
 size_t picoquic_varint_skip(uint8_t* bytes);
 
@@ -877,8 +765,6 @@ size_t picoquic_headint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t*
 /* utilities */
 char* picoquic_string_create(const char* original, size_t len);
 char* picoquic_string_duplicate(const char* original);
-
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
 
 /* Packet parsing */
 
@@ -1045,7 +931,6 @@ int picoquic_process_ack_of_ack_frame(
 /* stream management */
 picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t stream_id);
 void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
-picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
@@ -1076,8 +961,6 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
 int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
                                 size_t bytes_max, size_t* consumed);
 
-
-int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr);
 
 /* send/receive */
 

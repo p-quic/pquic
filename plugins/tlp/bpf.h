@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "memory.h"
 #include "memcpy.h"
 

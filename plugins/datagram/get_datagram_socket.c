@@ -1,7 +1,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"

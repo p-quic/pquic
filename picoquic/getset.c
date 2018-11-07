@@ -1,4 +1,5 @@
 #include "getset.h"
+#include "picoquic_internal.h"
 
 static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16_t value) {
     switch (value) {

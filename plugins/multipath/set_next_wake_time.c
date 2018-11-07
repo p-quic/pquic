@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -330,9 +330,10 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     }
 
                     uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
+                    uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, PATH_AK_RETRANSMIT_TIMER, 0);
                     if (nb_retransmit == 0) {
-                        if (send_time + path_x->retransmit_timer < next_time) {
-                            next_time = send_time + path_x->retransmit_timer;
+                        if (send_time + retransmit_timer_x < next_time) {
+                            next_time = send_time + retransmit_timer_x;
                         }
                     }
                     else {

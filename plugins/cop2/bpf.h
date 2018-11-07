@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 
 #include "endianness.h"
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "memory.h"
 #include "memcpy.h"
 #include "util.h"

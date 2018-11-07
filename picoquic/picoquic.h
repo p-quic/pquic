@@ -23,6 +23,9 @@
 #define PICOQUIC_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <inttypes.h>
+#include "protoop.h"
 #ifdef _WINDOWS
 #include <WS2tcpip.h>
 #include <Ws2def.h>
@@ -96,6 +99,41 @@ extern "C" {
 #define PICOQUIC_RESET_SECRET_SIZE 16
 #define PICOQUIC_RESET_PACKET_MIN_SIZE (1 + 20 + 16)
 
+/*
+ * Efficient range operations that assume range containing bitfields.
+ * Namely, it assumes max&min==min, min&bits==0, max&bits==bits.
+ */
+#define PICOQUIC_IN_RANGE(v, min, max)                  (((v) & ~((min)^(max))) == (min))
+// Is v between min and max and has all given bits set/clear?
+#define PICOQUIC_BITS_SET_IN_RANGE(  v, min, max, bits) (((v) & ~((min)^(max)^(bits))) == ((min)^(bits)))
+#define PICOQUIC_BITS_CLEAR_IN_RANGE(v, min, max, bits) (((v) & ~((min)^(max)^(bits))) == (min))
+
+/*
+ * Types of frames
+ */
+typedef enum {
+    picoquic_frame_type_padding = 0,
+    picoquic_frame_type_reset_stream = 1,
+    picoquic_frame_type_connection_close = 2,
+    picoquic_frame_type_application_close = 3,
+    picoquic_frame_type_max_data = 4,
+    picoquic_frame_type_max_stream_data = 5,
+    picoquic_frame_type_max_stream_id = 6,
+    picoquic_frame_type_ping = 7,
+    picoquic_frame_type_blocked = 8,
+    picoquic_frame_type_stream_blocked = 9,
+    picoquic_frame_type_stream_id_blocked = 0x0a,
+    picoquic_frame_type_new_connection_id = 0x0b,
+    picoquic_frame_type_stop_sending = 0x0c,
+    picoquic_frame_type_ack = 0x0d,
+    picoquic_frame_type_path_challenge = 0x0e,
+    picoquic_frame_type_path_response = 0x0f,
+    picoquic_frame_type_stream_range_min = 0x10,
+    picoquic_frame_type_stream_range_max = 0x17,
+    picoquic_frame_type_crypto_hs = 0x18,
+    picoquic_frame_type_new_token = 0x19,
+    picoquic_frame_type_ack_ecn = 0x1a
+} picoquic_frame_type_enum_t;
 
 /*
 * Connection states, useful to expose the state to the application.
@@ -212,6 +250,149 @@ typedef struct st_picoquic_packet_t {
 typedef struct st_picoquic_quic_t picoquic_quic_t;
 typedef struct st_picoquic_cnx_t picoquic_cnx_t;
 typedef struct st_picoquic_path_t picoquic_path_t;
+typedef struct st_picoquic_packet_context_t picoquic_packet_context_t;
+typedef struct st_picoquic_sack_item_t picoquic_sack_item_t;
+typedef struct _picoquic_stream_head picoquic_stream_head;
+typedef struct st_picoquic_crypto_context_t picoquic_crypto_context_t;
+typedef struct _picoquic_packet_header picoquic_packet_header;
+typedef struct st_picoquic_tp_t picoquic_tp_t;
+typedef struct _picoquic_stream_data picoquic_stream_data;
+
+typedef uint64_t protoop_arg_t;
+typedef struct protoop_transaction protoop_transaction_t;
+typedef uint16_t param_id_t;
+typedef uint16_t opaque_id_t;
+
+typedef struct {
+    protoop_id_t pid;
+    param_id_t param;
+    bool caller_is_intern;
+    int inputc;
+    protoop_arg_t *inputv;
+    protoop_arg_t *outputv;
+} protoop_params_t;
+
+/* This structure is used for sending booking purposes */
+typedef struct reserve_frame_slot {
+    size_t nb_bytes;
+    uint64_t frame_type;
+    /* TODO FIXME position */
+    void *frame_ctx;
+} reserve_frame_slot_t;
+
+typedef struct reserve_frames_block {
+    size_t total_bytes;
+    uint8_t nb_frames;
+    /* The following pointer is an array! */
+    reserve_frame_slot_t *frames;
+} reserve_frames_block_t;
+
+#define NO_PARAM (param_id_t) -1
+#define PROTOOPARGS_MAX 10 /* Minimum required value... */
+
+/** 
+ * Frame structures 
+ */
+#define REASONPHRASELENGTH_MAX 200
+
+typedef struct padding_or_ping_frame {
+    int is_ping;
+    int num_block; /** How many consecutive frames? */
+} padding_or_ping_frame_t;
+
+typedef struct reset_stream_frame {
+    uint64_t stream_id;
+    uint16_t app_error_code;
+    uint64_t final_offset;
+} reset_stream_frame_t;
+
+typedef struct connection_close_frame {
+    uint16_t error_code;
+    uint64_t frame_type;
+    uint64_t reason_phrase_length;
+    /** \todo Remove fix-length char */
+    char reason_phrase[REASONPHRASELENGTH_MAX];
+} connection_close_frame_t;
+
+typedef struct application_close_frame {
+    uint16_t error_code;
+    uint64_t reason_phrase_length;
+    /** \todo Remove fix-length char */
+    char reason_phrase[REASONPHRASELENGTH_MAX];
+} application_close_frame_t;
+
+typedef struct max_data_frame {
+    uint64_t maximum_data;
+} max_data_frame_t;
+
+typedef struct max_stream_data_frame {
+    uint64_t stream_id;
+    uint64_t maximum_stream_data;
+} max_stream_data_frame_t;
+
+typedef struct max_stream_id_frame {
+    uint64_t maximum_stream_id;
+} max_stream_id_frame_t;
+
+typedef struct blocked_frame {
+    uint64_t offset;
+} blocked_frame_t;
+
+typedef struct stream_blocked_frame {
+    uint64_t stream_id;
+    uint64_t offset;
+} stream_blocked_frame_t;
+
+typedef struct stream_id_blocked_frame {
+    uint64_t stream_id;
+} stream_id_blocked_frame_t;
+
+typedef struct new_connection_id_frame {
+    uint64_t sequence;
+    picoquic_connection_id_t connection_id;
+    uint8_t stateless_reset_token[16];
+} new_connection_id_frame_t;
+
+typedef struct stop_sending_frame {
+    uint64_t stream_id;
+    uint16_t application_error_code;
+} stop_sending_frame_t;
+
+typedef struct ack_block {
+    uint64_t gap;
+    uint64_t additional_ack_block;
+} ack_block_t;
+
+typedef struct ack_frame {
+    uint8_t is_ack_ecn;
+    uint64_t largest_acknowledged;
+    uint64_t ack_delay;
+    uint64_t ecnx3[3];
+    /** \todo Fixme we do not support ACK frames with more than 63 ack blocks */
+    uint64_t ack_block_count;
+    uint64_t first_ack_block;
+    ack_block_t ack_blocks[63];
+} ack_frame_t;
+
+typedef struct path_challenge_frame {
+    uint8_t data[8];
+} path_challenge_frame_t;
+
+typedef struct path_response_frame {
+    uint64_t data;
+} path_response_frame_t;
+
+typedef struct crypto_frame {
+    uint64_t offset;
+    uint64_t length;
+    uint8_t* crypto_data_ptr; /* Start of the data, not contained in the structure */
+} crypto_frame_t;
+
+typedef struct new_token_frame {
+    uint64_t token_length;
+    uint8_t* token_ptr; /* Start of the data, not contained in the structure */
+} new_token_frame_t;
+
 
 typedef enum {
     picoquic_callback_no_event = 0,
@@ -456,6 +637,16 @@ void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_c
 
 void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_algorithm_t const* alg);
 
+/**
+ * Book an occasion to send the frame whose details are given in \p slot.
+ * \param[in] cnx The context of the connection
+ * \param[in] nb_frames The number of frames concerned by the booking
+ * \param[in] slots Information about the frames' booking
+ * 
+ * \return The number of bytes reserved, or 0 if an error occurred
+ */
+size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
+
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,
     uint8_t* response, size_t response_max, size_t* response_length);
@@ -475,6 +666,22 @@ int picoquic_get_local_error(picoquic_cnx_t* cnx);
 
 /* Returns the remote error of the given connection context. */
 int picoquic_get_remote_error(picoquic_cnx_t* cnx);
+
+/* Create a path */
+int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr);
+
+/* Integer formatting functions */
+size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
+size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
+
+/* Stream management */
+picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
+
+/* Utilities */
+int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
+int picoquic_compare_connection_id(picoquic_connection_id_t * cnx_id1, picoquic_connection_id_t * cnx_id2);
+
+void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
 #ifdef __cplusplus
 }

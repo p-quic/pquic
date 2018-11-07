@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "util.h"
 #include "../helpers.h"

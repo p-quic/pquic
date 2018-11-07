@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "memory.h"
@@ -48,7 +48,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
         next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
     }
     while (first_sack != NULL && next_sack != NULL) {
-        target_sack = target_sack->next_sack;
+        target_sack = next_sack;
         next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
     }
 

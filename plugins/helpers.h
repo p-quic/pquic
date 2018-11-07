@@ -1,10 +1,41 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "memcpy.h"
 #include "getset.h"
+
+#define PICOQUIC_MAX_PACKET_SIZE 1536
+#define PICOQUIC_MIN_SEGMENT_SIZE 256
+#define PICOQUIC_INITIAL_MTU_IPV4 1252
+#define PICOQUIC_INITIAL_MTU_IPV6 1232
+#define PICOQUIC_ENFORCED_INITIAL_MTU 1200
+#define PICOQUIC_PRACTICAL_MAX_MTU 1440
+#define PICOQUIC_RETRY_SECRET_SIZE 64
+#define PICOQUIC_DEFAULT_0RTT_WINDOW 4096
+
+#define PICOQUIC_NUMBER_OF_EPOCHS 4
+#define PICOQUIC_NUMBER_OF_EPOCH_OFFSETS (PICOQUIC_NUMBER_OF_EPOCHS+1)
+
+#define PICOQUIC_INITIAL_RTT 250000 /* 250 ms */
+#define PICOQUIC_INITIAL_RETRANSMIT_TIMER 1000000 /* one second */
+#define PICOQUIC_MIN_RETRANSMIT_TIMER 50000 /* 50 ms */
+#define PICOQUIC_ACK_DELAY_MAX 20000 /* 20 ms */
+#define PICOQUIC_RACK_DELAY 10000 /* 10 ms */
+
+#define PICOQUIC_SPURIOUS_RETRANSMIT_DELAY_MAX 1000000 /* one second */
+
+#define PICOQUIC_MICROSEC_SILENCE_MAX 120000000 /* 120 seconds for now */
+#define PICOQUIC_MICROSEC_HANDSHAKE_MAX 15000000 /* 15 seconds for now */
+#define PICOQUIC_MICROSEC_WAIT_MAX 10000000 /* 10 seconds for now */
+
+#define PICOQUIC_CWIN_INITIAL (10 * PICOQUIC_MAX_PACKET_SIZE)
+#define PICOQUIC_CWIN_MINIMUM (2 * PICOQUIC_MAX_PACKET_SIZE)
+
+#define PICOQUIC_SPIN_VEC_LATE 1000 /* in microseconds : reaction time beyond which to mark a spin bit edge as 'late' */
+
+#define PICOQUIC_CHALLENGE_REPEAT_MAX 4
 
 #define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
 #define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
