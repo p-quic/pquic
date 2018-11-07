@@ -798,3 +798,31 @@ void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg
         break;
     }
 }
+
+protoop_arg_t get_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak)
+{
+    switch(ak) {
+    case CNXID_AK_ID:
+        return (protoop_arg_t) cnxid->id;
+    case CNXID_AK_LEN:
+        return cnxid->id_len;
+    default:
+        printf("ERROR: unknown connection id access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case CNXID_AK_ID:
+        printf("ERROR: setting cnxid id is not implemented!\n");
+        break;
+    case CNXID_AK_LEN:
+        cnxid->id_len = (uint8_t) val;
+        break;
+    default:
+        printf("ERROR: unknown connection id access key %u\n", ak);
+        break;
+    }
+}

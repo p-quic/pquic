@@ -147,11 +147,9 @@ static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, pa
     pd->path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, cnx_path_index);
     /* Also insert CIDs */
     picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_LOCAL_CID, 0);
-    local_cnxid->id_len = pd->local_cnxid.id_len;
-    my_memcpy(&local_cnxid->id, &pd->local_cnxid.id, pd->local_cnxid.id_len);
+    my_memcpy(local_cnxid, &pd->local_cnxid, sizeof(picoquic_connection_id_t));
     picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_REMOTE_CID, 0);
-    remote_cnxid->id_len = pd->remote_cnxid.id_len;
-    my_memcpy(&remote_cnxid->id, &pd->remote_cnxid.id, pd->remote_cnxid.id_len);
+    my_memcpy(remote_cnxid, &pd->remote_cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(pd->path, PATH_AK_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
 }

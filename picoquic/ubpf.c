@@ -42,18 +42,19 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x0a, "set_pkt", set_pkt);
     ubpf_register(vm, 0x0b, "get_sack_item", get_sack_item);
     ubpf_register(vm, 0x0c, "set_sack_item", set_sack_item);
+    ubpf_register(vm, 0x0d, "get_cnxid", get_cnxid);
+    ubpf_register(vm, 0x0e, "set_cnxid", set_cnxid);
     /* specific to picoquic, how to remove this dependency ? */
-    ubpf_register(vm, 0x0e, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
-    ubpf_register(vm, 0x0f, "picoquic_current_time", picoquic_current_time);
+    ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
+    ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);
     /* for memory */
-    ubpf_register(vm, 0x10, "my_malloc", my_malloc);
-    ubpf_register(vm, 0x11, "my_free", my_free);
-    ubpf_register(vm, 0x12, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1a, "my_malloc", my_malloc);
+    ubpf_register(vm, 0x1b, "my_free", my_free);
+    ubpf_register(vm, 0x1c, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1d, "my_memcpy", my_memcpy);
+    ubpf_register(vm, 0x1e, "my_memset", my_memset);
 
-    ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
-    ubpf_register(vm, 0x19, "my_memset", my_memset);
-
-    ubpf_register(vm, 0x1a, "clock_gettime", clock_gettime);
+    ubpf_register(vm, 0x1f, "clock_gettime", clock_gettime);
 
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);

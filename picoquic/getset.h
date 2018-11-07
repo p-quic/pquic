@@ -81,7 +81,7 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
  * Get a specific field belonging to the packet \p pkt
  * 
  * \param pkt The packet pointer
- * \param ak The hey of the field to get
+ * \param ak The key of the field to get
  * 
  * \return The value of the field with the corresponding key
  */
@@ -100,7 +100,7 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val);
  * Get a specific field belonging to the sack item \p sack_item
  * 
  * \param sack_item The sack_item pointer
- * \param ak The hey of the field to get
+ * \param ak The key of the field to get
  * 
  * \return The value of the field with the corresponding key
  */
@@ -114,6 +114,25 @@ protoop_arg_t get_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak);
  * \param val The value to set
  */
 void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg_t val);
+
+/**
+ * Get a specific field belonging to the connection id \p cnxid
+ * 
+ * \param cnxid The connection id pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the connection id \p cnxid to the value \p val
+ * 
+ * \param cnxid The connection id pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t val);
 
 /**
  * @}
@@ -425,6 +444,20 @@ void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg
 /** The end of the SACK range */
 #define SACK_ITEM_AK_END_RANGE 0x02
 
+/**
+ * @}
+ * 
+ * @defgroup GETSET_CNXID_AK Connection ID Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_cnxid and \p set_cnxid calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the connection ID */
+#define CNXID_AK_ID 0x00
+/** The length of the connection ID */
+#define CNXID_AK_LEN 0x01
 
 /**
  * @}

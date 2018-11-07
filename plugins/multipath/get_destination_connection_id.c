@@ -22,7 +22,7 @@ protoop_arg_t get_destination_cnx_id(picoquic_cnx_t* cnx)
 
     if ((packet_type == picoquic_packet_initial ||
          packet_type == picoquic_packet_0rtt_protected)
-        && remote_cnxid_0->id_len == 0) /* Unwrapped picoquic_is_connection_id_null */
+        && get_cnxid(remote_cnxid_0, CNXID_AK_LEN) == 0) /* Unwrapped picoquic_is_connection_id_null */
     {
         dest_cnx_id = initial_cnxid;
     }
