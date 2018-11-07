@@ -259,7 +259,7 @@ typedef struct st_picoquic_tp_t picoquic_tp_t;
 typedef struct _picoquic_stream_data picoquic_stream_data;
 
 typedef uint64_t protoop_arg_t;
-typedef struct protoop_transaction protoop_transaction_t;
+typedef struct protoop_plugin protoop_plugin_t;
 typedef uint16_t param_id_t;
 typedef uint16_t opaque_id_t;
 

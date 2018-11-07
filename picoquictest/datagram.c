@@ -22,7 +22,7 @@ static int datagram_parse_test()
     protoop_arg_t out[3] = {0, 0, 0};
     init_memory_management(&cnx);
     register_protocol_operations(&cnx);
-    ret = plugin_insert_transaction(&cnx, "plugins/datagram/datagram.plugin");
+    ret = plugin_insert_plugin(&cnx, "plugins/datagram/datagram.plugin");
     if (ret) {
         DBG_PRINTF("Unable to load datagram plugin\n");
         return ret;
@@ -80,7 +80,7 @@ static int datagram_write_test() {
     protoop_arg_t out[1] = {0};
     init_memory_management(&cnx);
     register_protocol_operations(&cnx);
-    ret = plugin_insert_transaction(&cnx, "plugins/datagram/datagram.plugin");
+    ret = plugin_insert_plugin(&cnx, "plugins/datagram/datagram.plugin");
     if (ret) {
         DBG_PRINTF("Unable to load datagram plugin\n");
         return ret;

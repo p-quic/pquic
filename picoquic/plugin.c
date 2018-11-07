@@ -6,60 +6,60 @@
 #include "memory.h"
 #include "picoquic_internal.h"
 
-int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_transaction_t *t, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_plugin_t *p, pluglet_type_enum pte, char *elf_fname) {
     /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
-    if ((pte == plugin_replace || pte == plugin_extern) && popst->replace) {
-        printf("Replace plugin already inserted!\n");
+    if ((pte == pluglet_replace || pte == pluglet_extern) && popst->replace) {
+        printf("Replace pluglet already inserted!\n");
         return 1;
     }
 
-    if (!popst->intern && (pte == plugin_pre || pte == plugin_post)) {
-        printf("External plugin cannot have observers!\n");
+    if (!popst->intern && (pte == pluglet_pre || pte == pluglet_post)) {
+        printf("External pluglet cannot have observers!\n");
         return 1;
     }
 
-    if (popst->intern && pte == plugin_extern && (popst->core || popst->pre || popst->post)) {
-        printf("An internal plugin already exists!\n");
+    if (popst->intern && pte == pluglet_extern && (popst->core || popst->pre || popst->post)) {
+        printf("An internal pluglet already exists!\n");
         return 1;
     }
 
     /* Then check if we can load the plugin! */
-    plugin_t *new_plugin = load_elf_file(elf_fname);
-    if (!new_plugin) {
+    pluglet_t *new_pluglet = load_elf_file(elf_fname);
+    if (!new_pluglet) {
         printf("Failed to insert %s\n", elf_fname);
         return 1;
     }
-    /* Record the transaction plugin comes from */
-    new_plugin->t = t;
+    /* Record the plugin pluglet comes from */
+    new_pluglet->p = p;
 
     /* We cope with (nearly) all bad cases, so now insert */
     observer_node_t *new_node;
     switch (pte) {
-    case plugin_extern:
+    case pluglet_extern:
         popst->intern = false;
         /* this falls through intentionally */
-    case plugin_replace:
-        popst->replace = new_plugin;
+    case pluglet_replace:
+        popst->replace = new_pluglet;
         break;
-    case plugin_pre:
+    case pluglet_pre:
         new_node = malloc(sizeof(observer_node_t));
         if (!new_node) {
-            printf("Cannot allocate memory to insert pre node with plugin %s for pid\n", elf_fname);
-            release_elf(new_plugin);
+            printf("Cannot allocate memory to insert pre node with pluglet %s for pid\n", elf_fname);
+            release_elf(new_pluglet);
             return 1;
         }
-        new_node->observer = new_plugin;
+        new_node->observer = new_pluglet;
         new_node->next = popst->pre;
         popst->pre = new_node;
         break;
-    case plugin_post:
+    case pluglet_post:
         new_node = malloc(sizeof(observer_node_t));
         if (!new_node) {
-            printf("Cannot allocate memory to insert pre node with plugin %s\n", elf_fname);
-            release_elf(new_plugin);
+            printf("Cannot allocate memory to insert pre node with pluglet %s\n", elf_fname);
+            release_elf(new_pluglet);
             return 1;
         }
-        new_node->observer = new_plugin;
+        new_node->observer = new_pluglet;
         new_node->next = popst->post;
         popst->post = new_node;
         break;
@@ -68,7 +68,7 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
     return 0;
 }
 
-int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_transaction_t *t, protoop_id_t pid, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_id_t pid, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst = post->params;
     /* Sanity check */
     if (post->is_parametrable) {
@@ -76,10 +76,10 @@ int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_transacti
         return 1;
     }
 
-    return plugin_plug_elf_param_struct(popst, t, pte, elf_fname);
+    return plugin_plug_elf_param_struct(popst, p, pte, elf_fname);
 }
 
-int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst;
     bool created_popst = false;
     /* Sanity check */
@@ -88,24 +88,24 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_transaction
         return 1;
     }
     HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
-    /* It is possible to have a new parameter with the plugin */
+    /* It is possible to have a new parameter with the pluglet */
     if (!popst) {
         popst = create_protocol_operation_param(param, NULL);
         created_popst = true;
         if (!popst) {
-            printf("ERROR: cannot allocate memory for param struct when plugin...\n");
+            printf("ERROR: cannot allocate memory for param struct when pluglet...\n");
             return 1;
         }
     }
 
-    int err = plugin_plug_elf_param_struct(popst, t, pte, elf_fname);
+    int err = plugin_plug_elf_param_struct(popst, p, pte, elf_fname);
 
     if (err) {
         if (created_popst) {
             /* Remove it */
             free(popst);
         }
-        printf("Failed to insert plugin for parametrable protocol operation %s with param %u\n", pid, param);
+        printf("Failed to insert pluglet for parametrable protocol operation %s with param %u\n", pid, param);
         return 1;
     }
 
@@ -117,7 +117,7 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_transaction
     return 0;
 }
 
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname) {
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
@@ -138,16 +138,16 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_transaction_t *t, protoop_id_t 
     }
 
     /* Again, two cases: either it is parametric or not */
-    return param != NO_PARAM ? plugin_plug_elf_param(post, t, pid, param, pte, elf_fname) :
-        plugin_plug_elf_noparam(post, t, pid, pte, elf_fname);
+    return param != NO_PARAM ? plugin_plug_elf_param(post, p, pid, param, pte, elf_fname) :
+        plugin_plug_elf_noparam(post, p, pid, pte, elf_fname);
 }
 
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte) {
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, pluglet_type_enum pte) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
     if (!post) {
-        printf("Trying to unplug plugin for non-existing proto op id %s...\n", pid);
+        printf("Trying to unplug pluglet for non-existing proto op id %s...\n", pid);
         return 1;
     }
 
@@ -171,29 +171,29 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
     }
 
     /* For pre/post, it's difficult to ensure we remove the right observer right now...
-     * But if we made the assumption that removal is either performed when a transaction
+     * But if we made the assumption that removal is either performed when a plugin
      * fails (when the connection is deleted, another function handles it), as the list
      * is implemented as a stack, we can simply remove the first one.
      */
     observer_node_t *to_remove;
     switch (pte) {
-    case plugin_extern:
+    case pluglet_extern:
         if (popst->intern) {
-            printf("Trying to unplug non-existing external plugin for proto op id %s\n", pid);
+            printf("Trying to unplug non-existing external pluglet for proto op id %s\n", pid);
             return 1;
         }
         /* this falls through intentionally */
-    case plugin_replace:
+    case pluglet_replace:
         if (!popst->replace) {
-            printf("Trying to unplug non-existing replace plugin for proto op id %s...\n", pid);
+            printf("Trying to unplug non-existing replace pluglet for proto op id %s...\n", pid);
             return 1;
         }
         release_elf(popst->replace);
         popst->replace = NULL;
         break;
-    case plugin_pre:
+    case pluglet_pre:
         if (!popst->pre) {
-            printf("Trying to unplug non-existing pre plugin for proto op id %s...\n", pid);
+            printf("Trying to unplug non-existing pre pluglet for proto op id %s...\n", pid);
             return 1;
         }
         to_remove = popst->pre;
@@ -202,9 +202,9 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
         free(to_remove);
         to_remove = NULL;
         break;
-    case plugin_post:
+    case pluglet_post:
         if (!popst->post) {
-            printf("Trying to unplug non-existing post plugin for proto op id %s...\n", pid);
+            printf("Trying to unplug non-existing post pluglet for proto op id %s...\n", pid);
             return 1;
         }
         to_remove = popst->post;
@@ -233,8 +233,8 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
     return 0;
 }
 
-bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoop_transaction_t *t,
-    char *plugin_dirname, protoop_id_t inserted_pid, param_id_t *param, plugin_type_enum *pte)
+bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_plugin_t *p,
+    char *plugin_dirname, protoop_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
 {
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
@@ -273,17 +273,17 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoo
         *param = NO_PARAM;
     }
 
-    /* Part two: extract plugin type */
+    /* Part two: extract pluglet type */
     if (strncmp(token, "replace", 7) == 0) {
-        *pte = plugin_replace;
+        *pte = pluglet_replace;
     } else if (strncmp(token, "pre", 3) == 0) {
-        *pte = plugin_pre;
+        *pte = pluglet_pre;
     } else if (strncmp(token, "post", 4) == 0) {
-        *pte = plugin_post;
+        *pte = pluglet_post;
     } else if (strncmp(token, "extern", 6) == 0) {
-        *pte = plugin_extern;
+        *pte = pluglet_extern;
     } else {
-        printf("Cannot extract the type of the plugin: %s\n", token);
+        printf("Cannot extract the type of the pluglet: %s\n", token);
         return false;
     }
 
@@ -301,11 +301,11 @@ bool insert_plugin_from_transaction_line(picoquic_cnx_t *cnx, char *line, protoo
     strncpy(abs_path, plugin_dirname, 250);
     strcat(abs_path, "/");
     strcat(abs_path, token);
-    return plugin_plug_elf(cnx, t, inserted_pid, *param, *pte, abs_path) == 0;
+    return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
-protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *line) {
-    /* Part one: extract transaction id */
+protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line) {
+    /* Part one: extract plugin id */
     char *token = strsep(&line, " ");
     if (token == NULL) {
         printf("No token for protocol operation id extracted!\n");
@@ -317,37 +317,37 @@ protoop_transaction_t* plugin_parse_transaction_line(picoquic_cnx_t* cnx, char *
 
     if (strchr(token, '.') == token + strlen(token)) {
         /* No hierarchical name found, refuse it! */
-        printf("The name of the transaction is not hierarchical; discard it!\n");
+        printf("The name of the plugin is not hierarchical; discard it!\n");
         return NULL;
     }
 
-    protoop_transaction_t *t = calloc(1, sizeof(protoop_transaction_t));
-    if (!t) {
-        printf("Cannot allocate memory for transaction!\n");
+    protoop_plugin_t *p = calloc(1, sizeof(protoop_plugin_t));
+    if (!p) {
+        printf("Cannot allocate memory for plugin!\n");
         return NULL;
     }
 
-    strncpy(t->name, token, PROTOOPTRANSACTIONNAME_MAX);
-    t->block_queue = queue_init();
-    if (!t->block_queue) {
+    strncpy(p->name, token, PROTOOPPLUGINNAME_MAX);
+    p->block_queue = queue_init();
+    if (!p->block_queue) {
         printf("Cannot allocate memory for sending queue!\n");
-        free(t);
+        free(p);
         return NULL;
     }
     /* TODO make this value configurable */
-    t->max_budget = 7500;
-    t->budget = t->max_budget;
-    return t;
+    p->max_budget = 7500;
+    p->budget = p->max_budget;
+    return p;
 }
 
 typedef struct pid_node {
     char pid[100];
     param_id_t param;
-    plugin_type_enum pte;
+    pluglet_type_enum pte;
     struct pid_node *next;
 } pid_node_t;
 
-int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
+int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     FILE *file = fopen(plugin_fname, "r");
 
     if (file == NULL) {
@@ -364,7 +364,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     char *plugin_dirname = dirname(buf);
     char inserted_pid[100];
     param_id_t param;
-    plugin_type_enum pte;
+    pluglet_type_enum pte;
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
 
@@ -374,9 +374,9 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
-    protoop_transaction_t *t = plugin_parse_transaction_line(cnx, line);
-    if (!t) {
-        printf("Cannot extract transaction line in file %s\n", plugin_fname);
+    protoop_plugin_t *p = plugin_parse_first_plugin_line(cnx, line);
+    if (!p) {
+        printf("Cannot extract plugin line in file %s\n", plugin_fname);
         return 1;
     }
 
@@ -385,7 +385,7 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (len <= 1) {
             continue;
         }
-        ok = insert_plugin_from_transaction_line(cnx, line, t, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
+        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -413,9 +413,9 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
     }
 
     if (!ok) {
-        free(t);
+        free(p);
     } else {
-        HASH_ADD_STR(cnx->transactions, name, t);
+        HASH_ADD_STR(cnx->plugins, name, p);
     }
 
     if (line) {
@@ -428,13 +428,13 @@ int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname) {
 }
 
 void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {
-    if (!cnx->current_transaction) {
-        printf("ERROR: get_opaque_data can only be called by plugins with transactions!\n");
+    if (!cnx->current_plugin) {
+        printf("ERROR: get_opaque_data can only be called by pluglets with plugins!\n");
         return NULL;
     }
-    picoquic_opaque_meta_t *ometas = cnx->current_transaction->opaque_metas;
+    picoquic_opaque_meta_t *ometas = cnx->current_plugin->opaque_metas;
     if (oid >= OPAQUE_ID_MAX) {
-        printf("ERROR: plugin from transaction %s ask for opaque id %u >= max opaque id %d\n", cnx->current_transaction->name, oid, OPAQUE_ID_MAX);
+        printf("ERROR: pluglet from plugin %s ask for opaque id %u >= max opaque id %d\n", cnx->current_plugin->name, oid, OPAQUE_ID_MAX);
         /* Invalid ID */
         return NULL;
     }
@@ -470,10 +470,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     /* First save previous args, and update context with new ones
      * Notice that we store ALL array of protoop_inputv and protoop_outputv.
-     * With this, even if the called plugin tried to modify the input arguments,
+     * With this, even if the called pluglet tried to modify the input arguments,
      * they will remain unchanged at caller side.
      */
-    protoop_transaction_t *old_transaction = cnx->current_transaction;
+    protoop_plugin_t *old_plugin = cnx->current_plugin;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
     uint64_t *caller_inputv[PROTOOPARGS_MAX];
@@ -495,7 +495,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
 
-    /* Either we have a plugin, and we run it, or we stick to the default ops behaviour */
+    /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pp->pid, post);
@@ -532,18 +532,18 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
-        cnx->current_transaction = tmp->observer->t;
+        cnx->current_plugin = tmp->observer->p;
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
 
     /* The actual protocol operation */
     if (popst->replace) {
-        DBG_PLUGIN_PRINTF("Running plugin at proto op id %s", pid);
-        cnx->current_transaction = popst->replace->t;
+        DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pid);
+        cnx->current_plugin = popst->replace->p;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
     } else if (popst->core) {
-        cnx->current_transaction = NULL;
+        cnx->current_plugin = NULL;
         status = popst->core(cnx);
     } else {
         printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid);
@@ -557,7 +557,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     }
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
-        cnx->current_transaction = tmp->observer->t;
+        cnx->current_plugin = tmp->observer->p;
         exec_loaded_code(tmp->observer, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
         tmp = tmp->next;
     }
@@ -590,8 +590,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
      */
     cnx->protoop_outputc_callee = caller_outputc;
 
-    /* Also restore the transaction context */
-    cnx->current_transaction = old_transaction;
+    /* Also restore the plugin context */
+    cnx->current_plugin = old_plugin;
 
     return status;
 }

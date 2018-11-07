@@ -926,11 +926,11 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     /* The following lines should be uncommented only for testing purpose */
-    // plugin_insert_transaction(cnx, "plugins/basic/basic.plugin");
-    // plugin_insert_transaction(cnx, "plugins/ecn/ecn.plugin");
-    // plugin_insert_transaction(cnx, "plugins/multipath/multipath.plugin");
-    // plugin_insert_transaction(cnx, "plugins/tlp/tlp.plugin");
-    // plugin_insert_transaction(cnx, "plugins/cop2/cop2.plugin");
+    // plugin_insert_plugin(cnx, "plugins/basic/basic.plugin");
+    // plugin_insert_plugin(cnx, "plugins/ecn/ecn.plugin");
+    // plugin_insert_plugin(cnx, "plugins/multipath/multipath.plugin");
+    // plugin_insert_plugin(cnx, "plugins/tlp/tlp.plugin");
+    // plugin_insert_plugin(cnx, "plugins/cop2/cop2.plugin");
 
     return cnx;
 }
@@ -963,8 +963,8 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
-    cnx->transactions = NULL;
-    cnx->current_transaction = NULL;
+    cnx->plugins = NULL;
+    cnx->current_plugin = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -1525,12 +1525,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
 
-        protoop_transaction_t *current_tr, *tmp_tr;
-        HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
-            HASH_DEL(cnx->transactions, current_tr);
+        protoop_plugin_t *current_p, *tmp_p;
+        HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
+            HASH_DEL(cnx->plugins, current_p);
             /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-            queue_free(current_tr->block_queue);
-            free(current_tr);
+            queue_free(current_p->block_queue);
+            free(current_p);
         }
 
         free(cnx);
@@ -1899,8 +1899,8 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
 
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots)
 {
-    if (!cnx->current_transaction) {
-        printf("ERROR: reserve_frames can only be called by plugins with transactions!\n");
+    if (!cnx->current_plugin) {
+        printf("ERROR: reserve_frames can only be called by pluglets with plugins!\n");
         return 0;
     }
     /* Well, or we could use queues instead ? */
@@ -1914,7 +1914,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         block->total_bytes += slots[i].nb_bytes;
     }
     block->frames = slots;
-    int err = queue_enqueue(cnx->current_transaction->block_queue, block);
+    int err = queue_enqueue(cnx->current_plugin->block_queue, block);
     if (err) {
         free(block);
         return 0;

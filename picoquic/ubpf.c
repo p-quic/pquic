@@ -135,89 +135,89 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
     return data;
 }
 
-plugin_t *load_elf(void *code, size_t code_len) {
-    plugin_t *plugin = (plugin_t *)malloc(sizeof(plugin_t));
-    if (!plugin) {
+pluglet_t *load_elf(void *code, size_t code_len) {
+    pluglet_t *pluglet = (pluglet_t *)malloc(sizeof(pluglet_t));
+    if (!pluglet) {
         return NULL;
     }
 
-    plugin->vm = ubpf_create();
-    if (!plugin->vm) {
+    pluglet->vm = ubpf_create();
+    if (!pluglet->vm) {
             fprintf(stderr, "Failed to create VM\n");
-            free(plugin);
+            free(pluglet);
             return NULL;
     }
 
-    register_functions(plugin->vm);
+    register_functions(pluglet->vm);
 
     bool elf = code_len >= SELFMAG && !memcmp(code, ELFMAG, SELFMAG);
 
     char *errmsg;
     int rv;
     if (elf) {
-        rv = ubpf_load_elf(plugin->vm, code, code_len, &errmsg);
+        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg);
     } else {
-        rv = ubpf_load(plugin->vm, code, code_len, &errmsg);
+        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg);
     }
 
     if (rv < 0) {
         fprintf(stderr, "Failed to load code: %s\n", errmsg);
         free(errmsg);
-        ubpf_destroy(plugin->vm);
-        free(plugin);
+        ubpf_destroy(pluglet->vm);
+        free(pluglet);
         return NULL;
     }
-	plugin->fn = ubpf_compile(plugin->vm, &errmsg);
-	if (plugin->fn == NULL) {
+	pluglet->fn = ubpf_compile(pluglet->vm, &errmsg);
+	if (pluglet->fn == NULL) {
         fprintf(stderr, "Failed to compile: %s\n", errmsg);
         free(errmsg);
-        ubpf_destroy(plugin->vm);
-        free(plugin);
+        ubpf_destroy(pluglet->vm);
+        free(pluglet);
         return NULL;
     }
 
     free(errmsg);
 
-    return plugin;
+    return pluglet;
 }
 
-plugin_t *load_elf_file(const char *code_filename) {
+pluglet_t *load_elf_file(const char *code_filename) {
 	size_t code_len;
 	void *code = readfile(code_filename, 1024*1024, &code_len);
 	if (code == NULL) {
 			return NULL;
 	}
 
-	plugin_t *ret = load_elf(code, code_len);
+	pluglet_t *ret = load_elf(code, code_len);
 	free(code);
 	return ret;
 }
 
-int release_elf(plugin_t *plugin) {
-    if (plugin->vm != NULL) {
-        ubpf_destroy(plugin->vm);
-        plugin->vm = NULL;
-        plugin->fn = 0;
-        free(plugin);
+int release_elf(pluglet_t *pluglet) {
+    if (pluglet->vm != NULL) {
+        ubpf_destroy(pluglet->vm);
+        pluglet->vm = NULL;
+        pluglet->fn = 0;
+        free(pluglet);
     }
     return 0;
 }
 
-uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len, char **error_msg) {
+uint64_t exec_loaded_code(pluglet_t *pluglet, void *mem, size_t mem_len, char **error_msg) {
     uint64_t ret;
-    if (plugin->vm == NULL) {
+    if (pluglet->vm == NULL) {
         return -1;
     }
-    if (plugin->fn == NULL) {
+    if (pluglet->fn == NULL) {
         return -1;
     }
     if (JIT) {
         /* JIT */
-        ret = plugin->fn(mem, mem_len);
+        ret = pluglet->fn(mem, mem_len);
     } else {
         /* Interpreted */
-        ret = ubpf_exec(plugin->vm, mem, mem_len);
-        *error_msg = ubpf_get_error_msg(plugin->vm);
+        ret = ubpf_exec(pluglet->vm, mem, mem_len);
+        *error_msg = ubpf_get_error_msg(pluglet->vm);
     } 
 
     /* printf("0x%"PRIx64"\n", ret); */

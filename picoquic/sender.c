@@ -2338,35 +2338,35 @@ picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
     return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
 }
 
-protoop_transaction_t *get_next_transaction(picoquic_cnx_t *cnx, protoop_transaction_t *t)
+protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
 {
     if (t->hh.next != NULL) {
         return t->hh.next;
     }
     /* Otherwise, it is the first one */
-    return cnx->transactions;
+    return cnx->plugins;
 }
 
 /* This implements a deficit round robin with bursts */
 void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
 {
-    /* If there is no transaction, there is no frame to reserve! */
-    if (!cnx->transactions) {
+    /* If there is no plugin, there is no frame to reserve! */
+    if (!cnx->plugins) {
         return;
     }
     /* Handle the first call */
     if (!cnx->first_drr) {
-        cnx->first_drr = cnx->transactions;
+        cnx->first_drr = cnx->plugins;
     }
     /* Find if reservations were made */
-    protoop_transaction_t *tr, *tmp_tr;
+    protoop_plugin_t *p, *tmp_p;
     reserve_frames_block_t *block;
 
-    /* It's a two step process: check between how many transactions the increase should be shared */
+    /* It's a two step process: check between how many plugins the increase should be shared */
     uint8_t candidate_to_increase = 0;
     /* FIXME this is not fair... Introduce DRR */
-    HASH_ITER(hh, cnx->transactions, tr, tmp_tr) {
-        if (tr->budget < tr->max_budget) {
+    HASH_ITER(hh, cnx->plugins, p, tmp_p) {
+        if (p->budget < p->max_budget) {
             candidate_to_increase++;
         }
     }
@@ -2376,31 +2376,31 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
         increase = cnx->drr_increase_round / candidate_to_increase;
     }
 
-    tr = cnx->first_drr;
+    p = cnx->first_drr;
 
     do {
-        if (tr->budget < tr->max_budget) {
-            tr->budget += increase;
-            if (tr->budget > tr->max_budget) {
-                tr->budget = tr->max_budget;
+        if (p->budget < p->max_budget) {
+            p->budget += increase;
+            if (p->budget > p->max_budget) {
+                p->budget = p->max_budget;
             }
         }
 
-        while ((block = queue_peek(tr->block_queue)) != NULL && block->total_bytes < tr->budget) {
-            block = (reserve_frames_block_t *) queue_dequeue(tr->block_queue);
+        while ((block = queue_peek(p->block_queue)) != NULL && block->total_bytes < p->budget) {
+            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
                 queue_enqueue(cnx->reserved_frames, &block->frames[i]);
             }
             /* Consume the budget */
-            tr->budget -= block->total_bytes;
+            p->budget -= block->total_bytes;
             /* Free the block */
             free(block);
         }
-    } while ((tr = get_next_transaction(cnx, tr)) != cnx->first_drr);
+    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
 
     /* Finally, put the first pointer to the next one */
-    cnx->first_drr = get_next_transaction(cnx, tr);
+    cnx->first_drr = get_next_plugin(cnx, p);
 }
 
 /**
@@ -2551,8 +2551,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             length += (uint32_t) data_bytes;
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
-                                printf("WARNING: transaction %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
-                                    cnx->current_transaction->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                                printf("WARNING: plugin %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
+                                    cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
                             }
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }

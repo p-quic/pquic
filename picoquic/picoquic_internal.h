@@ -408,9 +408,8 @@ typedef struct st_picoquic_path_t {
 } picoquic_path_t;
 
 /* Typedef for plugins */
-typedef struct state plugin_state_t;
 
-typedef char* transaction_id_t;
+typedef char* plugin_id_t;
 
 /* Structure keeping track of the start pointer of the opaque data and its size */
 typedef struct st_picoquic_opaque_meta_t {
@@ -418,33 +417,33 @@ typedef struct st_picoquic_opaque_meta_t {
     size_t size;
 } picoquic_opaque_meta_t;
 
-#define PROTOOPTRANSACTIONNAME_MAX 100
+#define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
 
-typedef struct protoop_transaction {
-    char name[PROTOOPTRANSACTIONNAME_MAX];
+typedef struct protoop_plugin {
+    char name[PROTOOPPLUGINNAME_MAX];
     queue_t *block_queue; /* Send reservation queue */
     uint16_t budget; /* Sending budget */
     uint16_t max_budget; /* Maximum value of the budget */
     /* Opaque field for free use by plugins */
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
     UT_hash_handle hh; /* Make the structure hashable */
-} protoop_transaction_t;
+} protoop_plugin_t;
 
 #define PROTOOPNAME_MAX 100
 
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
 typedef struct observer_node {
-    plugin_t *observer; /* An observer, either pre or post */
+    pluglet_t *observer; /* An observer, either pre or post */
     struct observer_node *next;
 } observer_node_t;
 
 typedef struct {
     param_id_t param; /* Key of the parameter. If its value is -1, it has no parameter */
     protocol_operation core; /* The default operation, kept for unplugging feature */
-    plugin_t *replace; /* Exclusive plugin replacing the code operation */
-    bool intern;  /* intern operations can only be called by plugins and have observers,
+    pluglet_t *replace; /* Exclusive pluglet replacing the code operation */
+    bool intern;  /* intern operations can only be called by pluglets and have observers,
                    * extern operations can only be called by the application and have no observers */
     observer_node_t *pre; /* List of observers, probing just before function invocation */
     observer_node_t *post; /* List of observers, probing just after function returns */
@@ -480,7 +479,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 /* 
  * Per connection context.
- * This is the structure that will be passed to plugins.
+ * This is the structure that will be passed to pluglets.
  */
 typedef struct st_picoquic_cnx_t {
     picoquic_quic_t* quic;
@@ -594,15 +593,13 @@ typedef struct st_picoquic_cnx_t {
     queue_t *reserved_frames;
     /* Number of bytes given to frames by round */
     uint16_t drr_increase_round;
-    /* Keep a pointer to the next transaction to look at first */
-    protoop_transaction_t *first_drr;
+    /* Keep a pointer to the next plugin to look at first */
+    protoop_plugin_t *first_drr;
 
-    /* FIXME Check that plugins does not do anything with ops value */
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
 
-    /* FIXME move me to a safe place */
-    protoop_transaction_t *transactions;
+    protoop_plugin_t *plugins;
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...
@@ -615,7 +612,7 @@ typedef struct st_picoquic_cnx_t {
     int protoop_outputc_callee; /* Modified by the callee */
     protoop_arg_t protoop_output; /* Only available for post calls */
 
-    protoop_transaction_t *current_transaction; /* This should not be modified by the plugins... */
+    protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
     
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
      * Therefore, each context has its own memory space that should contain everything

@@ -12,16 +12,16 @@
 #include <stdbool.h>
 
 typedef enum {
-    plugin_extern,
-    plugin_replace,
-    plugin_pre,
-    plugin_post
-} plugin_type_enum;
+    pluglet_extern,
+    pluglet_replace,
+    pluglet_pre,
+    pluglet_post
+} pluglet_type_enum;
 
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_transaction_t *t, protoop_id_t pid, param_id_t param, plugin_type_enum pte, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugin_type_enum pte);
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, pluglet_type_enum pte);
 
 /**
  * Function that reads a plugin file and insert plugins described in it
@@ -30,7 +30,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugi
  * will be unplugged.
  * Returns 0 if the plugin insertion succeed, 1 otherwise.
  */
-int plugin_insert_transaction(picoquic_cnx_t *cnx, const char *plugin_fname);
+int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname);
 
 /**
  * Function allowing a plugin to access its opaque data space.
