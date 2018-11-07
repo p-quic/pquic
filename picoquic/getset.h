@@ -153,6 +153,24 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
  */
 void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop_arg_t val);
 
+/**
+ * Get a specific field belonging to the crypto context \p crypto_context
+ * 
+ * \param crypto_context The crypto context pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the crypto context \p crypto_context to the value \p val
+ * 
+ * \param cnxid The crypto context pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak, protoop_arg_t val);
 
 /**
  * @}
@@ -493,6 +511,19 @@ void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop
 #define STREAM_HEAD_AK_SEND_QUEUE 0x00
 /** The offset of consumed data */
 #define STREAM_HEAD_AK_CONSUMED_OFFSET 0x01
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_CRYPTO_CONTEXT_AK Crypto context Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_crypto_context and \p set_crypto_context calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the aead encryption scheme */
+#define CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION 0x00
 
 /**
  * @}

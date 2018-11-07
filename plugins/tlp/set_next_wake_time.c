@@ -22,16 +22,18 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     picoquic_crypto_context_t *crypto_context_1 = (picoquic_crypto_context_t *) get_cnx(cnx, CNX_AK_CRYPTO_CONTEXT, 1);
     picoquic_crypto_context_t *crypto_context_2 = (picoquic_crypto_context_t *) get_cnx(cnx, CNX_AK_CRYPTO_CONTEXT, 2);
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
+    void *crypto_context_1_aead_encrypt = (void *) get_crypto_context(crypto_context_1, CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION);
 
     picoquic_stream_data *tls_stream_0_send_queue = (picoquic_stream_data *) get_stream_head(tls_stream_0, STREAM_HEAD_AK_SEND_QUEUE);
 
     if (tls_stream_0_send_queue == NULL) {
         picoquic_stream_data *tls_stream_1_send_queue = (picoquic_stream_data *) get_stream_head(tls_stream_1, STREAM_HEAD_AK_SEND_QUEUE);
-        if (crypto_context_1->aead_encrypt != NULL &&
+        void *crypto_context_2_aead_encrypt = (void *) get_crypto_context(crypto_context_2, CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION);
+        if (crypto_context_1_aead_encrypt != NULL &&
             tls_stream_1_send_queue != NULL) {
             pc_ready_flag |= 1 << picoquic_packet_context_application;
         }
-        else if (crypto_context_2->aead_encrypt != NULL &&
+        else if (crypto_context_2_aead_encrypt != NULL &&
             tls_stream_1_send_queue == NULL) {
             pc_ready_flag |= 1 << picoquic_packet_context_handshake;
         }
@@ -85,7 +87,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 if (cwin_x > bytes_in_transit_x && challenge_verified_x == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
-                        (crypto_context_1->aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
+                        (crypto_context_1_aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
                         uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, PATH_AK_NEXT_PACING_TIME, 0);
                         uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, PATH_AK_PACING_MARGIN_MICROS, 0);
                         if (next_pacing_time_x < current_time + pacing_margin_micros_x) {

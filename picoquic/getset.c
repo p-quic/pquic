@@ -854,3 +854,26 @@ void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop
         break;
     }
 }
+
+protoop_arg_t get_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak)
+{
+    switch(ak) {
+    case CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION:
+        return (protoop_arg_t) crypto_context->aead_encrypt;
+    default:
+        printf("ERROR: unknown stream head access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION:
+        printf("ERROR: setting aead encryption is not implemented!\n");
+        break;
+    default:
+        printf("ERROR: unknown stream head access key %u\n", ak);
+        break;
+    }
+}
