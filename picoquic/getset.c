@@ -877,3 +877,26 @@ void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t 
         break;
     }
 }
+
+protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
+{
+    switch(ak) {
+    case PH_AK_DESTINATION_CNXID:
+        return (protoop_arg_t) &ph->dest_cnx_id;
+    default:
+        printf("ERROR: unknown packet header access key %u\n", ak);
+        return 0;
+    }   
+}
+
+void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case PH_AK_DESTINATION_CNXID:
+        printf("ERROR: setting destination connection id is not implemented\n");
+        break;
+    default:
+        printf("ERROR: unknown packet header access key %u\n", ak);
+        break;
+    }
+}

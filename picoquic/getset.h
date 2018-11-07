@@ -173,6 +173,27 @@ protoop_arg_t get_crypto_context(picoquic_crypto_context_t *crypto_context, acce
 void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the packet header \p ph
+ * 
+ * \param ph The packet header pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the packet header \p ph to the value \p val
+ * 
+ * \param cnxid The packet header pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
+
+
+
+/**
  * @}
  */
 
@@ -524,6 +545,19 @@ void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t 
 
 /** The pointer to the aead encryption scheme */
 #define CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION 0x00
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_PH_AK Packet header Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_ph and \p set_ph calls.
+ * 
+ * @{
+ */
+
+/** The pointer to the destination connection ID */
+#define PH_AK_DESTINATION_CNXID 0x00
 
 /**
  * @}
