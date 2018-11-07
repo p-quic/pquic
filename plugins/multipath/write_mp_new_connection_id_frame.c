@@ -55,7 +55,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         size_t seq_l = 0;
 
         /* Encode the first byte */
-        bytes[byte_index++] = MP_NEW_CONNECTION_ID_TYPE;
+        my_memset(&bytes[byte_index++], MP_NEW_CONNECTION_ID_TYPE, 1);
 
         if (byte_index < bytes_max - bytes) {
             /* Path ID */
@@ -69,7 +69,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
                 0);
             byte_index += seq_l;
         }
-        bytes[byte_index++] = 8;
+        my_memset(&bytes[byte_index++], 8, 1);
         my_memcpy(bytes + byte_index, p->local_cnxid.id, p->local_cnxid.id_len);
         byte_index += p->local_cnxid.id_len;
         my_memcpy(bytes + byte_index, p->reset_secret, 16);

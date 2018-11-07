@@ -15,8 +15,11 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     uint64_t ecnx3[3];
     picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
+    uint8_t frame_type;
 
-    if (bytes[0] == picoquic_frame_type_ack || bytes[0] == picoquic_frame_type_ack_ecn) {
+    my_memcpy(&frame_type, &bytes[0], 1);
+
+    if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn) {
         ret = helper_parse_ack_header(bytes, bytes_max,
             &num_block, (is_ecn)? ecnx3 : NULL, 
             &largest, &ack_delay, consumed, 0);
@@ -147,14 +150,16 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     uint32_t plength = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
     uint8_t *pbytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
+    uint8_t frame_type;
 
     while (ret == 0 && byte_index < plength) {
-        if (pbytes[byte_index] == picoquic_frame_type_ack || pbytes[byte_index] == picoquic_frame_type_ack_ecn ||
-            pbytes[byte_index] == MP_ACK_TYPE) {
-            int is_ecn = pbytes[byte_index] == picoquic_frame_type_ack_ecn ? 1 : 0;
+        my_memcpy(&frame_type, &pbytes[byte_index], 1);
+        if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn ||
+            frame_type == MP_ACK_TYPE) {
+            int is_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : 0;
             ret = process_ack_of_ack_frame(cnx, pc, &pbytes[byte_index], plength - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
-        } else if (PICOQUIC_IN_RANGE(pbytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+        } else if (PICOQUIC_IN_RANGE(frame_type, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
             ret = helper_process_ack_of_stream_frame(cnx, &pbytes[byte_index], plength - byte_index, &frame_length);
             byte_index += frame_length;
         } else {

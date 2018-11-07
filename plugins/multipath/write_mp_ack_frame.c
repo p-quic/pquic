@@ -50,7 +50,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
     } else {
         /* Encode the first byte */
-        bytes[byte_index++] = mp_ack_type_byte;
+        my_memset(&bytes[byte_index++], mp_ack_type_byte, 1);
         /* Encode the path ID */
         if (byte_index < bytes_max - bytes) {
             l_path_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
@@ -126,7 +126,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
                 }
             }
             /* When numbers are lower than 64, varint encoding fits on one byte */
-            bytes[num_block_index] = (uint8_t)num_block;
+            my_memset(&bytes[num_block_index], (uint8_t)num_block, 1);
 
             /* Remember the ACK value and time */
             set_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACK_SENT, first_sack_end_range);

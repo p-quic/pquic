@@ -63,16 +63,16 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
             bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
 
             /* Encode the first byte */
-            bytes[byte_index++] = ADD_ADDRESS_TYPE;
+            my_memset(&bytes[byte_index++], ADD_ADDRESS_TYPE, 1);
             if (port != 0) {
                 /* Encode port flag with v4 */
-                bytes[byte_index++] = 0x14;
+                my_memset(&bytes[byte_index++], 0x14, 1);
             } else {
-                /* Otherwisen only v4 value */
-                bytes[byte_index++] = 0x04;
+                /* Otherwise only v4 value */
+                my_memset(&bytes[byte_index++], 0x04, 1);
             }
             /* Encode address ID */
-            bytes[byte_index++] = addr_id;
+            my_memset(&bytes[byte_index++], addr_id, 1);
             /* Encode IP address */
             my_memcpy(&bytes[byte_index], &sa->sin_addr.s_addr, 4);
             byte_index += 4;

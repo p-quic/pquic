@@ -38,8 +38,8 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    flags_and_ip_ver = bytes[byte_index++];
-    frame->address_id = bytes[byte_index++];
+    my_memcpy(&flags_and_ip_ver, &bytes[byte_index++], 1);
+    my_memcpy(&frame->address_id, &bytes[byte_index++], 1);
     frame->has_port = (flags_and_ip_ver & 0x10) != 0;
     frame->ip_vers = flags_and_ip_ver & 0x0F;
 

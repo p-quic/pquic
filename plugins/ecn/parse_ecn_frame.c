@@ -34,7 +34,8 @@ protoop_arg_t decode_ecn_frame(picoquic_cnx_t *cnx)
     
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    uint8_t first_byte = bytes[0];
+    uint8_t first_byte;
+    my_memcpy(&first_byte, &bytes[0], 1);
     uint64_t ect0, ect1, ectce;
 
     if (first_byte != ECN_FRAME_TYPE || bytes_max - bytes < 25) {

@@ -119,10 +119,12 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     byte_index = (size_t) get_pkt(p, PKT_AK_OFFSET);
     uint32_t length = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
     uint8_t *bytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
+    uint8_t type_byte;
 
     while (ret == 0 && byte_index < length) {
-        if (bytes[byte_index] == picoquic_frame_type_ack || bytes[byte_index] == picoquic_frame_type_ack_ecn) {
-            int is_ecn = bytes[byte_index] == picoquic_frame_type_ack_ecn ? 1 : 0;
+        my_memcpy(&type_byte, &bytes[byte_index], 1);
+        if (type_byte == picoquic_frame_type_ack || type_byte == picoquic_frame_type_ack_ecn) {
+            int is_ecn = type_byte == picoquic_frame_type_ack_ecn ? 1 : 0;
             picoquic_path_t *send_path = (picoquic_path_t *) get_pkt(p, PKT_AK_SEND_PATH);
             picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
             picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(send_path, PATH_AK_PKT_CTX, pc);
@@ -130,7 +132,7 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
             ret = process_ack_of_ack_frame(cnx, first_sack,
                 &bytes[byte_index], length - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
-        } else if (PICOQUIC_IN_RANGE(bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+        } else if (PICOQUIC_IN_RANGE(type_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
             ret = helper_process_ack_of_stream_frame(cnx, &bytes[byte_index], length - byte_index, &frame_length);
             byte_index += frame_length;
         } else {

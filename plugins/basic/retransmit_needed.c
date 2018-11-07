@@ -73,10 +73,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* Only retransmit as 0-RTT if contains crypto data */
                     int contains_crypto = 0;
                     byte_index = poffset;
+                    uint8_t frame_type;
 
                     if (is_evaluated == 0) {
                         while (ret == 0 && byte_index < plength) {
-                            if (old_bytes[byte_index] == picoquic_frame_type_crypto_hs) {
+                            my_memcpy(&frame_type, &old_bytes[byte_index], 1);
+                            if (frame_type == picoquic_frame_type_crypto_hs) {
                                 contains_crypto = 1;
                                 packet_is_pure_ack = 0;
                                 break;
@@ -157,7 +159,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 if (helper_is_stream_frame_unlimited(&old_bytes[byte_index])) {
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                     while (checksum_length + length + frame_length < send_buffer_max) {
-                                        new_bytes[length] = picoquic_frame_type_padding;
+                                        my_memset(&new_bytes[length], picoquic_frame_type_padding, 1);
                                         length++;
                                     }
                                 }
@@ -200,9 +202,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
                             /* special case for the client initial */
                             if (ptype == picoquic_packet_initial && client_mode != 0) {
-                                while (length < (send_buffer_max - checksum_length)) {
-                                    new_bytes[length++] = 0;
-                                }
+                                my_memset(&new_bytes[length], 0, (send_buffer_max - checksum_length) - length);
                             }
                             set_pkt(packet, PKT_AK_LENGTH, length);
                             set_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0, get_cnx(cnx, CNX_AK_NB_RETRANSMISSION_TOTAL, 0) + 1);

@@ -42,9 +42,13 @@ static void picoquic_newreno_enter_recovery(picoquic_path_t* path_x,
  */
 protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
 { 
-    ack_frame_t *frame = (ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    ack_frame_t *orig_frame = (ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
     uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
     int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
+
+    ack_frame_t ok_frame;
+    ack_frame_t *frame = &ok_frame;
+    my_memcpy(frame, orig_frame, sizeof(ack_frame_t));
 
     picoquic_path_t* path_x = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, 0);
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
@@ -54,9 +58,9 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
     bpf_data *bpfd = get_bpf_data(cnx);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
     uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
+    protoop_arg_t args[3];
 
     if (epoch == 1) {
-        protoop_arg_t args[1];
         args[0] = first_byte;
         if (frame->is_ack_ecn) {
             helper_protoop_printf(cnx, "Ack-ECN frame (0x%x) not expected in 0-RTT packet", args, 1);
@@ -84,7 +88,6 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         range ++;
 
         if (frame->largest_acknowledged + 1 < range) {
-            protoop_arg_t args[2];
             args[0] = frame->largest_acknowledged;
             args[1] = range;
             helper_protoop_printf(cnx, "ack range error: largest=%" PRIx64 ", range=%" PRIx64, args, 2);
@@ -110,7 +113,6 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
             block_to_block += range;
 
             if (largest < block_to_block) {
-                protoop_arg_t args[3];
                 args[0] = largest;
                 args[1] = range;
                 args[2] = block_to_block - range;
@@ -123,7 +125,6 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
             range = frame->ack_blocks[i].additional_ack_block;
             range ++;
             if (largest + 1 < range) {
-                protoop_arg_t args[2];
                 args[0] = largest;
                 args[1] = range;
                 helper_protoop_printf(cnx, "ack range error: largest=%" PRIx64 ", range=%" PRIx64, args, 2);
