@@ -25,7 +25,10 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {
             /* if the ACK is reasonably recent, use it to update the RTT */
             /* find the stored copy of the largest acknowledged packet */
-            uint64_t sequence_number = get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
+            uint64_t sequence_number = 0;
+            if (packet != NULL) {
+                sequence_number = get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
+            }
 
             while (packet != NULL && sequence_number > largest) {
                 packet = (picoquic_packet_t *) get_pkt(packet, PKT_AK_NEXT_PACKET);
