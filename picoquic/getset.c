@@ -765,3 +765,36 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     }
 }
+
+protoop_arg_t get_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak)
+{
+    switch(ak) {
+    case SACK_ITEM_AK_NEXT_SACK:
+        return (protoop_arg_t) sack_item->next_sack;
+    case SACK_ITEM_AK_START_RANGE:
+        return sack_item->start_of_sack_range;
+    case SACK_ITEM_AK_END_RANGE:
+        return sack_item->end_of_sack_range;
+    default:
+        printf("ERROR: unknown sack item access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg_t val)
+{
+    switch(ak) {
+    case SACK_ITEM_AK_NEXT_SACK:
+        printf("ERROR: setting next sack is not implemented!\n");
+        break;
+    case SACK_ITEM_AK_START_RANGE:
+        sack_item->start_of_sack_range = val;
+        break;
+    case SACK_ITEM_AK_END_RANGE:
+        sack_item->end_of_sack_range = val;
+        break;
+    default:
+        printf("ERROR: unknown sack_item access key %u\n", ak);
+        break;
+    }
+}

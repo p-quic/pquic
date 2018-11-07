@@ -19,7 +19,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     /* Check whether this is a new acknowledgement */
     uint64_t highest_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACKNOWLEDGED);
     picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_FIRST_SACK_ITEM);
-    if (highest_acknowledged || first_sack->start_of_sack_range == (uint64_t)((int64_t)-1)) {
+    if (highest_acknowledged || (uint64_t) get_sack_item(first_sack, SACK_ITEM_AK_START_RANGE) == (uint64_t)((int64_t)-1)) {
         set_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACKNOWLEDGED, largest);
 
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {

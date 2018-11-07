@@ -149,6 +149,16 @@ static const protoop_id_t PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION = "check
 static const protoop_id_t PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME = "process_possible_ack_of_ack_frame";
 
 /**
+ * Process possible ACK of ACK range, and clean the associated SACK_ITEM
+ * \param[in] first_sack \b picoquic_sack_item_t* The pointer to the first SACK item
+ * \param[in] start_range \b uint64_t The start of the ACKed range
+ * \param[in] end_range \b uint64_t The end of the ACKed range
+ * 
+ * \warning This protocol operation CANNOT be pluginized so far!
+ */
+static const protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE = "process_ack_of_ack_range";
+
+/**
  * Update the ack status if the packet that was acknowledged contained a STREAM frame.
  * \param[in] bytes \b uint8_t* Pointer to the beginning of the STREAM frame in the packet
  * \param[in] bytes_max \b size_t Maximum size that can be read

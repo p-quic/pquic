@@ -1656,9 +1656,15 @@ static picoquic_packet_t* picoquic_update_rtt(picoquic_cnx_t* cnx, uint64_t larg
         largest, current_time, ack_delay, pc, path_x);
 }
 
-static void picoquic_process_ack_of_ack_range(picoquic_cnx_t * cnx, picoquic_sack_item_t* first_sack,
-    uint64_t start_of_range, uint64_t end_of_range)
+/**
+ * See PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE
+ */
+static protoop_arg_t process_ack_of_ack_range(picoquic_cnx_t * cnx)
 {
+    picoquic_sack_item_t* first_sack = (picoquic_sack_item_t*) cnx->protoop_inputv[0];
+    uint64_t start_of_range = (uint64_t) cnx->protoop_inputv[1];
+    uint64_t end_of_range = (uint64_t) cnx->protoop_inputv[2];
+
     if (first_sack->start_of_sack_range == start_of_range) {
         if (end_of_range < first_sack->end_of_sack_range) {
             first_sack->start_of_sack_range = end_of_range + 1;
@@ -1683,6 +1689,15 @@ static void picoquic_process_ack_of_ack_range(picoquic_cnx_t * cnx, picoquic_sac
             }
         }
     }
+
+    return 0;
+}
+
+static void picoquic_process_ack_of_ack_range(picoquic_cnx_t * cnx, picoquic_sack_item_t* first_sack,
+    uint64_t start_of_range, uint64_t end_of_range)
+{
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, NULL,
+        first_sack, start_of_range, end_of_range);
 }
 
 int picoquic_process_ack_of_ack_frame(
@@ -3902,6 +3917,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, &check_spurious_retransmission);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, &process_possible_ack_of_ack_frame);
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, &process_ack_of_stream_frame);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, &process_ack_of_ack_range);
 
     /* Preparing */
     /** \todo Refactor API */

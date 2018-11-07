@@ -97,6 +97,25 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak);
 void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the sack item \p sack_item
+ * 
+ * \param sack_item The sack_item pointer
+ * \param ak The hey of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the sack item \p sack_item to the value \p val
+ * 
+ * \param sack_item The sack_item pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg_t val);
+
+/**
  * @}
  */
 
@@ -388,6 +407,24 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val);
 #define PKT_AK_IS_CONGESTION_CONTROLLED 0x0d
 /** Pointer to the content of the packet */
 #define PKT_AK_BYTES 0x0e
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_SACK_ITEM_AK SACK item Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_sack_item and \p set_sack_item calls.
+ * 
+ * @{
+ */
+
+/** The next sack item */
+#define SACK_ITEM_AK_NEXT_SACK 0x00
+/** The start of the SACK range */
+#define SACK_ITEM_AK_START_RANGE 0x01
+/** The end of the SACK range */
+#define SACK_ITEM_AK_END_RANGE 0x02
+
 
 /**
  * @}

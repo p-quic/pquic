@@ -4,35 +4,6 @@
 #include "memory.h"
 #include "bpf.h"
 
-static void process_ack_of_ack_range(picoquic_cnx_t* cnx, picoquic_sack_item_t* first_sack,
-    uint64_t start_of_range, uint64_t end_of_range)
-{
-    if (first_sack->start_of_sack_range == start_of_range) {
-        if (end_of_range < first_sack->end_of_sack_range) {
-            first_sack->start_of_sack_range = end_of_range + 1;
-        } else {
-            first_sack->start_of_sack_range = first_sack->end_of_sack_range;
-        }
-    } else {
-        picoquic_sack_item_t* previous = first_sack;
-        picoquic_sack_item_t* next = previous->next_sack;
-
-        while (next != NULL) {
-            if (next->end_of_sack_range == end_of_range && next->start_of_sack_range == start_of_range) {
-                /* Matching range should be removed */
-                previous->next_sack = next->next_sack;
-                my_free(cnx, next);
-                break;
-            } else if (next->end_of_sack_range > end_of_range) {
-                previous = next;
-                next = next->next_sack;
-            } else {
-                break;
-            }
-        }
-    }
-}
-
 static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context_enum pc,
     uint8_t* bytes, size_t bytes_max, size_t* consumed, int is_ecn)
 {
@@ -72,8 +43,13 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
     picoquic_sack_item_t* first_sack = (picoquic_sack_item_t*) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_FIRST_SACK_ITEM);
     picoquic_sack_item_t* target_sack = first_sack;
-    while (first_sack != NULL && target_sack->next_sack != NULL) {
+    picoquic_sack_item_t* next_sack = NULL;
+    if (first_sack != NULL) {
+        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
+    }
+    while (first_sack != NULL && next_sack != NULL) {
         target_sack = target_sack->next_sack;
+        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
     }
 
     if (ret == 0) {
@@ -108,7 +84,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
             }
 
             if (range > 0) {
-                process_ack_of_ack_range(cnx, first_sack, largest + 1 - range, largest);
+                helper_process_ack_of_ack_range(cnx, first_sack, largest + 1 - range, largest);
             }
 
             if (num_block-- == 0)

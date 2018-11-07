@@ -681,4 +681,15 @@ static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, protoop_id_t rea
     return ret;
 }
 
+static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoquic_cnx_t *cnx, picoquic_sack_item_t *first_sack,
+    uint64_t start_range, uint64_t end_range)
+{
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) first_sack;
+    args[1] = (protoop_arg_t) start_range;
+    args[2] = (protoop_arg_t) end_range;
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
+    plugin_run_protoop(cnx, &pp);
+}
+
 #endif
