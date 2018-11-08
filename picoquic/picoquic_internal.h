@@ -622,6 +622,7 @@ typedef struct st_picoquic_cnx_t {
     protoop_arg_t protoop_output; /* Only available for post calls */
 
     protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
+    protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */
     
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
      * Therefore, each context has its own memory space that should contain everything

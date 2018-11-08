@@ -274,6 +274,17 @@ void my_free_p(picoquic_cnx_t *cnx, void *ptr) {
 	}
 }
 
+void my_free_in_core(protoop_plugin_t *p, void *ptr) {
+	if (!p->heap_start) return;
+	if ((char *) ptr >= p->heap_start + METADATA_SIZE && ptr < my_sbrk_p(p, 0)) {
+		meta_data *ptr_metadata = get_metadata(ptr);
+		if (ptr_metadata->magic_number == MAGIC_NUMBER) {
+			ptr_metadata->available = 1;
+            DBG_MEMORY_PRINTF("Memory freed at: %p", ptr_metadata);
+		}
+	}
+}
+
 /**
  * Reallocate the allocated memory to change its size. Three cases are possible.
  * 1) Asking for lower or equal size, or larger size without any block after.

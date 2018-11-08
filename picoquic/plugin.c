@@ -551,6 +551,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         exit(-1);
     }
 
+    /* The previous plugin look at the last replace one */
+    cnx->previous_plugin = cnx->current_plugin;
+
     /* Finally, is there any post to run? */
     tmp = popst->post;
     if (tmp) {
