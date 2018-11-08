@@ -276,6 +276,7 @@ typedef struct {
 typedef struct reserve_frame_slot {
     size_t nb_bytes;
     uint64_t frame_type;
+    protoop_plugin_t *p; /* Whathever you place here, it will be overwritten */
     /* TODO FIXME position */
     void *frame_ctx;
 } reserve_frame_slot_t;
@@ -680,6 +681,7 @@ picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_
 /* Utilities */
 int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
 int picoquic_compare_connection_id(picoquic_connection_id_t * cnx_id1, picoquic_connection_id_t * cnx_id2);
+uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64);
 
 void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 

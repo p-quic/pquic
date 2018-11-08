@@ -9,7 +9,8 @@ protoop_arg_t parse_datagram_frame(picoquic_cnx_t* cnx)
     uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
     const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
     datagram_frame_t *frame = (datagram_frame_t *) my_malloc(cnx, sizeof(datagram_frame_t));
-    uint8_t frame_type = *bytes;
+    uint8_t frame_type;
+    my_memcpy(&frame_type, bytes, 1);
     bytes++;
 
     if (!frame) {

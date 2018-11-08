@@ -1043,7 +1043,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
 {
     int ret = 0;
     /* allocate a context structure */
-    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)my_malloc(cnx, sizeof(picoquic_tls_ctx_t));
+    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)malloc(sizeof(picoquic_tls_ctx_t));
 
     /* Create the TLS context */
     if (ctx == NULL) {
@@ -1062,7 +1062,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
         *ptls_get_data_ptr(ctx->tls) = cnx;
 
         if (ctx->tls == NULL) {
-            my_free(cnx, ctx);
+            free(ctx);
             ctx = NULL;
             ret = -1;
         } else if (ctx->client_mode) {
@@ -1214,7 +1214,7 @@ void picoquic_tlscontext_free(picoquic_cnx_t *cnx, void* vctx)
         ptls_free((ptls_t*)ctx->tls);
         ctx->tls = NULL;
     }
-    my_free(cnx, ctx);
+    free(ctx);
 }
 
 char const* picoquic_tls_get_negotiated_alpn(picoquic_cnx_t* cnx)

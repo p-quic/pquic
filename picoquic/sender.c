@@ -181,7 +181,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_t* packet = (picoquic_packet_t*)my_malloc(cnx, sizeof(picoquic_packet_t));
+    picoquic_packet_t* packet = (picoquic_packet_t*)malloc(sizeof(picoquic_packet_t));
 
     if (packet != NULL) {
         memset(packet, 0, sizeof(picoquic_packet_t));
@@ -626,7 +626,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
     }
 
     if (should_free) {
-        my_free(cnx, p);
+        free(p);
     }
     else {
         protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
@@ -688,7 +688,7 @@ protoop_arg_t dequeue_retransmitted_packet(picoquic_cnx_t *cnx)
         p->next_packet->previous_packet = p->previous_packet;
     }
 
-    my_free(cnx, p);
+    free(p);
 
     return 0;
 }
@@ -786,16 +786,11 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     picoquic_path_t * path_x, uint64_t current_time)
 {
     /* MP: Instead of hooking the following operation every time this function is called, we place it here */
-    picoquic_packet_header *ph = my_malloc(cnx, sizeof(picoquic_packet_header));
-    memset(ph, 0, sizeof(picoquic_packet_header));
-    if (ph != NULL) {
-        picoquic_cnx_t *pcnx = cnx;
-        if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, ph, &pcnx, false) == 0) {
-            picoquic_before_sending_segment(cnx, ph, path_x, length + checksum_overhead);
-        }
-        my_free(cnx, ph);
+    picoquic_packet_header ph = { 0 };
+    picoquic_cnx_t *pcnx = cnx;
+    if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, &ph, &pcnx, false) == 0) {
+        picoquic_before_sending_segment(cnx, &ph, path_x, length + checksum_overhead);
     }
-
 
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
     protoop_arg_t args [10];
@@ -2390,6 +2385,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
+                block->frames[i].p = p;
                 queue_enqueue(cnx->reserved_frames, &block->frames[i]);
             }
             /* Consume the budget */
@@ -2557,7 +2553,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
                         /* It was reserved by the plugin, so it is a my_free */
-                        my_free(cnx, rfs);
+                        protoop_plugin_t *p = rfs->p;
+                        my_free_in_core(p, rfs);
                     }
 
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -2829,13 +2826,13 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi1) {
                     if (packet->length == 0) {
-                        my_free(cnx, packet);
+                        free(packet);
                         packet = NULL;
                     }
                     break;
                 }
             } else {
-                my_free(cnx, packet);
+                free(packet);
                 packet = NULL;
 
                 if (*send_length != 0){

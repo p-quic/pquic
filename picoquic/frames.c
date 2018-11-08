@@ -150,7 +150,7 @@ static uint8_t* picoquic_frames_length_data_skip(uint8_t* bytes, const uint8_t* 
 
 picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t stream_id)
 {
-    picoquic_stream_head* stream = (picoquic_stream_head*)my_malloc(cnx, sizeof(picoquic_stream_head));
+    picoquic_stream_head* stream = (picoquic_stream_head*)malloc(sizeof(picoquic_stream_head));
     if (stream != NULL) {
         picoquic_stream_head* previous_stream = NULL;
         picoquic_stream_head* next_stream = cnx->first_stream;
@@ -350,7 +350,7 @@ int picoquic_prepare_stream_reset_frame(picoquic_cnx_t *cnx, picoquic_stream_hea
                 if (stream->send_queue->bytes != NULL) {
                     free(stream->send_queue->bytes);
                 }
-                my_free(cnx, stream->send_queue);
+                free(stream->send_queue);
                 stream->send_queue = next;
             }
         }
@@ -836,7 +836,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
 
         free(data->bytes);
         stream->stream_data = data->next_stream_data;
-        my_free(cnx, data);
+        free(data);
         data = stream->stream_data;
     }
 
@@ -897,7 +897,7 @@ static int picoquic_queue_network_input(picoquic_cnx_t* cnx, picoquic_stream_hea
                 data->bytes = (uint8_t*)malloc(data_length);
                 if (data->bytes == NULL) {
                     ret = picoquic_connection_error(cnx, PICOQUIC_ERROR_MEMORY, 0);
-                    my_free(cnx, data);
+                    free(data);
                 }
                 else {
                     data->offset = offset + start;
@@ -1155,7 +1155,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 if (stream->send_queue->offset >= stream->send_queue->length) {
                     picoquic_stream_data* next = stream->send_queue->next_stream_data;
                     free(stream->send_queue->bytes);
-                    my_free(cnx, stream->send_queue);
+                    free(stream->send_queue);
                     stream->send_queue = next;
                 }
 
@@ -1395,7 +1395,7 @@ protoop_arg_t prepare_crypto_hs_frame(picoquic_cnx_t *cnx)
                 if (stream->send_queue->offset >= stream->send_queue->length) {
                     picoquic_stream_data* next = stream->send_queue->next_stream_data;
                     free(stream->send_queue->bytes);
-                    my_free(cnx, stream->send_queue);
+                    free(stream->send_queue);
                     stream->send_queue = next;
                 }
 
@@ -1681,7 +1681,7 @@ static protoop_arg_t process_ack_of_ack_range(picoquic_cnx_t * cnx)
             if (next->end_of_sack_range == end_of_range && next->start_of_sack_range == start_of_range) {
                 /* Matching range should be removed */
                 previous->next_sack = next->next_sack;
-                my_free(cnx, next);
+                free(next);
                 break;
             } else if (next->end_of_sack_range > end_of_range) {
                 previous = next;
@@ -3218,7 +3218,7 @@ protoop_arg_t prepare_first_misc_frame(picoquic_cnx_t* cnx)
     if (ret == 0) {
         picoquic_misc_frame_header_t* misc_frame = cnx->first_misc_frame;
         cnx->first_misc_frame = misc_frame->next_misc_frame;
-        my_free(cnx, misc_frame);
+        free(misc_frame);
     }
 
     protoop_save_outputs(cnx, consumed);

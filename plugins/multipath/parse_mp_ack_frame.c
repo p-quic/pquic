@@ -20,7 +20,7 @@ protoop_arg_t parse_mp_ack_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if ((bytes = helper_frames_varint_decode(bytes+1, bytes_max, &frame->path_id)) == NULL)
+    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &frame->path_id)) == NULL)
     {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_new_connection_id);

@@ -6,7 +6,7 @@
 #include "../plugins/datagram/bpf.h"
 
 uint8_t* copy_to_cnx(picoquic_cnx_t *cnx, const void *src, size_t src_len) {
-    uint8_t *ptr = (uint8_t *) my_malloc(cnx, (unsigned int) src_len);
+    uint8_t *ptr = (uint8_t *) malloc((unsigned int) src_len);
     if (ptr == NULL) {
         return ptr;
     }
@@ -36,11 +36,11 @@ static int datagram_parse_test()
     uint8_t *pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM, out, bytes, bytes + 5);
     if (pret != bytes + 5) {
         DBG_PRINTF("Unable to parse simple frame with no explicit length\n");
-        my_free(&cnx, bytes);
+        free(bytes);
         return -1;
     }
-    my_free(&cnx, (void *) out[0]);
-    my_free(&cnx, bytes);
+    my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+    free(bytes);
 
     bytes = copy_to_cnx(&cnx, (char[]){0x1d, 0x40, 0x4, 0xa, 0xb, 0xc, 0xd}, 7);
     if (bytes == NULL) {
@@ -50,11 +50,11 @@ static int datagram_parse_test()
     pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 40); // Simulates that there are bytes after the frame
     if (pret != bytes + 1 + 2 + 4) {
         DBG_PRINTF("Unable to parse simple frame with explicit length\n");
-        my_free(&cnx, bytes);
+        free(bytes);
         return -1;
     }
-    my_free(&cnx, (void *) out[0]);
-    my_free(&cnx, bytes);
+    my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+    free(bytes);
 
     bytes = copy_to_cnx(&cnx, (char[]){0x1d, 0x40, 0x12, 0xa, 0xb, 0xc, 0xd}, 7);
     if (bytes == NULL) {
@@ -64,11 +64,11 @@ static int datagram_parse_test()
     pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 7);
     if (pret != NULL) {
         DBG_PRINTF("A truncated frame was successfully parsed\n");
-        my_free(&cnx, (void *) out[0]);
-        my_free(&cnx, bytes);
+        my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+        free(bytes);
         return -1;
     }
-    my_free(&cnx, bytes);
+    free(bytes);
 
     return ret;
 }
@@ -91,6 +91,12 @@ static int datagram_write_test() {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
+
+    /* Should be the only plugin */
+    protoop_plugin_t *p = cnx.plugins;
+
+    /* Cheating... */
+    cnx.current_plugin = p;
 
     struct iovec *message = (struct iovec*) my_malloc(&cnx, sizeof(struct iovec));
     if (message == NULL) {
@@ -115,7 +121,8 @@ static int datagram_write_test() {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
-
+    /* Stop cheating */
+    cnx.current_plugin = NULL;
     protoop_arg_t pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, buffer, buffer + slot->nb_bytes, message, 0);
     if (pret) {
         DBG_PRINTF("Protoop write frame failed with error code %d\n", ret);
@@ -136,6 +143,8 @@ static int datagram_write_test() {
         return -1;
     }
 
+    /* Cheating... */
+    cnx.current_plugin = p;
     message = (struct iovec*) my_malloc(&cnx, sizeof(struct iovec));
     if (message == NULL) {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
@@ -143,6 +152,9 @@ static int datagram_write_test() {
     }
     message->iov_base = bytes;
     message->iov_len = 4;
+
+    /* Stop cheating */
+    cnx.current_plugin = NULL;
 
     pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM, out, buffer, buffer + slot->nb_bytes, message, 0);
     if (pret) {

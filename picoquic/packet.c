@@ -1262,16 +1262,6 @@ int picoquic_incoming_segment(
     /* Log the incoming packet */
     picoquic_log_decrypted_segment(quic->F_log, 1, cnx, 1, &ph, bytes, (uint32_t)*consumed, ret);
 
-    picoquic_packet_header *ph_ptr = NULL;
-    if (cnx) {
-        ph_ptr = my_malloc(cnx, sizeof(picoquic_packet_header));
-        if (!ph_ptr) {
-            ret = PICOQUIC_ERROR_DETECTED;
-            return ret;
-        }
-        memcpy(ph_ptr, &ph, sizeof(picoquic_packet_header));
-    }
-
     if (ret == 0) {
         if (cnx == NULL) {
             if (ph.version_index < 0 && ph.vn != 0) {
@@ -1291,22 +1281,14 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
-            picoquic_received_segment(cnx, ph_ptr, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, ph_ptr), *consumed);
-            /* Ensure bytes are in the context */
-            uint8_t *cnx_bytes = my_malloc(cnx, packet_length);
-            if (!cnx_bytes) {
-                ret = PICOQUIC_ERROR_DETECTED;
-                return ret;
-            }
-            memcpy(cnx_bytes, bytes, packet_length);
+            picoquic_received_segment(cnx, &ph, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph), *consumed);
 
-            bytes = cnx_bytes;
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
                 if (cnx->cnx_state == picoquic_state_client_init_sent) {
                     /* Proceed with version negotiation*/
                     ret = picoquic_incoming_version_negotiation(
-                        cnx, bytes, length, addr_from, ph_ptr, current_time);
+                        cnx, bytes, length, addr_from, &ph, current_time);
                 }
                 else {
                     /* This is an unexpected packet. Log and drop.*/
@@ -1331,11 +1313,11 @@ int picoquic_incoming_segment(
                         if (cnx->client_mode == 0) {
                             /* TODO: finish processing initial connection packet */
                             ret = picoquic_incoming_initial(&cnx, bytes,
-                                addr_from, addr_to, if_index_to, ph_ptr, current_time, new_context_created);
+                                addr_from, addr_to, if_index_to, &ph, current_time, new_context_created);
                         }
                         else {
                             /* TODO: this really depends on the current receive epoch */
-                            ret = picoquic_incoming_server_cleartext(cnx, bytes, addr_to, if_index_to, ph_ptr, current_time);
+                            ret = picoquic_incoming_server_cleartext(cnx, bytes, addr_to, if_index_to, &ph, current_time);
                         }
                     }
                 } else {
@@ -1346,25 +1328,25 @@ int picoquic_incoming_segment(
                 break;
             case picoquic_packet_retry:
                 /* TODO: server retry is completely revised in the new version. */
-                ret = picoquic_incoming_retry(cnx, bytes, ph_ptr, current_time);
+                ret = picoquic_incoming_retry(cnx, bytes, &ph, current_time);
                 break;
             case picoquic_packet_handshake:
                 if (cnx->client_mode)
                 {
-                    ret = picoquic_incoming_server_cleartext(cnx, bytes, addr_to, if_index_to, ph_ptr, current_time);
+                    ret = picoquic_incoming_server_cleartext(cnx, bytes, addr_to, if_index_to, &ph, current_time);
                 }
                 else
                 {
-                    ret = picoquic_incoming_client_cleartext(cnx, bytes, ph_ptr, current_time);
+                    ret = picoquic_incoming_client_cleartext(cnx, bytes, &ph, current_time);
                 }
                 break;
             case picoquic_packet_0rtt_protected:
                 /* TODO : decrypt with 0RTT key */
-                ret = picoquic_incoming_0rtt(cnx, bytes, ph_ptr, current_time);
+                ret = picoquic_incoming_0rtt(cnx, bytes, &ph, current_time);
                 break;
             case picoquic_packet_1rtt_protected_phi0:
             case picoquic_packet_1rtt_protected_phi1:
-                ret = picoquic_incoming_encrypted(cnx, bytes, ph_ptr, addr_from, current_time);
+                ret = picoquic_incoming_encrypted(cnx, bytes, &ph, addr_from, current_time);
                 /* TODO : roll key based on PHI */
                 break;
             default:
@@ -1374,7 +1356,6 @@ int picoquic_incoming_segment(
                 ret = PICOQUIC_ERROR_DETECTED;
                 break;
             }
-            if (cnx) my_free(cnx, cnx_bytes);
         }
     } else if (ret == PICOQUIC_ERROR_STATELESS_RESET) {
         ret = picoquic_incoming_stateless_reset(cnx);
@@ -1385,7 +1366,7 @@ int picoquic_incoming_segment(
             ph.ptype != picoquic_packet_version_negotiation) {
             /* Mark the sequence number as received */
             /* FIXME */
-            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, ph_ptr);
+            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, &ph);
             ret = picoquic_record_pn_received(cnx, path_x, ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
@@ -1395,7 +1376,7 @@ int picoquic_incoming_segment(
         /* Bad packets are dropped silently, but duplicates should be acknowledged */
         if (cnx != NULL) {
             /* FIXME */
-            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, ph_ptr);
+            picoquic_path_t* path_x = picoquic_get_incoming_path(cnx, &ph);
             path_x->pkt_ctx[ph.pc].ack_needed = 1;
         }
         ret = -1;
@@ -1421,8 +1402,6 @@ int picoquic_incoming_segment(
             (cnx == NULL) ? -1 : cnx->client_mode, ph.ptype, ph.epoch, ph.pc, (int)ph.pn, length, ret);
         ret = -1;
     }
-
-    if (cnx) my_free(cnx, ph_ptr);
 
     return ret;
 }

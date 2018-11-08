@@ -39,7 +39,7 @@ typedef struct st_picoquic_newreno_state_t {
 void picoquic_newreno_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 {
     /* Initialize the state of the congestion control algorithm */
-    picoquic_newreno_state_t* nr_state = (picoquic_newreno_state_t*)my_malloc(cnx, sizeof(picoquic_newreno_state_t));
+    picoquic_newreno_state_t* nr_state = (picoquic_newreno_state_t*)malloc(sizeof(picoquic_newreno_state_t));
     path_x->congestion_alg_state = (void*)nr_state;
 
     if (path_x->congestion_alg_state != NULL) {
@@ -184,7 +184,7 @@ void picoquic_newreno_notify(picoquic_path_t* path_x,
 void picoquic_newreno_delete(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 {
     if (path_x->congestion_alg_state != NULL) {
-        my_free(cnx, path_x->congestion_alg_state);
+        free(path_x->congestion_alg_state);
         path_x->congestion_alg_state = NULL;
     }
 }

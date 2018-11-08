@@ -37,12 +37,12 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
         /* add dest-id length */
         if ((packet_type == picoquic_packet_initial ||
             packet_type == picoquic_packet_0rtt_protected)
-            && remote_cnxid->id_len == 0) { /* Unwrapped picoquic_is_connection_id_null */
+            && remote_cnxid_len == 0) { /* Unwrapped picoquic_is_connection_id_null */
             picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
             header_length += (uint8_t) get_cnxid(initial_cnxid, CNXID_AK_LEN);
         }
         else {
-            header_length += remote_cnxid->id_len;
+            header_length += remote_cnxid_len;
         }
 
         /* add srce-id length */

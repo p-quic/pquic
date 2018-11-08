@@ -90,6 +90,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x3a, "picoquic_parse_stream_header", picoquic_parse_stream_header);
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
     ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
+    ubpf_register(vm, 0x3d, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

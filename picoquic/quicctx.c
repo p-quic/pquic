@@ -633,7 +633,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
     if (cnx->nb_paths >= cnx->nb_path_alloc)
     {
         int new_alloc = (cnx->nb_path_alloc == 0) ? 1 : 2 * cnx->nb_path_alloc;
-        picoquic_path_t ** new_path = (picoquic_path_t **)my_malloc(cnx, new_alloc * sizeof(picoquic_path_t *));
+        picoquic_path_t ** new_path = (picoquic_path_t **)malloc(new_alloc * sizeof(picoquic_path_t *));
 
         if (new_path != NULL)
         {
@@ -643,7 +643,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 {
                     memcpy(new_path, cnx->path, cnx->nb_paths * sizeof(picoquic_path_t *));
                 }
-                my_free(cnx, cnx->path);
+                free(cnx->path);
             }
             cnx->path = new_path;
             cnx->nb_path_alloc = new_alloc;
@@ -652,7 +652,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
     if (cnx->nb_paths < cnx->nb_path_alloc)
     {
-        picoquic_path_t * path_x = (picoquic_path_t *)my_malloc(cnx, sizeof(picoquic_path_t));
+        picoquic_path_t * path_x = (picoquic_path_t *)malloc(sizeof(picoquic_path_t));
 
         if (path_x != NULL)
         {
@@ -1145,7 +1145,7 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
 }
 
 picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length) {
-    uint8_t* misc_frame = (uint8_t*)my_malloc(cnx, sizeof(picoquic_misc_frame_header_t) + length);
+    uint8_t* misc_frame = (uint8_t*)malloc(sizeof(picoquic_misc_frame_header_t) + length);
 
     if (misc_frame == NULL) {
         return NULL;
@@ -1214,7 +1214,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     while (pkt_ctx->first_sack_item.next_sack != NULL) {
         picoquic_sack_item_t * next = pkt_ctx->first_sack_item.next_sack;
         pkt_ctx->first_sack_item.next_sack = next->next_sack;
-        my_free(cnx, next);
+        free(next);
     }
 
     pkt_ctx->first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
@@ -1425,7 +1425,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         while ((misc_frame = cnx->first_misc_frame) != NULL) {
             cnx->first_misc_frame = misc_frame->next_misc_frame;
-            my_free(cnx, misc_frame);
+            free(misc_frame);
         }
         for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
             picoquic_clear_stream(&cnx->tls_stream[epoch]);
@@ -1434,7 +1434,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         while ((stream = cnx->first_stream) != NULL) {
             cnx->first_stream = stream->next_stream;
             picoquic_clear_stream(stream);
-            my_free(cnx, stream);
+            free(stream);
         }
 
         if (cnx->tls_ctx != NULL) {
@@ -1450,11 +1450,11 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     cnx->congestion_alg->alg_delete(cnx, cnx->path[i]);
                 }
 
-                my_free(cnx, cnx->path[i]);
+                free(cnx->path[i]);
                 cnx->path[i] = NULL;
             }
 
-            my_free(cnx, cnx->path);
+            free(cnx->path);
             cnx->path = NULL;
         }
 

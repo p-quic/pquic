@@ -148,7 +148,7 @@ int sacktest()
     while (path_x.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
         picoquic_sack_item_t * next = path_x.pkt_ctx[pc].first_sack_item.next_sack;
         path_x.pkt_ctx[pc].first_sack_item.next_sack = next->next_sack;
-        my_free(&cnx, next);
+        free(next);
     }
 
     return ret;

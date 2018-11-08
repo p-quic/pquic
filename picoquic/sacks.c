@@ -84,7 +84,7 @@ int picoquic_update_sack_list(picoquic_cnx_t* cnx, picoquic_sack_item_t* sack,
                     if (previous != NULL && pn64_max + 1 >= previous->start_of_sack_range) {
                         previous->start_of_sack_range = sack->start_of_sack_range;
                         previous->next_sack = sack->next_sack;
-                        my_free(cnx, sack);
+                        free(sack);
                         sack = previous;
                     } else {
                         /* add at end of range */
@@ -110,7 +110,7 @@ int picoquic_update_sack_list(picoquic_cnx_t* cnx, picoquic_sack_item_t* sack,
                     break;
                 } else {
                     /* Found a new hole */
-                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)my_malloc(cnx, sizeof(picoquic_sack_item_t));
+                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)malloc(sizeof(picoquic_sack_item_t));
                     if (new_hole == NULL) {
                         /* memory error. That's infortunate */
                         ret = -1;
@@ -151,7 +151,7 @@ int picoquic_update_sack_list(picoquic_cnx_t* cnx, picoquic_sack_item_t* sack,
                 } else {
                     /* this is an old packet, beyond the current range of SACK */
                     /* Found a new hole */
-                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)my_malloc(cnx, sizeof(picoquic_sack_item_t));
+                    picoquic_sack_item_t* new_hole = (picoquic_sack_item_t*)malloc(sizeof(picoquic_sack_item_t));
                     if (new_hole == NULL) {
                         /* memory error. That's infortunate */
                         ret = -1;

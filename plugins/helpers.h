@@ -451,55 +451,11 @@ static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, 
 #define PICOPARSE_32(b) ((((uint32_t)PICOPARSE_16(b)) << 16) | PICOPARSE_16((b) + 2))
 #define PICOPARSE_64(b) ((((uint64_t)PICOPARSE_32(b)) << 32) | PICOPARSE_32((b) + 4))
 
-/* Parse a varint. In case of an error, *n64 is unchanged, and NULL is returned */
-static uint8_t* helper_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64)
-{
-    uint8_t length;
-
-    if (bytes < bytes_max && bytes + (length=VARINT_LEN(bytes)) <= bytes_max) {
-        uint64_t v = *bytes++ & 0x3F;
-
-        while (--length > 0) {
-            v <<= 8;
-            v += *bytes++;
-        }
-
-        *n64 = v;
-    } else {
-        bytes = NULL;
-    }
-
-    return bytes;
-}
-
 static uint8_t* helper_frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_max, uint8_t* n)
 {
     if (bytes < bytes_max) {
-        *n = *bytes++;
-    } else {
-        bytes = NULL;
-    }
-    return bytes;
-}
-
-
-static uint8_t* helper_frames_uint16_decode(uint8_t* bytes, const uint8_t* bytes_max, uint16_t* n)
-{
-    if (bytes + sizeof(*n) <= bytes_max) {
-        *n = PICOPARSE_16(bytes);
-        bytes += sizeof(*n);
-    } else {
-        bytes = NULL;
-    }
-    return bytes;
-}
-
-
-static __attribute__((always_inline)) uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
-{
-    if (bytes + sizeof(*n) <= bytes_max) {
-        *n = PICOPARSE_64(bytes);
-        bytes += sizeof(*n);
+        my_memcpy(n, bytes, 1);
+        bytes++;
     } else {
         bytes = NULL;
     }
