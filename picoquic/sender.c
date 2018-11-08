@@ -2699,7 +2699,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         path_x->ping_received = 0;
     }
 
-    picoquic_cnx_set_next_wake_time(cnx, current_time);
+    if (queue_peek(cnx->reserved_frames) != NULL && path_x->cwin > path_x->bytes_in_transit) {
+        picoquic_reinsert_by_wake_time(cnx->quic, cnx, current_time);
+    } else {
+        picoquic_cnx_set_next_wake_time(cnx, current_time);
+    }
 
     protoop_save_outputs(cnx, send_length, path_x);
 
