@@ -265,7 +265,6 @@ static int skip_test_packet(uint8_t * bytes, size_t bytes_max)
     size_t byte_index = 0;
 
     picoquic_cnx_t cnx = { 0 };
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     while (ret == 0 && byte_index < bytes_max) {
@@ -304,7 +303,6 @@ int skip_frame_test()
     int fuzz_fail = 0;
 
     picoquic_cnx_t cnx = { 0 };
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; i < nb_test_skip_list; i++) {
@@ -402,12 +400,7 @@ int parse_frame_test()
             }
             else {
                 picoquic_path_t* path_x = cnx->path[0];
-                uint8_t *buffer = (uint8_t *) my_malloc(cnx, PICOQUIC_MAX_PACKET_SIZE);
-                if (!buffer) {
-                    ret = -1;
-                    return ret;
-                }
-
+                uint8_t buffer[PICOQUIC_MAX_PACKET_SIZE];
                 memcpy(buffer, test_skip_list[i].val, test_skip_list[i].len);
                 byte_max = test_skip_list[i].len;
                 if (test_skip_list[i].must_be_last == 0 && sharp_end == 0) {
@@ -432,8 +425,6 @@ int parse_frame_test()
                         test_skip_list[i].name, (int)path_x->pkt_ctx[pc].ack_needed, (int)test_skip_list[i].is_pure_ack);
                     ret = -1;
                 }
-
-                my_free(cnx, buffer);
 
                 picoquic_delete_cnx(cnx);
             }

@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -10,7 +10,7 @@
  */
 protoop_arg_t process_add_address_frame(picoquic_cnx_t *cnx)
 { 
-    add_address_frame_t *frame = (add_address_frame_t *) cnx->protoop_inputv[0];
+    add_address_frame_t *frame = (add_address_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     int addr_index = 0;

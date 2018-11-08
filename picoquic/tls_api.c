@@ -1043,7 +1043,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
 {
     int ret = 0;
     /* allocate a context structure */
-    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)my_malloc(cnx, sizeof(picoquic_tls_ctx_t));
+    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)malloc(sizeof(picoquic_tls_ctx_t));
 
     /* Create the TLS context */
     if (ctx == NULL) {
@@ -1062,7 +1062,7 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
         *ptls_get_data_ptr(ctx->tls) = cnx;
 
         if (ctx->tls == NULL) {
-            my_free(cnx, ctx);
+            free(ctx);
             ctx = NULL;
             ret = -1;
         } else if (ctx->client_mode) {
@@ -1214,7 +1214,7 @@ void picoquic_tlscontext_free(picoquic_cnx_t *cnx, void* vctx)
         ptls_free((ptls_t*)ctx->tls);
         ctx->tls = NULL;
     }
-    my_free(cnx, ctx);
+    free(ctx);
 }
 
 char const* picoquic_tls_get_negotiated_alpn(picoquic_cnx_t* cnx)
@@ -1685,6 +1685,12 @@ int picoquic_create_cnxid_reset_secret(picoquic_quic_t* quic, picoquic_connectio
     }
 
     return (ret);
+}
+
+int picoquic_create_cnxid_reset_secret_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id,
+    uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE])
+{
+    return picoquic_create_cnxid_reset_secret(cnx->quic, cnx_id, reset_secret);
 }
 
 void picoquic_set_tls_certificate_chain(picoquic_quic_t* quic, ptls_iovec_t* certs, size_t count)

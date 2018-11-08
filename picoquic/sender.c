@@ -181,7 +181,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_t* packet = (picoquic_packet_t*)my_malloc(cnx, sizeof(picoquic_packet_t));
+    picoquic_packet_t* packet = (picoquic_packet_t*)malloc(sizeof(picoquic_packet_t));
 
     if (packet != NULL) {
         memset(packet, 0, sizeof(picoquic_packet_t));
@@ -231,13 +231,13 @@ protoop_arg_t get_destination_connection_id(picoquic_cnx_t* cnx)
 
     if ((packet_type == picoquic_packet_initial ||
             packet_type == picoquic_packet_0rtt_protected)
-            && picoquic_is_connection_id_null(cnx->remote_cnxid))
+            && picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid))
     {
         dest_cnx_id = &cnx->initial_cnxid;
     }
     else
     {
-        dest_cnx_id = &cnx->remote_cnxid;
+        dest_cnx_id = &cnx->path[0]->remote_cnxid;
     }
 
     return (protoop_arg_t) dest_cnx_id;
@@ -320,10 +320,10 @@ uint32_t picoquic_create_packet_header(
         }
         length += 4;
 
-        bytes[length++] = picoquic_create_packet_header_cnxid_lengths(dest_cnx_id.id_len, cnx->local_cnxid.id_len);
+        bytes[length++] = picoquic_create_packet_header_cnxid_lengths(dest_cnx_id.id_len, path_x->local_cnxid.id_len);
 
         length += picoquic_format_connection_id(&bytes[length], PICOQUIC_MAX_PACKET_SIZE - length, dest_cnx_id);
-        length += picoquic_format_connection_id(&bytes[length], PICOQUIC_MAX_PACKET_SIZE - length, cnx->local_cnxid);
+        length += picoquic_format_connection_id(&bytes[length], PICOQUIC_MAX_PACKET_SIZE - length, path_x->local_cnxid);
 
         /* Special case of packet initial -- encode token as part of header */
         if (packet_type == picoquic_packet_initial) {
@@ -366,7 +366,7 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
     if (packet_type == picoquic_packet_1rtt_protected_phi0 || 
         packet_type == picoquic_packet_1rtt_protected_phi1) {
         /* Compute length of a short packet header */
-        header_length = 1 + cnx->remote_cnxid.id_len + 4;
+        header_length = 1 + cnx->path[0]->remote_cnxid.id_len + 4;
     }
     else {
         /* Compute length of a long packet header */
@@ -375,15 +375,15 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
         /* add dest-id length */
         if ((packet_type == picoquic_packet_initial ||
             packet_type == picoquic_packet_0rtt_protected)
-            && picoquic_is_connection_id_null(cnx->remote_cnxid)) {
+            && picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid)) {
             header_length += cnx->initial_cnxid.id_len;
         }
         else {
-            header_length += cnx->remote_cnxid.id_len;
+            header_length += cnx->path[0]->remote_cnxid.id_len;
         }
 
         /* add srce-id length */
-        header_length += cnx->local_cnxid.id_len;
+        header_length += cnx->path[0]->local_cnxid.id_len;
 
         /* add length of payload length and packet number */
         header_length += 2 + 4;
@@ -549,7 +549,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
         int ret = 0;
         int byte_index = packet->offset;
         size_t frame_length = 0;
-        size_t frame_is_pure_ack = 0;
+        int frame_is_pure_ack = 0;
         while (ret == 0 && byte_index < packet->length && !packet->is_congestion_controlled) {
             uint8_t frame_type = packet->bytes[byte_index];
             if (!packet->is_congestion_controlled &&
@@ -626,7 +626,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
     }
 
     if (should_free) {
-        my_free(cnx, p);
+        free(p);
     }
     else {
         protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
@@ -688,7 +688,7 @@ protoop_arg_t dequeue_retransmitted_packet(picoquic_cnx_t *cnx)
         p->next_packet->previous_packet = p->previous_packet;
     }
 
-    my_free(cnx, p);
+    free(p);
 
     return 0;
 }
@@ -786,16 +786,11 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     picoquic_path_t * path_x, uint64_t current_time)
 {
     /* MP: Instead of hooking the following operation every time this function is called, we place it here */
-    picoquic_packet_header *ph = my_malloc(cnx, sizeof(picoquic_packet_header));
-    memset(ph, 0, sizeof(picoquic_packet_header));
-    if (ph != NULL) {
-        picoquic_cnx_t *pcnx = cnx;
-        if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, ph, &pcnx, false) == 0) {
-            picoquic_before_sending_segment(cnx, ph, path_x, length + checksum_overhead);
-        }
-        my_free(cnx, ph);
+    picoquic_packet_header ph = { 0 };
+    picoquic_cnx_t *pcnx = cnx;
+    if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, &ph, &pcnx, false) == 0) {
+        picoquic_before_sending_segment(cnx, &ph, path_x, length + checksum_overhead);
     }
-
 
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
     protoop_arg_t args [10];
@@ -2338,35 +2333,35 @@ picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
     return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
 }
 
-protoop_transaction_t *get_next_transaction(picoquic_cnx_t *cnx, protoop_transaction_t *t)
+protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
 {
     if (t->hh.next != NULL) {
         return t->hh.next;
     }
     /* Otherwise, it is the first one */
-    return cnx->transactions;
+    return cnx->plugins;
 }
 
 /* This implements a deficit round robin with bursts */
 void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
 {
-    /* If there is no transaction, there is no frame to reserve! */
-    if (!cnx->transactions) {
+    /* If there is no plugin, there is no frame to reserve! */
+    if (!cnx->plugins) {
         return;
     }
     /* Handle the first call */
     if (!cnx->first_drr) {
-        cnx->first_drr = cnx->transactions;
+        cnx->first_drr = cnx->plugins;
     }
     /* Find if reservations were made */
-    protoop_transaction_t *tr, *tmp_tr;
+    protoop_plugin_t *p, *tmp_p;
     reserve_frames_block_t *block;
 
-    /* It's a two step process: check between how many transactions the increase should be shared */
+    /* It's a two step process: check between how many plugins the increase should be shared */
     uint8_t candidate_to_increase = 0;
     /* FIXME this is not fair... Introduce DRR */
-    HASH_ITER(hh, cnx->transactions, tr, tmp_tr) {
-        if (tr->budget < tr->max_budget) {
+    HASH_ITER(hh, cnx->plugins, p, tmp_p) {
+        if (p->budget < p->max_budget) {
             candidate_to_increase++;
         }
     }
@@ -2376,31 +2371,32 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
         increase = cnx->drr_increase_round / candidate_to_increase;
     }
 
-    tr = cnx->first_drr;
+    p = cnx->first_drr;
 
     do {
-        if (tr->budget < tr->max_budget) {
-            tr->budget += increase;
-            if (tr->budget > tr->max_budget) {
-                tr->budget = tr->max_budget;
+        if (p->budget < p->max_budget) {
+            p->budget += increase;
+            if (p->budget > p->max_budget) {
+                p->budget = p->max_budget;
             }
         }
 
-        while ((block = queue_peek(tr->block_queue)) != NULL && block->total_bytes < tr->budget) {
-            block = (reserve_frames_block_t *) queue_dequeue(tr->block_queue);
+        while ((block = queue_peek(p->block_queue)) != NULL && block->total_bytes < p->budget) {
+            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
+                block->frames[i].p = p;
                 queue_enqueue(cnx->reserved_frames, &block->frames[i]);
             }
             /* Consume the budget */
-            tr->budget -= block->total_bytes;
+            p->budget -= block->total_bytes;
             /* Free the block */
             free(block);
         }
-    } while ((tr = get_next_transaction(cnx, tr)) != cnx->first_drr);
+    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
 
     /* Finally, put the first pointer to the next one */
-    cnx->first_drr = get_next_transaction(cnx, tr);
+    cnx->first_drr = get_next_plugin(cnx, p);
 }
 
 /**
@@ -2551,13 +2547,14 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             length += (uint32_t) data_bytes;
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
-                                fprintf("WARNING: transaction %s reserved frame %u for %u bytes, but wrote %u; erasing the frame\n",
-                                    cnx->current_transaction->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                                printf("WARNING: plugin %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
+                                    cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
                             }
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
                         /* It was reserved by the plugin, so it is a my_free */
-                        my_free(cnx, rfs);
+                        protoop_plugin_t *p = rfs->p;
+                        my_free_in_core(p, rfs);
                     }
 
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -2829,13 +2826,13 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi1) {
                     if (packet->length == 0) {
-                        my_free(cnx, packet);
+                        free(packet);
                         packet = NULL;
                     }
                     break;
                 }
             } else {
-                my_free(cnx, packet);
+                free(packet);
                 packet = NULL;
 
                 if (*send_length != 0){

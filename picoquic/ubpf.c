@@ -19,6 +19,7 @@
 #include "memory.h"
 #include "tls_api.h"
 #include "endianness.h"
+#include "getset.h"
 
 #define JIT false  /* putting to false show out of memory access */
 
@@ -31,18 +32,35 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x00, "plugin_run_protoop", plugin_run_protoop);
     ubpf_register(vm, 0x01, "get_opaque_data", get_opaque_data);
     ubpf_register(vm, 0x02, "reserve_frames", reserve_frames);
+    ubpf_register(vm, 0x03, "get_cnx", get_cnx);
+    ubpf_register(vm, 0x04, "set_cnx", set_cnx);
+    ubpf_register(vm, 0x05, "get_path", get_path);
+    ubpf_register(vm, 0x06, "set_path", set_path);
+    ubpf_register(vm, 0x07, "get_pkt_ctx", get_pkt_ctx);
+    ubpf_register(vm, 0x08, "set_pkt_ctx", set_pkt_ctx);
+    ubpf_register(vm, 0x09, "get_pkt", get_pkt);
+    ubpf_register(vm, 0x0a, "set_pkt", set_pkt);
+    ubpf_register(vm, 0x0b, "get_sack_item", get_sack_item);
+    ubpf_register(vm, 0x0c, "set_sack_item", set_sack_item);
+    ubpf_register(vm, 0x0d, "get_cnxid", get_cnxid);
+    ubpf_register(vm, 0x0e, "set_cnxid", set_cnxid);
+    ubpf_register(vm, 0x0f, "get_stream_head", get_stream_head);
+    ubpf_register(vm, 0x10, "set_stream_head", set_stream_head);
+    ubpf_register(vm, 0x11, "get_crypto_context", get_crypto_context);
+    ubpf_register(vm, 0x12, "set_crypto_context", set_crypto_context);
+    ubpf_register(vm, 0x13, "get_ph", get_ph);
+    ubpf_register(vm, 0x14, "set_ph", set_ph);
     /* specific to picoquic, how to remove this dependency ? */
-    ubpf_register(vm, 0x08, "picoquic_reinsert_by_wake_time", picoquic_reinsert_by_wake_time);
-    ubpf_register(vm, 0x09, "picoquic_current_time", picoquic_current_time);
+    ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
+    ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);
     /* for memory */
-    ubpf_register(vm, 0x10, "my_malloc", my_malloc);
-    ubpf_register(vm, 0x11, "my_free", my_free);
-    ubpf_register(vm, 0x12, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1a, "my_malloc", my_malloc);
+    ubpf_register(vm, 0x1b, "my_free", my_free);
+    ubpf_register(vm, 0x1c, "my_realloc", my_realloc);
+    ubpf_register(vm, 0x1d, "my_memcpy", my_memcpy);
+    ubpf_register(vm, 0x1e, "my_memset", my_memset);
 
-    ubpf_register(vm, 0x18, "my_memcpy", my_memcpy);
-    ubpf_register(vm, 0x19, "my_memset", my_memset);
-
-    ubpf_register(vm, 0x1a, "clock_gettime", clock_gettime);
+    ubpf_register(vm, 0x1f, "clock_gettime", clock_gettime);
 
     /* Network with linux */
     ubpf_register(vm, 0x20, "getsockopt", getsockopt);
@@ -61,9 +79,9 @@ register_functions(struct ubpf_vm *vm)
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
-    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id", picoquic_create_random_cnx_id);
-    ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret", picoquic_create_cnxid_reset_secret);
-    ubpf_register(vm, 0x34, "picoquic_register_cnx_id", picoquic_register_cnx_id);
+    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx); 
+    ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
+    ubpf_register(vm, 0x34, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
     ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
     ubpf_register(vm, 0x37, "picoquic_compare_connection_id", picoquic_compare_connection_id);
@@ -72,6 +90,7 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x3a, "picoquic_parse_stream_header", picoquic_parse_stream_header);
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
     ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
+    ubpf_register(vm, 0x3d, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
@@ -117,89 +136,89 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
     return data;
 }
 
-plugin_t *load_elf(void *code, size_t code_len) {
-    plugin_t *plugin = (plugin_t *)malloc(sizeof(plugin_t));
-    if (!plugin) {
+pluglet_t *load_elf(void *code, size_t code_len) {
+    pluglet_t *pluglet = (pluglet_t *)malloc(sizeof(pluglet_t));
+    if (!pluglet) {
         return NULL;
     }
 
-    plugin->vm = ubpf_create();
-    if (!plugin->vm) {
+    pluglet->vm = ubpf_create();
+    if (!pluglet->vm) {
             fprintf(stderr, "Failed to create VM\n");
-            free(plugin);
+            free(pluglet);
             return NULL;
     }
 
-    register_functions(plugin->vm);
+    register_functions(pluglet->vm);
 
     bool elf = code_len >= SELFMAG && !memcmp(code, ELFMAG, SELFMAG);
 
     char *errmsg;
     int rv;
     if (elf) {
-        rv = ubpf_load_elf(plugin->vm, code, code_len, &errmsg);
+        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg);
     } else {
-        rv = ubpf_load(plugin->vm, code, code_len, &errmsg);
+        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg);
     }
 
     if (rv < 0) {
         fprintf(stderr, "Failed to load code: %s\n", errmsg);
         free(errmsg);
-        ubpf_destroy(plugin->vm);
-        free(plugin);
+        ubpf_destroy(pluglet->vm);
+        free(pluglet);
         return NULL;
     }
-	plugin->fn = ubpf_compile(plugin->vm, &errmsg);
-	if (plugin->fn == NULL) {
+	pluglet->fn = ubpf_compile(pluglet->vm, &errmsg);
+	if (pluglet->fn == NULL) {
         fprintf(stderr, "Failed to compile: %s\n", errmsg);
         free(errmsg);
-        ubpf_destroy(plugin->vm);
-        free(plugin);
+        ubpf_destroy(pluglet->vm);
+        free(pluglet);
         return NULL;
     }
 
     free(errmsg);
 
-    return plugin;
+    return pluglet;
 }
 
-plugin_t *load_elf_file(const char *code_filename) {
+pluglet_t *load_elf_file(const char *code_filename) {
 	size_t code_len;
 	void *code = readfile(code_filename, 1024*1024, &code_len);
 	if (code == NULL) {
 			return NULL;
 	}
 
-	plugin_t *ret = load_elf(code, code_len);
+	pluglet_t *ret = load_elf(code, code_len);
 	free(code);
 	return ret;
 }
 
-int release_elf(plugin_t *plugin) {
-    if (plugin->vm != NULL) {
-        ubpf_destroy(plugin->vm);
-        plugin->vm = NULL;
-        plugin->fn = 0;
-        free(plugin);
+int release_elf(pluglet_t *pluglet) {
+    if (pluglet->vm != NULL) {
+        ubpf_destroy(pluglet->vm);
+        pluglet->vm = NULL;
+        pluglet->fn = 0;
+        free(pluglet);
     }
     return 0;
 }
 
-uint64_t exec_loaded_code(plugin_t *plugin, void *mem, size_t mem_len, char **error_msg) {
+uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_len, char **error_msg) {
     uint64_t ret;
-    if (plugin->vm == NULL) {
+    if (pluglet->vm == NULL) {
         return -1;
     }
-    if (plugin->fn == NULL) {
+    if (pluglet->fn == NULL) {
         return -1;
     }
     if (JIT) {
         /* JIT */
-        ret = plugin->fn(mem, mem_len);
+        ret = pluglet->fn(arg, mem_len);
     } else {
         /* Interpreted */
-        ret = ubpf_exec(plugin->vm, mem, mem_len);
-        *error_msg = ubpf_get_error_msg(plugin->vm);
+        ret = ubpf_exec_with_arg(pluglet->vm, arg, mem, mem_len);
+        *error_msg = ubpf_get_error_msg(pluglet->vm);
     } 
 
     /* printf("0x%"PRIx64"\n", ret); */

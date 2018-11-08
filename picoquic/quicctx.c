@@ -395,6 +395,11 @@ int picoquic_register_cnx_id(picoquic_quic_t* quic, picoquic_cnx_t* cnx, const p
     return ret;
 }
 
+int picoquic_register_cnx_id_for_cnx(picoquic_cnx_t* cnx, const picoquic_connection_id_t* cnx_id)
+{
+    return picoquic_register_cnx_id(cnx->quic, cnx, cnx_id);
+}
+
 static void picoquic_set_hash_key_by_address(picoquic_net_id * key, struct sockaddr* addr)
 {
     memset(&key->saddr, 0, sizeof(struct sockaddr_storage));
@@ -565,6 +570,11 @@ void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, 
     picoquic_insert_cnx_by_wake_time(quic, cnx);
 }
 
+void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time)
+{
+    picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
+}
+
 picoquic_cnx_t* picoquic_get_earliest_cnx_to_wake(picoquic_quic_t* quic, uint64_t max_wake_time)
 {
     picoquic_cnx_t * cnx = quic->cnx_wake_first;
@@ -623,7 +633,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
     if (cnx->nb_paths >= cnx->nb_path_alloc)
     {
         int new_alloc = (cnx->nb_path_alloc == 0) ? 1 : 2 * cnx->nb_path_alloc;
-        picoquic_path_t ** new_path = (picoquic_path_t **)my_malloc(cnx, new_alloc * sizeof(picoquic_path_t *));
+        picoquic_path_t ** new_path = (picoquic_path_t **)malloc(new_alloc * sizeof(picoquic_path_t *));
 
         if (new_path != NULL)
         {
@@ -633,7 +643,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 {
                     memcpy(new_path, cnx->path, cnx->nb_paths * sizeof(picoquic_path_t *));
                 }
-                my_free(cnx, cnx->path);
+                free(cnx->path);
             }
             cnx->path = new_path;
             cnx->nb_path_alloc = new_alloc;
@@ -642,7 +652,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
     if (cnx->nb_paths < cnx->nb_path_alloc)
     {
-        picoquic_path_t * path_x = (picoquic_path_t *)my_malloc(cnx, sizeof(picoquic_path_t));
+        picoquic_path_t * path_x = (picoquic_path_t *)malloc(sizeof(picoquic_path_t));
 
         if (path_x != NULL)
         {
@@ -674,6 +684,18 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
             /* Initialize the MTU */
             path_x->send_mtu = addr->sa_family == AF_INET ? PICOQUIC_INITIAL_MTU_IPV4 : PICOQUIC_INITIAL_MTU_IPV6;
+
+            /* Initialize the connection IDs */
+            if (cnx->quic) {
+                picoquic_create_random_cnx_id(cnx->quic, &path_x->local_cnxid, cnx->quic->local_ctx_length);
+            }
+
+            path_x->remote_cnxid = picoquic_null_connection_id;
+            /* Initialize the reset secret to a random value. This
+			 * will prevent spurious matches to an all zero value, for example.
+			 * The real value will be set when receiving the transport parameters. 
+			 */
+            picoquic_public_random(path_x->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
 
             /* Initialize packet contexts */
             for (picoquic_packet_context_enum pc = 0;
@@ -715,6 +737,11 @@ void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id
     cnx_id->id_len = id_length;
 }
 
+void picoquic_create_random_cnx_id_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id, uint8_t id_length)
+{
+    picoquic_create_random_cnx_id(cnx->quic, cnx_id, id_length);
+}
+
 
 picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     picoquic_connection_id_t initial_cnx_id, picoquic_connection_id_t remote_cnx_id, 
@@ -727,9 +754,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         int ret;
 
         memset(cnx, 0, sizeof(picoquic_cnx_t));
-        /* First initialize the memory management */
-        init_memory_management(cnx);
 
+        cnx->quic = quic;
+        cnx->client_mode = client_mode;
         /* Should return 0, since this is the first path */
         ret = picoquic_create_path(cnx, start_time, addr);
 
@@ -739,9 +766,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         } else {
             cnx->next_wake_time = start_time;
             cnx->start_time = start_time;
-            cnx->client_mode = client_mode;
 
-            cnx->quic = quic;
             picoquic_insert_cnx_in_list(quic, cnx);
             picoquic_insert_cnx_by_wake_time(quic, cnx);
             /* Do not require verification for default path */
@@ -807,34 +832,26 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             if (picoquic_is_connection_id_null(initial_cnx_id)) {
                 picoquic_create_random_cnx_id(quic, &initial_cnx_id, 8);
             }
-            picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
 
             if (quic->cnx_id_callback_fn) {
-                quic->cnx_id_callback_fn(cnx->local_cnxid, picoquic_null_connection_id, quic->cnx_id_callback_ctx, &cnx->local_cnxid);
+                quic->cnx_id_callback_fn(cnx->path[0]->local_cnxid, picoquic_null_connection_id, quic->cnx_id_callback_ctx, &cnx->path[0]->local_cnxid);
             }
 
             cnx->initial_cnxid = initial_cnx_id;
-            cnx->remote_cnxid = picoquic_null_connection_id;
-            /* Initialize the reset secret to a random value. This
-			 * will prevent spurious matches to an all zero value, for example.
-			 * The real value will be set when receiving the transport parameters. 
-			 */
-            picoquic_public_random(cnx->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
         } else {
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].send_queue = NULL;
             }
             cnx->cnx_state = picoquic_state_server_init;
             cnx->initial_cnxid = initial_cnx_id;
-            cnx->remote_cnxid = remote_cnx_id;
-            picoquic_create_random_cnx_id(quic, &cnx->local_cnxid, quic->local_ctx_length);
+            cnx->path[0]->remote_cnxid = remote_cnx_id;
 
             if (quic->cnx_id_callback_fn)
-                quic->cnx_id_callback_fn(cnx->local_cnxid, cnx->initial_cnxid,
-                    quic->cnx_id_callback_ctx, &cnx->local_cnxid);
+                quic->cnx_id_callback_fn(cnx->path[0]->local_cnxid, cnx->initial_cnxid,
+                    quic->cnx_id_callback_ctx, &cnx->path[0]->local_cnxid);
 
-            (void)picoquic_create_cnxid_reset_secret(quic, &cnx->local_cnxid,
-                cnx->reset_secret);
+            (void)picoquic_create_cnxid_reset_secret(quic, &cnx->path[0]->local_cnxid,
+                cnx->path[0]->reset_secret);
 
             cnx->version_index = picoquic_get_version_index(preferred_version);
             if (cnx->version_index < 0) {
@@ -889,8 +906,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     if (cnx != NULL) {
-        if (!picoquic_is_connection_id_null(cnx->local_cnxid)) {
-            (void)picoquic_register_cnx_id(quic, cnx, &cnx->local_cnxid);
+        if (!picoquic_is_connection_id_null(cnx->path[0]->local_cnxid)) {
+            (void)picoquic_register_cnx_id(quic, cnx, &cnx->path[0]->local_cnxid);
         }
 
         if (addr != NULL) {
@@ -907,11 +924,11 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
     }
 
     /* The following lines should be uncommented only for testing purpose */
-    // plugin_insert_transaction(cnx, "plugins/basic/basic.plugin");
-    // plugin_insert_transaction(cnx, "plugins/ecn/ecn.plugin");
-    // plugin_insert_transaction(cnx, "plugins/multipath/multipath.plugin");
-    // plugin_insert_transaction(cnx, "plugins/tlp/tlp.plugin");
-    // plugin_insert_transaction(cnx, "plugins/cop2/cop2.plugin");
+    // plugin_insert_plugin(cnx, "plugins/basic/basic.plugin");
+    // plugin_insert_plugin(cnx, "plugins/ecn/ecn.plugin");
+    // plugin_insert_plugin(cnx, "plugins/multipath/multipath.plugin");
+    // plugin_insert_plugin(cnx, "plugins/tlp/tlp.plugin");
+    // plugin_insert_plugin(cnx, "plugins/cop2/cop2.plugin");
 
     return cnx;
 }
@@ -944,8 +961,9 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
 {
     /* First ensure that ops is set to NULL, required by uthash.h */
     cnx->ops = NULL;
-    cnx->transactions = NULL;
-    cnx->current_transaction = NULL;
+    cnx->plugins = NULL;
+    cnx->current_plugin = NULL;
+    cnx->previous_plugin = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -996,12 +1014,12 @@ unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x)
 
 picoquic_connection_id_t picoquic_get_local_cnxid(picoquic_cnx_t* cnx)
 {
-    return cnx->local_cnxid;
+    return cnx->path[0]->local_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_remote_cnxid(picoquic_cnx_t* cnx)
 {
-    return cnx->remote_cnxid;
+    return cnx->path[0]->remote_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_initial_cnxid(picoquic_cnx_t* cnx)
@@ -1011,12 +1029,12 @@ picoquic_connection_id_t picoquic_get_initial_cnxid(picoquic_cnx_t* cnx)
 
 picoquic_connection_id_t picoquic_get_client_cnxid(picoquic_cnx_t* cnx)
 {
-    return (cnx->client_mode)?cnx->local_cnxid: cnx->remote_cnxid;
+    return (cnx->client_mode)?cnx->path[0]->local_cnxid: cnx->path[0]->remote_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_server_cnxid(picoquic_cnx_t* cnx)
 {
-    return (cnx->client_mode) ? cnx->remote_cnxid : cnx->local_cnxid;
+    return (cnx->client_mode) ? cnx->path[0]->remote_cnxid : cnx->path[0]->local_cnxid;
 }
 
 picoquic_connection_id_t picoquic_get_logging_cnxid(picoquic_cnx_t* cnx)
@@ -1125,7 +1143,7 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
 }
 
 picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length) {
-    uint8_t* misc_frame = (uint8_t*)my_malloc(cnx, sizeof(picoquic_misc_frame_header_t) + length);
+    uint8_t* misc_frame = (uint8_t*)malloc(sizeof(picoquic_misc_frame_header_t) + length);
 
     if (misc_frame == NULL) {
         return NULL;
@@ -1194,7 +1212,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     while (pkt_ctx->first_sack_item.next_sack != NULL) {
         picoquic_sack_item_t * next = pkt_ctx->first_sack_item.next_sack;
         pkt_ctx->first_sack_item.next_sack = next->next_sack;
-        my_free(cnx, next);
+        free(next);
     }
 
     pkt_ctx->first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
@@ -1405,7 +1423,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         while ((misc_frame = cnx->first_misc_frame) != NULL) {
             cnx->first_misc_frame = misc_frame->next_misc_frame;
-            my_free(cnx, misc_frame);
+            free(misc_frame);
         }
         for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
             picoquic_clear_stream(&cnx->tls_stream[epoch]);
@@ -1414,7 +1432,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         while ((stream = cnx->first_stream) != NULL) {
             cnx->first_stream = stream->next_stream;
             picoquic_clear_stream(stream);
-            my_free(cnx, stream);
+            free(stream);
         }
 
         if (cnx->tls_ctx != NULL) {
@@ -1430,11 +1448,11 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     cnx->congestion_alg->alg_delete(cnx, cnx->path[i]);
                 }
 
-                my_free(cnx, cnx->path[i]);
+                free(cnx->path[i]);
                 cnx->path[i] = NULL;
             }
 
-            my_free(cnx, cnx->path);
+            free(cnx->path);
             cnx->path = NULL;
         }
 
@@ -1506,12 +1524,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
 
-        protoop_transaction_t *current_tr, *tmp_tr;
-        HASH_ITER(hh, cnx->transactions, current_tr, tmp_tr) {
-            HASH_DEL(cnx->transactions, current_tr);
+        protoop_plugin_t *current_p, *tmp_p;
+        HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
+            HASH_DEL(cnx->plugins, current_p);
             /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-            queue_free(current_tr->block_queue);
-            free(current_tr);
+            queue_free(current_p->block_queue);
+            free(current_p);
         }
 
         free(cnx);
@@ -1616,10 +1634,9 @@ protoop_arg_t callback_function(picoquic_cnx_t *cnx)
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
     size_t length = (size_t) cnx->protoop_inputv[2];
     picoquic_call_back_event_t fin_or_event = (picoquic_call_back_event_t) cnx->protoop_inputv[3];
-    void* callback_ctx = (void *) cnx->protoop_inputv[4];
 
     if (cnx->callback_fn) {
-        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, callback_ctx);
+        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx);
     }
 
     return 0;
@@ -1881,8 +1898,8 @@ int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protoc
 
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots)
 {
-    if (!cnx->current_transaction) {
-        printf("ERROR: s can only be called by plugins with transactions!\n");
+    if (!cnx->current_plugin) {
+        printf("ERROR: reserve_frames can only be called by pluglets with plugins!\n");
         return 0;
     }
     /* Well, or we could use queues instead ? */
@@ -1896,7 +1913,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         block->total_bytes += slots[i].nb_bytes;
     }
     block->frames = slots;
-    int err = queue_enqueue(cnx->current_transaction->block_queue, block);
+    int err = queue_enqueue(cnx->current_plugin->block_queue, block);
     if (err) {
         free(block);
         return 0;

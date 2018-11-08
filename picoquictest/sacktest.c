@@ -76,7 +76,6 @@ int sacktest()
     picoquic_packet_context_enum pc = 0;
 
     memset(&cnx, 0, sizeof(cnx));
-    init_memory_management(&cnx);
 
     memset(&path_x, 0, sizeof(path_x));
     path_x.pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
@@ -148,7 +147,7 @@ int sacktest()
     while (path_x.pkt_ctx[pc].first_sack_item.next_sack != NULL) {
         picoquic_sack_item_t * next = path_x.pkt_ctx[pc].first_sack_item.next_sack;
         path_x.pkt_ctx[pc].first_sack_item.next_sack = next->next_sack;
-        my_free(&cnx, next);
+        free(next);
     }
 
     return ret;
@@ -287,7 +286,6 @@ int sendacktest()
     struct sockaddr_in addr;
 
     memset(&cnx, 0, sizeof(cnx));
-    init_memory_management(&cnx);
     picoquic_create_path(&cnx, current_time, (struct sockaddr *) &addr);
     picoquic_path_t *path_x = cnx.path[0];
     path_x->pkt_ctx[pc].first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
@@ -346,7 +344,6 @@ int ackrange_test()
     picoquic_sack_item_t sack0;
 
     memset(&cnx, 0, sizeof(picoquic_cnx_t));
-    init_memory_management(&cnx);
     memset(&sack0, 0, sizeof(picoquic_sack_item_t));
     sack0.start_of_sack_range = (uint64_t)((int64_t)-1);
 

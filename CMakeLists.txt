@@ -20,6 +20,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c
+    picoquic/getset.c
     picoquic/http0dot9.c
     picoquic/intformat.c
     picoquic/logger.c
@@ -147,17 +148,6 @@ ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
 TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${PTLS_CORE}
     ${PTLS_OPENSSL}    
-    ${PTLS_MINICRYPTO}
-    ${OPENSSL_LIBRARIES}
-    ${UBPF}
-    ${CMAKE_DL_LIBS}
-)
-
-ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c)
-
-TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
-    ${PTLS_CORE}
-    ${PTLS_OPENSSL}
     ${PTLS_MINICRYPTO}
     ${OPENSSL_LIBRARIES}
     ${UBPF}

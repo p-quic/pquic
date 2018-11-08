@@ -12,7 +12,7 @@
  * ALIGNMENT_FACTOR determines the smallest chunk of memory in bytes.
  * MAGIC_NUMBER is used to check if the pointer to be freed is valid.
  */
-#define MEM_BUFFER CONTEXT_MEMORY
+#define MEM_BUFFER PLUGIN_MEMORY
 #define METADATA_SIZE (sizeof(meta_data))
 #define ALIGNMENT_FACTOR 4
 #define MAGIC_NUMBER 0123
@@ -37,23 +37,23 @@ unsigned int align_size(unsigned int size) {
 }
 
 /**
- * Home-made implementation of sbrk within a given picoquic_cnx_t.
+ * Home-made implementation of sbrk within a given protoop_plugin_t.
  */
-void *my_sbrk(picoquic_cnx_t *cnx, intptr_t increment) {
-    if (cnx->heap_end + increment - cnx->heap_start > MEM_BUFFER) {
+void *my_sbrk(protoop_plugin_t *p, intptr_t increment) {
+    if (p->heap_end + increment - p->heap_start > MEM_BUFFER) {
         /* Out of memory */
         return NULL;
     }
 
-    cnx->heap_end += increment;
-    return cnx->heap_end;
+    p->heap_end += increment;
+    return p->heap_end;
 }
 
 /**
  * Goes through the whole heap to find an empty slot.
  */ 
-meta_data *find_slot(picoquic_cnx_t *cnx, unsigned int size) {
-	meta_data *iter = (meta_data*) cnx->heap_start;
+meta_data *find_slot(protoop_plugin_t *p, unsigned int size) {
+	meta_data *iter = (meta_data*) p->heap_start;
 	while(iter) {
 		if (iter->available && iter->size >= size) {
 			iter->available = 0;
@@ -84,10 +84,10 @@ void divide_slot(void *slot, unsigned int size) {
 /**
  * Extends the heap using sbrk syscall. 
  */
-void *extend(picoquic_cnx_t *cnx, unsigned int size) {
-	meta_data *new_block = (meta_data*) my_sbrk(cnx, 0);
-	if ((char*) new_block - (char*) cnx->heap_start > MEM_BUFFER) return NULL;
-	int *flag = (int *) my_sbrk(cnx, size + METADATA_SIZE);
+void *extend(protoop_plugin_t *p, unsigned int size) {
+	meta_data *new_block = (meta_data*) my_sbrk(p, 0);
+	if ((char*) new_block - (char*) p->heap_start > MEM_BUFFER) return NULL;
+	int *flag = (int *) my_sbrk(p, size + METADATA_SIZE);
 	if (!flag) {
 		printf("Out of memory!\n");
 		return NULL;
@@ -97,10 +97,10 @@ void *extend(picoquic_cnx_t *cnx, unsigned int size) {
 	new_block->next_block = NULL;
 	new_block->magic_number = MAGIC_NUMBER;
 	
-	if (cnx->heap_last_block) {
-		((meta_data *) cnx->heap_last_block)->next_block = new_block;	
+	if (p->heap_last_block) {
+		((meta_data *) p->heap_last_block)->next_block = new_block;	
 	}
-	cnx->heap_last_block = (char *) new_block;
+	p->heap_last_block = (char *) new_block;
 	return new_block;
 }
 
@@ -118,29 +118,34 @@ meta_data* get_metadata(void *ptr) {
 * If no adequately large free slot is available, extend the heap and return the pointer.
 */
 void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
+	protoop_plugin_t *p = cnx->current_plugin;
+	if (!p) {
+		fprintf(stderr, "FATAL ERROR: calling my_malloc outside plugin scope!\n");
+		exit(1);
+	}
 	size = align_size(size);
 	void *slot;
-	if (cnx->heap_start){
-        DBG_MEMORY_PRINTF("Heap starts at: %p", cnx->heap_start);
-		slot = find_slot(cnx, size);
+	if (p->heap_start){
+        DBG_MEMORY_PRINTF("Heap starts at: %p", p->heap_start);
+		slot = find_slot(p, size);
 		if (slot) {
 			if (((meta_data *) slot)->size > size + METADATA_SIZE) {
 				divide_slot(slot, size);
 			}
 		} else {
-			slot = extend(cnx, size);
+			slot = extend(p, size);
 		}
 	} else {
-		cnx->heap_start = my_sbrk(cnx, 0);
-        DBG_MEMORY_PRINTF("Heap starts at: %p", cnx->heap_start);
-		slot = extend(cnx, size);
+		p->heap_start = my_sbrk(p, 0);
+        DBG_MEMORY_PRINTF("Heap starts at: %p", p->heap_start);
+		slot = extend(p, size);
 	}
 	
 	if (!slot) { return slot; }
 
     DBG_MEMORY_PRINTF("Memory assigned from %p to %p", slot, (void *)((char *) slot + METADATA_SIZE + ((meta_data *) slot)->size));
-    DBG_MEMORY_PRINTF("Memory ends at: %p", my_sbrk(cnx, 0));
-    DBG_MEMORY_PRINTF("Size of heap so far: 0x%lx", (unsigned long) ((char *) my_sbrk(cnx, 0) - (char *) cnx->heap_start));
+    DBG_MEMORY_PRINTF("Memory ends at: %p", my_sbrk(p, 0));
+    DBG_MEMORY_PRINTF("Size of heap so far: 0x%lx", (unsigned long) ((char *) my_sbrk(p, 0) - (char *) p->heap_start));
 
 	return ((char *) slot) + METADATA_SIZE;
 }
@@ -152,8 +157,24 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
  * magic number. Due to lack of time i haven't worked on fragmentation.
  */ 
 void my_free(picoquic_cnx_t *cnx, void *ptr) {
-	if (!cnx->heap_start) return;
-	if ((char *) ptr >= cnx->heap_start + METADATA_SIZE && ptr < my_sbrk(cnx, 0)) {
+	protoop_plugin_t *p = cnx->current_plugin;
+	if (!p) {
+		fprintf(stderr, "FATAL ERROR: calling my_free outside plugin scope!\n");
+		exit(1);
+	}
+	if (!p->heap_start) return;
+	if ((char *) ptr >= p->heap_start + METADATA_SIZE && ptr < my_sbrk(p, 0)) {
+		meta_data *ptr_metadata = get_metadata(ptr);
+		if (ptr_metadata->magic_number == MAGIC_NUMBER) {
+			ptr_metadata->available = 1;
+            DBG_MEMORY_PRINTF("Memory freed at: %p", ptr_metadata);
+		}
+	}
+}
+
+void my_free_in_core(protoop_plugin_t *p, void *ptr) {
+	if (!p->heap_start) return;
+	if ((char *) ptr >= p->heap_start + METADATA_SIZE && ptr < my_sbrk(p, 0)) {
 		meta_data *ptr_metadata = get_metadata(ptr);
 		if (ptr_metadata->magic_number == MAGIC_NUMBER) {
 			ptr_metadata->available = 1;
@@ -175,8 +196,14 @@ void my_free(picoquic_cnx_t *cnx, void *ptr) {
 void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
     /* If no previous ptr, fast-track to my_malloc */
     if (!ptr) return my_malloc(cnx, size);
+	protoop_plugin_t *p = cnx->current_plugin;
+	if (!p) {
+		p = (protoop_plugin_t *) cnx;
+		// fprintf(stderr, "FATAL ERROR: calling my_realloc outside plugin scope!\n");
+		// exit(1);
+	}
     /* If the previous ptr is invalid, return NULL */
-    if ((char *) ptr < cnx->heap_start + METADATA_SIZE && ptr >= my_sbrk(cnx, 0)) return NULL;
+    if ((char *) ptr < p->heap_start + METADATA_SIZE && ptr >= my_sbrk(p, 0)) return NULL;
     /* Now take metadata */
     meta_data *ptr_metadata = get_metadata(ptr);
     if (ptr_metadata->magic_number != MAGIC_NUMBER) {
@@ -201,9 +228,9 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
     return new_ptr;
 }
 
-void init_memory_management(picoquic_cnx_t *cnx)
+void init_memory_management(protoop_plugin_t *p)
 {
-	cnx->heap_start = cnx->memory;
-	cnx->heap_end = cnx->memory;
-	cnx->heap_last_block = NULL;
+	p->heap_start = p->memory;
+	p->heap_end = p->memory;
+	p->heap_last_block = NULL;
 }

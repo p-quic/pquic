@@ -24,47 +24,48 @@
 #include "picoquictest_internal.h"
 #include <stdlib.h>
 #include <string.h>
+#include "../picoquic/memory.h"
 
 /* Start with a series of test vectors to test that 
  * encoding and decoding are OK. 
  * Then, add fuzz testing.
  */
 
-#define TRANSPORT_PREFERED_ADDRESS_NULL \
+#define TRANSPORT_PREFERRED_ADDRESS_NULL \
     { 0, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, 0, \
     { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },0 }, \
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }} 
 
 static picoquic_tp_t transport_param_test1 = {
-    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test2 = {
-    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test3 = {
-    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 0, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 1, 0, 255, 0, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test4 = {
-    65535, 0, 0, 0x400000, 65532, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65532, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test5 = {
-    0x1000000, 0, 0, 0x1000000, 4, 0, 255, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x1000000, 0, 0, 0x1000000, 4, 0, 255, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test6 = {
-    0x10000, 0, 0, 0xffffffff, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    0x10000, 0, 0, 0xffffffff, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test7 = {
-    8192, 0, 0, 16384, 5, 0, 10, 1472, 17, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    8192, 0, 0, 16384, 5, 0, 10, 1472, 17, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test8 = {
-    65535, 0, 0, 0x400000, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 0, 0, 30, 1480, 3, 0, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static picoquic_tp_t transport_param_test9 = {
@@ -75,7 +76,7 @@ static picoquic_tp_t transport_param_test9 = {
 };
 
 static picoquic_tp_t transport_param_test10 = {
-    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 1, TRANSPORT_PREFERED_ADDRESS_NULL
+    65535, 0, 0, 0x400000, 65533, 65535, 30, 1480, 3, 1, TRANSPORT_PREFERRED_ADDRESS_NULL
 };
 
 static uint8_t transport_param_reset_secret[PICOQUIC_RESET_SECRET_SIZE] = {
@@ -227,21 +228,21 @@ static int transport_param_compare(picoquic_tp_t* param, picoquic_tp_t* ref) {
     else if (param->idle_timeout != ref->idle_timeout) {
         ret = -1;
     }
-    else if (param->prefered_address.ipVersion != ref->prefered_address.ipVersion) {
+    else if (param->preferred_address.ipVersion != ref->preferred_address.ipVersion) {
         ret = -1;
     }
-    else if (param->prefered_address.ipVersion != 0) {
-        int ip_len = (param->prefered_address.ipVersion == 4) ? 4 : 16;
-        if (memcmp(param->prefered_address.ipAddress, ref->prefered_address.ipAddress, ip_len) != 0) {
+    else if (param->preferred_address.ipVersion != 0) {
+        int ip_len = (param->preferred_address.ipVersion == 4) ? 4 : 16;
+        if (memcmp(param->preferred_address.ipAddress, ref->preferred_address.ipAddress, ip_len) != 0) {
             ret = -1;
         }
-        else if (param->prefered_address.port != ref->prefered_address.port) {
+        else if (param->preferred_address.port != ref->preferred_address.port) {
             ret = -1;
         }
-        else if (picoquic_compare_connection_id(&param->prefered_address.connection_id, &ref->prefered_address.connection_id) != 0) {
+        else if (picoquic_compare_connection_id(&param->preferred_address.connection_id, &ref->preferred_address.connection_id) != 0) {
             ret = -1;
         }
-        else if (memcmp(param->prefered_address.statelessResetToken, ref->prefered_address.statelessResetToken, 16) != 0) {
+        else if (memcmp(param->preferred_address.statelessResetToken, ref->preferred_address.statelessResetToken, 16) != 0) {
             ret = -1;
         }
     }
@@ -261,13 +262,15 @@ int transport_param_one_test(int mode, uint32_t version, uint32_t proposed_versi
     memset(&quic_ctx, 0, sizeof(quic_ctx));
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
+    struct sockaddr_in addr;
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* initialize the connection object to the test parameters */
     memcpy(&test_cnx.local_parameters, param, sizeof(picoquic_tp_t));
     // test_cnx.version = version;
     test_cnx.version_index = picoquic_get_version_index(version);
     test_cnx.proposed_version = proposed_version;
-    memcpy(test_cnx.reset_secret, transport_param_reset_secret, PICOQUIC_RESET_SECRET_SIZE);
+    memcpy(test_cnx.path[0]->reset_secret, transport_param_reset_secret, PICOQUIC_RESET_SECRET_SIZE);
 
     ret = picoquic_prepare_transport_extensions(&test_cnx, mode, buffer, sizeof(buffer), &encoded);
 
@@ -302,6 +305,9 @@ int transport_param_decode_test(int mode, uint32_t version, uint32_t proposed_ve
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
 
+    struct sockaddr_in addr;
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
+
     ret = picoquic_receive_transport_extensions(&test_cnx, mode,
         target, target_length, &decoded);
 
@@ -331,6 +337,9 @@ int transport_param_fuzz_test(int mode, uint32_t version, uint32_t proposed_vers
     memset(&quic_ctx, 0, sizeof(quic_ctx));
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
+
+    struct sockaddr_in addr;
+    picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* test for valid arguments */
     if (target_length < 8 || target_length > sizeof(buffer)) {

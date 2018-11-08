@@ -4,16 +4,18 @@
 #include <sys/socket.h>
 
 #include "endianness.h"
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "memory.h"
 #include "memcpy.h"
 #include "util.h"
+#include "getset.h"
 
 #define COP2_OPAQUE_ID 0x02
 #define BILLION ((unsigned int) 1000000)
 
 
 #define CMP_SOCKADDR(a, b)  (picoquic_compare_addr((struct sockaddr *)&a, (struct sockaddr *)&b))
+#define CMP_SOCKADDR_PTR(a, b)  (picoquic_compare_addr((struct sockaddr *)a, (struct sockaddr *)b))
 #define TIME_SUBTRACT_MS(a, b)  (((b.tv_sec - a.tv_sec) * 1000) + (((unsigned long)(b.tv_nsec - a.tv_nsec)) / BILLION))
 
 typedef struct {
@@ -129,7 +131,9 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 {
     cop2_path_metrics *prev_path = NULL;
     cop2_path_metrics *path_metrics = metrics->established_metrics;
-    while(path_metrics != NULL && CMP_SOCKADDR(path_metrics->local_addr, path->local_addr) && CMP_SOCKADDR(path_metrics->peer_addr, path->peer_addr)) {
+    struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_LOCAL_ADDR, 0);
+    struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_PEER_ADDR, 0);
+    while(path_metrics != NULL && CMP_SOCKADDR_PTR(&path_metrics->local_addr, path_local_addr) && CMP_SOCKADDR_PTR(&path_metrics->peer_addr, path_peer_addr)) {
         prev_path = path_metrics;
         path_metrics = path_metrics->next;
     }
@@ -144,13 +148,18 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
         }
 
         my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
-        my_memcpy(&path_metrics->icid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
-        my_memcpy(&path_metrics->dcid, &cnx->remote_cnxid, sizeof(picoquic_connection_id_t));
-        my_memcpy(&path_metrics->scid, &cnx->local_cnxid, sizeof(picoquic_connection_id_t));
-        my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
-        path_metrics->local_addr_len = path->local_addr_len;
-        my_memcpy(&path_metrics->peer_addr, &path->peer_addr, path->peer_addr_len);
-        path_metrics->peer_addr_len = path->peer_addr_len;
+        picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
+        picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_REMOTE_CID, 0);
+        picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_LOCAL_CID, 0);
+        my_memcpy(&path_metrics->icid, initial_cnxid, sizeof(picoquic_connection_id_t));
+        my_memcpy(&path_metrics->dcid, remote_cnxid, sizeof(picoquic_connection_id_t));
+        my_memcpy(&path_metrics->scid, local_cnxid, sizeof(picoquic_connection_id_t));
+        int local_addr_len = (int) get_path(path, PATH_AK_LOCAL_ADDR_LEN, 0);
+        my_memcpy(&path_metrics->local_addr, path_local_addr, local_addr_len);
+        path_metrics->local_addr_len = local_addr_len;
+        int peer_addr_len = (int) get_path(path, PATH_AK_PEER_ADDR_LEN, 0);
+        my_memcpy(&path_metrics->peer_addr, path_peer_addr, peer_addr_len);
+        path_metrics->peer_addr_len = peer_addr_len;
         clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_start);
     }
 
@@ -158,19 +167,29 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 }
 
 static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path_metrics, picoquic_cnx_t *cnx, picoquic_path_t *path) {
-    if (path_metrics->icid.id_len == 0 && cnx->initial_cnxid.id_len > 0) {
-        my_memcpy(&path_metrics->icid, &cnx->initial_cnxid, sizeof(picoquic_connection_id_t));
+    picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_REMOTE_CID, 0);
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_LOCAL_CID, 0);
+    uint8_t initial_cnxid_len = (uint8_t) get_cnxid(initial_cnxid, CNXID_AK_LEN);
+    uint8_t remote_cnxid_len = (uint8_t) get_cnxid(remote_cnxid, CNXID_AK_LEN);
+    uint8_t local_cnxid_len = (uint8_t) get_cnxid(local_cnxid, CNXID_AK_LEN);
+    if (path_metrics->icid.id_len == 0 && initial_cnxid_len > 0) {
+        my_memcpy(&path_metrics->icid, initial_cnxid, sizeof(picoquic_connection_id_t));
     }
-    if (path_metrics->dcid.id_len == 0 && cnx->remote_cnxid.id_len > 0) {
-        my_memcpy(&path_metrics->dcid, &cnx->remote_cnxid, sizeof(picoquic_connection_id_t));
+    if (path_metrics->dcid.id_len == 0 && remote_cnxid_len > 0) {
+        my_memcpy(&path_metrics->dcid, remote_cnxid, sizeof(picoquic_connection_id_t));
     }
-    if (path_metrics->scid.id_len == 0 && cnx->local_cnxid.id_len > 0) {
-        my_memcpy(&path_metrics->scid, &cnx->local_cnxid, sizeof(picoquic_connection_id_t));
+    if (path_metrics->scid.id_len == 0 && local_cnxid_len > 0) {
+        my_memcpy(&path_metrics->scid, local_cnxid, sizeof(picoquic_connection_id_t));
     }
-    my_memcpy(&path_metrics->local_addr, &path->local_addr, path->local_addr_len);
-    path_metrics->local_addr_len = path->local_addr_len;
-    my_memcpy(&path_metrics->peer_addr, &path->peer_addr, path->peer_addr_len);
-    path_metrics->peer_addr_len = path->peer_addr_len;
+    struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_LOCAL_ADDR, 0);
+    int local_addr_len = (int) get_path(path, PATH_AK_LOCAL_ADDR_LEN, 0);
+    struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_PEER_ADDR, 0);
+    int peer_addr_len = (int) get_path(path, PATH_AK_PEER_ADDR_LEN, 0);
+    my_memcpy(&path_metrics->local_addr, path_local_addr, local_addr_len);
+    path_metrics->local_addr_len = local_addr_len;
+    my_memcpy(&path_metrics->peer_addr, path_peer_addr, peer_addr_len);
+    path_metrics->peer_addr_len = peer_addr_len;
     clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_end);
 }
 

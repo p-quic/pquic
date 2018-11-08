@@ -1,37 +1,8 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "memory.h"
 #include "bpf.h"
-
-static void process_ack_of_ack_range(picoquic_cnx_t* cnx, picoquic_sack_item_t* first_sack,
-    uint64_t start_of_range, uint64_t end_of_range)
-{
-    if (first_sack->start_of_sack_range == start_of_range) {
-        if (end_of_range < first_sack->end_of_sack_range) {
-            first_sack->start_of_sack_range = end_of_range + 1;
-        } else {
-            first_sack->start_of_sack_range = first_sack->end_of_sack_range;
-        }
-    } else {
-        picoquic_sack_item_t* previous = first_sack;
-        picoquic_sack_item_t* next = previous->next_sack;
-
-        while (next != NULL) {
-            if (next->end_of_sack_range == end_of_range && next->start_of_sack_range == start_of_range) {
-                /* Matching range should be removed */
-                previous->next_sack = next->next_sack;
-                my_free(cnx, next);
-                break;
-            } else if (next->end_of_sack_range > end_of_range) {
-                previous = next;
-                next = next->next_sack;
-            } else {
-                break;
-            }
-        }
-    }
-}
 
 static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context_enum pc,
     uint8_t* bytes, size_t bytes_max, size_t* consumed, int is_ecn)
@@ -42,10 +13,13 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     uint64_t ack_delay;
     uint64_t num_block;
     uint64_t ecnx3[3];
-    picoquic_path_t *path_x = cnx->path[0];
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
+    uint8_t frame_type;
 
-    if (bytes[0] == picoquic_frame_type_ack || bytes[0] == picoquic_frame_type_ack_ecn) {
+    my_memcpy(&frame_type, &bytes[0], 1);
+
+    if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn) {
         ret = helper_parse_ack_header(bytes, bytes_max,
             &num_block, (is_ecn)? ecnx3 : NULL, 
             &largest, &ack_delay, consumed, 0);
@@ -69,10 +43,16 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     /* Find the oldest ACK range, in order to calibrate the
      * extension of the largest number to 64 bits */
 
-    picoquic_sack_item_t* first_sack = &path_x->pkt_ctx[pc].first_sack_item;
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    picoquic_sack_item_t* first_sack = (picoquic_sack_item_t*) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_FIRST_SACK_ITEM);
     picoquic_sack_item_t* target_sack = first_sack;
-    while (first_sack != NULL && target_sack->next_sack != NULL) {
-        target_sack = target_sack->next_sack;
+    picoquic_sack_item_t* next_sack = NULL;
+    if (first_sack != NULL) {
+        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
+    }
+    while (first_sack != NULL && next_sack != NULL) {
+        target_sack = next_sack;
+        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
     }
 
     if (ret == 0) {
@@ -107,7 +87,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
             }
 
             if (range > 0) {
-                process_ack_of_ack_range(cnx, first_sack, largest + 1 - range, largest);
+                helper_process_ack_of_ack_range(cnx, first_sack, largest + 1 - range, largest);
             }
 
             if (num_block-- == 0)
@@ -148,37 +128,43 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
 }
 
 /**
- * picoquic_packet_t* p = cnx->protoop_inputv[0]
- *
- * Output: none
+ * See PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {
-    picoquic_packet_t* p = (picoquic_packet_t*) cnx->protoop_inputv[0];
+    picoquic_packet_t* p = (picoquic_packet_t*) get_cnx(cnx, CNX_AK_INPUT, 0);
 
     int ret = 0;
     size_t byte_index;
     int frame_is_pure_ack = 0;
     size_t frame_length = 0;
 
-    if (ret == 0 && p->ptype == picoquic_packet_0rtt_protected) {
-        cnx->nb_zero_rtt_acked++;
+    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+
+    if (ret == 0 && ptype == picoquic_packet_0rtt_protected) {
+        set_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0) + 1);
     }
 
-    byte_index = p->offset;
+    uint32_t poffset = (uint32_t) get_pkt(p, PKT_AK_OFFSET); 
+    byte_index = poffset;
+    uint32_t plength = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
+    uint8_t *pbytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
+    picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
+    uint8_t frame_type;
 
-    while (ret == 0 && byte_index < p->length) {
-        if (p->bytes[byte_index] == picoquic_frame_type_ack || p->bytes[byte_index] == picoquic_frame_type_ack_ecn ||
-            p->bytes[byte_index] == MP_ACK_TYPE) {
-            int is_ecn = p->bytes[byte_index] == picoquic_frame_type_ack_ecn ? 1 : 0;
-            ret = process_ack_of_ack_frame(cnx, p->pc, &p->bytes[byte_index], p->length - byte_index, &frame_length, is_ecn);
+    while (ret == 0 && byte_index < plength) {
+        my_memcpy(&frame_type, &pbytes[byte_index], 1);
+        if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn ||
+            frame_type == MP_ACK_TYPE) {
+            int is_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : 0;
+            ret = process_ack_of_ack_frame(cnx, pc, &pbytes[byte_index], plength - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
-        } else if (PICOQUIC_IN_RANGE(p->bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
-            ret = helper_process_ack_of_stream_frame(cnx, &p->bytes[byte_index], p->length - byte_index, &frame_length);
+        } else if (PICOQUIC_IN_RANGE(frame_type, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+            ret = helper_process_ack_of_stream_frame(cnx, &pbytes[byte_index], plength - byte_index, &frame_length);
             byte_index += frame_length;
         } else {
-            ret = helper_skip_frame(cnx, &p->bytes[byte_index],
-                p->length - byte_index, &frame_length, &frame_is_pure_ack);
+            ret = helper_skip_frame(cnx, &pbytes[byte_index],
+                plength - byte_index, &frame_length, &frame_is_pure_ack);
             byte_index += frame_length;
         }
     }

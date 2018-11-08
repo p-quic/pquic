@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -6,9 +6,9 @@
 
 protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
 {
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    struct iovec *message = (struct iovec *) cnx->protoop_inputv[2];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    struct iovec *message = (struct iovec *) get_cnx(cnx, CNX_AK_INPUT, 2);
     size_t consumed = 0;
 
     if (message != NULL) {
@@ -59,8 +59,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
         my_free(cnx, message);
     }
 
-    cnx->protoop_outputc_callee = 1;
-    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
 
     return 0;
 }

@@ -1,9 +1,41 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "memcpy.h"
+#include "getset.h"
+
+#define PICOQUIC_MAX_PACKET_SIZE 1536
+#define PICOQUIC_MIN_SEGMENT_SIZE 256
+#define PICOQUIC_INITIAL_MTU_IPV4 1252
+#define PICOQUIC_INITIAL_MTU_IPV6 1232
+#define PICOQUIC_ENFORCED_INITIAL_MTU 1200
+#define PICOQUIC_PRACTICAL_MAX_MTU 1440
+#define PICOQUIC_RETRY_SECRET_SIZE 64
+#define PICOQUIC_DEFAULT_0RTT_WINDOW 4096
+
+#define PICOQUIC_NUMBER_OF_EPOCHS 4
+#define PICOQUIC_NUMBER_OF_EPOCH_OFFSETS (PICOQUIC_NUMBER_OF_EPOCHS+1)
+
+#define PICOQUIC_INITIAL_RTT 250000 /* 250 ms */
+#define PICOQUIC_INITIAL_RETRANSMIT_TIMER 1000000 /* one second */
+#define PICOQUIC_MIN_RETRANSMIT_TIMER 50000 /* 50 ms */
+#define PICOQUIC_ACK_DELAY_MAX 20000 /* 20 ms */
+#define PICOQUIC_RACK_DELAY 10000 /* 10 ms */
+
+#define PICOQUIC_SPURIOUS_RETRANSMIT_DELAY_MAX 1000000 /* one second */
+
+#define PICOQUIC_MICROSEC_SILENCE_MAX 120000000 /* 120 seconds for now */
+#define PICOQUIC_MICROSEC_HANDSHAKE_MAX 15000000 /* 15 seconds for now */
+#define PICOQUIC_MICROSEC_WAIT_MAX 10000000 /* 10 seconds for now */
+
+#define PICOQUIC_CWIN_INITIAL (10 * PICOQUIC_MAX_PACKET_SIZE)
+#define PICOQUIC_CWIN_MINIMUM (2 * PICOQUIC_MAX_PACKET_SIZE)
+
+#define PICOQUIC_SPIN_VEC_LATE 1000 /* in microseconds : reaction time beyond which to mark a spin bit edge as 'late' */
+
+#define PICOQUIC_CHALLENGE_REPEAT_MAX 4
 
 #define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
 #define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
@@ -79,15 +111,14 @@ static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_pat
 }
 
 static void helper_callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes,
-    size_t length, picoquic_call_back_event_t fin_or_event, void* callback_ctx)
+    size_t length, picoquic_call_back_event_t fin_or_event)
 {
-    protoop_arg_t args[5];
+    protoop_arg_t args[4];
     args[0] = (protoop_arg_t) stream_id;
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) length;
     args[3] = (protoop_arg_t) fin_or_event;
-    args[4] = (protoop_arg_t) callback_ctx;
-    protoop_params_t pp = get_pp_noparam("callback_function", 5, args, NULL);
+    protoop_params_t pp = get_pp_noparam("callback_function", 4, args, NULL);
     plugin_run_protoop(cnx, &pp);
 }
 
@@ -146,18 +177,24 @@ static int helper_should_send_max_data(picoquic_cnx_t* cnx)
 {
     int ret = 0;
 
-    if (2 * cnx->data_received > cnx->maxdata_local)
+    uint64_t data_received = (uint64_t) get_cnx(cnx, CNX_AK_DATA_RECEIVED, 0);
+    uint64_t maxdata_local = (uint64_t) get_cnx(cnx, CNX_AK_MAXDATA_LOCAL, 0);
+    if (2 * data_received > maxdata_local)
         ret = 1;
 
     return ret;
 }
 
 /* Decide whether to send an MTU probe */
-static int helper_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
+static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
 {
     int ret = 0;
 
-    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    unsigned int mtu_probe_sent = (unsigned int) get_path(path_x, PATH_AK_MTU_PROBE_SENT, 0);
+    uint32_t send_mtu_max_tried = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU_MAX_TRIED, 0);
+    uint32_t send_mtu = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU, 0);
+    if ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) && mtu_probe_sent == 0 && (send_mtu_max_tried == 0 || (send_mtu + 10) < send_mtu_max_tried)) {
         ret = 1;
     }
 
@@ -414,55 +451,11 @@ static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, 
 #define PICOPARSE_32(b) ((((uint32_t)PICOPARSE_16(b)) << 16) | PICOPARSE_16((b) + 2))
 #define PICOPARSE_64(b) ((((uint64_t)PICOPARSE_32(b)) << 32) | PICOPARSE_32((b) + 4))
 
-/* Parse a varint. In case of an error, *n64 is unchanged, and NULL is returned */
-static uint8_t* helper_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64)
-{
-    uint8_t length;
-
-    if (bytes < bytes_max && bytes + (length=VARINT_LEN(bytes)) <= bytes_max) {
-        uint64_t v = *bytes++ & 0x3F;
-
-        while (--length > 0) {
-            v <<= 8;
-            v += *bytes++;
-        }
-
-        *n64 = v;
-    } else {
-        bytes = NULL;
-    }
-
-    return bytes;
-}
-
 static uint8_t* helper_frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_max, uint8_t* n)
 {
     if (bytes < bytes_max) {
-        *n = *bytes++;
-    } else {
-        bytes = NULL;
-    }
-    return bytes;
-}
-
-
-static uint8_t* helper_frames_uint16_decode(uint8_t* bytes, const uint8_t* bytes_max, uint16_t* n)
-{
-    if (bytes + sizeof(*n) <= bytes_max) {
-        *n = PICOPARSE_16(bytes);
-        bytes += sizeof(*n);
-    } else {
-        bytes = NULL;
-    }
-    return bytes;
-}
-
-
-static __attribute__((always_inline)) uint8_t* helper_frames_uint64_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n)
-{
-    if (bytes + sizeof(*n) <= bytes_max) {
-        *n = PICOPARSE_64(bytes);
-        bytes += sizeof(*n);
+        my_memcpy(n, bytes, 1);
+        bytes++;
     } else {
         bytes = NULL;
     }
@@ -610,8 +603,10 @@ static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* byte
  */
 static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, protoop_arg_t** return_values) {
     int ret = 0;
-    int len = bytes[0] & 2;
-    int off = bytes[0] & 4;
+    uint8_t first_byte;
+    my_memcpy(&first_byte, bytes, 1);
+    int len = first_byte & 2;
+    int off = first_byte & 4;
     uint64_t length = 0;
     size_t l_stream = 0;
     size_t l_len = 0;
@@ -624,7 +619,7 @@ static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, pr
     int* fin = (int *) *(return_values + 3);
     size_t* consumed = *(return_values + 4);
 
-    *fin = bytes[0] & 1;
+    *fin = first_byte & 1;
 
     if (bytes_max > byte_index) {
         l_stream = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, stream_id);
@@ -673,6 +668,17 @@ static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, protoop_id_t rea
     protoop_params_t pp = get_pp_noparam(reason, 1, args, outs);
     int ret = (int) plugin_run_protoop(cnx, &pp);
     return ret;
+}
+
+static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoquic_cnx_t *cnx, picoquic_sack_item_t *first_sack,
+    uint64_t start_range, uint64_t end_range)
+{
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) first_sack;
+    args[1] = (protoop_arg_t) start_range;
+    args[2] = (protoop_arg_t) end_range;
+    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
+    plugin_run_protoop(cnx, &pp);
 }
 
 #endif

@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -10,9 +10,9 @@
  */
 protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 { 
-    mp_ack_frame_t *frame = (mp_ack_frame_t *) cnx->protoop_inputv[0];
-    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
-    int epoch = (int) cnx->protoop_inputv[2];
+    mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
 
     bpf_data *bpfd = get_bpf_data(cnx);
 
@@ -22,14 +22,16 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         return 1;
     }
 
-     picoquic_path_t *path_x = bpfd->paths[path_index].path;
+    picoquic_path_t *path_x = bpfd->paths[path_index].path;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
 
     if (epoch == 1) {
         helper_protoop_printf(cnx, "MP ACK frame not expected in 0-RTT packet", NULL, 0);
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
-    } else if (frame->ack.largest_acknowledged >= path_x->pkt_ctx[pc].send_sequence) {
+    } else if (frame->ack.largest_acknowledged >= send_sequence) {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     } else {

@@ -6,7 +6,8 @@
 
 protoop_arg_t state_changed(picoquic_cnx_t *cnx)
 {
-    if (cnx->cnx_state == picoquic_state_disconnected) {
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    if (cnx_state == picoquic_state_disconnected) {
         datagram_memory_t *m = get_datagram_memory(cnx);
         if (m->socket_fds[PLUGIN_SOCKET] != -1) {
             close(m->socket_fds[PLUGIN_SOCKET]);

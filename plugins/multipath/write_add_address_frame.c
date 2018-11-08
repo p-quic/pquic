@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
@@ -9,20 +9,21 @@
  */
 protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 {
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0]; 
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    add_address_ctx_t *aac = (add_address_ctx_t *) cnx->protoop_inputv[2];
-    size_t consumed = (size_t) cnx->protoop_inputv[3];
-
-    picoquic_path_t *path_0 = cnx->path[0];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    const uint8_t *bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    add_address_ctx_t *aac = (add_address_ctx_t *) get_cnx(cnx, CNX_AK_INPUT, 2);
+    
+    size_t consumed = 0;
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     uint16_t port;
+    int local_addr_len_0 = (int) get_path(path_0, PATH_AK_LOCAL_ADDR_LEN, 0);
 
-    if (path_0->local_addr_len == sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *si = (struct sockaddr_in *) &path_0->local_addr;
+    if (local_addr_len_0 == sizeof(struct sockaddr_in)) {
+        struct sockaddr_in *si = (struct sockaddr_in *) get_path(path_0, PATH_AK_LOCAL_ADDR, 0);
         my_memcpy(&port, &si->sin_port, 2);
     } else {
         /* v6 */
-        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) &path_0->local_addr;
+        struct sockaddr_in6 *si6 = (struct sockaddr_in6 *) get_path(path_0, PATH_AK_LOCAL_ADDR, 0);
         my_memcpy(&port, &si6->sin6_port, 2);
     }
 
@@ -62,16 +63,16 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
             bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
 
             /* Encode the first byte */
-            bytes[byte_index++] = ADD_ADDRESS_TYPE;
+            my_memset(&bytes[byte_index++], ADD_ADDRESS_TYPE, 1);
             if (port != 0) {
                 /* Encode port flag with v4 */
-                bytes[byte_index++] = 0x14;
+                my_memset(&bytes[byte_index++], 0x14, 1);
             } else {
-                /* Otherwisen only v4 value */
-                bytes[byte_index++] = 0x04;
+                /* Otherwise only v4 value */
+                my_memset(&bytes[byte_index++], 0x04, 1);
             }
             /* Encode address ID */
-            bytes[byte_index++] = addr_id;
+            my_memset(&bytes[byte_index++], addr_id, 1);
             /* Encode IP address */
             my_memcpy(&bytes[byte_index], &sa->sin_addr.s_addr, 4);
             byte_index += 4;
@@ -88,9 +89,8 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     }
 
     my_free(cnx, aac);
-    
-    cnx->protoop_outputc_callee = 1;
-    cnx->protoop_outputv[0] = (protoop_arg_t) consumed;
+
+    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
 
     return (protoop_arg_t) ret;
 }
