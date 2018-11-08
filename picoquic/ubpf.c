@@ -203,7 +203,7 @@ int release_elf(pluglet_t *pluglet) {
     return 0;
 }
 
-uint64_t exec_loaded_code(pluglet_t *pluglet, void *mem, size_t mem_len, char **error_msg) {
+uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_len, char **error_msg) {
     uint64_t ret;
     if (pluglet->vm == NULL) {
         return -1;
@@ -213,10 +213,10 @@ uint64_t exec_loaded_code(pluglet_t *pluglet, void *mem, size_t mem_len, char **
     }
     if (JIT) {
         /* JIT */
-        ret = pluglet->fn(mem, mem_len);
+        ret = pluglet->fn(arg, mem_len);
     } else {
         /* Interpreted */
-        ret = ubpf_exec(pluglet->vm, mem, mem_len);
+        ret = ubpf_exec_with_arg(pluglet->vm, arg, mem, mem_len);
         *error_msg = ubpf_get_error_msg(pluglet->vm);
     } 
 
