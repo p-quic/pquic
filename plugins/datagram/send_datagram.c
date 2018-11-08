@@ -41,6 +41,6 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         my_free(cnx, slot);
         return 1;
     }
-    picoquic_reinsert_by_wake_time(cnx->quic, cnx, picoquic_current_time());
+    picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
     return 0;
 }
