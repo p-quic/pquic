@@ -170,13 +170,16 @@ static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
     picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_REMOTE_CID, 0);
     picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_LOCAL_CID, 0);
-    if (path_metrics->icid.id_len == 0 && initial_cnxid->id_len > 0) {
+    uint8_t initial_cnxid_len = (uint8_t) get_cnxid(initial_cnxid, CNXID_AK_LEN);
+    uint8_t remote_cnxid_len = (uint8_t) get_cnxid(remote_cnxid, CNXID_AK_LEN);
+    uint8_t local_cnxid_len = (uint8_t) get_cnxid(local_cnxid, CNXID_AK_LEN);
+    if (path_metrics->icid.id_len == 0 && initial_cnxid_len > 0) {
         my_memcpy(&path_metrics->icid, initial_cnxid, sizeof(picoquic_connection_id_t));
     }
-    if (path_metrics->dcid.id_len == 0 && remote_cnxid->id_len > 0) {
+    if (path_metrics->dcid.id_len == 0 && remote_cnxid_len > 0) {
         my_memcpy(&path_metrics->dcid, remote_cnxid, sizeof(picoquic_connection_id_t));
     }
-    if (path_metrics->scid.id_len == 0 && local_cnxid->id_len > 0) {
+    if (path_metrics->scid.id_len == 0 && local_cnxid_len > 0) {
         my_memcpy(&path_metrics->scid, local_cnxid, sizeof(picoquic_connection_id_t));
     }
     struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_LOCAL_ADDR, 0);

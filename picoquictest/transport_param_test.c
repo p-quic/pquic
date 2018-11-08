@@ -263,7 +263,6 @@ int transport_param_one_test(int mode, uint32_t version, uint32_t proposed_versi
     memset(&test_cnx, 0, sizeof(picoquic_cnx_t));
     test_cnx.quic = &quic_ctx;
     struct sockaddr_in addr;
-    init_memory_management(&test_cnx);
     picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* initialize the connection object to the test parameters */
@@ -307,7 +306,6 @@ int transport_param_decode_test(int mode, uint32_t version, uint32_t proposed_ve
     test_cnx.quic = &quic_ctx;
 
     struct sockaddr_in addr;
-    init_memory_management(&test_cnx);
     picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     ret = picoquic_receive_transport_extensions(&test_cnx, mode,
@@ -341,7 +339,6 @@ int transport_param_fuzz_test(int mode, uint32_t version, uint32_t proposed_vers
     test_cnx.quic = &quic_ctx;
 
     struct sockaddr_in addr;
-    init_memory_management(&test_cnx);
     picoquic_create_path(&test_cnx, 0, (struct sockaddr *) &addr);
 
     /* test for valid arguments */

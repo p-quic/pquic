@@ -754,8 +754,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         int ret;
 
         memset(cnx, 0, sizeof(picoquic_cnx_t));
-        /* First initialize the memory management */
-        init_memory_management(cnx);
 
         cnx->quic = quic;
         cnx->client_mode = client_mode;

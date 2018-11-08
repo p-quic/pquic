@@ -20,7 +20,6 @@ static int datagram_parse_test()
 
     picoquic_cnx_t cnx = { 0 };
     protoop_arg_t out[3] = {0, 0, 0};
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
     ret = plugin_insert_plugin(&cnx, "plugins/datagram/datagram.plugin");
     if (ret) {
@@ -78,7 +77,6 @@ static int datagram_write_test() {
 
     picoquic_cnx_t cnx = { 0 };
     protoop_arg_t out[1] = {0};
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
     ret = plugin_insert_plugin(&cnx, "plugins/datagram/datagram.plugin");
     if (ret) {

@@ -219,7 +219,6 @@ static int ack_of_ack_do_one_test(test_ack_of_ack_t const* sample)
     picoquic_cnx_t cnx;
 
     memset(&cnx, 0, sizeof(picoquic_cnx_t));
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     fill_test_sack_list(&sack_head, sample->initial, sample->nb_initial);

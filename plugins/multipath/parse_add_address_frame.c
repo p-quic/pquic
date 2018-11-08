@@ -50,11 +50,13 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
     uint16_t port_def = 0;
 
     if (sa_def_length == sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *sai_def = (struct sockaddr_in *) sa_def;
-        port_def = (uint16_t) sai_def->sin_port;
+        struct sockaddr_in sai_def;
+        my_memcpy(&sai_def, sa_def, sizeof(struct sockaddr_in));
+        port_def = (uint16_t) sai_def.sin_port;
     } else { /* IPv6 */
-        struct sockaddr_in6 *sai6_def = (struct sockaddr_in6 *) sa_def;
-        port_def = (uint16_t) sai6_def->sin6_port;
+        struct sockaddr_in6 sai6_def; 
+        my_memcpy(&sai6_def, sa_def, sizeof(struct sockaddr_in6));
+        port_def = (uint16_t) sai6_def.sin6_port;
     }
 
     if (frame->ip_vers == 4 && (bytes_max - (bytes + byte_index) >= 4 + 2 * frame->has_port)) {

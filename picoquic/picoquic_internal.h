@@ -623,15 +623,6 @@ typedef struct st_picoquic_cnx_t {
 
     protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
     protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */
-    
-    /* With uBPF, we don't want the VM it corrupts the memory of another context.
-     * Therefore, each context has its own memory space that should contain everything
-     * needed for the given connection.
-     */
-    char *heap_start;
-    char *heap_end; /* used to implement my_sbrk */
-    char *heap_last_block; /* keeps track of the last block used when extending heap. */
-    char memory[CONTEXT_MEMORY]; /* Memory that can be used for malloc, free,... */
 } picoquic_cnx_t;
 
 /* Moved here before we don't want plugins to use it */

@@ -603,8 +603,10 @@ static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* byte
  */
 static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, protoop_arg_t** return_values) {
     int ret = 0;
-    int len = bytes[0] & 2;
-    int off = bytes[0] & 4;
+    uint8_t first_byte;
+    my_memcpy(&first_byte, bytes, 1);
+    int len = first_byte & 2;
+    int off = first_byte & 4;
     uint64_t length = 0;
     size_t l_stream = 0;
     size_t l_len = 0;
@@ -617,7 +619,7 @@ static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, pr
     int* fin = (int *) *(return_values + 3);
     size_t* consumed = *(return_values + 4);
 
-    *fin = bytes[0] & 1;
+    *fin = first_byte & 1;
 
     if (bytes_max > byte_index) {
         l_stream = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, stream_id);

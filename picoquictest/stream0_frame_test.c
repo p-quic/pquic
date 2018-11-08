@@ -308,7 +308,6 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
 
     picoquic_cnx_t cnx = { 0 };
 
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {

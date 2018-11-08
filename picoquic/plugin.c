@@ -415,7 +415,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     if (!ok) {
         free(p);
     } else {
-        init_memory_management_p(p);
+        init_memory_management(p);
         HASH_ADD_STR(cnx->plugins, name, p);
     }
 
@@ -534,7 +534,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
-        exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
+        exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
 
@@ -542,7 +542,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     if (popst->replace) {
         DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pid);
         cnx->current_plugin = popst->replace->p;
-        status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
+        status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
     } else if (popst->core) {
         cnx->current_plugin = NULL;
         status = popst->core(cnx);
@@ -562,7 +562,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
-        exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx, sizeof(picoquic_cnx_t), &error_msg);
+        exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
     cnx->protoop_output = 0;

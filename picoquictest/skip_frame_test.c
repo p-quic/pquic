@@ -265,7 +265,6 @@ static int skip_test_packet(uint8_t * bytes, size_t bytes_max)
     size_t byte_index = 0;
 
     picoquic_cnx_t cnx = { 0 };
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     while (ret == 0 && byte_index < bytes_max) {
@@ -304,7 +303,6 @@ int skip_frame_test()
     int fuzz_fail = 0;
 
     picoquic_cnx_t cnx = { 0 };
-    init_memory_management(&cnx);
     register_protocol_operations(&cnx);
 
     for (size_t i = 0; i < nb_test_skip_list; i++) {
