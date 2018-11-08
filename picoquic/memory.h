@@ -8,6 +8,7 @@ void my_free(picoquic_cnx_t *cnx, void *ptr);
 void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size);
 
 void init_memory_management(picoquic_cnx_t *cnx);
+void init_memory_management_p(protoop_plugin_t *p);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

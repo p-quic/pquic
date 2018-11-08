@@ -419,15 +419,24 @@ typedef struct st_picoquic_opaque_meta_t {
 
 #define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
+#define PLUGIN_MEMORY (64 * 1024) /* In bytes, at least needed by tests */
 
 typedef struct protoop_plugin {
+    UT_hash_handle hh; /* Make the structure hashable */
     char name[PROTOOPPLUGINNAME_MAX];
     queue_t *block_queue; /* Send reservation queue */
     uint16_t budget; /* Sending budget */
     uint16_t max_budget; /* Maximum value of the budget */
     /* Opaque field for free use by plugins */
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
-    UT_hash_handle hh; /* Make the structure hashable */
+    /* With uBPF, we don't want the VM it corrupts the memory of another context.
+     * Therefore, each plugin has its own memory space that should contain everything
+     * needed for the given connection.
+     */
+    char *heap_start;
+    char *heap_end; /* used to implement my_sbrk */
+    char *heap_last_block; /* keeps track of the last block used when extending heap. */
+    char memory[PLUGIN_MEMORY]; /* Memory that can be used for malloc, free,... */
 } protoop_plugin_t;
 
 #define PROTOOPNAME_MAX 100

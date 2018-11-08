@@ -415,6 +415,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     if (!ok) {
         free(p);
     } else {
+        init_memory_management_p(p);
         HASH_ADD_STR(cnx->plugins, name, p);
     }
 
