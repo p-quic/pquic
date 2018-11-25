@@ -240,6 +240,8 @@ typedef struct st_picoquic_quic_t {
     /* Which was the socket used to receive the last packet? */
     SOCKET_TYPE rcv_socket;
 
+    picoquic_tp_t * default_tp;
+
     picoquic_fuzz_fn fuzz_fn;
     void* fuzz_ctx;
 
@@ -345,7 +347,8 @@ typedef enum picoquic_stream_flags {
     picoquic_stream_flag_stop_sending_requested = 256,
     picoquic_stream_flag_stop_sending_sent = 512,
     picoquic_stream_flag_stop_sending_received = 1024,
-    picoquic_stream_flag_stop_sending_signalled = 2048
+    picoquic_stream_flag_stop_sending_signalled = 2048,
+    picoquic_stream_flag_max_stream_updated = 4096
 } picoquic_stream_flags;
 
 typedef struct _picoquic_stream_head {
@@ -656,6 +659,10 @@ typedef struct st_picoquic_cnx_t {
     unsigned int spin_vec : 2;   /* Valid Edge Counter, makes spin bit RTT measurements more reliable */
     unsigned int spin_edge : 1;  /* internal signalling from incoming to outgoing: we just spinned it */
     uint64_t spin_last_trigger;  /* timestamp of the incoming packet that triggered the spinning */
+    unsigned int key_phase_enc : 1; /* Key phase used in outgoing packets */
+    unsigned int key_phase_dec : 1; /* Key phase expected in incoming packets */
+    unsigned int zero_rtt_data_accepted : 1; /* Peer confirmed acceptance of zero rtt data */
+    unsigned int one_rtt_data_acknowledged : 1; /* 1RTT data acknowledged by peer */
 
 
     /* Local and remote parameters */
@@ -727,7 +734,9 @@ typedef struct st_picoquic_cnx_t {
     uint64_t maxdata_local;
     uint64_t maxdata_remote;
     uint64_t max_stream_id_bidir_local;
+    uint64_t max_stream_id_bidir_local_computed;
     uint64_t max_stream_id_unidir_local;
+    uint64_t max_stream_id_unidir_local_computed;
     uint64_t max_stream_id_bidir_remote;
     uint64_t max_stream_id_unidir_remote;
 
@@ -789,7 +798,9 @@ typedef struct st_picoquic_cnx_t {
     protoop_plugin_t *previous_plugin_in_replace; /* To free memory, we might be interested to know if it is in plugin or core memory */;
 } picoquic_cnx_t;
 
-/* Moved here before we don't want plugins to use it */
+/* Init of transport parameters */
+int picoquic_set_default_tp(picoquic_quic_t* quic, picoquic_tp_t * tp);
+void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode);
 
 /* Helper macros */
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
@@ -1154,6 +1165,9 @@ int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 int picoquic_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increase,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
+void picoquic_update_max_stream_ID_local(picoquic_cnx_t* cnx, picoquic_stream_head* stream);
+int picoquic_prepare_max_stream_ID_frame_if_needed(picoquic_cnx_t* cnx,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed);
 void picoquic_clear_stream(picoquic_stream_head* stream);
 int picoquic_prepare_path_challenge_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max, size_t* consumed, picoquic_path_t * path);
@@ -1182,6 +1196,9 @@ int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max_si
 
 int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes,
     size_t bytes_max, int* closing_received);
+
+uint32_t picoquic_decode_transport_param_stream_id(uint16_t rank, int extension_mode, int stream_type);
+uint16_t picoquic_prepare_transport_param_stream_id(uint32_t stream_id, int extension_mode, int stream_type);
 
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);

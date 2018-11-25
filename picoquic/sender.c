@@ -1080,9 +1080,10 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             cnx->cnx_state != picoquic_state_server_ready) {
             /* Set the retransmit time ahead of current time since the connection is not ready */
             retransmit_time = current_time + send_path->smoothed_rtt + PICOQUIC_RACK_DELAY;
+        } else if (!cnx->zero_rtt_data_accepted) {
+            /* Zero RTT data was not accepted by the peer, the packets are considered lost */
+            retransmit_time = current_time;
         }
-        /* TODO: if early data was skipped by the server, we should retransmit
-         * immediately. However, there is not good API to do that */
     }
 
     if (current_time >= retransmit_time) {

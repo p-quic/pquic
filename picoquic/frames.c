@@ -410,6 +410,8 @@ int picoquic_prepare_stream_reset_frame(picoquic_cnx_t *cnx, picoquic_stream_hea
             *consumed = byte_index;
             picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_sent | picoquic_stream_flag_fin_sent);
 
+            picoquic_update_max_stream_ID_local(cnx, stream);
+
             /* Free the queued data */
             while (stream->send_queue != NULL) {
                 picoquic_stream_data* next = stream->send_queue->next_stream_data;
@@ -480,6 +482,8 @@ protoop_arg_t process_stream_reset_frame(picoquic_cnx_t* cnx)
     } else if ((stream->stream_flags & picoquic_stream_flag_reset_received) == 0) {
         stream->stream_flags |= picoquic_stream_flag_reset_received;
         stream->remote_error  = frame->app_error_code;
+
+        picoquic_update_max_stream_ID_local(cnx, stream);
 
         if (cnx->callback_fn != NULL && (stream->stream_flags & picoquic_stream_flag_reset_signalled) == 0) {
             cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_reset, cnx->callback_ctx);
@@ -880,6 +884,7 @@ static int picoquic_stream_network_input(picoquic_cnx_t* cnx, uint64_t stream_id
             picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_received);
             should_notify = 1;
             cnx->latest_progress_time = current_time;
+            picoquic_update_max_stream_ID_local(cnx, stream);
         }
 
         if (new_fin_offset > stream->fin_offset) {
@@ -1186,6 +1191,9 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 /* Set the fin bit */
                 picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_sent);
                 bytes[0] |= 1;
+
+                picoquic_update_max_stream_ID_local(cnx, stream);
+
                 consumed = byte_index;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
@@ -1322,6 +1330,8 @@ protoop_arg_t prepare_plugin_frame(picoquic_cnx_t* cnx)
                 /* Set the fin bit */
                 picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_sent);
                 bytes[1] = 1;
+
+                picoquic_update_max_stream_ID_local(cnx, plugin_stream);
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
                 consumed = 0;
@@ -3198,6 +3208,29 @@ int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
         bytes, bytes_max);
     *consumed = (size_t)outs[0];
     return ret;
+}
+
+void picoquic_update_max_stream_ID_local(picoquic_cnx_t* cnx, picoquic_stream_head* stream)
+{
+    if (cnx->client_mode != IS_CLIENT_STREAM_ID(stream->stream_id) &&
+        (stream->stream_flags&picoquic_stream_flag_max_stream_updated)  == 0) {
+        /* This is a remotely initiated stream */
+        if (stream->consumed_offset >= stream->fin_offset && ((stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_reset_received)) != 0)) {
+            /* Receive is complete */
+            if (IS_BIDIR_STREAM_ID(stream->stream_id)) {
+                if ((stream->stream_flags & (picoquic_stream_flag_fin_sent | picoquic_stream_flag_reset_sent)) != 0)
+                {
+                    /* Sending is complete */
+                    stream->stream_flags |= picoquic_stream_flag_max_stream_updated;
+                    cnx->max_stream_id_bidir_local_computed += 4;
+                }
+            } else {
+                /* No need to check receive complete on uni directional streams */
+                stream->stream_flags |= picoquic_stream_flag_max_stream_updated;
+                cnx->max_stream_id_unidir_local_computed += 4;
+            }
+        }
+    }
 }
 
 /**
