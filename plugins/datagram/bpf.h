@@ -19,7 +19,7 @@ typedef struct st_datagram_frame_t {
 } datagram_frame_t;
 
 static inline size_t varint_len(uint64_t val) {
-    if (val <= 64) {
+    if (val <= 63) {
         return 1;
     } else if (val <= 16383) {
         return 2;
