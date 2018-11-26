@@ -21,18 +21,26 @@ class LinuxRouter(Node):
         super(LinuxRouter, self).terminate()
 
 
-class MyTopo(Topo):
-    def build(self, **_opts):
+class KiteTopo(Topo):
+    def build(self, **opts):
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
 
         for s in ('s1', 's2', 's3', 's4', 's5'):
             setattr(self, s, self.addSwitch(s))
 
-        self.addLink(self.s1, self.r1)
+        if 'bw_b' in opts and 'loss_b' in opts and 'delay_ms_b' in opts:
+            mqs = int(1.5 * (((opts['bw_b'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_b'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
+            self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts['loss_b'], max_queue_size=mqs)
+        else:
+            self.addLink(self.s1, self.r1)
         self.addLink(self.s2, self.r1)
         self.addLink(self.s3, self.r1)
-        self.addLink(self.s4, self.r2)
+        if 'bw_a' in opts and 'loss_a' in opts and 'delay_ms_a' in opts:
+            mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_a'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
+            self.addLink(self.s4, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts['loss_a'], max_queue_size=mqs)
+        else:
+            self.addLink(self.s4, self.r2)
         self.addLink(self.s5, self.r2)
 
         self.cl = self.addHost('cl')
@@ -112,23 +120,44 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
         print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
 
 
-def run():
-    net = Mininet(MyTopo(), link=TCLink, host=CPULimitedHost)
-    net.start()
+def setup_net(net, quic=True, gdb=False, tcpdump=False):
     setup_ips(net)
 
     setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
     setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
 
-    net['vpn'].cmd('sh -c "./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443" > server.log &')
-    net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
-    net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
-    sleep(0.25)
-    net['cl'].cmd('sh -c "./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443" > client.log &')
-    net['cl'].cmd('tcpdump -i tun0 -w tun0.pcap &')
+    if not quic:
+        return
+
+    if tcpdump:
+        net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
+        net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
+        sleep(1)
+
+    if gdb:
+        net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+    else:
+        net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+    sleep(1)
+
+    if tcpdump:
+        net['cl'].cmd('tcpdump -i tun0 -w tun0.pcap &')
+        net['web'].cmd('tcpdump -i web-eth0 -w web.pcap &')
+        sleep(1)
+
+    if gdb:
+        net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+    else:
+        net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
 
     net['web'].cmd('python3 -m http.server 80 &')
-    net['web'].cmd('tcpdump -i web-eth0 -w web.pcap &')
+    sleep(1)
+
+
+def run():
+    net = Mininet(KiteTopo(), link=TCLink, host=CPULimitedHost)
+    net.start()
+    setup_net(net, gdb=True, tcpdump=True)
 
     CLI(net)
     net.stop()
