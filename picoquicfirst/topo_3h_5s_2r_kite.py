@@ -1,9 +1,10 @@
 from time import sleep
 
 from mininet.cli import CLI
+from mininet.node import Node, CPULimitedHost
+from mininet.link import TCLink
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Node
 from mininet.topo import Topo
 
 
@@ -22,26 +23,63 @@ class LinuxRouter(Node):
 
 class MyTopo(Topo):
     def build(self, **_opts):
-        r1 = self.addNode('r1', cls=LinuxRouter, ip='10.1.0.1/24')
-        r2 = self.addNode('r2', cls=LinuxRouter, ip='10.1.1.1/24')
+        self.r1 = self.addNode('r1', cls=LinuxRouter)
+        self.r2 = self.addNode('r2', cls=LinuxRouter)
 
-        s1, s2, s3, s4, s5 = [self.addSwitch(s) for s in ('s1', 's2', 's3', 's4', 's5')]
+        for s in ('s1', 's2', 's3', 's4', 's5'):
+            setattr(self, s, self.addSwitch(s))
 
-        self.addLink(s1, r1, intfName2='r1-eth1', params2={'ip': '10.1.0.1/24'})
-        self.addLink(s2, r1, intfName2='r1-eth2', params2={'ip': '10.2.0.1/24'})
-        self.addLink(s3, r1, intfName2='r1-eth3', params2={'ip': '10.3.0.1/24'})
-        self.addLink(s4, r2, intfName2='r2-eth1', params2={'ip': '10.1.1.1/24'})
-        self.addLink(s5, r2, intfName2='r2-eth2', params2={'ip': '10.2.1.1/24'})
+        self.addLink(self.s1, self.r1)
+        self.addLink(self.s2, self.r1)
+        self.addLink(self.s3, self.r1)
+        self.addLink(self.s4, self.r2)
+        self.addLink(self.s5, self.r2)
 
-        cl = self.addHost('cl', ip='10.1.0.2/24', defaultRoute='via 10.1.0.1')
-        vpn = self.addHost('vpn', ip='10.2.0.2/24', defaultRoute='via 10.2.0.1')
-        web = self.addHost('web', ip='10.3.0.2/24', defaultRoute='via 10.3.0.1')
+        self.cl = self.addHost('cl')
+        self.vpn = self.addHost('vpn')
+        self.web = self.addHost('web')
 
-        self.addLink(cl, s1)
-        self.addLink(cl, s4, params1={'ip': '10.1.1.2/24'})
-        self.addLink(vpn, s2)
-        self.addLink(vpn, s5, params1={'ip': '10.2.1.2/24'})
-        self.addLink(web, s3)
+        self.addLink(self.cl, self.s1)
+        self.addLink(self.cl, self.s4)
+        self.addLink(self.vpn, self.s2)
+        self.addLink(self.vpn, self.s5)
+        self.addLink(self.web, self.s3)
+
+
+def setup_ips(net):
+    config = {
+        'r1': {
+            'r1-eth0': '10.1.0.1/24',
+            'r1-eth1': '10.2.0.1/24',
+            'r1-eth2': '10.3.0.1/24'
+        },
+        'r2': {
+            'r2-eth0': '10.1.1.1/24',
+            'r2-eth1': '10.2.1.1/24'
+        },
+        'cl': {
+            'cl-eth0': '10.1.0.2/24',
+            'cl-eth1': '10.1.1.2/24',
+            'default': 'via 10.1.0.1 dev cl-eth0'
+        },
+        'vpn': {
+            'vpn-eth0': '10.2.0.2/24',
+            'vpn-eth1': '10.2.1.2/24',
+            'default': 'via 10.2.0.1 dev vpn-eth0'
+        },
+        'web': {
+            'web-eth0': '10.3.0.2/24',
+            'default': 'via 10.3.0.1 dev web-eth0'
+        }
+    }
+
+    for h in config:
+        for intf, ip in sorted(config[h].items(), key=lambda x: x[0] == 'default'):
+            if intf != 'default':
+                print net[h].cmd('ip addr flush dev {}'.format(intf))
+                print net[h].cmd('ip addr add {} dev {}'.format(ip, intf))
+            else:
+                print net[h].cmd('ip route add default {}'.format(ip))
 
 
 def setup_client_tun(nodes, id, *static_routes):
@@ -75,8 +113,9 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
 
 
 def run():
-    net = Mininet(topo=MyTopo())
+    net = Mininet(MyTopo(), link=TCLink, host=CPULimitedHost)
     net.start()
+    setup_ips(net)
 
     setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
     setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
