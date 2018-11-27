@@ -673,8 +673,6 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_STREAMHEAD_MAX_DATA_REMOTE 0x04
 /** The maximum offset sent on the stream */
 #define AK_STREAMHEAD_SENT_OFFSET 0x05
-/** The stream flags */
-#define AK_STREAMHEAD_STREAM_FLAGS 0x06
 /** The offset at which new app data will be queued for sending */
 #define AK_STREAMHEAD_SENDING_OFFSET 0x07
 
