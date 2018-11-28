@@ -120,13 +120,16 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
         print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
 
 
-def setup_net(net, quic=True, gdb=False, tcpdump=False):
+def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     setup_ips(net)
+
+    if not ip_tun:
+        return
 
     setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
     setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
 
-    if not quic:
+    if not quic_tun:
         return
 
     if tcpdump:
@@ -137,7 +140,7 @@ def setup_net(net, quic=True, gdb=False, tcpdump=False):
     if gdb:
         net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
     else:
-        net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+        net['vpn'].cmd('xterm -e ./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
     sleep(1)
 
     if tcpdump:
@@ -148,16 +151,16 @@ def setup_net(net, quic=True, gdb=False, tcpdump=False):
     if gdb:
         net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
     else:
-        net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+        net['cl'].cmd('xterm -e ./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
 
 
 def run():
-    net = Mininet(KiteTopo(), link=TCLink, host=CPULimitedHost)
+    net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=5, delay_ms_b=5, loss_a=0.1, loss_b=0.1), link=TCLink, host=CPULimitedHost)
     net.start()
-    setup_net(net, gdb=True, tcpdump=True)
+    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
 
     CLI(net)
     net.stop()
