@@ -13,7 +13,7 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
         ssize_t ret = write(m->socket_fds[PLUGIN_SOCKET], frame->datagram_data_ptr, frame->length);
         PROTOOP_PRINTF(cnx, "Wrote %d bytes to the message socket\n", ret);
         picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
-        return (protoop_arg_t) (ret > 0);
+        return (protoop_arg_t) ret > 0 ? 0 : ret;
     }
     return 0;
 }
