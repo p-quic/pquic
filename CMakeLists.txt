@@ -158,6 +158,17 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${CMAKE_DL_LIBS}
 )
 
+ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
+                            picoquicfirst/getopt.c )
+TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
+    ${PTLS_CORE}
+    ${PTLS_OPENSSL}
+    ${PTLS_MINICRYPTO}
+    ${OPENSSL_LIBRARIES}
+    ${UBPF}
+    ${CMAKE_DL_LIBS}
+)
+
 ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
  ${PICOQUIC_TEST_LIBRARY_FILES} )
 TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
