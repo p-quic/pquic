@@ -160,7 +160,9 @@ static uint32_t helper_predict_packet_header_length(picoquic_cnx_t *cnx, picoqui
 
 static int helper_is_stream_frame_unlimited(const uint8_t* bytes)
 {
-    return PICOQUIC_BITS_CLEAR_IN_RANGE(bytes[0], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max, 0x02);
+    uint8_t first_byte;
+    my_memcpy(&first_byte, &bytes[0], 1);
+    return PICOQUIC_BITS_CLEAR_IN_RANGE(first_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max, 0x02);
 }
 
 static void helper_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free)
