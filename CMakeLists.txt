@@ -68,6 +68,7 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/tls_api_test.c
     picoquictest/transport_param_test.c
     picoquictest/datagram.c
+    picoquictest/microbench.c
 )
 
 SET(PLUGINS_DATAGRAM
