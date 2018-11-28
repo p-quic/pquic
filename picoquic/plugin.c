@@ -543,6 +543,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pid);
         cnx->current_plugin = popst->replace->p;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
+        if (error_msg) {
+            fprintf(stderr, "Error when running %s: %s\n", pp->pid, error_msg);
+        }
     } else if (popst->core) {
         cnx->current_plugin = NULL;
         status = popst->core(cnx);
