@@ -606,12 +606,16 @@ int picoquic_select(SOCKET_TYPE* sockets,
         }
     }
 
+select_retry:
     ret_select = select(sockmax + 1, &readfds, NULL, NULL, &tv);
 
     if (ret_select < 0) {
         bytes_recv = -1;
         if (bytes_recv <= 0) {
-            DBG_PRINTF("Error: select returns %d\n", ret_select);
+            DBG_PRINTF("Error: select returns %d, error: %s\n", ret_select, strerror(errno));
+            if (errno == EINTR) {
+                goto select_retry;
+            }
         }
     } else if (ret_select > 0) {
         for (int i = 0; i < nb_sockets; i++) {
