@@ -582,7 +582,7 @@ do {                                                                            
 #ifdef HASH_FUNCTION
 #define HASH_FCN HASH_FUNCTION
 #else
-#define HASH_FCN HASH_JEN
+#define HASH_FCN HASH_FNV //HASH_JEN
 #endif
 
 /* The Bernstein hash function, used in Perl prior to v5.6. Note (x<<5+x)=x*33. */
