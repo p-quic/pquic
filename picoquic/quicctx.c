@@ -1057,7 +1057,7 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        protoop_prepare_and_run_noparam(cnx, "connection_state_changed", NULL,
+        protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
     }
 }
@@ -1696,21 +1696,21 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, "received_packet", NULL,
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RECEIVED_PACKET, NULL,
         socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, "before_sending_packet", NULL,
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL,
         socket);
 }
 
 void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, "received_segment", NULL, ph, path, length);
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
 }
 
 void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, "before_sending_segment", NULL, ph, path, length);
+    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, length);
 }
 
 bool is_private(in_addr_t t) {
@@ -1940,10 +1940,10 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_TAIL_LOSS_PROBE, &protoop_noop);
 
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
-    register_noparam_protoop(cnx, "received_packet", &protoop_noop);
-    register_noparam_protoop(cnx, "before_sending_packet", &protoop_noop);
-    register_noparam_protoop(cnx, "received_segment", &protoop_noop);
-    register_noparam_protoop(cnx, "before_sending_segment", &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RECEIVED_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RECEIVED_SEGMENT, &protoop_noop);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
 
     /** \todo document these */
 

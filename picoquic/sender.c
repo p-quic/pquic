@@ -2720,7 +2720,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t ** path, 
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, "prepare_packet_ready", outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_READY, outs,
         *path, packet, current_time, send_buffer, send_buffer_max, *send_length);
     *send_length = (size_t) outs[0];
     *path = (picoquic_path_t*) outs[1];
@@ -2882,7 +2882,7 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, &set_next_wake_time);
 
     /** \todo Refactor API */
-    register_noparam_protoop(cnx, "prepare_packet_ready", &prepare_packet_ready);
+    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_READY, &prepare_packet_ready);
 
     register_noparam_protoop(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
 
