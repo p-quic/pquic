@@ -821,7 +821,8 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_path_t* send_path = p->send_path;
     int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
-    protoop_id_t reason = NULL;
+    /* TODO FIXMEFIXME */
+    protoop_id_t reason = 0;
 
     if (delta_seq > 3) {
         /*
@@ -910,7 +911,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     uint32_t length = 0;
     bool stop = false;
-    protoop_id_t reason = NULL;
+    /* TODO FIXMEFIXME */
+    protoop_id_t reason = 0;
 
     for (int i = 0; i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
@@ -1665,10 +1667,11 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
-    protoop_id_t retransmit_reason = NULL;
+    /* TODO FIXMEFIXME */
+    protoop_id_t retransmit_reason = 0;
     length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max,
         &is_cleartext_mode, &header_length, &retransmit_reason);
-    if (length > 0 && retransmit_reason != NULL) {
+    if (length > 0 && retransmit_reason != 0 /* TODO FIXME NULL */) {
         protoop_prepare_and_run_noparam(cnx, retransmit_reason, NULL, packet);
     }
 
@@ -1799,11 +1802,12 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
 
         tls_ready = picoquic_is_tls_stream_ready(cnx);
 
-        protoop_id_t reason = NULL;
+        /* TODO FIXME */
+        protoop_id_t reason = 0;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             /* Check whether it makes sens to add an ACK at the end of the retransmission */
-            if (reason != NULL) {
+            if (reason != 0 /* TODO FIXME NULL*/) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             if (epoch != 1) {
@@ -1959,7 +1963,8 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
-    protoop_id_t reason = NULL;  // The potential reason for retransmitting a packet
+    /* TODO FIXME */
+    protoop_id_t reason = 0;  // The potential reason for retransmitting a packet
     /* This packet MUST be sent on initial path */
     *path = cnx->path[0];
     picoquic_path_t* path_x = *path;
@@ -2064,7 +2069,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
 
         }
         else  if ((length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
-            if (reason != NULL) {
+            if (reason != 0 /* TODO FIXME NULL */) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             /* Set the new checksum length */
@@ -2463,7 +2468,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         protoop_id_t reason;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
-            if (reason != NULL) {
+            if (reason != 0 /* TODO FIXME NULL */) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             /* Set the new checksum length */

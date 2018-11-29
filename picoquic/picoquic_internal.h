@@ -462,7 +462,8 @@ typedef struct {
 protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op);
 
 typedef struct {
-    char name[PROTOOPNAME_MAX]; /* Key */
+    protoop_id_t pid; /* Key */
+    char name[PROTOOPNAME_MAX];
     bool is_parametrable;
     /* This pointer is special. Depending on the value of is_parametrable, it is
      * either directly the protocol_operation_param_struct_t, or an hash map containing

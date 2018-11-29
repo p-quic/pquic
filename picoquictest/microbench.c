@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "getset.h"
 #include "util.h"
+#include "protoop.h"
 
 uint64_t simple_for_loop(picoquic_cnx_t *mem) {
     uint64_t sum = 0;
@@ -36,12 +37,13 @@ uint64_t get_set_api_cnx_fields_loop(picoquic_cnx_t *cnx) {
 
 void register_microbench_protoops(picoquic_cnx_t *cnx)
 {
-    register_noparam_protoop(cnx, "simple_for_loop", &simple_for_loop);
-    register_noparam_protoop(cnx, "get_set_cnx_fields_loop", &get_set_cnx_fields_loop);
+    register_noparam_protoop(cnx, hash_value_str("simple_for_loop"), &simple_for_loop);
+    register_noparam_protoop(cnx, hash_value_str("get_set_cnx_fields_loop"), &get_set_cnx_fields_loop);
 }
 
 int microbench_plugin_run_test() {
     int ret = 0;
+    protoop_id_t pid;
     picoquic_cnx_t cnx = { 0 };
     register_protocol_operations(&cnx);
     register_microbench_protoops(&cnx);
@@ -107,7 +109,8 @@ int microbench_plugin_run_test() {
 
     /* Ok, this is ugly but if here we want to test only eBPF execution, we don't have the choice... */
     protocol_operation_struct_t *post;
-    HASH_FIND_STR(cnx.ops, "simple_for_loop", post);
+    pid = hash_value_str("simple_for_loop");
+    HASH_FIND_INT(cnx.ops, &pid, post);
     if (!post) {
         printf("FATAL ERROR: no protocol operation with id %s\n", "simple_for_loop");
         return 1;
@@ -133,7 +136,8 @@ int microbench_plugin_run_test() {
     fprintf(stderr, "JIT sl: %lu us, sum is %lu\n", sl_jit, sum);
 
     /* Second execution */
-    HASH_FIND_STR(cnx.ops, "get_set_cnx_fields_loop", post);
+    pid = hash_value_str("get_set_cnx_fields_loop");
+    HASH_FIND_INT(cnx.ops, &pid, post);
     if (!post) {
         printf("FATAL ERROR: no protocol operation with id %s\n", "get_set_cnx_fields_loop");
         return 1;
@@ -162,7 +166,8 @@ int microbench_plugin_run_test() {
     fprintf(stderr, "JIT gs: %lu us, sum is %lu\n", gs_jit, sum);
     
     /* Interpreted */
-    HASH_FIND_STR(cnx.ops, "simple_for_loop", post);
+    pid = hash_value_str("simple_for_loop");
+    HASH_FIND_INT(cnx.ops,&pid, post);
     if (!post) {
         printf("FATAL ERROR: no protocol operation with id %s\n", "simple_for_loop");
         return 1;
@@ -187,7 +192,8 @@ int microbench_plugin_run_test() {
     fprintf(stderr, "Interpreted sl: %lu us, sum is %lu\n", sl_int, sum);
 
     /* Second execution */
-    HASH_FIND_STR(cnx.ops, "get_set_cnx_fields_loop", post);
+    pid = hash_value_str("get_set_cnx_fields_loop");
+    HASH_FIND_INT(cnx.ops, &pid, post);
     if (!post) {
         printf("FATAL ERROR: no protocol operation with id %s\n", "get_set_cnx_fields_loop");
         return 1;

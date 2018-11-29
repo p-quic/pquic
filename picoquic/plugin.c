@@ -68,7 +68,7 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
     return 0;
 }
 
-int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_id_t pid, pluglet_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_str_id_t pid, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst = post->params;
     /* Sanity check */
     if (post->is_parametrable) {
@@ -79,7 +79,7 @@ int plugin_plug_elf_noparam(protocol_operation_struct_t *post, protoop_plugin_t 
     return plugin_plug_elf_param_struct(popst, p, pte, elf_fname);
 }
 
-int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
+int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_param_struct_t *popst;
     bool created_popst = false;
     /* Sanity check */
@@ -117,9 +117,11 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p
     return 0;
 }
 
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid_str, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
-    HASH_FIND_STR(cnx->ops, pid, post);
+    /* TODO rework me */
+    protoop_id_t pid = hash_value_str(pid_str);
+    HASH_FIND_INT(cnx->ops, &pid, post);
 
     /* Two cases: either it exists, or not */
     if (!post) {
@@ -130,19 +132,19 @@ int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_id_t pid, 
             err = register_noparam_protoop(cnx, pid, NULL);
         }
         if (err) {
-            printf("Failed to allocate resources for pid %s\n", pid);
+            printf("Failed to allocate resources for pid %s\n", pid_str);
             return 1;
         }
         /* This is not optimal, but this should not be frequent */
-        HASH_FIND_STR(cnx->ops, pid, post);
+        HASH_FIND_INT(cnx->ops, &pid, post);
     }
 
     /* Again, two cases: either it is parametric or not */
-    return param != NO_PARAM ? plugin_plug_elf_param(post, p, pid, param, pte, elf_fname) :
-        plugin_plug_elf_noparam(post, p, pid, pte, elf_fname);
+    return param != NO_PARAM ? plugin_plug_elf_param(post, p, pid_str, param, pte, elf_fname) :
+        plugin_plug_elf_noparam(post, p, pid_str, pte, elf_fname);
 }
 
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, pluglet_type_enum pte) {
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte) {
     protocol_operation_struct_t *post;
     HASH_FIND_STR(cnx->ops, pid, post);
 
@@ -234,7 +236,7 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, plugl
 }
 
 bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_plugin_t *p,
-    char *plugin_dirname, protoop_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
+    char *plugin_dirname, protoop_str_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
 {
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
@@ -385,7 +387,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (len <= 1) {
             continue;
         }
-        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_id_t ) inserted_pid, &param, &pte);
+        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_str_id_t ) inserted_pid, &param, &pte);
         if (ok) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
@@ -462,7 +464,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
 
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
     if (pp->inputc > PROTOOPARGS_MAX) {
-        printf("Too many arguments for protocol operation with id %s : %d > %d\n",
+        printf("Too many arguments for protocol operation with hash %d : %d > %d\n",
             pp->pid, pp->inputc, PROTOOPARGS_MAX);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
@@ -499,9 +501,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     protocol_operation_struct_t *post;
-    HASH_FIND_STR(cnx->ops, pp->pid, post);
+    HASH_FIND_INT(cnx->ops, &pp->pid, post);
     if (!post) {
-        printf("FATAL ERROR: no protocol operation with id %s\n", pp->pid);
+        /* TODO we should store the asked str_pid somewhere... */
+        printf("FATAL ERROR: no protocol operation with hash id %d\n", pp->pid);
         exit(-1);
     }
 
@@ -512,7 +515,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
             param_id_t default_behaviour = NO_PARAM;
             HASH_FIND(hh, post->params, &default_behaviour, sizeof(param_id_t), popst);
             if (!popst) {
-                printf("FATAL ERROR: no protocol operation with id %s and param %u, no default behaviour!\n", pp->pid, pp->param);
+                printf("FATAL ERROR: no protocol operation with id %d and param %u, no default behaviour!\n", pp->pid, pp->param);
                 exit(-1);
             }
         }
@@ -522,9 +525,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     if (pp->caller_is_intern != popst->intern) {
         if (pp->caller_is_intern) {
-            printf("FATAL ERROR: Intern caller cannot call extern protocol operation with id %s and param %u\n", pp->pid, pp->param);
+            printf("FATAL ERROR: Intern caller cannot call extern protocol operation with id %d and param %u\n", pp->pid, pp->param);
         } else {
-            printf("FATAL ERROR: Extern caller cannot call intern protocol operation with id %s and param %u\n", pp->pid, pp->param);
+            printf("FATAL ERROR: Extern caller cannot call intern protocol operation with id %d and param %u\n", pp->pid, pp->param);
         }
         exit(-1);
     }
@@ -540,17 +543,19 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     /* The actual protocol operation */
     if (popst->replace) {
-        DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pid);
+        DBG_PLUGIN_PRINTF("Running pluglet at proto op id %d", pid);
         cnx->current_plugin = popst->replace->p;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         if (error_msg) {
-            fprintf(stderr, "Error when running %s: %s\n", pp->pid, error_msg);
+            /* TODO fixme str_pid */
+            fprintf(stderr, "Error when running %d: %s\n", pp->pid, error_msg);
         }
     } else if (popst->core) {
         cnx->current_plugin = NULL;
         status = popst->core(cnx);
     } else {
-        printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid);
+        /* TODO fixme str_pid */
+        printf("FATAL ERROR: no replace nor core operation for protocol operation with hash id %d\n", pp->pid);
         exit(-1);
     }
 
@@ -583,7 +588,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         }
 #endif
     } else if (outputc > 0) {
-        printf("WARNING: no output value provided for protocol operation with id %s and param %u that returns %d additional outputs\n", pp->pid, pp->param, outputc);
+        printf("WARNING: no output value provided for protocol operation with id %d and param %u that returns %d additional outputs\n", pp->pid, pp->param, outputc);
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
 

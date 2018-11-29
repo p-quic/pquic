@@ -1815,25 +1815,27 @@ int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_ope
 {
     /* This is a safety check */
     protocol_operation_struct_t *post;
-    HASH_FIND_STR(cnx->ops, pid, post);
+    HASH_FIND_INT(cnx->ops, &pid, post);
     if (post) {
-        printf("ERROR: trying to register twice the non-parametrable protocol operation %s\n", pid);
+        printf("ERROR: trying to register twice the non-parametrable protocol operation %d\n", pid);
         return 1;
     }
     
     post = malloc(sizeof(protocol_operation_struct_t));
     if (!post) {
-        printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %s\n", pid);
+        printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %d\n", pid);
         return 1;
     }
-    strncpy(post->name, pid, strlen(pid) + 1);
+    /* TODO FIXME */
+    post->pid = pid;
+    //strncpy(post->name, pid, strlen(pid) + 1);
     post->is_parametrable = false;
     post->params = create_protocol_operation_param(NO_PARAM, op);
     if (!post->params) {
         free(post);
         return 1;
     }
-    HASH_ADD_STR(cnx->ops, name, post);
+    HASH_ADD_INT(cnx->ops, pid, post);
     return 0;
 }
 
@@ -1844,29 +1846,31 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
      */
     protocol_operation_struct_t *post;
     protocol_operation_param_struct_t *popst;
-    HASH_FIND_STR(cnx->ops, pid, post);
+    HASH_FIND_INT(cnx->ops, &pid, post);
     if (post) {
         /* Two sanity checks:
          * 1- Is it really a parametrable protocol operation?
          * 2- Is there no previously registered protocol operation for that parameter?
          */
         if (!post->is_parametrable) {
-            printf("ERROR: trying to insert parameter in non-parametrable protocol operation %s\n", pid);
+            printf("ERROR: trying to insert parameter in non-parametrable protocol operation %d\n", pid);
             return 1;
         }
         HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
         if (popst) {
-            printf("ERROR: trying to register twice the parametrable protocol operation %s with param %u\n", pid, param);
+            printf("ERROR: trying to register twice the parametrable protocol operation %d with param %u\n", pid, param);
             return 1;
         }
     } else {
         /* Create it */
         post = malloc(sizeof(protocol_operation_struct_t));
         if (!post) {
-            printf("ERROR: failed to allocate memory to register parametrable protocol operation %s with param %u\n", pid, param);
+            printf("ERROR: failed to allocate memory to register parametrable protocol operation %d with param %u\n", pid, param);
             return 1;
         }
-        strncpy(post->name, pid, strlen(pid) + 1);
+        /* TODO FIXME */
+        post->pid = pid;
+        // strncpy(post->name, pid, strlen(pid) + 1);
         post->is_parametrable = true;
         /* Ensure the value is NULL */
         post->params = NULL;
@@ -1884,7 +1888,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
 
     /* Insert the post if it is new */
     if (!post->params) {
-        HASH_ADD_STR(cnx->ops, name, post);
+        HASH_ADD_INT(cnx->ops, pid, post);
     }
     /* Insert the param struct */
     HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);

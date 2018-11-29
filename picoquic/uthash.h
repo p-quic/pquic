@@ -476,6 +476,13 @@ do {                                                                            
   HASH_FSCK(hh, head, "HASH_DELETE_HH");                                         \
 } while (0)
 
+/* QDC: this compute the hash value for a string */
+#define HASH_VALUE_STR(findstr,out)                                              \
+do {                                                                             \
+    unsigned _uthash_hfstr_keylen = (unsigned)uthash_strlen(findstr);            \
+    HASH_VALUE(findstr, _uthash_hfstr_keylen, out);                              \
+} while (0)
+
 /* convenience forms of HASH_FIND/HASH_ADD/HASH_DEL */
 #define HASH_FIND_STR(head,findstr,out)                                          \
 do {                                                                             \
