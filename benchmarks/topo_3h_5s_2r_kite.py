@@ -7,6 +7,7 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.topo import Topo
 
+from mininet.clean import cleanup as net_cleanup
 
 class LinuxRouter(Node):
     "A Node with IP forwarding enabled."
@@ -140,7 +141,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     if gdb:
         net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
     else:
-        net['vpn'].cmd('xterm -e ./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+        net['vpn'].cmd('xterm -e "./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log" &')
     sleep(1)
 
     if tcpdump:
@@ -151,19 +152,36 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     if gdb:
         net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
     else:
-        net['cl'].cmd('xterm -e ./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+        net['cl'].cmd('xterm -e "./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log" &')
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
 
 
+def teardown_net(net):
+    net['vpn'].cmd('pkill tcpdump')
+    net['vpn'].cmd('pkill picoquicpvn')
+    net['vpn'].cmd('pkill gdb')
+    net['vpn'].cmd('pkill xterm')
+
+    net['cl'].cmd('pkill tcpdump')
+    net['cl'].cmd('pkill picoquicpvn')
+    net['cl'].cmd('pkill gdb')
+    net['cl'].cmd('pkill xterm')
+
+    net['web'].cmd('pkill python3')
+
+
 def run():
+    net_cleanup()
     net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=5, delay_ms_b=5, loss_a=0.1, loss_b=0.1), link=TCLink, host=CPULimitedHost)
     net.start()
     setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
 
     CLI(net)
+    teardown_net(net)
     net.stop()
+    net_cleanup()
 
 
 if __name__ == '__main__':
