@@ -120,23 +120,26 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid_str, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
     /* TODO rework me */
-    protoop_id_t pid = hash_value_str(pid_str);
-    HASH_FIND_INT(cnx->ops, &pid, post);
+    protoop_id_t pid;
+    strncpy((char *) &pid.id, pid_str, PROTOOPNAME_MAX);
+    /* And compute its hash */
+    pid.hash = hash_value_str(pid.id);
+    HASH_FIND_PID(cnx->ops, &(pid.hash), post);
 
     /* Two cases: either it exists, or not */
     if (!post) {
         int err;
         if (param != NO_PARAM) {
-            err = register_param_protoop(cnx, pid, param, NULL);
+            err = register_param_protoop(cnx, &pid, param, NULL);
         } else {
-            err = register_noparam_protoop(cnx, pid, NULL);
+            err = register_noparam_protoop(cnx, &pid, NULL);
         }
         if (err) {
             printf("Failed to allocate resources for pid %s\n", pid_str);
             return 1;
         }
         /* This is not optimal, but this should not be frequent */
-        HASH_FIND_INT(cnx->ops, &pid, post);
+        HASH_FIND_PID(cnx->ops, &(pid.hash), post);
     }
 
     /* Again, two cases: either it is parametric or not */
@@ -464,8 +467,8 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
 
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
     if (pp->inputc > PROTOOPARGS_MAX) {
-        printf("Too many arguments for protocol operation with hash %d : %d > %d\n",
-            pp->pid, pp->inputc, PROTOOPARGS_MAX);
+        printf("Too many arguments for protocol operation with id %s : %d > %d\n",
+            pp->pid->id, pp->inputc, PROTOOPARGS_MAX);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
 
@@ -479,10 +482,10 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     protoop_plugin_t *old_plugin = cnx->current_plugin;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
-    uint64_t *caller_inputv[PROTOOPARGS_MAX];
-    uint64_t *caller_outputv[PROTOOPARGS_MAX];
-    memcpy(caller_inputv, cnx->protoop_inputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
-    memcpy(caller_outputv, cnx->protoop_outputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
+    uint64_t caller_inputv[caller_inputc];
+    uint64_t caller_outputv[caller_outputc];
+    memcpy(caller_inputv, cnx->protoop_inputv, sizeof(uint64_t) * caller_inputc);
+    memcpy(caller_outputv, cnx->protoop_outputv, sizeof(uint64_t) * caller_outputc);
     memcpy(cnx->protoop_inputv, pp->inputv, sizeof(uint64_t) * pp->inputc);
     cnx->protoop_inputc = pp->inputc;
 
@@ -493,7 +496,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 #endif
 
     /* Also set protoop_outputv to 0, to prevent callee to see caller state */
-    memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
+    /* No more needed with the API */
+    // memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
     DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
@@ -501,10 +505,12 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     protocol_operation_struct_t *post;
-    HASH_FIND_INT(cnx->ops, &pp->pid, post);
+    HASH_FIND_PID(cnx->ops, &(pp->pid->hash), post);
     if (!post) {
-        /* TODO we should store the asked str_pid somewhere... */
-        printf("FATAL ERROR: no protocol operation with hash id %d\n", pp->pid);
+        /* TODO CONTINUE FIXME FIXME */
+        printf("FATAL ERROR: no protocol operation with id %s\n", pp->pid->id);
+        int *a = NULL;
+        *a = 42;
         exit(-1);
     }
 
@@ -515,7 +521,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
             param_id_t default_behaviour = NO_PARAM;
             HASH_FIND(hh, post->params, &default_behaviour, sizeof(param_id_t), popst);
             if (!popst) {
-                printf("FATAL ERROR: no protocol operation with id %d and param %u, no default behaviour!\n", pp->pid, pp->param);
+                printf("FATAL ERROR: no protocol operation with id %s and param %u, no default behaviour!\n", pp->pid->id, pp->param);
                 exit(-1);
             }
         }
@@ -525,9 +531,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
 
     if (pp->caller_is_intern != popst->intern) {
         if (pp->caller_is_intern) {
-            printf("FATAL ERROR: Intern caller cannot call extern protocol operation with id %d and param %u\n", pp->pid, pp->param);
+            printf("FATAL ERROR: Intern caller cannot call extern protocol operation with id %s and param %u\n", pp->pid->id, pp->param);
         } else {
-            printf("FATAL ERROR: Extern caller cannot call intern protocol operation with id %d and param %u\n", pp->pid, pp->param);
+            printf("FATAL ERROR: Extern caller cannot call intern protocol operation with id %s and param %u\n", pp->pid->id, pp->param);
         }
         exit(-1);
     }
@@ -548,14 +554,14 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         if (error_msg) {
             /* TODO fixme str_pid */
-            fprintf(stderr, "Error when running %d: %s\n", pp->pid, error_msg);
+            fprintf(stderr, "Error when running %s: %s\n", pp->pid->id, error_msg);
         }
     } else if (popst->core) {
         cnx->current_plugin = NULL;
         status = popst->core(cnx);
     } else {
         /* TODO fixme str_pid */
-        printf("FATAL ERROR: no replace nor core operation for protocol operation with hash id %d\n", pp->pid);
+        printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid->id);
         exit(-1);
     }
 
@@ -588,13 +594,13 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         }
 #endif
     } else if (outputc > 0) {
-        printf("WARNING: no output value provided for protocol operation with id %d and param %u that returns %d additional outputs\n", pp->pid, pp->param, outputc);
+        printf("WARNING: no output value provided for protocol operation with id %s and param %u that returns %d additional outputs\n", pp->pid->id, pp->param, outputc);
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
 
     /* ... and restore ALL the previous inputs and outputs */
-    memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
-    memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * PROTOOPARGS_MAX);
+    memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * caller_inputc);
+    memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * caller_outputc);
     cnx->protoop_inputc = caller_inputc;
 
     /* Also reset outputc to zero; if this protoop was called by another one that does not have any output,

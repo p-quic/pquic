@@ -461,7 +461,7 @@ picoquic_path_t* picoquic_get_incoming_path(
     picoquic_cnx_t* cnx,
     picoquic_packet_header* ph)
 {
-    return (picoquic_path_t*) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL,
+    return (picoquic_path_t*) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL,
         ph);
 }
 
@@ -1219,7 +1219,7 @@ int picoquic_incoming_encrypted(
     struct sockaddr* addr_from,
     uint64_t current_time)
 {
-    return (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_INCOMING_ENCRYPTED, NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_INCOMING_ENCRYPTED, NULL,
         bytes, ph, addr_from, current_time);
 }
 
@@ -1281,7 +1281,7 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
-            picoquic_received_segment(cnx, &ph, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph), *consumed);
+            picoquic_received_segment(cnx, &ph, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph), *consumed);
 
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
@@ -1440,6 +1440,6 @@ int picoquic_incoming_packet(
 
 void packet_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_INCOMING_ENCRYPTED, &incoming_encrypted);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_GET_INCOMING_PATH, &get_incoming_path);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_INCOMING_ENCRYPTED, &incoming_encrypted);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, &get_incoming_path);
 }

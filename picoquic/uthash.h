@@ -511,6 +511,18 @@ do {                                                                            
     HASH_ADD(hh,head,ptrfield,sizeof(void *),add)
 #define HASH_REPLACE_PTR(head,ptrfield,add,replaced)                             \
     HASH_REPLACE(hh,head,ptrfield,sizeof(void *),add,replaced)
+#define HASH_ADD_PID(head,hashfield,add)                                         \
+do {                                                                             \
+  unsigned _ha_hashv;                                                            \
+  _ha_hashv = (add->hashfield);                                                  \
+  HASH_ADD_KEYPTR_BYHASHVALUE(hh, head, &((add)->hashfield), sizeof(uint64_t), _ha_hashv, add);      \
+} while (0)
+#define HASH_FIND_PID(head,findhash,out)                                        \
+do {                                                                             \
+  unsigned _hf_hashv;                                                            \
+  _hf_hashv = *(findhash);                                                  \
+  HASH_FIND_BYHASHVALUE(hh, head, findhash, sizeof(uint64_t), _hf_hashv, out);               \
+} while (0)
 #define HASH_DEL(head,delptr)                                                    \
     HASH_DELETE(hh,head,delptr)
 
@@ -625,6 +637,11 @@ do {                                                                            
     hashv = hashv ^ _hf_key[_fn_i];                                              \
     hashv = hashv * 16777619U;                                                   \
   }                                                                              \
+} while (0)
+/* If we already have hashes, do this instead! */
+#define HASH_ITS(key,keylen,hashv)                                               \
+do {                                                                             \
+  (hashv) = (unsigned) (key);                                                               \
 } while (0)
 
 #define HASH_OAT(key,keylen,hashv)                                               \

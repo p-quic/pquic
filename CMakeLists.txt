@@ -35,6 +35,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/picosocks.c
     picoquic/picosplay.c
     picoquic/plugin.c
+    picoquic/protoop.c
     picoquic/queue.c
     picoquic/quicctx.c
     picoquic/sacks.c

@@ -247,7 +247,7 @@ picoquic_connection_id_t *picoquic_get_destination_connection_id(
     picoquic_cnx_t* cnx, picoquic_packet_type_enum packet_type,
     picoquic_path_t* path_x)
 {
-    return (picoquic_connection_id_t*) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID, NULL,
+    return (picoquic_connection_id_t*) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID, NULL,
         packet_type, path_x);
 }
 
@@ -404,7 +404,7 @@ uint32_t picoquic_predict_packet_header_length(
     picoquic_packet_type_enum packet_type,
     picoquic_path_t* path_x)
 {
-    return (uint32_t) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, NULL,
+    return (uint32_t) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, NULL,
         packet_type, path_x);
 }
 
@@ -430,7 +430,7 @@ protoop_arg_t get_checksum_length(picoquic_cnx_t *cnx)
  */
 uint32_t picoquic_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
-    return (uint32_t) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, NULL,
+    return (uint32_t) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, NULL,
         is_cleartext_mode);
 }
 
@@ -553,7 +553,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
         while (ret == 0 && byte_index < packet->length && !packet->is_congestion_controlled) {
             uint8_t frame_type = packet->bytes[byte_index];
             if (!packet->is_congestion_controlled &&
-                protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, frame_type, 0, NULL)) {
+                protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, frame_type, 0, NULL)) {
                 packet->is_congestion_controlled = 1;
             }
             ret = picoquic_skip_frame(cnx, &packet->bytes[byte_index], packet->length - byte_index, &frame_length,
@@ -629,7 +629,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         free(p);
     }
     else {
-        protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
 
         p->next_packet = NULL;
 
@@ -651,7 +651,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
 
 void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free)
 {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, NULL,
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, NULL,
         p, should_free);
 }
 
@@ -695,7 +695,7 @@ protoop_arg_t dequeue_retransmitted_packet(picoquic_cnx_t *cnx)
 
 void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p)
 {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET, NULL,
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET, NULL,
         p);
 }
 
@@ -804,7 +804,7 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     args[7] = (protoop_arg_t) send_buffer_max;
     args[8] = (protoop_arg_t) path_x;
     args[9] = (protoop_arg_t) current_time;
-    protoop_params_t pp = { .pid = PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, .inputc = 10, .inputv = args, .outputv = NULL, .caller_is_intern = true };
+    protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, .inputc = 10, .inputv = args, .outputv = NULL, .caller_is_intern = true };
     *send_length  = (size_t) plugin_run_protoop(cnx, &pp);
 }
 
@@ -821,8 +821,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_path_t* send_path = p->send_path;
     int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
-    /* TODO FIXMEFIXME */
-    protoop_id_t reason = 0;
+    protoop_id_t* reason = NULL;
 
     if (delta_seq > 3) {
         /*
@@ -830,7 +829,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
          * more than N packets were seen at the receiver after this one.
          */
         should_retransmit = 1;
-        reason = PROTOOP_NOPARAM_FAST_RETRANSMIT;
+        reason = &PROTOOP_NOPARAM_FAST_RETRANSMIT;
     } else {
         int64_t delta_t = send_path->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
 
@@ -864,7 +863,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             } else {
                 should_retransmit = 1;
                 timer_based = 1;
-                reason = PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
+                reason = &PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
             }
         }
     }
@@ -884,14 +883,14 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
  */
 
 static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
-    picoquic_packet_t* p, uint64_t current_time, int* timer_based, protoop_id_t *reason)
+    picoquic_packet_t* p, uint64_t current_time, int* timer_based, protoop_id_t **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int should_retransmit = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, outs,
+    int should_retransmit = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, outs,
         p, current_time, *timer_based);
     *timer_based = (int) outs[0];
     if (reason != NULL) {
-        *reason = (protoop_id_t) outs[1];
+        *reason = (protoop_id_t *) outs[1];
     }
     return should_retransmit;
 }
@@ -911,8 +910,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     uint32_t length = 0;
     bool stop = false;
-    /* TODO FIXMEFIXME */
-    protoop_id_t reason = 0;
+    protoop_id_t* reason = NULL;
 
     for (int i = 0; i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
@@ -1129,15 +1127,15 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc,
     picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t *reason)
+    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED, outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED, outs,
         pc, path_x, current_time, packet, send_buffer_max, *is_cleartext_mode, *header_length);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
     if (reason != NULL) {
-        *reason = (protoop_id_t) outs[2];
+        *reason = (protoop_id_t *) outs[2];
     }
     return ret;
 }
@@ -1258,7 +1256,7 @@ uint32_t picoquic_prepare_mtu_probe(picoquic_cnx_t* cnx,
     uint32_t header_length, uint32_t checksum_length,
     uint8_t* bytes)
 {
-    return (uint32_t) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PREPARE_MTU_PROBE, NULL,
+    return (uint32_t) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_MTU_PROBE, NULL,
         path_x, header_length, checksum_length, bytes);   
 }
 
@@ -1537,7 +1535,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 /* TODO: tie with per path scheduling */
 void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
 {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, NULL,
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, NULL,
         current_time);
 }
 
@@ -1667,11 +1665,10 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
-    /* TODO FIXMEFIXME */
-    protoop_id_t retransmit_reason = 0;
+    protoop_id_t * retransmit_reason = NULL;
     length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max,
         &is_cleartext_mode, &header_length, &retransmit_reason);
-    if (length > 0 && retransmit_reason != 0 /* TODO FIXME NULL */) {
+    if (length > 0 && retransmit_reason != NULL) {
         protoop_prepare_and_run_noparam(cnx, retransmit_reason, NULL, packet);
     }
 
@@ -1715,7 +1712,7 @@ uint32_t picoquic_prepare_packet_old_context(picoquic_cnx_t* cnx, picoquic_packe
     picoquic_path_t * path_x, picoquic_packet_t* packet, size_t send_buffer_max, uint64_t current_time, uint32_t * header_length)
 {
     protoop_arg_t outs[1];
-    uint32_t length = (uint32_t) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, outs,
+    uint32_t length = (uint32_t) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, outs,
         pc, path_x, packet, send_buffer_max, current_time, *header_length);
     *header_length = (uint32_t) outs[0];
     return length;
@@ -1803,11 +1800,11 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         tls_ready = picoquic_is_tls_stream_ready(cnx);
 
         /* TODO FIXME */
-        protoop_id_t reason = 0;
+        protoop_id_t * reason = NULL;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             /* Check whether it makes sens to add an ACK at the end of the retransmission */
-            if (reason != 0 /* TODO FIXME NULL*/) {
+            if (reason != NULL) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             if (epoch != 1) {
@@ -1964,7 +1961,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
     /* TODO FIXME */
-    protoop_id_t reason = 0;  // The potential reason for retransmitting a packet
+    protoop_id_t * reason = NULL;  // The potential reason for retransmitting a packet
     /* This packet MUST be sent on initial path */
     *path = cnx->path[0];
     picoquic_path_t* path_x = *path;
@@ -2069,7 +2066,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
 
         }
         else  if ((length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
-            if (reason != 0 /* TODO FIXME NULL */) {
+            if (reason != NULL) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             /* Set the new checksum length */
@@ -2335,7 +2332,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 
 picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
 {
-    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
+    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
 }
 
 protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
@@ -2465,10 +2462,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         stream = picoquic_find_ready_stream(cnx);
         packet->pc = pc;
 
-        protoop_id_t reason;
+        protoop_id_t * reason = NULL;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
-            if (reason != 0 /* TODO FIXME NULL */) {
+            if (reason != NULL) {
                 protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
             }
             /* Set the new checksum length */
@@ -2544,7 +2541,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
                         rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
-                        ret = (int) protoop_prepare_and_run_param(cnx, PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                        ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
                         /* TODO FIXME consumed */
@@ -2720,7 +2717,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t ** path, 
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_READY, outs,
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_READY, outs,
         *path, packet, current_time, send_buffer, send_buffer_max, *send_length);
     *send_length = (size_t) outs[0];
     *path = (picoquic_path_t*) outs[1];
@@ -2877,23 +2874,23 @@ int picoquic_close(picoquic_cnx_t* cnx, uint16_t reason_code)
 
 void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID, &get_destination_connection_id);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID, &get_destination_connection_id);
 
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, &set_next_wake_time);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, &set_next_wake_time);
 
     /** \todo Refactor API */
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_READY, &prepare_packet_ready);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_READY, &prepare_packet_ready);
 
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
 
 
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED, &retransmit_needed);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, &retransmit_needed_by_packet);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, &predict_packet_header_length);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, &get_checksum_length);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, &dequeue_retransmit_packet);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET, &dequeue_retransmitted_packet);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, &prepare_packet_old_context);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PREPARE_MTU_PROBE, &prepare_mtu_probe);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, &finalize_and_protect_packet);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED, &retransmit_needed);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, &retransmit_needed_by_packet);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, &predict_packet_header_length);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, &get_checksum_length);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, &dequeue_retransmit_packet);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET, &dequeue_retransmitted_packet);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, &prepare_packet_old_context);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MTU_PROBE, &prepare_mtu_probe);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, &finalize_and_protect_packet);
 }

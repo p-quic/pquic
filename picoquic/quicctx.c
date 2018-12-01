@@ -1057,7 +1057,7 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
     }
 }
@@ -1355,7 +1355,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
 int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
 {
-    return (int) protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, NULL,
+    return (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, NULL,
         local_error, frame_type);
 }
 
@@ -1696,21 +1696,21 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RECEIVED_PACKET, NULL,
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL,
         socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL,
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL,
         socket);
 }
 
 void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
 }
 
 void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, length);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, length);
 }
 
 bool is_private(in_addr_t t) {
@@ -1811,66 +1811,72 @@ protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t pa
     return popst;
 }
 
-int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_operation op)
 {
     /* This is a safety check */
     protocol_operation_struct_t *post;
-    HASH_FIND_INT(cnx->ops, &pid, post);
+    /* First check if the hash has been computed or not */
+    if (pid->hash == 0) {
+        /* And compute it if needed */
+        pid->hash = hash_value_str(pid->id);
+    }
+    HASH_FIND_PID(cnx->ops, &(pid->hash), post);
     if (post) {
-        printf("ERROR: trying to register twice the non-parametrable protocol operation %d\n", pid);
+        printf("ERROR: trying to register twice the non-parametrable protocol operation %s\n", pid->id);
         return 1;
     }
     
     post = malloc(sizeof(protocol_operation_struct_t));
     if (!post) {
-        printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %d\n", pid);
+        printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %s\n", pid->id);
         return 1;
     }
-    /* TODO FIXME */
-    post->pid = pid;
-    //strncpy(post->name, pid, strlen(pid) + 1);
+    memcpy(&post->pid, pid, sizeof(protoop_id_t));
     post->is_parametrable = false;
     post->params = create_protocol_operation_param(NO_PARAM, op);
     if (!post->params) {
         free(post);
         return 1;
     }
-    HASH_ADD_INT(cnx->ops, pid, post);
+    HASH_ADD_PID(cnx->ops, pid.hash, post);
     return 0;
 }
 
-int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t param, protocol_operation op)
+int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t param, protocol_operation op)
 {
     /* Two possible options: either the protocol operation had a previously registered
      * value for another parameter, or it is the first one
      */
     protocol_operation_struct_t *post;
     protocol_operation_param_struct_t *popst;
-    HASH_FIND_INT(cnx->ops, &pid, post);
+    /* First check if the hash has been computed or not */
+    if (pid->hash == 0) {
+        /* And compute it if needed */
+        pid->hash = hash_value_str(pid->id);
+    }
+    HASH_FIND_PID(cnx->ops, &(pid->hash), post);
     if (post) {
         /* Two sanity checks:
          * 1- Is it really a parametrable protocol operation?
          * 2- Is there no previously registered protocol operation for that parameter?
          */
         if (!post->is_parametrable) {
-            printf("ERROR: trying to insert parameter in non-parametrable protocol operation %d\n", pid);
+            printf("ERROR: trying to insert parameter in non-parametrable protocol operation %s\n", pid->id);
             return 1;
         }
         HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
         if (popst) {
-            printf("ERROR: trying to register twice the parametrable protocol operation %d with param %u\n", pid, param);
+            printf("ERROR: trying to register twice the parametrable protocol operation %s with param %u\n", pid->id, param);
             return 1;
         }
     } else {
         /* Create it */
         post = malloc(sizeof(protocol_operation_struct_t));
         if (!post) {
-            printf("ERROR: failed to allocate memory to register parametrable protocol operation %d with param %u\n", pid, param);
+            printf("ERROR: failed to allocate memory to register parametrable protocol operation %s with param %u\n", pid->id, param);
             return 1;
         }
-        /* TODO FIXME */
-        post->pid = pid;
-        // strncpy(post->name, pid, strlen(pid) + 1);
+        memcpy(&post->pid, pid, sizeof(protoop_id_t));
         post->is_parametrable = true;
         /* Ensure the value is NULL */
         post->params = NULL;
@@ -1888,14 +1894,14 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t par
 
     /* Insert the post if it is new */
     if (!post->params) {
-        HASH_ADD_INT(cnx->ops, pid, post);
+        HASH_ADD_PID(cnx->ops, pid.hash, post);
     }
     /* Insert the param struct */
     HASH_ADD(hh, post->params, param, sizeof(param_id_t), popst);
     return 0;
 }
 
-int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op)
+int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_operation op)
 {
     return register_param_protoop(cnx, pid, NO_PARAM, op);
 }
@@ -1927,25 +1933,25 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
-    register_noparam_protoop(cnx,PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PRINTF, &protoop_printf);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PRINTF, &protoop_printf);
 
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_TAIL_LOSS_PROBE, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_TAIL_LOSS_PROBE, &protoop_noop);
 
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RECEIVED_PACKET, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_RECEIVED_SEGMENT, &protoop_noop);
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
 
     /** \todo document these */
 
-    register_noparam_protoop(cnx, PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
 }

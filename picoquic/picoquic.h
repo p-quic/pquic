@@ -264,7 +264,7 @@ typedef uint16_t param_id_t;
 typedef uint16_t opaque_id_t;
 
 typedef struct {
-    protoop_id_t pid;
+    protoop_id_t *pid;
     param_id_t param;
     bool caller_is_intern;
     int inputc;
