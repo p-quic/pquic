@@ -507,10 +507,7 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     protocol_operation_struct_t *post;
     HASH_FIND_PID(cnx->ops, &(pp->pid->hash), post);
     if (!post) {
-        /* TODO CONTINUE FIXME FIXME */
         printf("FATAL ERROR: no protocol operation with id %s\n", pp->pid->id);
-        int *a = NULL;
-        *a = 42;
         exit(-1);
     }
 
