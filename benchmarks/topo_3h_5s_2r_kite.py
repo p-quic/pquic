@@ -24,6 +24,7 @@ class LinuxRouter(Node):
 
 class KiteTopo(Topo):
     def build(self, **opts):
+        generic_opts = {'delay': '1ms'}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
 
@@ -35,14 +36,14 @@ class KiteTopo(Topo):
             self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts['loss_b'], max_queue_size=mqs)
         else:
             self.addLink(self.s1, self.r1)
-        self.addLink(self.s2, self.r1)
-        self.addLink(self.s3, self.r1)
+        self.addLink(self.s2, self.r1, **generic_opts)
+        self.addLink(self.s3, self.r1, **generic_opts)
         if 'bw_a' in opts and 'loss_a' in opts and 'delay_ms_a' in opts:
             mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_a'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
             self.addLink(self.s4, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts['loss_a'], max_queue_size=mqs)
         else:
             self.addLink(self.s4, self.r2)
-        self.addLink(self.s5, self.r2)
+        self.addLink(self.s5, self.r2, **generic_opts)
 
         self.cl = self.addHost('cl')
         self.vpn = self.addHost('vpn')
@@ -98,6 +99,7 @@ def setup_client_tun(nodes, id, *static_routes):
     node.cmd('modprobe tun')
     node.cmd('ip tuntap add mode tun dev tun0')
     node.cmd('ip addr add {} dev tun0'.format(tun_addr))
+    node.cmd('ip link set dev tun1 mtu 1400')
     node.cmd('ip link set dev tun0 up')
 
     node.cmd('ip route del default')
@@ -113,6 +115,7 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
     node.cmd('modprobe tun')
     node.cmd('ip tuntap add mode tun dev tun1')
     node.cmd('ip addr add {} dev tun1'.format(tun_addr))
+    node.cmd('ip link set dev tun1 mtu 1400')
     node.cmd('ip link set dev tun1 up')
 
     node.cmd('sysctl net.ipv4.ip_forward=1')
