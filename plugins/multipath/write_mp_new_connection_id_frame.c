@@ -81,7 +81,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* If we previously received a connection ID for the path ID, it is now ready */
         if (new_path_index) {
             p->state = 0;
-        } else {
+        } else if (p->state == 0) {
             mp_path_ready(cnx, p, picoquic_current_time());
         }
     }
