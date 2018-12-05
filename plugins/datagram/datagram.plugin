@@ -10,3 +10,4 @@ process_frame param 0x1d replace process_datagram_frame.o
 connection_state_changed post cnx_state_changed.o
 send_message extern send_datagram.o
 get_message_socket extern get_datagram_socket.o
+get_max_message_size extern get_max_datagram_size.o

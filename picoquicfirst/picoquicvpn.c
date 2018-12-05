@@ -168,6 +168,20 @@ int tun_open(char *devname) {
     return fd;
 }
 
+void handle_tun_read(picoquic_cnx_t *cnx, int tun, const uint8_t *buffer, int bytes_recv) {
+    printf("Received %d bytes on the tun interface\n", bytes_recv);
+    uint32_t max_message_size = (uint32_t) protoop_prepare_and_run_extern_noparam(cnx, "get_max_message_size", NULL, NULL);
+    if (bytes_recv > max_message_size) {
+        fprintf(stdout, "%d-byte long message received is bigger than max payload size %d, dropping it\n", bytes_recv, max_message_size);
+        return;
+    }
+    protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx, "send_message", NULL, buffer, bytes_recv);
+    if (pret != 0) {
+        fprintf(stdout, "Unable to send message\n");
+        exit(-1);
+    }
+}
+
 #define PICOQUIC_FIRST_COMMAND_MAX 128
 #define PICOQUIC_FIRST_RESPONSE_MAX (1 << 20)
 #define PICOQUIC_DEMO_MAX_PLUGIN_FILES 64
@@ -465,13 +479,7 @@ int quic_server(const char* server_name, int server_port,
                         picoquic_log_transport_extension(stdout, cnx_server, 1);
                     }
                 } else if (cnx_server != NULL && cnx_server->cnx_state >= picoquic_state_server_almost_ready) {
-                    printf("We received %d bytes on the tun interface\n", bytes_recv);
-                    debug_dump(buffer, bytes_recv);
-                    protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx_server, "send_message", NULL, buffer, bytes_recv);
-                    if (pret != 0) {
-                        fprintf(stdout, "Unable to send message\n");
-                        exit(-1);
-                    }
+                    handle_tun_read(cnx_server, tun_fd, buffer, bytes_recv);
                 }
             }
             if (ret == 0) {
@@ -899,16 +907,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         picoquic_log_error_packet(F_log, buffer, (size_t) bytes_recv, ret);
                     }
                 } else {
-                    printf("We received %d bytes on the tun interface\n", bytes_recv);
-                    debug_dump(buffer, bytes_recv);
-                    //char *plug_buf = my_malloc(cnx_client, bytes_recv);
-                    //memcpy(plug_buf, buffer, bytes_recv);
-                    protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx_client, "send_message", NULL, buffer, bytes_recv);
-                    //my_free(cnx_client, plug_buf);
-                    if (pret != 0) {
-                        fprintf(stdout, "Unable to send message\n");
-                        exit(-1);
-                    }
+                    handle_tun_read(cnx_client, tun_fd, buffer, bytes_recv);
                 }
 
                 delta_t = 0;

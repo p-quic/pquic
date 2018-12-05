@@ -1,3 +1,4 @@
+#include <picoquic_internal.h>
 #include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
@@ -8,6 +9,12 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 {
     char *payload = (char *) get_cnx(cnx, CNX_AK_INPUT, 0);
     size_t len = (size_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+
+    uint32_t max_path_mtu = get_max_datagram_size(cnx);
+    if (len > max_path_mtu) {
+        PROTOOP_PRINTF(cnx, "Unable to send %d-byte long message, max known payload transmission unit is %d bytes\n", len, max_path_mtu);
+        return 1;
+    }
 
     reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
     if (slot == NULL) {

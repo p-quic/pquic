@@ -51,3 +51,16 @@ static __attribute__((always_inline)) datagram_memory_t *get_datagram_memory(pic
     }
     return *bpfd_ptr;
 }
+
+static __attribute__((always_inline)) uint32_t get_max_datagram_size(picoquic_cnx_t *cnx) {
+    uint32_t max_message_size = 0;
+    int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
+    for (int i = 0; i < nb_paths; i++) {
+        picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
+        uint32_t payload_mtu = (uint32_t) get_path(path, PATH_AK_SEND_MTU, 0) - 1 - (uint8_t) get_cnxid((picoquic_connection_id_t *)get_path(path, PATH_AK_REMOTE_CID, 0), CNXID_AK_LEN) - 4;  // Let's be conservative on the PN space used
+        if (payload_mtu > max_message_size) {
+            max_message_size = payload_mtu;
+        }
+    }
+    return max_message_size - 1 - 2;
+}
