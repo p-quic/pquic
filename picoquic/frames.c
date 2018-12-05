@@ -1039,7 +1039,7 @@ protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
 {
     protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_FIND_READY_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
-    return (picoquic_stream_head *) plugin_run_protoop(cnx, &pp);
+    return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
 }
 
 /**
@@ -1216,7 +1216,7 @@ protoop_arg_t is_tls_stream_ready(picoquic_cnx_t *cnx)
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx)
 {
     protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_IS_TLS_STREAM_READY, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
-    return (int) plugin_run_protoop(cnx, &pp);
+    return (int) plugin_run_protoop_internal(cnx, &pp);
 }
 
 /**

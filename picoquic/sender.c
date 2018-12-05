@@ -805,7 +805,7 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     args[8] = (protoop_arg_t) path_x;
     args[9] = (protoop_arg_t) current_time;
     protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, .inputc = 10, .inputv = args, .outputv = NULL, .caller_is_intern = true };
-    *send_length  = (size_t) plugin_run_protoop(cnx, &pp);
+    *send_length  = (size_t) plugin_run_protoop_internal(cnx, &pp);
 }
 
 /**
@@ -821,7 +821,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     picoquic_path_t* send_path = p->send_path;
     int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
-    protoop_id_t* reason = NULL;
+    char* reason = NULL;
 
     if (delta_seq > 3) {
         /*
@@ -829,7 +829,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
          * more than N packets were seen at the receiver after this one.
          */
         should_retransmit = 1;
-        reason = &PROTOOP_NOPARAM_FAST_RETRANSMIT;
+        reason = PROTOOPID_NOPARAM_FAST_RETRANSMIT;
     } else {
         int64_t delta_t = send_path->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
 
@@ -863,7 +863,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             } else {
                 should_retransmit = 1;
                 timer_based = 1;
-                reason = &PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
+                reason = PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT;
             }
         }
     }
@@ -883,14 +883,14 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
  */
 
 static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
-    picoquic_packet_t* p, uint64_t current_time, int* timer_based, protoop_id_t **reason)
+    picoquic_packet_t* p, uint64_t current_time, int* timer_based, char **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int should_retransmit = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, outs,
         p, current_time, *timer_based);
     *timer_based = (int) outs[0];
     if (reason != NULL) {
-        *reason = (protoop_id_t *) outs[1];
+        *reason = (char *) outs[1];
     }
     return should_retransmit;
 }
@@ -910,7 +910,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     uint32_t length = 0;
     bool stop = false;
-    protoop_id_t* reason = NULL;
+    char* reason = NULL;
 
     for (int i = 0; i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
@@ -1127,7 +1127,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc,
     picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t **reason)
+    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, char **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED, outs,
@@ -1135,7 +1135,7 @@ int picoquic_retransmit_needed(picoquic_cnx_t* cnx,
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
     if (reason != NULL) {
-        *reason = (protoop_id_t *) outs[2];
+        *reason = (char *) outs[2];
     }
     return ret;
 }
@@ -1665,11 +1665,13 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
-    protoop_id_t * retransmit_reason = NULL;
+    char * retransmit_reason = NULL;
     length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max,
         &is_cleartext_mode, &header_length, &retransmit_reason);
     if (length > 0 && retransmit_reason != NULL) {
-        protoop_prepare_and_run_noparam(cnx, retransmit_reason, NULL, packet);
+        protoop_id_t pid = { .id = retransmit_reason };
+        pid.hash = hash_value_str(pid.id);
+        protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
     }
 
     if (length == 0 && path_x->pkt_ctx[pc].ack_needed != 0 &&
@@ -1799,13 +1801,14 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
 
         tls_ready = picoquic_is_tls_stream_ready(cnx);
 
-        /* TODO FIXME */
-        protoop_id_t * reason = NULL;
+        char * reason = NULL;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             /* Check whether it makes sens to add an ACK at the end of the retransmission */
             if (reason != NULL) {
-                protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
+                protoop_id_t pid = { .id = reason };
+                pid.hash = hash_value_str(pid.id);
+                protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
             }
             if (epoch != 1) {
                 if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -1960,8 +1963,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
-    /* TODO FIXME */
-    protoop_id_t * reason = NULL;  // The potential reason for retransmitting a packet
+    char * reason = NULL;  // The potential reason for retransmitting a packet
     /* This packet MUST be sent on initial path */
     *path = cnx->path[0];
     picoquic_path_t* path_x = *path;
@@ -2067,7 +2069,9 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         }
         else  if ((length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             if (reason != NULL) {
-                protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
+                protoop_id_t pid = { .id = reason };
+                pid.hash = hash_value_str(pid.id);
+                protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
             }
             /* Set the new checksum length */
             checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
@@ -2462,11 +2466,13 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         stream = picoquic_find_ready_stream(cnx);
         packet->pc = pc;
 
-        protoop_id_t * reason = NULL;
+        char * reason = NULL;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
             if (reason != NULL) {
-                protoop_prepare_and_run_noparam(cnx, reason, NULL, packet);
+                protoop_id_t pid = { .id = reason };
+                pid.hash = hash_value_str(pid.id);
+                protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
             }
             /* Set the new checksum length */
             checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
@@ -2541,6 +2547,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
                         rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
+                        /* If it has not been computed before, compute it now */
+                        if (PROTOOP_PARAM_WRITE_FRAME.hash == 0) {
+                            PROTOOP_PARAM_WRITE_FRAME.hash = hash_value_str(PROTOOP_PARAM_WRITE_FRAME.id);
+                        }
                         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];

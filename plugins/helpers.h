@@ -40,34 +40,31 @@
 #define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
 #define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
 
-static inline protoop_params_t get_pp_noparam(protoop_id_t pid, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;
-    pp.pid = pid;
     pp.param = NO_PARAM;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return pp;
+    return plugin_run_protoop(cnx, &pp, pid_str);
 }
 
-static inline protoop_params_t get_pp_param(protoop_id_t pid, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;
-    pp.pid = pid;
     pp.param = param;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return pp;
+    return plugin_run_protoop(cnx, &pp, pid_str);
 }
 
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) is_cleartext_mode;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH, 1, args, NULL);
-    return (uint32_t) plugin_run_protoop(cnx, &pp);
+    return (uint32_t) run_noparam(cnx, PROTOOPID_NOPARAM_GET_CHECKSUM_LENGTH, 1, args, NULL);
 }
 
 static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_arg_t *fmt_args, size_t args_len)
@@ -76,21 +73,19 @@ static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_
     args[0] = (protoop_arg_t) fmt;
     args[1] = (protoop_arg_t) fmt_args;
     args[2] = (protoop_arg_t) args_len;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PRINTF, 3, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_PRINTF, 3, args, NULL);
 }
 
-static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, protoop_id_t *reason)
+static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) current_time;
     args[2] = (protoop_arg_t) *timer_based_retransmit;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
     *timer_based_retransmit = (int) outs[0];
     if (reason != NULL) {
-        *reason = (protoop_id_t) outs[1];
+        *reason = (char *) outs[1];
     }
     return ret;
 }
@@ -106,8 +101,7 @@ static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_pat
     args[3] = (protoop_arg_t) nb_bytes_acknowledged;
     args[4] = (protoop_arg_t) lost_packet_number;
     args[5] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, 6, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, 6, args, NULL);
 }
 
 static void helper_callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes,
@@ -118,8 +112,7 @@ static void helper_callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, ui
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) length;
     args[3] = (protoop_arg_t) fin_or_event;
-    protoop_params_t pp = get_pp_noparam("callback_function", 4, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_CALLBACK_FUNCTION, 4, args, NULL);
 }
 
 static int helper_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed, int* pure_ack)
@@ -129,8 +122,7 @@ static int helper_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_m
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
     args[3] = (protoop_arg_t) *pure_ack;
-    protoop_params_t pp = get_pp_noparam("skip_frame", 4, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_SKIP_FRAME, 4, args, outs);
     *consumed = (size_t) outs[0];
     *pure_ack = (int) outs[1];
     return ret;
@@ -143,8 +135,7 @@ static int helper_check_stream_frame_already_acked(picoquic_cnx_t* cnx, uint8_t*
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *no_need_to_repeat;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, 3, args, outs);
     *no_need_to_repeat = (int) outs[0];
     return ret;
 }
@@ -154,8 +145,7 @@ static uint32_t helper_predict_packet_header_length(picoquic_cnx_t *cnx, picoqui
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) packet_type;
     args[1] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, 2, args, NULL);
-    return (uint32_t) plugin_run_protoop(cnx, &pp);
+    return (uint32_t) run_noparam(cnx, PROTOOPID_NOPARAM_PREDICT_PACKET_HEADER_LENGTH, 2, args, NULL);
 }
 
 static int helper_is_stream_frame_unlimited(const uint8_t* bytes)
@@ -170,8 +160,7 @@ static void helper_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packe
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) should_free;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, 2, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_DEQUEUE_RETRANSMIT_PACKET, 2, args, NULL);
 }
 
 /* Decide whether MAX data need to be sent or not */
@@ -205,8 +194,7 @@ static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cn
 
 static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
 {
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
-    return (picoquic_stream_head *) plugin_run_protoop(cnx, &pp);
+    return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
 static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc,
@@ -216,14 +204,12 @@ static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, pico
     args[0] = (protoop_arg_t) current_time;
     args[1] = (protoop_arg_t) pc;
     args[2] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_IS_ACK_NEEDED, 3, args, NULL);
-    return (int) plugin_run_protoop(cnx, &pp);
+    return (int) run_noparam(cnx, PROTOOPID_NOPARAM_IS_ACK_NEEDED, 3, args, NULL);
 }
 
 static int helper_is_tls_stream_ready(picoquic_cnx_t *cnx)
 {
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_IS_TLS_STREAM_READY, 0, NULL, NULL);
-    return (int) plugin_run_protoop(cnx, &pp);
+    return (int) run_noparam(cnx, PROTOOPID_NOPARAM_IS_TLS_STREAM_READY, 0, NULL, NULL);
 }
 
 static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_packet_context_enum pc,
@@ -238,8 +224,7 @@ static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_
     args[3] = (protoop_arg_t) send_buffer_max;
     args[4] = (protoop_arg_t) current_time;
     args[5] = (protoop_arg_t) *header_length;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, 6, args, outs);
-    uint32_t length = (uint32_t) plugin_run_protoop(cnx, &pp);
+    uint32_t length = (uint32_t) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, 6, args, outs);
     *header_length = (uint32_t) outs[0];
     return length;
 }
@@ -247,7 +232,7 @@ static uint32_t helper_prepare_packet_old_context(picoquic_cnx_t *cnx, picoquic_
 static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc,
     picoquic_path_t * path_x, uint64_t current_time,
-    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, protoop_id_t *reason)
+    picoquic_packet_t* packet, size_t send_buffer_max, int* is_cleartext_mode, uint32_t* header_length, char **reason)
 {
     protoop_arg_t outs[2];
     protoop_arg_t args[7];
@@ -258,11 +243,12 @@ static int helper_retransmit_needed(picoquic_cnx_t* cnx,
     args[4] = (protoop_arg_t) send_buffer_max;
     args[5] = (protoop_arg_t) *is_cleartext_mode;
     args[6] = (protoop_arg_t) *header_length;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_RETRANSMIT_NEEDED, 7, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_RETRANSMIT_NEEDED, 7, args, outs);
     *is_cleartext_mode = (int) outs[0];
     *header_length = (uint32_t) outs[1];
-    *reason = (protoop_id_t) outs[2];
+    if (reason) {
+        *reason = (char *) outs[2];
+    }
     return ret;
 }
 
@@ -276,8 +262,7 @@ static uint32_t helper_prepare_mtu_probe(picoquic_cnx_t* cnx,
     args[1] = (protoop_arg_t) header_length;
     args[2] = (protoop_arg_t) checksum_length;
     args[3] = (protoop_arg_t) bytes;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PREPARE_MTU_PROBE, 4, args, NULL);
-    return (uint32_t) plugin_run_protoop(cnx, &pp);
+    return (uint32_t) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_MTU_PROBE, 4, args, NULL);
 }
 
 static int helper_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* bytes,
@@ -289,8 +274,7 @@ static int helper_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* byt
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
     args[3] = (protoop_arg_t) path;
-    protoop_params_t pp = get_pp_noparam("prepare_path_challenge_frame", 4, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, 4, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -306,8 +290,7 @@ static int helper_prepare_ack_frame(picoquic_cnx_t* cnx, uint64_t current_time,
     args[2] = (protoop_arg_t) bytes;
     args[3] = (protoop_arg_t) bytes_max;
     args[4] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_ack_frame", 5, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_ACK_FRAME, 5, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -321,8 +304,7 @@ static int helper_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) bytes_max;
     args[3] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_crypto_hs_frame", 4, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_CRYPTO_HS_FRAME, 4, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -335,8 +317,7 @@ static int helper_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_first_misc_frame", 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_FIRST_MISC_FRAME, 3, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -350,8 +331,7 @@ static int helper_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_i
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) bytes_max;
     args[3] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_max_data_frame", 4, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_MAX_DATA_FRAME, 4, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -364,8 +344,7 @@ static int helper_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_required_max_stream_data_frames", 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, 3, args, outs);
     *consumed = (size_t)outs[0];
     return ret;
 }
@@ -379,8 +358,7 @@ static int helper_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) bytes_max;
     args[3] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_stream_frame", 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_STREAM_FRAME, 3, args, outs);
     *consumed = (protoop_arg_t) outs[0];
     return ret;
 }
@@ -401,8 +379,7 @@ static void helper_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_pac
     args[7] = (protoop_arg_t) send_buffer_max;
     args[8] = (protoop_arg_t) path_x;
     args[9] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, 10, args, NULL);
-    *send_length = (size_t) plugin_run_protoop(cnx, &pp);
+    *send_length = (size_t) run_noparam(cnx, PROTOOPID_NOPARAM_FINALIZE_AND_PROTECT_PACKET, 10, args, NULL);
 }
 
 /* TODO: tie with per path scheduling */
@@ -410,8 +387,7 @@ static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, 1, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME, 1, args, NULL);
 }
 
 static picoquic_packet_context_enum helper_context_from_epoch(int epoch)
@@ -431,8 +407,7 @@ static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, ui
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) local_error;
     args[1] = (protoop_arg_t) frame_type;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CONNECTION_ERROR, 2, args, NULL);
-    return (int) plugin_run_protoop(cnx, &pp);
+    return (int) run_noparam(cnx, PROTOOPID_NOPARAM_CONNECTION_ERROR, 2, args, NULL);
 }
 
 static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
@@ -441,8 +416,7 @@ static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, 
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_DECODE_STREAM_FRAME, 3, args, NULL);
-    return (uint8_t *) plugin_run_protoop(cnx, &pp);
+    return (uint8_t *) run_noparam(cnx, PROTOOPID_NOPARAM_DECODE_STREAM_FRAME, 3, args, NULL);
 }
 
 #define VARINT_LEN(bytes) (1U << (((bytes)[0] & 0xC0) >> 6))
@@ -470,8 +444,7 @@ static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint8_t frame_type, uint
     protoop_arg_t args[2], outs[3];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
-    protoop_params_t pp = get_pp_param(PROTOOP_PARAM_PARSE_FRAME, frame_type, 2, args, outs);
-    uint8_t *ret_bytes = (uint8_t *) plugin_run_protoop(cnx, &pp);
+    uint8_t *ret_bytes = (uint8_t *) run_param(cnx, PROTOOPID_PARAM_PARSE_FRAME, frame_type, 2, args, outs);
     *frame = (void *) outs[0];
     *ack_needed = (int) outs[1];
     *is_retransmittable = (int) outs[2];
@@ -539,8 +512,7 @@ static picoquic_packet_t* helper_update_rtt(picoquic_cnx_t* cnx, uint64_t larges
     args[2] = (protoop_arg_t) ack_delay;
     args[3] = (protoop_arg_t) pc;
     args[4] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_UPDATE_RTT, 5, args, NULL);
-    return (picoquic_packet_t *) plugin_run_protoop(cnx, &pp);
+    return (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 5, args, NULL);
 }
 
 static int helper_process_ack_range(
@@ -553,8 +525,7 @@ static int helper_process_ack_range(
     args[2] = (protoop_arg_t) range;
     args[3] = (protoop_arg_t) *ppacket;
     args[4] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_RANGE, 5, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_RANGE, 5, args, outs);
     *ppacket = (picoquic_packet_t*) outs[0];
     return ret;
 }
@@ -569,16 +540,14 @@ static void helper_check_spurious_retransmission(picoquic_cnx_t* cnx,
     args[2] = (protoop_arg_t) current_time;
     args[3] = (protoop_arg_t) pc;
     args[4] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, 5, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, 5, args, NULL);
 }
 
 static void helper_process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_t* p)
 {
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) p;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, 1, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, 1, args, NULL);
 }
 
 static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
@@ -588,8 +557,7 @@ static int helper_process_ack_of_stream_frame(picoquic_cnx_t* cnx, uint8_t* byte
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME, 3, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -663,12 +631,11 @@ static int helper_parse_stream_header(const uint8_t* bytes, size_t bytes_max, pr
     return ret;
 }
 
-static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, protoop_id_t reason, picoquic_packet_t *p)
+static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, char* reason, picoquic_packet_t *p)
 {
     protoop_arg_t args[1], outs[0];
     args[0] = (protoop_arg_t) p;
-    protoop_params_t pp = get_pp_noparam(reason, 1, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, reason, 1, args, outs);
     return ret;
 }
 
@@ -679,8 +646,7 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     args[0] = (protoop_arg_t) first_sack;
     args[1] = (protoop_arg_t) start_range;
     args[2] = (protoop_arg_t) end_range;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
-    plugin_run_protoop(cnx, &pp);
+    run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
 }
 
 #endif

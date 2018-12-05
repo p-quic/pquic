@@ -119,9 +119,8 @@ int plugin_plug_elf_param(protocol_operation_struct_t *post, protoop_plugin_t *p
 
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid_str, param_id_t param, pluglet_type_enum pte, char *elf_fname) {
     protocol_operation_struct_t *post;
-    /* TODO rework me */
     protoop_id_t pid;
-    strncpy((char *) &pid.id, pid_str, PROTOOPNAME_MAX);
+    pid.id = pid_str;
     /* And compute its hash */
     pid.hash = hash_value_str(pid.id);
     HASH_FIND_PID(cnx->ops, &(pid.hash), post);
@@ -465,7 +464,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
     return ometas[oid].start_ptr;
 }
 
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
+protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
     if (pp->inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id %s : %d > %d\n",
             pp->pid->id, pp->inputc, PROTOOPARGS_MAX);
@@ -507,7 +506,9 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     protocol_operation_struct_t *post;
     HASH_FIND_PID(cnx->ops, &(pp->pid->hash), post);
     if (!post) {
-        printf("FATAL ERROR: no protocol operation with id %s\n", pp->pid->id);
+        printf("FATAL ERROR: no protocol operation with id %s and hash %lu\n", pp->pid->id, pp->pid->hash);
+        int *a = NULL;
+        *a = 42;
         exit(-1);
     }
 
@@ -552,6 +553,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
         if (error_msg) {
             /* TODO fixme str_pid */
             fprintf(stderr, "Error when running %s: %s\n", pp->pid->id, error_msg);
+            int *a = NULL;
+            *a = 42;
         }
     } else if (popst->core) {
         cnx->current_plugin = NULL;
@@ -609,4 +612,13 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp
     cnx->current_plugin = old_plugin;
 
     return status;
+}
+
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str)
+{
+    protoop_id_t pid;
+    pid.id = pid_str;
+    pid.hash = hash_value_str(pid.id);
+    pp->pid = &pid;
+    return plugin_run_protoop_internal(cnx, pp);
 }

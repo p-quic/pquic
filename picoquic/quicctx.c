@@ -1518,6 +1518,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                 free(current_popst);
             }
 
+            free(current_post->pid.id);
             free(current_post);
         }
 
@@ -1831,13 +1832,23 @@ int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_op
         printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %s\n", pid->id);
         return 1;
     }
-    memcpy(&post->pid, pid, sizeof(protoop_id_t));
+    size_t p_strlen = (strlen(pid->id) + 1);
+    post->pid.id = malloc(sizeof(char) * p_strlen);
+    if (!post->pid.id) {
+        free(post);
+        printf("ERROR: failed to allocate memory to register name of %s\n", pid->id);
+        return 1;
+    }
+    strncpy(post->pid.id, pid->id, p_strlen);
     post->is_parametrable = false;
     post->params = create_protocol_operation_param(NO_PARAM, op);
     if (!post->params) {
+        free(post->pid.id);
         free(post);
         return 1;
     }
+    /* Don't forget to copy the hash of the pid */
+    post->pid.hash = pid->hash;
     HASH_ADD_PID(cnx->ops, pid.hash, post);
     return 0;
 }
@@ -1876,7 +1887,14 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t pa
             printf("ERROR: failed to allocate memory to register parametrable protocol operation %s with param %u\n", pid->id, param);
             return 1;
         }
-        memcpy(&post->pid, pid, sizeof(protoop_id_t));
+        size_t p_strlen = (strlen(pid->id) + 1);
+        post->pid.id = malloc(sizeof(char) * p_strlen);
+        if (!post->pid.id) {
+            free(post);
+            printf("ERROR: failed to allocate memory to register name of %s with param %u\n", pid->id, param);
+            return 1;
+        }
+        strncpy(post->pid.id, pid->id, p_strlen);
         post->is_parametrable = true;
         /* Ensure the value is NULL */
         post->params = NULL;
@@ -1887,6 +1905,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t pa
     if (!popst) {
         /* If the post is new, remove it */
         if (!post->params) {
+            free(post->pid.id);
             free(post);
         }
         return 1;
@@ -1894,6 +1913,8 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t pa
 
     /* Insert the post if it is new */
     if (!post->params) {
+        /* Don't forget to copy the hash of the pid */
+        post->pid.hash = pid->hash;
         HASH_ADD_PID(cnx->ops, pid.hash, post);
     }
     /* Insert the param struct */

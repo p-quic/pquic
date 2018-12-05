@@ -18,7 +18,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
     uint32_t length = 0;
     bool stop = false;
-    protoop_id_t reason = NULL;
+    char *reason = NULL;
 
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
 

@@ -60,7 +60,9 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
  * outputv can be set to NULL if no output is required.
  * One output is always guaranteed: the return value of this call.
  */
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp);
+protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp);
+
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

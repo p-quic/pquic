@@ -21,7 +21,7 @@
 #include "endianness.h"
 #include "getset.h"
 
-#define JIT true  /* putting to false show out of memory access */
+#define JIT true /* putting to false show out of memory access */
 
 static void
 register_functions(struct ubpf_vm *vm)

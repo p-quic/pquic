@@ -29,8 +29,8 @@
 /* Typedef for plugins */
 typedef char* protoop_str_id_t;
 typedef struct protoop_id {
-    char id[100];
     uint64_t hash;
+    char* id;
 } protoop_id_t;
 
 static inline uint64_t hash_value_str(char *str_pid)
@@ -59,6 +59,7 @@ static inline uint64_t hash_value_str(char *str_pid)
  * \param[out] ack_needed \b int Indicates if the parsed frame requires replying with an ACK frame
  * \param[out] is_retransmittable \b int Indicates if the parsed frame should be retransmitted if the packet carrying it is lost
  */
+#define PROTOOPID_PARAM_PARSE_FRAME "parse_frame"
 extern protoop_id_t PROTOOP_PARAM_PARSE_FRAME;
 
 /**
@@ -70,6 +71,7 @@ extern protoop_id_t PROTOOP_PARAM_PARSE_FRAME;
  * 
  * \return \b int Error code, 0 iff everything is fine.
  */
+#define PROTOOPID_PARAM_PROCESS_FRAME "process_frame"
 extern protoop_id_t PROTOOP_PARAM_PROCESS_FRAME;
 
 /**
@@ -77,6 +79,7 @@ extern protoop_id_t PROTOOP_PARAM_PROCESS_FRAME;
  *
  * \return \b bool 0 iff not congestion controlled
  */
+#define PROTOOPID_PARAM_IS_FRAME_CONGESTION_CONTROLLED "is_frame_congestion_controlled"
 extern protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED;
 
 /**
@@ -88,6 +91,7 @@ extern protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED;
  * \return \b int Error code, 0 iff everything was fine
  * \param[out] consumed \b int The number of bytes written in \p bytes
  */
+#define PROTOOPID_PARAM_WRITE_FRAME "write_frame"
 extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
 
 /* @} */ 
@@ -110,6 +114,7 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
  *
  * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
  */
+#define PROTOOPID_NOPARAM_DECODE_STREAM_FRAME "decode_stream_frame"
 extern protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME;
 /**
  * Update the estimation of the perceived latency on the path \p path_x with the received packet.
@@ -121,6 +126,7 @@ extern protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME;
  *
  * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.
  */
+#define PROTOOPID_NOPARAM_UPDATE_RTT "update_rtt"
 extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
 
 // MP: Do we really want the RTT computation to be pluggable ?
@@ -140,6 +146,7 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
  * \return \b int 0 if eveything is ok
  * \param[out] ppacket \b picoquic_packet_t* The first sent packet that could not be acknowledged by the range, or NULL if there is not.
  */
+#define PROTOOPID_NOPARAM_PROCESS_ACK_RANGE "process_ack_range"
 extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_RANGE;
 /**
  * Check if packet that were retransmitted (in the retransmitted queue) were spurious, and release them if needed.
@@ -149,12 +156,14 @@ extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_RANGE;
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ACK frame
  * \param[in] path_x \b picoquic_path_t* The path acked by the ACK frame
  */
+#define PROTOOPID_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION "check_spurious_retransmission"
 extern protoop_id_t PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION;
 
 /**
  * Update the sent packets and the ack status with the reception of the ACK frame.
  * \param[in] p \b picoquic_packet_t* The largest packet acknowledged by the ACK frame
  */
+#define PROTOOPID_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME "process_possible_ack_of_ack_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME;
 
 /**
@@ -165,6 +174,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME;
  * 
  * \warning This protocol operation CANNOT be pluginized so far!
  */
+#define PROTOOPID_NOPARAM_PROCESS_ACK_OF_ACK_RANGE "process_ack_of_ack_range"
 extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE;
 
 /**
@@ -176,6 +186,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_ACK_RANGE;
  * \return \b int 0 if everything was fine
  * \param[out] consumed \b size_t Number of bytes in the STREAM frame processed
  */
+#define PROTOOPID_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME "process_ack_of_stream_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME;
 
 /**
@@ -183,6 +194,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME;
  * 
  * \return \b picoquic_stream_head* Pointer to a stream ready to be sent
  */
+#define PROTOOPID_NOPARAM_FIND_READY_STREAM "find_ready_stream"
 extern protoop_id_t PROTOOP_NOPARAM_FIND_READY_STREAM;
 
 /**
@@ -193,6 +205,7 @@ extern protoop_id_t PROTOOP_NOPARAM_FIND_READY_STREAM;
  * 
  * \return \b int Iff non-zero, indicates that an ACK frame is needed
  */
+#define PROTOOPID_NOPARAM_IS_ACK_NEEDED "is_ack_needed"
 extern protoop_id_t PROTOOP_NOPARAM_IS_ACK_NEEDED;
 
 /**
@@ -200,6 +213,7 @@ extern protoop_id_t PROTOOP_NOPARAM_IS_ACK_NEEDED;
  * 
  * \return \b int Iff non-zero, indicates that the TLS stream is ready
  */
+#define PROTOOPID_NOPARAM_IS_TLS_STREAM_READY "is_tls_stream_ready"
 extern protoop_id_t PROTOOP_NOPARAM_IS_TLS_STREAM_READY;
 
 /**
@@ -211,6 +225,7 @@ extern protoop_id_t PROTOOP_NOPARAM_IS_TLS_STREAM_READY;
  * \return \b int Error code (0 means everything was fine)
  * \param[out] no_need_to_repeat \b int Indicates if the STREAM frame should not be repeated
  */
+#define PROTOOPID_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED "check_stream_frame_already_acked"
 extern protoop_id_t PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED;
 
 /**
@@ -222,6 +237,7 @@ extern protoop_id_t PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED;
  * 
  * \return \b int Error code as described by ..., 0 is everything is fine \todo link to picoquic error codes
  */
+#define PROTOOPID_NOPARAM_INCOMING_ENCRYPTED "incoming_encrypted"
 extern protoop_id_t PROTOOP_NOPARAM_INCOMING_ENCRYPTED;
 
 /** 
@@ -230,6 +246,7 @@ extern protoop_id_t PROTOOP_NOPARAM_INCOMING_ENCRYPTED;
  *
  * \return \b picoquic_path_t* The path related to the packet header
  */
+#define PROTOOPID_NOPARAM_GET_INCOMING_PATH "get_incoming_path"
 extern protoop_id_t PROTOOP_NOPARAM_GET_INCOMING_PATH;
 
 /**
@@ -243,6 +260,7 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_INCOMING_PATH;
  * 
  * \todo link to congestion notification events
  */
+#define PROTOOPID_NOPARAM_CONGESTION_ALGORITHM_NOTIFY "congestion_algorithm_notify"
 extern protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY;
 
 /**
@@ -254,6 +272,7 @@ extern protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY;
  * 
  * \todo link to callback events
  */
+#define PROTOOPID_NOPARAM_CALLBACK_FUNCTION "callback_function"
 extern protoop_id_t PROTOOP_NOPARAM_CALLBACK_FUNCTION;
 
 /**
@@ -264,6 +283,7 @@ extern protoop_id_t PROTOOP_NOPARAM_CALLBACK_FUNCTION;
  *
  * \warning Only up to 10 arguments can be printed in one single call
  */
+#define PROTOOPID_NOPARAM_PRINTF "printf"
 extern protoop_id_t PROTOOP_NOPARAM_PRINTF;
 
 /**
@@ -273,6 +293,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PRINTF;
  * 
  * \todo Link \p local_error to the param space related
  */
+#define PROTOOPID_NOPARAM_CONNECTION_ERROR "connection_error"
 extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_ERROR;
 
 /**
@@ -282,12 +303,14 @@ extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_ERROR;
  * 
  * \return \b picoquic_connection_id_t* The destination connection ID
  */
+#define PROTOOPID_NOPARAM_GET_DESTINATION_CONNECTION_ID "get_destination_connection_id"
 extern protoop_id_t PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID;
 
 /**
  * Set the timer for the select, i.e., specify the next wake time of the implementation
  * \param[in] current_time \b uint64_t The current time
  */
+#define PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME "set_next_wake_time"
 extern protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME;
 /**
  * Detect if a retransmission is needed.
@@ -304,6 +327,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME;
  * \param[out] header_length \b uint32_t The length of the header of the retransmitted packet
  * \param[out] reason \b extern protoop_id_t Iff the return value is greater than zero, this indicates which mechanism triggered the retransmission
  */
+#define PROTOOPID_NOPARAM_RETRANSMIT_NEEDED "retransmit_needed"
 extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED;
 
 /**
@@ -316,6 +340,7 @@ extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED;
  * \param[out] timer_based \b int Iff non-zero, indicates that the retransmission is due to RTO
  * \param[out] reason \b extern protoop_id_t Iff the return value is non-zero, this indicates which mechanism triggered the retransmission
  */
+#define PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET "retransmit_needed_by_packet"
 extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET;
 /**
  * Predict the length of the packet header to send.
@@ -324,6 +349,7 @@ extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET;
  * 
  * \return \b uint32_t The predicted length of the header
  */
+#define PROTOOPID_NOPARAM_PREDICT_PACKET_HEADER_LENGTH "predict_packet_header_length"
 extern protoop_id_t PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH;
 /**
  * Get the length of the checksum.
@@ -331,17 +357,20 @@ extern protoop_id_t PROTOOP_NOPARAM_PREDICT_PACKET_HEADER_LENGTH;
  * 
  * \return \b uint32_t The length of the checksum
  */
+#define PROTOOPID_NOPARAM_GET_CHECKSUM_LENGTH "get_checksum_length"
 extern protoop_id_t PROTOOP_NOPARAM_GET_CHECKSUM_LENGTH;
 /**
  * Dequeue the packet from the retransmit queue.
  * \param[in] p \b picoquic_packet_t* The packet to be dequeued
  * \param[in] should_free \b If set, indicates that the packet should release its memory
  */
+#define PROTOOPID_NOPARAM_DEQUEUE_RETRANSMIT_PACKET "dequeue_retransmit_packet"
 extern protoop_id_t PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET;
 /**
  * Dequeue the packet from the retransmitted queue and release its memory.
  * \param[in] p \b picoquic_packet_t* The packet to be dequeued and freed
  */
+#define PROTOOPID_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET "dequeue_retransmitted_packet"
 extern protoop_id_t PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET;
 /**
  * Prepare a required repetition or ack in a previous context.
@@ -355,6 +384,7 @@ extern protoop_id_t PROTOOP_NOPARAM_DEQUEUE_RETRANSMITTED_PACKET;
  * \return \b uint32_t The length of data coming from the old context
  * \param[out] header_length \b uint32_t The length of the header of the packet
  */
+#define PROTOOPID_NOPARAM_PREPARE_PACKET_OLD_CONTEXT "prepare_packet_old_context"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT;
 /**
  * Prepare a MTU probe.
@@ -365,6 +395,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT;
  * 
  * \return \b uint32_t Size of the probe created (without the checksum)
  */
+#define PROTOOPID_NOPARAM_PREPARE_MTU_PROBE "prepare_mtu_probe"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE;
 /**
  * Prepare a STREAM frame.
@@ -375,6 +406,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_STREAM_FRAME "prepare_stream_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_STREAM_FRAME;
 /**
  * Prepare a CRYPTO HS frame.
@@ -385,6 +417,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_STREAM_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_CRYPTO_HS_FRAME "prepare_crypto_hs_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME;
 /**
  * Prepare a ACK frame.
@@ -396,6 +429,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_ACK_FRAME "prepare_ack_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_FRAME;
 /**
  * Prepare a ACK ECN frame.
@@ -407,6 +441,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_ACK_ECN_FRAME "prepare_ack_ecn_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_ECN_FRAME;
 /**
  * Prepare a MAX DATA frame.
@@ -417,6 +452,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_ECN_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_MAX_DATA_FRAME "prepare_max_data_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MAX_DATA_FRAME;
 /**
  * Prepare the required MAX STREAM DATA frames.
@@ -426,6 +462,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MAX_DATA_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME "prepare_required_max_stream_data_frames"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME;
 /**
  * Prepare the first miscellanious frame.
@@ -435,6 +472,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_FIRST_MISC_FRAME "prepare_first_misc_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME;
 /**
  * Prepare a miscellanious frame.
@@ -445,6 +483,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_MISC_FRAME "prepare_misc_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MISC_FRAME;
 /**
  * Prepare a path challenge frame.
@@ -455,6 +494,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MISC_FRAME;
  * \return \b int Error code, 0 means it's ok
  * \param[out] consumed \b size_t Number of bytes written
  */
+#define PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME "prepare_path_challenge_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME;
 /**
  * Parse the frame on the wire pointed by \p bytes and skip it.
@@ -467,6 +507,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME;
  * \param[out] consumed \b size_t Number of bytes skipped
  * \param[out] pure_ack \b int Indicates if the skipped frame is an ACK one
  */
+#define PROTOOPID_NOPARAM_SKIP_FRAME "skip_frame"
 extern protoop_id_t PROTOOP_NOPARAM_SKIP_FRAME;
 /**
  * Prepare a packet when the connection is in ready state.
@@ -478,22 +519,27 @@ extern protoop_id_t PROTOOP_NOPARAM_SKIP_FRAME;
  * size_t send_buffer_max,
  * size_t* send_length
  */
+#define PROTOOPID_NOPARAM_PREPARE_PACKET_READY "prepare_packet_ready"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_READY;
 /**
  * \todo
  */
+#define PROTOOPID_NOPARAM_RECEIVED_PACKET "received_packet"
 extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_PACKET;
 /**
  * \todo
  */
+#define PROTOOPID_NOPARAM_BEFORE_SENDING_PACKET "before_sending_packet"
 extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_PACKET;
 /**
  * \todo
  */
+#define PROTOOPID_NOPARAM_RECEIVED_SEGMENT "received_segment"
 extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_SEGMENT;
 /**
  * \todo
  */
+#define PROTOOPID_NOPARAM_BEFORE_SENDING_SEGMENT "before_sending_segment"
 extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
 /**
  * Finalize the packet and encrypt it.
@@ -509,6 +555,7 @@ extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
  * 
  * \return \b size_t The length of the buffer that will be sent
  */
+#define PROTOOPID_NOPARAM_FINALIZE_AND_PROTECT_PACKET "finalize_and_protect_packet"
 extern protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET;
 
 /**
@@ -518,6 +565,7 @@ extern protoop_id_t PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET;
  * \param[in] packet \b picoquic_packet_t* The packet that was lost
  * \param[in] path_x \b picoquic_path_t* The path on which the packet was lost
  */
+#define PROTOOPID_NOPARAM_PACKET_WAS_LOST "packet_was_lost"
 extern protoop_id_t PROTOOP_NOPARAM_PACKET_WAS_LOST;
 
 /**
@@ -526,6 +574,7 @@ extern protoop_id_t PROTOOP_NOPARAM_PACKET_WAS_LOST;
  *
  * No parameters are given to this protoop as the connection state already holds this information.
  */
+#define PROTOOPID_NOPARAM_CONNECTION_STATE_CHANGED "connection_state_changed"
 extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED;
 
 /*
@@ -536,12 +585,14 @@ extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED;
 /**
  * Observer-only anchor that must be triggered whenever a stream is opened.
  */
+#define PROTOOPID_NOPARAM_STREAM_OPENED "stream_opened"
 extern protoop_id_t PROTOOP_NOPARAM_STREAM_OPENED;
 
 
 /**
  * Observer-only anchor that must be triggered whenever a stream is closed.
  */
+#define PROTOOPID_NOPARAM_STREAM_CLOSED "stream_closed"
 extern protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED;
 /**/
 
@@ -550,6 +601,7 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_CLOSED;
  *
  * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
  */
+#define PROTOOPID_NOPARAM_FAST_RETRANSMIT "fast_retransmit"
 extern protoop_id_t PROTOOP_NOPARAM_FAST_RETRANSMIT;
 
 /**
@@ -557,6 +609,7 @@ extern protoop_id_t PROTOOP_NOPARAM_FAST_RETRANSMIT;
  *
  * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
  */
+#define PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT "retransmission_timeout"
 extern protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
 
 /**
@@ -564,6 +617,7 @@ extern protoop_id_t PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT;
  *
  * \param[in] packet \b picoquic_packet_t* The packet candidate for retransmission
  */
+#define PROTOOPID_NOPARAM_TAIL_LOSS_PROBE "tail_loss_probe"
 extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
 
 /**
@@ -571,6 +625,7 @@ extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
  *
  * \return \b picoquic_path_t* The path on which the next packet will be sent.
  */
+#define PROTOOPID_NOPARAM_SELECT_SENDING_PATH "select_sending_path"
 extern protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH;
 /* @} */
 
