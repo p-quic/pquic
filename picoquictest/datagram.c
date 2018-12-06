@@ -32,7 +32,7 @@ static int datagram_parse_test()
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
-    uint8_t *pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM, out, bytes, bytes + 5);
+    uint8_t *pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM, out, bytes, bytes + 5);
     if (pret != bytes + 5) {
         DBG_PRINTF("Unable to parse simple frame with no explicit length\n");
         free(bytes);
@@ -46,7 +46,7 @@ static int datagram_parse_test()
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
-    pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 40); // Simulates that there are bytes after the frame
+    pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 40); // Simulates that there are bytes after the frame
     if (pret != bytes + 1 + 2 + 4) {
         DBG_PRINTF("Unable to parse simple frame with explicit length\n");
         free(bytes);
@@ -60,7 +60,7 @@ static int datagram_parse_test()
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
-    pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 7);
+    pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PARSE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, bytes, bytes + 7);
     if (pret != NULL) {
         DBG_PRINTF("A truncated frame was successfully parsed\n");
         my_free_in_core(cnx.previous_plugin, (void *) out[0]);
@@ -121,7 +121,7 @@ static int datagram_write_test() {
     }
     /* Stop cheating */
     cnx.current_plugin = NULL;
-    protoop_arg_t pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, buffer, buffer + slot->nb_bytes, message, 0);
+    protoop_arg_t pret = protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM_WITH_LEN, out, buffer, buffer + slot->nb_bytes, message, 0);
     if (pret) {
         DBG_PRINTF("Protoop write frame failed with error code %d\n", ret);
         return -1;
@@ -154,7 +154,7 @@ static int datagram_write_test() {
     /* Stop cheating */
     cnx.current_plugin = NULL;
 
-    pret = protoop_prepare_and_run_param(&cnx, PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM, out, buffer, buffer + slot->nb_bytes, message, 0);
+    pret = protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_WRITE_FRAME, FRAME_TYPE_DATAGRAM, out, buffer, buffer + slot->nb_bytes, message, 0);
     if (pret) {
         DBG_PRINTF("Protoop write frame failed with error code %d\n", ret);
         return -1;

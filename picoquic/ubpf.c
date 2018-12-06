@@ -21,7 +21,7 @@
 #include "endianness.h"
 #include "getset.h"
 
-#define JIT false  /* putting to false show out of memory access */
+#define JIT true /* putting to false show out of memory access */
 
 static void
 register_functions(struct ubpf_vm *vm)
@@ -205,23 +205,14 @@ int release_elf(pluglet_t *pluglet) {
 }
 
 uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_len, char **error_msg) {
-    uint64_t ret;
     if (pluglet->vm == NULL) {
         return -1;
     }
     if (pluglet->fn == NULL) {
         return -1;
     }
-    if (JIT) {
-        /* JIT */
-        ret = pluglet->fn(arg, mem_len);
-    } else {
-        /* Interpreted */
-        ret = ubpf_exec_with_arg(pluglet->vm, arg, mem, mem_len);
-        *error_msg = ubpf_get_error_msg(pluglet->vm);
-    } 
 
     /* printf("0x%"PRIx64"\n", ret); */
 
-    return ret;
+    return _exec_loaded_code(pluglet, arg, mem, mem_len, error_msg, JIT);
 }

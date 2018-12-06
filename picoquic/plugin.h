@@ -19,9 +19,9 @@ typedef enum {
 } pluglet_type_enum;
 
 /* Function to insert plugins */
-int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname);
+int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
-int plugin_unplug(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, pluglet_type_enum pte);
+int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte);
 
 /**
  * Function that reads a plugin file and insert plugins described in it
@@ -60,7 +60,9 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
  * outputv can be set to NULL if no output is required.
  * One output is always guaranteed: the return value of this call.
  */
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, const protoop_params_t *pp);
+protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp);
+
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

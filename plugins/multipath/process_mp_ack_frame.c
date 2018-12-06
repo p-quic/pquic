@@ -18,6 +18,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 
     int path_index = mp_get_path_index(bpfd, frame->path_id, NULL);
     if (path_index < 0) {
+        helper_protoop_printf(cnx, "No path index found...", NULL, 0);
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     }
@@ -32,6 +33,17 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     } else if (frame->ack.largest_acknowledged >= send_sequence) {
+        protoop_arg_t args[5];
+        args[0] = (protoop_arg_t) frame->ack.largest_acknowledged;
+        args[1] = (protoop_arg_t) path_x;
+        args[2] = (protoop_arg_t) send_sequence;
+        args[3] = (protoop_arg_t) pc;
+        args[4] = (protoop_arg_t) frame->path_id;
+        helper_protoop_printf(cnx, "MP ACK frame largest is %lu for path %p but send_sequence is %lu with pc %lu (PID %lu)\n", args, 5);
+        /* FIXME Clearly, there is a bug, but don't deal with it now... */
+        if (send_sequence == 0) {
+            return 0;
+        }
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     } else {

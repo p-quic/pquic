@@ -283,8 +283,7 @@ static int helper_process_mp_ack_range(
     args[2] = (protoop_arg_t) range;
     args[3] = (protoop_arg_t) *ppacket;
     args[4] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam(PROTOOP_NOPARAM_PROCESS_ACK_RANGE, 5, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_RANGE, 5, args, outs);
     *ppacket = (picoquic_packet_t*) outs[0];
     return ret;
 }
@@ -300,8 +299,7 @@ static int helper_prepare_mp_ack_frame(
     args[3] = (protoop_arg_t) bytes_max;
     args[4] = (protoop_arg_t) *consumed;
     args[5] = (protoop_arg_t) path_x;
-    protoop_params_t pp = get_pp_noparam("prepare_mp_ack_frame", 6, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, "prepare_mp_ack_frame", 6, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -317,8 +315,7 @@ static int helper_prepare_mp_new_connection_id_frame(picoquic_cnx_t* cnx, uint8_
     args[2] = (protoop_arg_t) *consumed;
     args[3] = (protoop_arg_t) path_id;
     args[4] = (protoop_arg_t) current_time;
-    protoop_params_t pp = get_pp_noparam("prepare_mp_new_connection_id_frame", 5, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, "prepare_mp_new_connection_id_frame", 5, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -330,8 +327,7 @@ static int helper_prepare_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
     args[2] = (protoop_arg_t) *consumed;
-    protoop_params_t pp = get_pp_noparam("prepare_add_address_frame", 3, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
+    int ret = (int) run_noparam(cnx, "prepare_mp_add_address_frame", 3, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }

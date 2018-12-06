@@ -103,5 +103,16 @@ pluglet_t *load_elf_file(const char *code_filename);
 int release_elf(pluglet_t *pluglet);
 uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_len, char **error_msg);
 
+/* This should not be used! */
+static inline uint64_t _exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_len, char **error_msg, bool jit) {
+    if (jit) {
+        return pluglet->fn(arg, mem_len);
+    }
+
+    uint64_t ret = ubpf_exec_with_arg(pluglet->vm, arg, mem, mem_len);
+    *error_msg = ubpf_get_error_msg(pluglet->vm);
+    return ret;
+}
+
 
 #endif

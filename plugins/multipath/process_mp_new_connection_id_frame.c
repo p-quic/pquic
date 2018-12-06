@@ -26,7 +26,7 @@ protoop_arg_t process_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
 
     bpfd->nb_proposed_rcv++;
 
-    if (!new_path_index && bpfd->paths[path_index].local_cnxid.id_len > 0) {
+    if (!new_path_index && bpfd->paths[path_index].local_cnxid.id_len > 0 && bpfd->paths[path_index].state == 0) {
         mp_path_ready(cnx, &bpfd->paths[path_index], current_time);
     } else {
         bpfd->paths[path_index].state = 0;

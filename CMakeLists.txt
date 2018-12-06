@@ -9,6 +9,9 @@ SET(CMAKE_C_STANDARD 11)
 
 SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
 
+SET(GCC_COVERAGE_LINK_FLAGS    "-Wl,--no-as-needed,-lprofiler,--as-needed")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+
 if(${DISABLE_DEBUG_PRINTF})
     SET(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
 endif()
@@ -32,6 +35,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/picosocks.c
     picoquic/picosplay.c
     picoquic/plugin.c
+    picoquic/protoop.c
     picoquic/queue.c
     picoquic/quicctx.c
     picoquic/sacks.c
@@ -65,6 +69,7 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/tls_api_test.c
     picoquictest/transport_param_test.c
     picoquictest/datagram.c
+    picoquictest/microbench.c
 )
 
 SET(PLUGINS_DATAGRAM
@@ -154,10 +159,20 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${CMAKE_DL_LIBS}
 )
 
-
 ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
                             picoquicfirst/getopt.c )
 TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
+    ${PTLS_CORE}
+    ${PTLS_OPENSSL}
+    ${PTLS_MINICRYPTO}
+    ${OPENSSL_LIBRARIES}
+    ${UBPF}
+    ${CMAKE_DL_LIBS}
+)
+
+ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
+                            picoquicfirst/getopt.c )
+TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
     ${PTLS_CORE}
     ${PTLS_OPENSSL}
     ${PTLS_MINICRYPTO}

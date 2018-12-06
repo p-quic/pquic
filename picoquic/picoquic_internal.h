@@ -462,7 +462,8 @@ typedef struct {
 protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op);
 
 typedef struct {
-    char name[PROTOOPNAME_MAX]; /* Key */
+    protoop_id_t pid; /* Key, the hash is the primary one */
+    char name[PROTOOPNAME_MAX];
     bool is_parametrable;
     /* This pointer is special. Depending on the value of is_parametrable, it is
      * either directly the protocol_operation_param_struct_t, or an hash map containing
@@ -473,9 +474,9 @@ typedef struct {
 } protocol_operation_struct_t;
 
 /* Register functions */
-int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
-int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t pid, param_id_t param, protocol_operation op);
-int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t pid, protocol_operation op);
+int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_operation op);
+int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t param, protocol_operation op);
+int register_param_protoop_default(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_operation op);
 void register_protocol_operations(picoquic_cnx_t *cnx);
 
 void packet_register_noparam_protoops(picoquic_cnx_t *cnx);
@@ -661,7 +662,7 @@ typedef struct st_picoquic_cnx_t {
 
 #endif
 
-static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t pid, param_id_t param, bool caller, protoop_arg_t *outputv, unsigned int n_args, ...)
+static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t param, bool caller, protoop_arg_t *outputv, unsigned int n_args, ...)
 {
   int i;
   va_list ap;
@@ -675,7 +676,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   }
   va_end(ap);
   protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
-  return plugin_run_protoop(cnx, &pp);
+  return plugin_run_protoop_internal(cnx, &pp);
 }
 
 static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int n_args, ...)
