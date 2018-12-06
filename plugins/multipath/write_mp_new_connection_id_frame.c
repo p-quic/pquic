@@ -78,11 +78,12 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         consumed = byte_index;
 
         bpfd->nb_proposed_snt++;
+
         /* If we previously received a connection ID for the path ID, it is now ready */
-        if (new_path_index) {
-            p->state = 0;
-        } else if (p->state == 0) {
-            mp_path_ready(cnx, p, picoquic_current_time());
+        if (!new_path_index && bpfd->paths[path_index].local_cnxid.id_len > 0 && bpfd->paths[path_index].state == 0) {
+            mp_path_ready(cnx, &bpfd->paths[path_index], picoquic_current_time());
+        } else {
+            bpfd->paths[path_index].state = 0;
         }
     }
 

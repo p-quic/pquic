@@ -3,12 +3,14 @@
 #include "../helpers.h"
 #include "bpf.h"
 
-protoop_arg_t after_received_segment(picoquic_cnx_t *cnx)
+protoop_arg_t after_decoding_frames(picoquic_cnx_t *cnx)
 {
     /* We want to send an MP_ACK frame on the selected type */
-    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    int ack_needed = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
-    if (path_x != path_0) {
+
+    if (path_x != path_0 && ack_needed) {
         bool should_reserve = true;
         bpf_data *bpfd = get_bpf_data(cnx);
         for (int i = 0; i < MAX_PATHS; i++) { /* TODO again, need clean support */

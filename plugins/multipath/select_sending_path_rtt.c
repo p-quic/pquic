@@ -51,6 +51,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* Set the default path to be this one */
                 if (path_x == path_0) {
                     path_x = path_c;
+                    smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
                     continue;
                 }
             }
@@ -60,7 +61,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
             uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
-            if (path_x && smoothed_rtt_c < smoothed_rtt_x) {
+            if (path_x && smoothed_rtt_x < smoothed_rtt_c) {
                 continue;
             }
             path_x = path_c;
