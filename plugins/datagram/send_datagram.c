@@ -8,7 +8,7 @@
 protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 {
     char *payload = (char *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    size_t len = (size_t) get_cnx(cnx, CNX_AK_INPUT, 1);
+    int len = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
 
     uint32_t max_path_mtu = get_max_datagram_size(cnx);
     if (len > max_path_mtu) {
