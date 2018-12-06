@@ -3668,6 +3668,11 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
     return bytes;
 }
 
+void picoquic_after_decoding_frames(picoquic_cnx_t *cnx, picoquic_path_t* path_x, int ack_needed) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_AFTER_DECODING_FRAMES, NULL,
+        path_x, ack_needed);
+}
+
 /*
  * Decoding of the received frames.
  *
@@ -3716,6 +3721,8 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
         cnx->latest_progress_time = current_time;
         pkt_ctx->ack_needed = 1;
     }
+
+    picoquic_after_decoding_frames(cnx, path_x, ack_needed);
 
     return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
 }
@@ -3817,6 +3824,13 @@ int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes, size_t b
     return ret;
 }
 
+/* A simple no-op */
+static protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
+{
+    /* Do nothing! */
+    return 0;
+}
+
 void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
     /* Decoding */
@@ -3894,5 +3908,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     /* Others */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, &check_stream_frame_already_acked);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_AFTER_DECODING_FRAMES, &protoop_noop);
 }
 

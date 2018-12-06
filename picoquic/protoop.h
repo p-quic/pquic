@@ -542,6 +542,11 @@ extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_SEGMENT;
 #define PROTOOPID_NOPARAM_BEFORE_SENDING_SEGMENT "before_sending_segment"
 extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
 /**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_AFTER_DECODING_FRAMES "after_decoding_frames"
+extern protoop_id_t PROTOOP_NOPARAM_AFTER_DECODING_FRAMES;
+/**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
  * \param[in] length \b uint32_t The size of the packet
