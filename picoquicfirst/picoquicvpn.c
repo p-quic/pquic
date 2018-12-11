@@ -113,6 +113,10 @@ static const char* ticket_store_filename = "demo_ticket_store.bin";
 #include "../picoquic/util.h"
 #include "../picoquic/plugin.h"
 
+static protoop_id_t get_max_message_size = { .id = "get_max_message_size" };
+static protoop_id_t send_message = { .id = "send_message" };
+static protoop_id_t get_message_socket = { .id = "get_message_socket" };
+
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
     char hostname[256];
@@ -170,12 +174,12 @@ int tun_open(char *devname) {
 
 void handle_tun_read(picoquic_cnx_t *cnx, int tun, const uint8_t *buffer, int bytes_recv) {
     printf("Received %d bytes on the tun interface\n", bytes_recv);
-    uint32_t max_message_size = (uint32_t) protoop_prepare_and_run_extern_noparam(cnx, "get_max_message_size", NULL, NULL);
+    uint32_t max_message_size = (uint32_t) protoop_prepare_and_run_extern_noparam(cnx, &get_max_message_size, NULL, NULL);
     if (bytes_recv > max_message_size) {
         fprintf(stdout, "%d-byte long message received is bigger than max payload size %d, dropping it\n", bytes_recv, max_message_size);
         return;
     }
-    protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx, "send_message", NULL, buffer, bytes_recv);
+    protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx, &send_message, NULL, buffer, bytes_recv);
     if (pret != 0) {
         fprintf(stdout, "Unable to send message\n");
         exit(-1);
@@ -503,12 +507,11 @@ int quic_server(const char* server_name, int server_port,
 
 
                 while (ret == 0 && (cnx_next = picoquic_get_earliest_cnx_to_wake(qserver, loop_time)) != NULL) {
-                    printf("Polling message socket for cnx %" PRIx64 "\n", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_next)));
-                    int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_next, "get_message_socket", 0, NULL);
+                    int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_next, &get_message_socket, 0, NULL);
                     char buffer[65535];
                     ssize_t mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
                     if (mret > 0) {
-                        printf("Received %lu bytes as message\n", mret);
+                        printf("Rgeceived %lu bytes as message\n", mret);
                         ssize_t tret = write(tun_fd, buffer, (size_t) mret);
                         printf("Wrote %lu bytes to the tunnel\n", tret);
                     } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -913,7 +916,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 delta_t = 0;
             }
 
-            int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_client, "get_message_socket", 0, NULL);
+            int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_client, &get_message_socket, 0, NULL);
             char buffer[65535];
             ssize_t mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
             if (mret > 0) {
@@ -1092,6 +1095,10 @@ static void cnx_id_callback(picoquic_connection_id_t cnx_id_local, picoquic_conn
 
 int main(int argc, char** argv)
 {
+    get_max_message_size.hash = hash_value_str(get_max_message_size.id);
+    send_message.hash = hash_value_str(send_message.id);
+    get_message_socket.hash = hash_value_str(get_message_socket.id);
+
     const char* server_name = default_server_name;
     const char* server_cert_file = default_server_cert_file;
     const char* server_key_file = default_server_key_file;
