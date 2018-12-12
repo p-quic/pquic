@@ -221,6 +221,14 @@ typedef enum {
     picoquic_nb_packet_context = 3
 } picoquic_packet_context_enum;
 
+typedef struct protoop_plugin protoop_plugin_t;
+
+typedef struct st_picoquic_packet_plugin_frame_t {
+    struct st_picoquic_packet_plugin_frame_t* next;
+    protoop_plugin_t* plugin;
+    uint64_t bytes;
+} picoquic_packet_plugin_frame_t;
+
 /*
  * The simple packet structure is used to store packets that
  * have been sent but are not yet acknowledged.
@@ -243,6 +251,9 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_pure_ack : 1;
     unsigned int contains_crypto : 1;
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
+    unsigned int has_plugin_frames : 1;
+
+    picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 
     uint8_t bytes[PICOQUIC_MAX_PACKET_SIZE];
 } picoquic_packet_t;
