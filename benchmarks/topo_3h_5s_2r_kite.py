@@ -64,16 +64,16 @@ class KiteTopo(Topo):
         for s in ('s1', 's2', 's3', 's4', 's5'):
             setattr(self, s, self.addSwitch(s))
 
-        if 'bw_b' in opts and 'loss_b' in opts and 'delay_ms_b' in opts:
+        if 'bw_b' in opts and 'delay_ms_b' in opts:
             mqs = int(1.5 * (((opts['bw_b'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_b'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
-            self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts['loss_b'], max_queue_size=mqs)
+            self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts.get('loss_b', 0), max_queue_size=mqs)
         else:
             self.addLink(self.s1, self.r1)
         self.addLink(self.s2, self.r1, **generic_opts)
         self.addLink(self.s3, self.r1, **generic_opts)
-        if 'bw_a' in opts and 'loss_a' in opts and 'delay_ms_a' in opts:
+        if 'bw_a' in opts and 'delay_ms_a' in opts:
             mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_a'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
-            self.addLink(self.s4, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts['loss_a'], max_queue_size=mqs)
+            self.addLink(self.s4, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts.get('loss_a', 0), max_queue_size=mqs)
         else:
             self.addLink(self.s4, self.r2)
         self.addLink(self.s5, self.r2, **generic_opts)
@@ -164,7 +164,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
         setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
 
-    if tcpdump:
+    if quic_tun and tcpdump:
         net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
         sleep(1)
@@ -177,7 +177,8 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         sleep(1)
 
     if tcpdump:
-        net['cl'].cmd('tcpdump -i tun0 -w tun0.pcap &')
+        if quic_tun:
+            net['cl'].cmd('tcpdump -i tun0 -w tun0.pcap &')
         net['web'].cmd('tcpdump -i web-eth0 -w web.pcap &')
         sleep(1)
 
@@ -207,7 +208,7 @@ def teardown_net(net):
 
 def run():
     net_cleanup()
-    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink, host=CPULimitedHost)
+    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink)
     net.start()
     setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
 
