@@ -9,6 +9,39 @@ from mininet.topo import Topo
 
 from mininet.clean import cleanup as net_cleanup
 
+
+#mininet patch
+from mininet.log import error
+from mininet.link import TCIntf
+@staticmethod
+def delayCmds(parent, delay=None, jitter=None,
+              loss=None, max_queue_size=None ):
+    "Internal method: return tc commands for delay and loss"
+    cmds = []
+    if delay and delay < 0:
+        error( 'Negative delay', delay, '\n' )
+    elif jitter and jitter < 0:
+        error( 'Negative jitter', jitter, '\n' )
+    elif loss and ( loss < 0 or loss > 100 ):
+        error( 'Bad loss percentage', loss, '%%\n' )
+    else:
+        # Delay/jitter/loss/max queue size
+        netemargs = '%s%s%s%s' % (
+            'delay %s ' % delay if delay is not None else '',
+            '%s ' % jitter if jitter is not None else '',
+            'loss %0.4f ' % loss if loss is not None else '',  # The fix
+            'limit %d' % max_queue_size if max_queue_size is not None
+            else '' )
+        if netemargs:
+            cmds = [ '%s qdisc add dev %s ' + parent +
+                     ' handle 10: netem ' +
+                     netemargs ]
+            parent = ' parent 10:1 '
+    return cmds, parent
+TCIntf.delayCmds = delayCmds
+# end mininet patch
+
+
 class LinuxRouter(Node):
     "A Node with IP forwarding enabled."
 
@@ -24,7 +57,7 @@ class LinuxRouter(Node):
 
 class KiteTopo(Topo):
     def build(self, **opts):
-        generic_opts = {'delay': '1ms'}
+        generic_opts = {}#{'delay': '1ms'}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
 
@@ -96,14 +129,14 @@ def setup_client_tun(nodes, id, *static_routes):
     tun_addr = '10.4.0.2/24'
     node = nodes[id]
 
-    node.cmd('modprobe tun')
-    node.cmd('ip tuntap add mode tun dev tun0')
-    node.cmd('ip addr add {} dev tun0'.format(tun_addr))
-    node.cmd('ip link set dev tun1 mtu 1400')
-    node.cmd('ip link set dev tun0 up')
+    print node.cmd('modprobe tun')
+    print node.cmd('ip tuntap add mode tun dev tun0')
+    print node.cmd('ip addr add {} dev tun0'.format(tun_addr))
+    print node.cmd('ip link set dev tun0 mtu 1400')
+    print node.cmd('ip link set dev tun0 up')
 
-    node.cmd('ip route del default')
-    node.cmd('ip route add default via {} dev tun0'.format(tun_addr[:-3]))
+    print node.cmd('ip route del default')
+    print node.cmd('ip route add default via {} dev tun0'.format(tun_addr[:-3]))
     for vpn_addr, gateway, oif in static_routes:
         print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
 
@@ -112,14 +145,14 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
     tun_addr = '10.4.0.1/24'
     node = nodes[id]
 
-    node.cmd('modprobe tun')
-    node.cmd('ip tuntap add mode tun dev tun1')
-    node.cmd('ip addr add {} dev tun1'.format(tun_addr))
-    node.cmd('ip link set dev tun1 mtu 1400')
-    node.cmd('ip link set dev tun1 up')
+    print node.cmd('modprobe tun')
+    print node.cmd('ip tuntap add mode tun dev tun1')
+    print node.cmd('ip addr add {} dev tun1'.format(tun_addr))
+    print node.cmd('ip link set dev tun1 mtu 1400')
+    print node.cmd('ip link set dev tun1 up')
 
-    node.cmd('sysctl net.ipv4.ip_forward=1')
-    node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
+    print node.cmd('sysctl net.ipv4.ip_forward=1')
+    print node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
     for vpn_addr, gateway, oif in static_routes:
         print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
 
@@ -127,35 +160,32 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
 def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     setup_ips(net)
 
-    if not ip_tun:
-        return
-
-    setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
-    setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
-
-    if not quic_tun:
-        return
+    if ip_tun:
+        setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
+        setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
 
     if tcpdump:
         net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
         sleep(1)
 
-    if gdb:
-        net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
-    else:
-        net['vpn'].cmd('xterm -e "./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log" &')
-    sleep(1)
+    if quic_tun:
+        if gdb:
+            net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+        else:
+            net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+        sleep(1)
 
     if tcpdump:
         net['cl'].cmd('tcpdump -i tun0 -w tun0.pcap &')
         net['web'].cmd('tcpdump -i web-eth0 -w web.pcap &')
         sleep(1)
 
-    if gdb:
-        net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
-    else:
-        net['cl'].cmd('xterm -e "./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log" &')
+    if quic_tun:
+        if gdb:
+            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+        else:
+            net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
@@ -177,7 +207,7 @@ def teardown_net(net):
 
 def run():
     net_cleanup()
-    net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=5, delay_ms_b=5, loss_a=0.1, loss_b=0.1), link=TCLink, host=CPULimitedHost)
+    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink, host=CPULimitedHost)
     net.start()
     setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
 
