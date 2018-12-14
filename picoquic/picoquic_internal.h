@@ -425,8 +425,9 @@ typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */
     char name[PROTOOPPLUGINNAME_MAX];
     queue_t *block_queue; /* Send reservation queue */
-    uint16_t budget; /* Sending budget */
-    uint16_t max_budget; /* Maximum value of the budget */
+    uint64_t bytes_in_flight; /* Number of bytes in flight due to generated frames */
+    uint64_t bytes_total; /* Number of total bytes by generated frames, for monitoring */
+    uint64_t frames_total; /* Number of total generated frames, for monitoring */
     /* Opaque field for free use by plugins */
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
@@ -601,10 +602,10 @@ typedef struct st_picoquic_cnx_t {
 
     /* Management of pending frames to be sent due to reservations */
     queue_t *reserved_frames;
-    /* Number of bytes given to frames by round */
-    uint16_t drr_increase_round;
     /* Keep a pointer to the next plugin to look at first */
     protoop_plugin_t *first_drr;
+    /* Core guaranteed rate (fraction over 1000) */
+    uint16_t core_rate;
 
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;

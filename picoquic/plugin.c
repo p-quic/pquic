@@ -339,8 +339,9 @@ protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line
         return NULL;
     }
     /* TODO make this value configurable */
-    p->max_budget = 7500;
-    p->budget = p->max_budget;
+    p->bytes_in_flight = 0;
+    p->bytes_total = 0;
+    p->frames_total = 0;
     return p;
 }
 

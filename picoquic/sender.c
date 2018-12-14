@@ -625,6 +625,16 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         }
     }
 
+    /* If the packet contained plugin frames, update their counters */
+    picoquic_packet_plugin_frame_t* pppf = p->plugin_frames;
+    picoquic_packet_plugin_frame_t* tmp;
+    while (pppf) {
+        tmp = pppf;
+        tmp->plugin->bytes_in_flight -= tmp->bytes;
+        pppf = tmp->next;
+        free(tmp);
+    }
+
     if (should_free) {
         free(p);
     }
@@ -2349,7 +2359,7 @@ protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
 }
 
 /* This implements a deficit round robin with bursts */
-void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
+void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss)
 {
     /* If there is no plugin, there is no frame to reserve! */
     if (!cnx->plugins) {
@@ -2363,46 +2373,112 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx)
     protoop_plugin_t *p, *tmp_p;
     reserve_frames_block_t *block;
 
-    /* It's a two step process: check between how many plugins the increase should be shared */
-    uint8_t candidate_to_increase = 0;
-    /* FIXME this is not fair... Introduce DRR */
-    HASH_ITER(hh, cnx->plugins, p, tmp_p) {
-        if (p->budget < p->max_budget) {
-            candidate_to_increase++;
-        }
+    /* If we are over this path usage, don't consider this */
+    if (path_x->bytes_in_transit >= path_x->cwin) {
+        return;
     }
 
-    uint16_t increase = 0;
-    if (candidate_to_increase > 0) {
-        increase = cnx->drr_increase_round / candidate_to_increase;
+    uint64_t plugin_use = 0;
+    uint64_t num_plugins = 0;
+
+    /* FIXME this is not fair... Introduce DRR */
+    HASH_ITER(hh, cnx->plugins, p, tmp_p) {
+        plugin_use += p->bytes_in_flight;
+        num_plugins += 1;
     }
+
+    uint64_t max_plugin_cwin = path_x->cwin * (1000 - cnx->core_rate) / 1000;
+
+    if (stream != NULL && plugin_use >= max_plugin_cwin) {
+        /* Don't go over the guaranteed rate! */
+        return;
+    }
+
+    bool has_frame = false;
+    uint64_t queued_bytes = 0;
 
     p = cnx->first_drr;
 
+    /* First pass: consider only under-rated plugins */
     do {
-        if (p->budget < p->max_budget) {
-            p->budget += increase;
-            if (p->budget > p->max_budget) {
-                p->budget = p->max_budget;
-            }
-        }
-
-        while ((block = queue_peek(p->block_queue)) != NULL && block->total_bytes < p->budget) {
+        while ((block = queue_peek(p->block_queue)) != NULL &&
+                queued_bytes < frame_mss &&
+                p->bytes_in_flight < max_plugin_cwin / num_plugins)
+        {
+            has_frame = true;
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
                 block->frames[i].p = p;
                 queue_enqueue(cnx->reserved_frames, &block->frames[i]);
             }
-            /* Consume the budget */
-            p->budget -= block->total_bytes;
+            /* Update queued bytes counter */
+            queued_bytes += block->total_bytes;
+            /* Free the block */
+            free(block);
+        }
+    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
+
+    /* Second pass: consider all plugins */
+    do {
+        while ((block = queue_peek(p->block_queue)) != NULL &&
+                queued_bytes < frame_mss)
+        {
+            has_frame = true;
+            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
+            for (int i = 0; i < block->nb_frames; i++) {
+                /* Not the most efficient way, but will do the trick */
+                block->frames[i].p = p;
+                queue_enqueue(cnx->reserved_frames, &block->frames[i]);
+            }
+            /* Update queued bytes counter */
+            queued_bytes += block->total_bytes;
             /* Free the block */
             free(block);
         }
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
 
     /* Finally, put the first pointer to the next one */
-    cnx->first_drr = get_next_plugin(cnx, p);
+    if (has_frame) {
+        cnx->first_drr = get_next_plugin(cnx, p);
+    }
+}
+
+void register_plugin_bytes_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p, uint64_t bytes)
+{
+    /* If there is no plugin frame in packet, just create the node! */
+    if (packet->plugin_frames == NULL) {
+        packet->plugin_frames = malloc(sizeof(picoquic_packet_plugin_frame_t));
+        if (!packet->plugin_frames) {
+            printf("WARNING: cannot allocate memory for picoquic_packet_plugin_frame_t!\n");
+            return;
+        }
+        packet->plugin_frames->plugin = p;
+        packet->plugin_frames->bytes = bytes;
+        packet->plugin_frames->next = NULL;
+        return;
+    }
+
+    /* Otherwise, try to find the plugin */
+    picoquic_packet_plugin_frame_t* pppf = packet->plugin_frames;
+    do {
+        if (pppf->plugin == p) {
+            pppf->bytes += bytes;
+            return;
+        }
+        pppf = pppf->next;
+    } while (pppf);
+
+    /* If we reach here, we didn't found our plugin, so create the node */
+    picoquic_packet_plugin_frame_t* new_plugin_frames = malloc(sizeof(picoquic_packet_plugin_frame_t));
+    if (!new_plugin_frames) {
+        printf("WARNING: cannot allocate memory for picoquic_packet_plugin_frame_t!\n");
+        return;
+    }
+    new_plugin_frames->plugin = p;
+    new_plugin_frames->bytes = bytes;
+    new_plugin_frames->next = packet->plugin_frames;
+    packet->plugin_frames = new_plugin_frames;
 }
 
 /**
@@ -2502,7 +2578,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->send_path = path_x;
 
             /* First enqueue frames that can be fairly sent, if any */
-            picoquic_frame_fair_reserve(cnx);
+            /* Only schedule new frames if there is no planned frames */
+            if (queue_peek(cnx->reserved_frames) == NULL) {
+                picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
+            }
 
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) || path_x->cwin <= path_x->bytes_in_transit)
                 && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
@@ -2555,8 +2634,15 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
                         /* TODO FIXME consumed */
+                        protoop_plugin_t *p = rfs->p;
                         if (ret == 0 && data_bytes <= rfs->nb_bytes) {
                             length += (uint32_t) data_bytes;
+                            /* Keep track of the bytes sent by the plugin */
+                            p->bytes_in_flight += (uint64_t) data_bytes;
+                            p->bytes_total += (uint64_t) data_bytes;
+                            p->frames_total += 1;
+                            /* And let the packet know that it has plugin bytes */
+                            register_plugin_bytes_in_pkt(packet, p, (uint64_t) data_bytes);
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
                                 if (cnx->current_plugin != NULL)
@@ -2568,8 +2654,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             }
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
+
                         /* It was reserved by the plugin, so it is a my_free */
-                        protoop_plugin_t *p = rfs->p;
                         my_free_in_core(p, rfs);
                     }
 
