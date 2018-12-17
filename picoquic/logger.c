@@ -1223,17 +1223,6 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
         byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
         fprintf(F, " \tDATAGRAM (len=%lu)\n", len);
     }
-
-    payload = (bytes + byte_index);
-    for (int i = 0; i < len;) {
-        fprintf(F, "%" PRIx64 ": ", cnx_id64);
-        fprintf(F, " \t\t%04x:  ", (int)i);
-
-        for (int j = 0; j < 16 && i < len; j++, i++) {
-            fprintf(F, "%02x ", payload[i]);
-        }
-        fprintf(F, "\n");
-    }
     byte_index += len;
 
     return byte_index;
