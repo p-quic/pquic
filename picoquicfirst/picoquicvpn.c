@@ -509,13 +509,16 @@ int quic_server(const char* server_name, int server_port,
                 while (ret == 0 && (cnx_next = picoquic_get_earliest_cnx_to_wake(qserver, loop_time)) != NULL) {
                     int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_next, &get_message_socket, 0, NULL);
                     char buffer[65535];
-                    ssize_t mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
-                    if (mret > 0) {
-                        printf("Rgeceived %lu bytes as message\n", mret);
-                        ssize_t tret = write(tun_fd, buffer, (size_t) mret);
-                        printf("Wrote %lu bytes to the tunnel\n", tret);
-                    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        printf("Error when reading the message socket: %s\n", strerror(errno));
+                    ssize_t mret = 1;
+                    while(mret > 0) {
+                        mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
+                        if (mret > 0) {
+                            printf("Received %lu bytes as message\n", mret);
+                            ssize_t tret = write(tun_fd, buffer, (size_t) mret);
+                            printf("Write %lu bytes to the tunnel\n", tret);
+                        } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                            printf("Error when reading the message socket: %s\n", strerror(errno));
+                        }
                     }
 
 
@@ -918,13 +921,16 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
             int message_socket = (int) protoop_prepare_and_run_extern_noparam(cnx_client, &get_message_socket, 0, NULL);
             char buffer[65535];
-            ssize_t mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
-            if (mret > 0) {
-                printf("Received %lu bytes as message\n", mret);
-                ssize_t tret = write(tun_fd, buffer, (size_t) mret);
-                printf("Write %lu bytes to the tunnel\n", tret);
-            } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                printf("Error when reading the message socket: %s\n", strerror(errno));
+            ssize_t mret = 1;
+            while(mret > 0) {
+                mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
+                if (mret > 0) {
+                    printf("Received %lu bytes as message\n", mret);
+                    ssize_t tret = write(tun_fd, buffer, (size_t) mret);
+                    printf("Write %lu bytes to the tunnel\n", tret);
+                } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    printf("Error when reading the message socket: %s\n", strerror(errno));
+                }
             }
 
             /* In normal circumstances, the code waits until all packets in the receive
