@@ -367,10 +367,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
 
                         /* Encode the stream frame, or frames */
-                        while (stream != NULL && send_buffer_min_max - checksum_overhead - length > sizeof(fec_frame_header_t) + 1 + header_length) {
+                        while (stream != NULL && send_buffer_min_max - checksum_overhead - length > sizeof(fec_frame_header_t) + 1 + header_length + 5) { // +5 is arbitrary because RS can be greater than SS
                             // FIXME: quick hack to ensure that the repair symbols are not split
+                            PROTOOP_PRINTF(cnx, "SF: %u > %u, max = %u\n", send_buffer_min_max - checksum_overhead - length, sizeof(fec_frame_header_t) + 1 + header_length + 5,
+                                           send_buffer_min_max - (sizeof(fec_frame_header_t) + 1 + 5) - checksum_overhead - header_length - length);
                             ret = helper_prepare_stream_frame(cnx, stream, &bytes[length],
-                                                                send_buffer_min_max - (sizeof(fec_frame_header_t) + 1) - checksum_overhead - header_length - length, &data_bytes);
+                                                                send_buffer_min_max - (sizeof(fec_frame_header_t) + 1 + 5) - checksum_overhead - header_length - length, &data_bytes);
 
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;

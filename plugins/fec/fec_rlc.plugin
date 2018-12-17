@@ -1,0 +1,9 @@
+fec_recover replace rlc_fec_scheme.o
+fec_generate_repair_symbols replace rlc_fec_scheme_generate.o
+parse_frame param 0x28 replace parse_fec_frame.o
+process_frame param 0x28 replace process_fec_frame.o
+parse_frame param 0x29 replace parse_source_fpid_frame.o
+process_frame param 0x29 replace process_source_fpid_frame.o
+incoming_encrypted pre incoming_encrypted.o
+prepare_packet_ready replace prepare_packet_ready.o
+set_next_wake_time replace set_next_wake_time.o

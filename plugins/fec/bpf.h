@@ -348,6 +348,8 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
     int ret = (int) plugin_run_protoop(cnx, &pp);
     for (int idx = 0 ; idx < n_to_recover ; idx++) {
         int i = to_recover[idx];
+        if (!fb->source_symbols[i])
+            continue;
         int already_received = 0;
         ret = parse_packet_header(cnx, &ph, fb->source_symbols[i]->data, fb->source_symbols[i]->data_length, &already_received);
         if (!ret) {
