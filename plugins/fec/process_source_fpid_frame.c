@@ -10,7 +10,7 @@
  */
 protoop_arg_t process_source_fpid_frame(picoquic_cnx_t *cnx)
 {
-    source_fpid_frame_t* frame = (source_fpid_frame_t *) cnx->protoop_inputv[0];
+    source_fpid_frame_t *frame = (source_fpid_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
 
     bpf_state *state = get_bpf_state(cnx);
     uint8_t *payload = state->current_packet;

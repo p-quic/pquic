@@ -9,7 +9,7 @@
  */
 protoop_arg_t decode_fec_frame(picoquic_cnx_t *cnx)
 {
-    fec_frame_t *frame = (fec_frame_t *) cnx->protoop_inputv[0];
+    fec_frame_t *frame = (fec_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
     process_fec_frame_helper(cnx, frame);
     return (protoop_arg_t) 0;
 }

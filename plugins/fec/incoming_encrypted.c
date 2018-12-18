@@ -15,12 +15,11 @@
  */
 protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
 {
-    protoop_arg_t arg[1];
-    arg[0] = sizeof(fec_frame_header_t);
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    picoquic_packet_header* ph = (picoquic_packet_header *) cnx->protoop_inputv[1];
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0); //cnx->protoop_inputv[0];
+    picoquic_packet_header* ph = (picoquic_packet_header *) get_cnx(cnx, CNX_AK_INPUT, 1); //cnx->protoop_inputv[1];
     bpf_state *state = get_bpf_state(cnx);
     state->current_packet = bytes;
-    state->current_packet_length = (uint16_t) ph->offset + ph->payload_length;
+    get_ph(ph, PH_AK_OFFSET);
+    state->current_packet_length = (uint16_t) get_ph(ph, PH_AK_OFFSET) + (uint16_t) get_ph(ph, PH_AK_PAYLOAD_LENGTH);
     return 0;
 }

@@ -136,19 +136,39 @@ static __attribute__((always_inline)) size_t get_repair_payload_from_queue(picoq
     }
     return amount;
 }
-static __attribute__((always_inline)) int write_fec_frame(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t bytes_max, size_t *consumed, uint8_t *bytes) {
-    if (bytes_max < sizeof(fec_frame_header_t))
+
+static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t size_max) {
+    if (size_max <= sizeof(fec_frame_header_t))
         return -1;
-    fec_frame_header_t ffh;
-    *consumed = 0;
-    // copy the frame payload
-    size_t payload_size = get_repair_payload_from_queue(cnx, bff, bytes_max - sizeof(fec_frame_header_t), &ffh, bytes + sizeof(fec_frame_header_t));
-    if (!payload_size)
-        return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-    // copy the frame header
-    write_fec_frame_header(&ffh, bytes);
-    *consumed += sizeof(fec_frame_header_t) + ffh.data_length;
-    PROTOOP_PRINTF(cnx, "WRITE FEC FRAME: FBN = %u, SN = %u, bytes_max = %u, consumed = %u\n", ffh.repair_fec_payload_id.fec_block_number, ffh.repair_fec_payload_id.symbol_number, bytes_max, *consumed);
+    while (bff->repair_symbols_queue_length != 0) {
+        // FIXME: bourrin
+        fec_frame_t *ff = my_malloc(cnx, sizeof(fec_frame_t));
+        if (!ff)
+            return PICOQUIC_ERROR_MEMORY;
+        uint8_t *bytes = my_malloc(cnx, (unsigned int) (size_max - sizeof(fec_frame_header_t)));
+        if (!bytes)
+            return PICOQUIC_ERROR_MEMORY;
+        // copy the frame payload
+        size_t payload_size = get_repair_payload_from_queue(cnx, bff, size_max - sizeof(fec_frame_header_t), &ff->header, bytes + sizeof(fec_frame_header_t));
+        if (!payload_size)
+            return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+        ff->data = bytes;
+        reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+        if (!slot)
+            return PICOQUIC_ERROR_MEMORY;
+        slot->frame_type = FEC_TYPE;
+        slot->nb_bytes = sizeof(fec_frame_header_t) + payload_size;
+        slot->frame_ctx = ff;
+
+        size_t reserved_size = reserve_frames(cnx, 1, slot);
+        if (reserved_size < slot->nb_bytes) {
+            PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
+            my_free(cnx, ff->data);
+            my_free(cnx, ff);
+            my_free(cnx, slot);
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -156,9 +176,8 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     protoop_arg_t args[1];
     protoop_arg_t outs[1];
     args[0] = (protoop_arg_t) bff->current_block;
-    protoop_params_t pp = get_pp_noparam("fec_generate_repair_symbols", 1, args, outs);
-    int ret = (int) plugin_run_protoop(cnx, &pp);
 
+    int ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 1, args, outs);
     if (!ret) {
         PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
         uint8_t i = 0;
@@ -169,6 +188,8 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
 
         queue_repair_symbols(cnx, bff, bff->current_block->repair_symbols, bff->current_block->total_repair_symbols, bff->current_block);
     }
+    // FIXME: choose a correct max frame size
+    reserve_fec_frames(cnx, bff, 1200);
     return ret;
 }
 

@@ -1,7 +1,7 @@
 #include "memory.h"
 #include "memcpy.h"
 
-#define FEC_OPAQUE_ID 0x79
+#define FEC_OPAQUE_ID 0x02
 #define MAX_FEC_BLOCKS 50    // maximum number of idle source blocks handled concurrently
 #define MAX_SYMBOLS_PER_FEC_BLOCK 256    // maximum number of idle source blocks handled concurrently
 
@@ -13,6 +13,8 @@
 
 #define FEC_TYPE 0x28
 #define SOURCE_FPID_TYPE 0x29
+
+protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repair_symbols" };
 
 #define DEFAULT_FEC_SCHEME "xor"
 
