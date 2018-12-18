@@ -884,6 +884,10 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
     switch(ak) {
     case PH_AK_DESTINATION_CNXID:
         return (protoop_arg_t) &ph->dest_cnx_id;
+    case PH_AK_OFFSET:
+        return (protoop_arg_t) &ph->offset;
+    case PH_AK_PAYLOAD_LENGTH:
+        return (protoop_arg_t) &ph->payload_length;
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
         return 0;
