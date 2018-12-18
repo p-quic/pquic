@@ -54,7 +54,7 @@ void *my_sbrk(protoop_plugin_t *p, intptr_t increment) {
  */ 
 meta_data *find_slot(protoop_plugin_t *p, unsigned int size) {
 	meta_data *iter = (meta_data*) p->heap_start;
-	while(iter) {
+	while(iter && iter->magic_number == MAGIC_NUMBER) {
 		if (iter->available && iter->size >= size) {
 			iter->available = 0;
 			return iter;

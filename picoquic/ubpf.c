@@ -22,7 +22,7 @@
 #include "getset.h"
 #include "picoquic_logger.h"
 
-#define JIT true /* putting to false show out of memory access */
+#define JIT false /* putting to false show out of memory access */
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
     printf("Out of bound access with val 0x%lx, start of mem is 0x%lx, top of stack is 0x%lx\n", val, mem_ptr, stack_ptr);
@@ -79,6 +79,9 @@ register_functions(struct ubpf_vm *vm) {
 
     ubpf_register(vm, 0x2a, "my_htons", my_htons);
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
+
+    // logging func
+    ubpf_register(vm, 0x2c, "picoquic_log_frames_cnx", picoquic_log_frames_cnx);
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
