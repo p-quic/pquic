@@ -146,9 +146,9 @@ def setup_routes(net):
     print net['r3'].cmd('ip route add {} via 10.2.0.1 dev r3-eth1'.format(web_addr))
 
 
-def setup_client_tun(nodes, id, *static_routes):
-    tun_table_base = 1000
+def setup_client_tun(nodes, id):
     tun_addr = '10.4.0.2/24'
+    web_addr = '10.3.0.2'
     node = nodes[id]
 
     print node.cmd('modprobe tun')
@@ -157,14 +157,7 @@ def setup_client_tun(nodes, id, *static_routes):
     print node.cmd('ip link set dev tun0 mtu 1400')
     print node.cmd('ip link set dev tun0 up')
 
-    print node.cmd('ip route del default')
-    print node.cmd('ip route add default via {} dev tun0'.format(tun_addr[:-3]))
-
-    for i, (local_addr, vpn_addr, gateway, oif) in enumerate(static_routes):  # TODO: src ip routing
-        table = tun_table_base + i
-        print node.cmd('ip rule add from {} table {}'.format(local_addr, table))
-        print node.cmd('ip route add default via {} dev tun0 table {}'.format(tun_addr[:-3], table))
-        print node.cmd('ip route add {} via {} dev {} table {}'.format(vpn_addr, gateway, oif, table))
+    print node.cmd('ip route add {} via {} dev tun0'.format(web_addr, tun_addr[:-3]))
 
 
 def setup_server_tun(nodes, id, server_addr):
@@ -188,7 +181,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     vpn_addr = '10.2.2.2'
 
     if ip_tun:
-        setup_client_tun(net, 'cl', ('10.1.0.2', vpn_addr, '10.1.0.1', 'cl-eth0'), ('10.1.1.2', vpn_addr, '10.1.1.1', 'cl-eth1'))
+        setup_client_tun(net, 'cl')
         setup_server_tun(net, 'vpn', vpn_addr)
 
     if quic_tun and tcpdump:
