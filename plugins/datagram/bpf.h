@@ -1,5 +1,6 @@
 #include "memory.h"
 #include "memcpy.h"
+#include "getset.h"
 
 #define FRAME_TYPE_DATAGRAM 0x1c
 #define FRAME_TYPE_DATAGRAM_WITH_LEN 0x1d
