@@ -1714,6 +1714,7 @@ void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header
     protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, length);
 }
 
+/*
 bool is_private(in_addr_t t) {
     bool ret = false;
     in_addr_t a = t & (in_addr_t) 0xff;
@@ -1725,6 +1726,7 @@ bool is_private(in_addr_t t) {
     if( c == (in_addr_t) 0xa8c0 ) ret = true;
     return ret;
 }
+*/
 
 int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length)
 {
@@ -1739,12 +1741,19 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (strncmp("docker", ifa->ifa_name, 6) == 0 ||
+            strncmp("lo", ifa->ifa_name, 2) == 0 ||
+            strncmp("tun", ifa->ifa_name, 3) == 0)
+        {
+            /* Do not consider those addresses */
+            continue;
+        }
         /* What if an interface has no IP address? */
         if (ifa->ifa_addr) {
             family = ifa->ifa_addr->sa_family;
             if (family == AF_INET) {
                 struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
-                if (!is_private(sai->sin_addr.s_addr) && count < sas_length) {
+                if (count < sas_length) {
                     if_index = if_nametoindex(ifa->ifa_name);
                     memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));
                     memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
