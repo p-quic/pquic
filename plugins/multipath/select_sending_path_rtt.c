@@ -35,6 +35,14 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 return (protoop_arg_t) path_c;
             }
 
+            /* Very important: don't go further if the cwin is exceeded! */
+            uint64_t cwin = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
+            uint64_t bytes_in_flight = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
+            if (bytes_in_flight > cwin) {
+                /* No, don't select it... */
+                continue;
+            }
+
             int ping_received_c = (int) get_path(path_c, PATH_AK_PING_RECEIVED, 0);
             if (ping_received_c) {
                 /* We need some action from the path! */
