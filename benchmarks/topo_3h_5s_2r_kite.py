@@ -60,33 +60,34 @@ class KiteTopo(Topo):
         generic_opts = {}#{'delay': '1ms'}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
+        self.r3 = self.addNode('r3', cls=LinuxRouter)
 
-        for s in ('s1', 's2', 's3', 's4', 's5'):
+        for s in ('s1', 's2', 's3', 's4'):
             setattr(self, s, self.addSwitch(s))
 
         if 'bw_b' in opts and 'delay_ms_b' in opts:
             mqs = int(1.5 * (((opts['bw_b'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_b'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
-            self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts.get('loss_b', 0), max_queue_size=mqs)
+            self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts.get('loss_b', 0), max_queue_size=mqs, intfName2='r1-eth0')
         else:
-            self.addLink(self.s1, self.r1)
-        self.addLink(self.s2, self.r1, **generic_opts)
-        self.addLink(self.s3, self.r1, **generic_opts)
+            self.addLink(self.s1, self.r1, intfName2='r1-eth0')
+        self.addLink(self.s3, self.r1, intfName2='r1-eth2', **generic_opts)
         if 'bw_a' in opts and 'delay_ms_a' in opts:
             mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_a'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
-            self.addLink(self.s4, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts.get('loss_a', 0), max_queue_size=mqs)
+            self.addLink(self.s2, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts.get('loss_a', 0), max_queue_size=mqs, intfName2='r2-eth0')
         else:
-            self.addLink(self.s4, self.r2)
-        self.addLink(self.s5, self.r2, **generic_opts)
+            self.addLink(self.s2, self.r2, intfName2='r1-eth0')
+        self.addLink(self.s4, self.r3, intfName2='r3-eth0', **generic_opts)
 
         self.cl = self.addHost('cl')
         self.vpn = self.addHost('vpn')
         self.web = self.addHost('web')
 
-        self.addLink(self.cl, self.s1)
-        self.addLink(self.cl, self.s4)
-        self.addLink(self.vpn, self.s2)
-        self.addLink(self.vpn, self.s5)
-        self.addLink(self.web, self.s3)
+        self.addLink(self.cl, self.s1, intfName1='cl-eth0')
+        self.addLink(self.cl, self.s2, intfName1='cl-eth1')
+        self.addLink(self.r1, self.r3, intfName1='r1-eth1', intfName2='r3-eth1')
+        self.addLink(self.r2, self.r3, intfName1='r2-eth1', intfName2='r3-eth2')
+        self.addLink(self.vpn, self.s4, intfName1='vpn-eth0')
+        self.addLink(self.web, self.s3, intfName1='web-eth0')
 
 
 def setup_ips(net):
@@ -100,15 +101,19 @@ def setup_ips(net):
             'r2-eth0': '10.1.1.1/24',
             'r2-eth1': '10.2.1.1/24'
         },
+        'r3': {
+            'r3-eth0': '10.2.2.1/24',
+            'r3-eth1': '10.2.0.2/24',
+            'r3-eth2': '10.2.1.2/24',
+        },
         'cl': {
             'cl-eth0': '10.1.0.2/24',
             'cl-eth1': '10.1.1.2/24',
             'default': 'via 10.1.0.1 dev cl-eth0'
         },
         'vpn': {
-            'vpn-eth0': '10.2.0.2/24',
-            'vpn-eth1': '10.2.1.2/24',
-            'default': 'via 10.2.0.1 dev vpn-eth0'
+            'vpn-eth0': '10.2.2.2/24',
+            'default': 'via 10.2.2.1 dev vpn-eth0'
         },
         'web': {
             'web-eth0': '10.3.0.2/24',
@@ -125,7 +130,24 @@ def setup_ips(net):
                 print net[h].cmd('ip route add default {}'.format(ip))
 
 
+def setup_routes(net):
+    vpn_addr = '10.2.2.2'
+    web_addr = '10.3.0.2'
+    cl_addr1 = '10.1.0.2'
+    cl_addr2 = '10.1.1.2'
+
+    print net['r1'].cmd('ip route add {} via 10.2.0.2 dev r1-eth1'.format(vpn_addr))
+
+    print net['r2'].cmd('ip route add {} via 10.2.1.2 dev r2-eth1'.format(web_addr))
+    print net['r2'].cmd('ip route add {} via 10.2.1.2 dev r2-eth1'.format(vpn_addr))
+
+    print net['r3'].cmd('ip route add {} via 10.2.0.1 dev r3-eth1'.format(cl_addr1))
+    print net['r3'].cmd('ip route add {} via 10.2.1.1 dev r3-eth2'.format(cl_addr2))
+    print net['r3'].cmd('ip route add {} via 10.2.0.1 dev r3-eth1'.format(web_addr))
+
+
 def setup_client_tun(nodes, id, *static_routes):
+    tun_table_base = 1000
     tun_addr = '10.4.0.2/24'
     node = nodes[id]
 
@@ -137,11 +159,15 @@ def setup_client_tun(nodes, id, *static_routes):
 
     print node.cmd('ip route del default')
     print node.cmd('ip route add default via {} dev tun0'.format(tun_addr[:-3]))
-    for vpn_addr, gateway, oif in static_routes:
-        print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
+
+    for i, (local_addr, vpn_addr, gateway, oif) in enumerate(static_routes):  # TODO: src ip routing
+        table = tun_table_base + i
+        print node.cmd('ip rule add from {} table {}'.format(local_addr, table))
+        print node.cmd('ip route add default via {} dev tun0 table {}'.format(tun_addr[:-3], table))
+        print node.cmd('ip route add {} via {} dev {} table {}'.format(vpn_addr, gateway, oif, table))
 
 
-def setup_server_tun(nodes, id, server_addr, *static_routes):
+def setup_server_tun(nodes, id, server_addr):
     tun_addr = '10.4.0.1/24'
     node = nodes[id]
 
@@ -153,27 +179,30 @@ def setup_server_tun(nodes, id, server_addr, *static_routes):
 
     print node.cmd('sysctl net.ipv4.ip_forward=1')
     print node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
-    for vpn_addr, gateway, oif in static_routes:
-        print node.cmd('ip route add {} via {} dev {}'.format(vpn_addr, gateway, oif))
 
 
 def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     setup_ips(net)
+    setup_routes(net)
+
+    vpn_addr = '10.2.2.2'
 
     if ip_tun:
-        setup_client_tun(net, 'cl', ('10.2.0.2', '10.1.0.1', 'cl-eth0'), ('10.2.1.2', '10.1.1.1', 'cl-eth1'))
-        setup_server_tun(net, 'vpn', '10.2.0.2', ('10.1.1.2', '10.2.1.1', 'vpn-eth1'))
+        setup_client_tun(net, 'cl', ('10.1.0.2', vpn_addr, '10.1.0.1', 'cl-eth0'), ('10.1.1.2', vpn_addr, '10.1.1.1', 'cl-eth1'))
+        setup_server_tun(net, 'vpn', vpn_addr)
 
     if quic_tun and tcpdump:
         net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
+        net['r1'].cmd('tcpdump -i r1-eth0 -w r1.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
+        net['vpn'].cmd('tcpdump -i vpn-eth1 -w vpn2.pcap &')
         sleep(1)
 
     if quic_tun:
         if gdb:
             net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
         else:
-            net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+            net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin -p 4443 2>&1 > log_server.log &')
         sleep(1)
 
     if tcpdump:
@@ -184,9 +213,9 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
 
     if quic_tun:
         if gdb:
-            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
         else:
-            net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin 10.2.0.2 4443 2>&1 > log_client.log &')
+             net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
