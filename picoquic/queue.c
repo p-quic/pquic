@@ -9,6 +9,7 @@ queue_t *queue_init()
     }
     q->head = NULL;
     q->tail = NULL;
+    q->size = 0;
     return q;
 }
 
@@ -41,6 +42,7 @@ int queue_enqueue(queue_t *q, void *d)
         /* And n is the new tail */
         q->tail = n;
     }
+    q->size++;
     return 0;
 }
 
@@ -61,6 +63,7 @@ void *queue_dequeue(queue_t *q)
         q->head = q->head->next;
     }
 
+    q->size--;
     /* Don't forget to free the node memory */
     free(to_remove);
     return to_return;
@@ -69,4 +72,9 @@ void *queue_dequeue(queue_t *q)
 void *queue_peek(const queue_t *q)
 {
     return q->head ? q->head->data : NULL;
+}
+
+size_t queue_size(const queue_t *q)
+{
+    return q->size;
 }

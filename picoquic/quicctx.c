@@ -1762,6 +1762,8 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
         }   
     }
 
+    freeifaddrs(ifaddr);
+
     return count;
 }
 
