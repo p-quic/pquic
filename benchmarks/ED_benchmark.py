@@ -207,8 +207,8 @@ def flatten(l):
         l: an arbitrary list
     """
     if not l:
-        return l
-    if isinstance(l[0], list):
+        return list(l)
+    if isinstance(l[0], (list, tuple)):
         return flatten(l[0]) + flatten(l[1:])
     return [l[0]] + flatten(l[1:])
 
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         #"loss_a": {"range": [0.1, 2], "type": float, "count": 1},  # %, TODO: Characterise typical losses with LTE
         #"delay_ms_a": {"range": [100, 400], "type": int, "count": 1},  # ms
         "bw_b": {"range": [10, 30], "type": int, "count": 1},  # Mbps
-        #"loss_b": {"range": [0.01, 1], "type": float, "count": 1},  # %
+        "loss_b": {"range": [0.01, 1], "type": float, "count": 1},  # %
         "delay_ms_b": {"range": [5, 25], "type": int, "count": 1},  # ms
     }
 
@@ -292,9 +292,9 @@ if __name__ == "__main__":
                     return elapsed_ms
 
                 results = list(filter(lambda x: x, sorted(run() for _ in range(9))))
-                avg = sum(results) / len(results)
-                median = results[int(len(results)/2)]
-                std_dev = sum(abs(x - avg) for x in results) / len(results)
+                avg = sum(results) / len(results) if results else 0
+                median = results[int(len(results)/2)] if results else 0
+                std_dev = sum(abs(x - avg) for x in results) / len(results) if results else 0
                 print "median = %dms, avg = %dms, std_dev = %dms" % (median, avg, std_dev)
 
                 # ugly way to handle failed results...
