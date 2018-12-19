@@ -26,6 +26,7 @@ typedef struct queue_node {
 typedef struct queue {
     queue_node_t *head;
     queue_node_t *tail;
+    size_t size;
 } queue_t;
 
 /**
@@ -65,3 +66,11 @@ void *queue_dequeue(queue_t *q);
  * \return The data contained in the first element of the queue.
  */
 void *queue_peek(const queue_t *q);
+
+/**
+ * Get the number of elements in the queue.
+ * \param[in] q The queue to get the size.
+ *
+ * \return The number of elements in the queue.
+ */
+size_t queue_size(const queue_t *q);
