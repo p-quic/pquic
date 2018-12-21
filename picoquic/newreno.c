@@ -99,10 +99,13 @@ void picoquic_newreno_notify(picoquic_path_t* path_x,
         case picoquic_newreno_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                path_x->cwin += nb_bytes_acknowledged;
-                /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
-                if (path_x->cwin >= nr_state->ssthresh) {
-                    nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+                /* Only increase when the app is CWIN limited */
+                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                    path_x->cwin += nb_bytes_acknowledged;
+                    /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                    if (path_x->cwin >= nr_state->ssthresh) {
+                        nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
+                    }
                 }
                 break;
             case picoquic_congestion_notification_repeat:
@@ -154,9 +157,12 @@ void picoquic_newreno_notify(picoquic_path_t* path_x,
         case picoquic_newreno_alg_congestion_avoidance:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement: {
-                uint64_t complete_ack = nb_bytes_acknowledged + nr_state->residual_ack;
-                nr_state->residual_ack = complete_ack % path_x->cwin;
-                path_x->cwin += complete_ack / path_x->cwin;
+                /* Only increase when the app is CWIN limited */
+                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                    uint64_t complete_ack = nb_bytes_acknowledged + nr_state->residual_ack;
+                    nr_state->residual_ack = complete_ack % path_x->cwin;
+                    path_x->cwin += complete_ack / path_x->cwin;
+                }
                 break;
             }
             case picoquic_congestion_notification_repeat:
