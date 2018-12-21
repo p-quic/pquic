@@ -159,6 +159,17 @@ def setup_client_tun(nodes, id):
 
     print node.cmd('ip route add {} via {} dev tun0'.format(web_addr, tun_addr[:-3]))
 
+    print node.cmd('ip rule add from 10.1.0.2 table 1')
+    print node.cmd('ip route add 10.1.0.0/24 dev cl-eth0 scope link table 1')
+    print node.cmd('ip route add default via 10.1.0.1 dev cl-eth0 table 1')
+    print node.cmd('ip rule add from 10.1.1.2 table 2')
+    print node.cmd('ip route add 10.1.1.0/24 dev cl-eth1 scope link table 2')
+    print node.cmd('ip route add default via 10.1.1.1 dev cl-eth1 table 2')
+
+    # The two following lines are very important!
+    print node.cmd('ip route add default via 10.1.0.1 dev cl-eth0 metric 100')
+    print node.cmd('ip route add default via 10.1.1.1 dev cl-eth1 metric 101')
+
 
 def setup_server_tun(nodes, id, server_addr):
     tun_addr = '10.4.0.1/24'
@@ -185,8 +196,11 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         setup_server_tun(net, 'vpn', vpn_addr)
 
     if quic_tun and tcpdump:
+        net['cl'].cmd('tcpdump -i cl-eth0 -w cl1.pcap &')
+        net['cl'].cmd('tcpdump -i cl-eth1 -w cl2.pcap &')
         net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
         net['r1'].cmd('tcpdump -i r1-eth0 -w r1.pcap &')
+        net['r2'].cmd('tcpdump -i r2-eth0 -w r2.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth1 -w vpn2.pcap &')
         sleep(1)
@@ -208,7 +222,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         if gdb:
             net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
         else:
-             net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
+            net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
@@ -230,7 +244,7 @@ def teardown_net(net):
 
 def run():
     net_cleanup()
-    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink)
+    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True)
     net.start()
     setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
 
