@@ -341,6 +341,11 @@ static void start_using_path_if_possible(picoquic_cnx_t* cnx) {
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
 
+    /* Don't go further if the address exchange is not complete! */
+    if (bpfd->nb_loc_addrs < 2 && bpfd->nb_rem_addrs < 1) {
+        return;
+    }
+
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
         /* If we are the client, activate the path */
@@ -361,6 +366,10 @@ static void start_using_path_if_possible(picoquic_cnx_t* cnx) {
                 adr = &bpfd->rem_addrs[0];
                 set_path(pd->path, PATH_AK_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
                 struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(pd->path, PATH_AK_PEER_ADDR, 0);
+                char * addr_str = inet_ntoa(((struct sockaddr_in *) adr->sa)->sin_addr);
+                helper_protoop_printf(cnx, "Remote of path 2 is %s\n", (protoop_arg_t *) &addr_str, 1);
+                struct sockaddr *adrsa = adr->sa;
+                helper_protoop_printf(cnx, "Remote of path 2 is %p\n", (protoop_arg_t *) &adrsa, 1);
                 my_memcpy(path_peer_addr, adr->sa,(adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
             } else if (pd->path_id == 4 && bpfd->loc_addrs[1].sa != NULL && bpfd->rem_addrs[0].sa) {
                 // Path id is 4

@@ -717,6 +717,11 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 path_x->pkt_ctx[pc].ack_delay_local = 10000;
             }
 
+            /* And start the congestion algorithm */
+            if (cnx->congestion_alg != NULL) {
+                cnx->congestion_alg->alg_init(cnx, path_x);
+            }
+
             /* Record the path */
             cnx->path[cnx->nb_paths] = path_x;
             ret = cnx->nb_paths++;
