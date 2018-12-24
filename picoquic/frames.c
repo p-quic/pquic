@@ -1553,7 +1553,8 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     picoquic_packet_t* packet = pkt_ctx->retransmit_newest;
 
     /* Check whether this is a new acknowledgement */
-    if (largest > pkt_ctx->highest_acknowledged || pkt_ctx->first_sack_item.start_of_sack_range == (uint64_t)((int64_t)-1)) {
+    if (largest > pkt_ctx->highest_acknowledged || pkt_ctx->first_sack_item.start_of_sack_range == (uint64_t)((int64_t)-1) ||
+        pkt_ctx->highest_acknowledged == (uint64_t)((int64_t)-1)) { /* This last condition is for Multipath ! */
         pkt_ctx->highest_acknowledged = largest;
 
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {
