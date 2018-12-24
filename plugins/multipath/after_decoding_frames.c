@@ -27,6 +27,19 @@ protoop_arg_t after_decoding_frames(picoquic_cnx_t *cnx)
                     break;
                 }
             }
+            /* Initially, we only reserved for the path we received the packet. But we should send MP ACK for ALL paths! */
+            for (int i = 0; i < bpfd->nb_proposed; i++) {
+                picoquic_path_t *px = bpfd->paths[i].path;
+                for (int i = 0; i < MAX_PATHS; i++) {
+                    if (bpfd->ack_ok_paths[i] == NULL) {
+                        bpfd->ack_ok_paths[i] = px;
+                        reserve_mp_ack_frame(cnx, px, picoquic_packet_context_application);
+                        break;
+                    } else if (bpfd->ack_ok_paths[i] == px) {
+                        break;
+                    }
+                }
+            }
         }
     }
     return 0;

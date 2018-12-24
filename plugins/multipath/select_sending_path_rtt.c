@@ -36,10 +36,9 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
-            uint64_t cwin = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
-            uint64_t bytes_in_flight = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
-            if (bytes_in_flight > cwin) {
-                /* No, don't select it... */
+            uint64_t cwin_c = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
+            uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
+            if (cwin_c <= bytes_in_transit_c) {
                 continue;
             }
 
@@ -62,11 +61,6 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
                     continue;
                 }
-            }
-            uint64_t cwin_c = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
-            uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
-            if (cwin_c <= bytes_in_transit_c) {
-                continue;
             }
             uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
             if (path_x && smoothed_rtt_x < smoothed_rtt_c) {
