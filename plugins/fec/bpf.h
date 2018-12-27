@@ -13,6 +13,10 @@ typedef struct {
     uint8_t *current_packet;
     uint16_t current_packet_length;
     block_fec_framework_t *block_fec_framework;
+    source_fpid_frame_t *current_sfpid_frame;    // this variable is not-null only between prepare_packet_ready and finalize_and_protect_packet
+    bool is_in_skip_frame;    // set to true if we are currently in skip_frame
+    bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
+    bool current_packet_contains_fpid_frame;    // set to true if the current packet contains a FPID Frame
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
 } bpf_state;
 
@@ -288,18 +292,13 @@ static __attribute__((always_inline)) int parse_packet_header(picoquic_cnx_t *cn
 }
 
 
-
-
-
-
-
 static __attribute__((always_inline)) int helper_write_source_fpid_frame(picoquic_cnx_t *cnx, source_fpid_frame_t *f, uint8_t *bytes, size_t bytes_max, size_t *consumed) {
     if (bytes_max <  (1 + sizeof(source_fpid_t)))
         return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
     *bytes = SOURCE_FPID_TYPE;
     bytes++;
     encode_u32(f->source_fpid.raw, bytes);
-    *consumed = (1 + sizeof(source_fpid_t));
+    *consumed = (1 + sizeof(source_fpid_frame_t));
     return 0;
 }
 
@@ -344,10 +343,8 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
 
     source_symbol_t *ss = malloc_source_symbol_with_data(cnx, *source_fpid, data, length);
     if (!ss)
-        return -1;
-    PROTOOP_PRINTF(cnx, "PROTECT PACKET OF SIZE %u, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-            (unsigned long) length,
-            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+        return PICOQUIC_ERROR_MEMORY;
+    PROTOOP_PRINTF(cnx, "PROTECT PACKET OF SIZE %u\n", (unsigned long) length);
     int ret = protect_source_symbol(cnx, state->block_fec_framework, ss);
     if (ret) {
         free_source_symbol(cnx, ss);

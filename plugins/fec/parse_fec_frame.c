@@ -17,36 +17,38 @@ static inline void cpy(uint8_t *bytes, char *str, int len) {
  *
  * Output: uint8_t* bytes
  */
-protoop_arg_t decode_fec_frame(picoquic_cnx_t *cnx)
+protoop_arg_t parse_fec_frame(picoquic_cnx_t *cnx)
 {
-    PROTOOP_PRINTF(cnx, "DECODED FEC FRAME !\n");
-    uint8_t *bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);//cnx->protoop_inputv[0];
+    PROTOOP_PRINTF(cnx, "Parse FEC FRAME\n");
+    uint8_t *bytes_protected = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);//cnx->protoop_inputv[0];
     const uint8_t* bytes_max = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);//cnx->protoop_inputv[1];
-    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 2);//cnx->protoop_inputv[2];
-    bytes++; // skip the frame type
+    uint8_t *bytes_header = my_malloc(cnx, 1 + sizeof(fec_frame_header_t));
+    if (!bytes_header){
+        return PICOQUIC_ERROR_MEMORY;
+    }
+    my_memcpy(bytes_header, bytes_protected, 1 + sizeof(fec_frame_header_t));
     fec_frame_t *frame = my_malloc(cnx, sizeof(fec_frame_t));
     if (!frame)
         return PICOQUIC_ERROR_MEMORY;
-    parse_fec_frame_header(&frame->header, bytes);
+    parse_fec_frame_header(&frame->header, bytes_header+1);
     PROTOOP_PRINTF(cnx, "FRAME DATA LENGTH = %u\n", frame->header.data_length);
     PROTOOP_PRINTF(cnx, "FRAME LENGTH = %u, FIN = %u, nss = %u, nrs = %u, block_number = %u, offset = %u\n",
             frame->header.data_length, frame->header.fin_bit, frame->header.nss, frame->header.nrs,
             frame->header.repair_fec_payload_id.fec_block_number, frame->header.repair_fec_payload_id.symbol_number);
-
-    if (frame->header.data_length > (bytes_max - bytes)){
+    my_free(cnx, bytes_header);
+    if (frame->header.data_length > (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t)))){
         my_free(cnx, frame);
         return 0;
     }
-    bytes += sizeof(fec_frame_header_t);
+    if (get_bpf_state(cnx)->is_in_skip_frame) {
+        // return directly: we are in skip_frame, so the payload of the FEC Frame will never be handled
+        return (protoop_arg_t) bytes_protected +  1 + sizeof(fec_frame_header_t) + frame->header.data_length;
+    }
+    uint8_t *bytes = my_malloc(cnx, (unsigned int) (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
+    my_memcpy(bytes, bytes_protected + 1 + sizeof(fec_frame_header_t), (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
     frame->data = bytes;
-//    process_fec_frame_helper(cnx, &frame);
-    bytes += frame->header.data_length;
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) frame);
     set_cnx(cnx, CNX_AK_OUTPUT, 1, false);
     set_cnx(cnx, CNX_AK_OUTPUT, 2, false);
-//    cnx->protoop_outputc_callee = 3;
-//    cnx->protoop_outputv[0] = (protoop_arg_t) frame;
-//    cnx->protoop_outputv[1] = (protoop_arg_t) false;
-//    cnx->protoop_outputv[2] = (protoop_arg_t) false;
-    return (protoop_arg_t) bytes;
+    return (protoop_arg_t) bytes_protected +  1 + sizeof(fec_frame_header_t) + frame->header.data_length;
 }

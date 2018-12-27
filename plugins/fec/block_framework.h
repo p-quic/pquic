@@ -5,9 +5,9 @@
 #include "memcpy.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
-#define MAX_QUEUED_REPAIR_SYMBOLS 150
-#define DEFAULT_N 10
-#define DEFAULT_K 9
+#define MAX_QUEUED_REPAIR_SYMBOLS 5
+#define DEFAULT_N 4
+#define DEFAULT_K 3
 
 typedef uint32_t fec_block_number;
 
@@ -111,7 +111,7 @@ static __attribute__((always_inline)) size_t get_repair_payload_from_queue(picoq
     }
     size_t amount = ((rs->data_length - bff->queue_byte_offset) <= bytes_max) ? (rs->data_length - bff->queue_byte_offset) : bytes_max;
     // copy
-    my_memcpy(bytes, rs->data, amount);
+    my_memcpy(bytes, rs->data + bff->queue_byte_offset, amount);
     // move forward in the symbol's buffer
     bff->queue_byte_offset += amount;
     bff->queue_piece_offset++;
@@ -145,11 +145,11 @@ static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx
         fec_frame_t *ff = my_malloc(cnx, sizeof(fec_frame_t));
         if (!ff)
             return PICOQUIC_ERROR_MEMORY;
-        uint8_t *bytes = my_malloc(cnx, (unsigned int) (size_max - sizeof(fec_frame_header_t)));
+        uint8_t *bytes = my_malloc(cnx, (unsigned int) (size_max - (1 + sizeof(fec_frame_header_t))));
         if (!bytes)
             return PICOQUIC_ERROR_MEMORY;
         // copy the frame payload
-        size_t payload_size = get_repair_payload_from_queue(cnx, bff, size_max - sizeof(fec_frame_header_t), &ff->header, bytes + sizeof(fec_frame_header_t));
+        size_t payload_size = get_repair_payload_from_queue(cnx, bff, size_max - sizeof(fec_frame_header_t) - 1, &ff->header, bytes);
         if (!payload_size)
             return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         ff->data = bytes;
@@ -157,7 +157,7 @@ static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx
         if (!slot)
             return PICOQUIC_ERROR_MEMORY;
         slot->frame_type = FEC_TYPE;
-        slot->nb_bytes = sizeof(fec_frame_header_t) + payload_size;
+        slot->nb_bytes = 1 + sizeof(fec_frame_header_t) + payload_size;
         slot->frame_ctx = ff;
 
         size_t reserved_size = reserve_frames(cnx, 1, slot);

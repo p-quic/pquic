@@ -110,10 +110,6 @@ static __attribute__((always_inline)) void get_coefs(picoquic_cnx_t *cnx, tinymt
  */
 protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
 {
-    tinymt32_t *prng = my_malloc(cnx, sizeof(tinymt32_t));
-    prng->mat1 = 0x8f7011ee;
-    prng->mat2 = 0xfc78ff1f;
-    prng->tmat = 0x3793fdff;
     fec_block_t *fec_block = (fec_block_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
     PROTOOP_PRINTF(cnx, "TRYING TO RECOVER SYMBOLS WITH RLC FOR BLOCK %u !\n", fec_block->fec_block_number);
     if (fec_block->total_repair_symbols == 0 || fec_block->current_source_symbols == fec_block->total_source_symbols ||
@@ -121,6 +117,10 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
         PROTOOP_PRINTF(cnx, "NO RECOVERY TO DO\n");
         return 1;
     }
+    tinymt32_t *prng = my_malloc(cnx, sizeof(tinymt32_t));
+    prng->mat1 = 0x8f7011ee;
+    prng->mat2 = 0xfc78ff1f;
+    prng->tmat = 0x3793fdff;
 
     PROTOOP_PRINTF(cnx, "RECOVERING\n");
     int n_unknowns = fec_block->total_source_symbols - fec_block->current_source_symbols;

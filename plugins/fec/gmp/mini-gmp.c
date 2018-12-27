@@ -301,7 +301,7 @@ gmp_free_func(picoquic_cnx_t *cnx, void *p, size_t size) {
 
 //static void * (*gmp_allocate_func) (picoquic_cnx_t *, size_t) = gmp_default_alloc;
 //static void * (*gmp_reallocate_func) (picoquic_cnx_t *, void *, size_t, size_t) = gmp_default_realloc;
-//static void (*gmp_free_func) (picoquic_cnx_t *, void *, size_t) = gmp_default_free;
+//static void (*gmp_free_func) (picoquic_cnx_t *, void *, size_t) = gmp_default_free;;
 
 //void
 //mp_get_memory_functions (void *(**alloc_func) (picoquic_cnx_t *, size_t),
@@ -350,7 +350,7 @@ gmp_xrealloc_limbs(picoquic_cnx_t *cnx, mp_ptr old, mp_size_t size) {
 }
 
 
-/* MPN interface */
+/* MPN interface */;
 
 static __attribute__((always_inline)) void
 mpn_copyi(mp_ptr d, mp_srcptr s, mp_size_t n) {
@@ -1840,9 +1840,6 @@ mpz_import(mpz_t r, size_t count, int order, size_t size, const void *src) {
 
     rn = (size * count + sizeof(mp_limb_t) - 1) / sizeof(mp_limb_t);
     rp = MPZ_REALLOC (r, rn);
-    void *test = gmp_allocate_func (r->cnx, size * sizeof(mp_limb_t));
-    void *test2 = my_malloc (r->cnx, (int) size * sizeof(mp_limb_t));
-    void *test3 = my_malloc (r->cnx, 2);
     for (limb = 0, bytes = 0, i = 0; count > 0; count--, p += word_step) {
         size_t j;
         for (j = 0; j < size; j++, p -= (ptrdiff_t) endian) {
@@ -1993,7 +1990,6 @@ mpz_sizeinbase(const mpz_t u, int base) {
     tp = gmp_xalloc_limbs(u->cnx, un);
     mpn_copyi(tp, up, un);
     mpn_div_qr_1_invert(&bi, base);
-
     ndigits = 0;
     do {
         ndigits++;

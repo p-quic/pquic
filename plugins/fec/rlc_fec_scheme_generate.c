@@ -80,6 +80,7 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
             return 1;
         }
         fec_block->repair_symbols[i] = rs;
+
     }
 
     mpz_clear(tmp);

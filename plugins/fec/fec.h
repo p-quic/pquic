@@ -1,9 +1,10 @@
 #include "memory.h"
 #include "memcpy.h"
+#include "../helpers.h"
 
 #define FEC_OPAQUE_ID 0x02
-#define MAX_FEC_BLOCKS 50    // maximum number of idle source blocks handled concurrently
-#define MAX_SYMBOLS_PER_FEC_BLOCK 256    // maximum number of idle source blocks handled concurrently
+#define MAX_FEC_BLOCKS 3   // maximum number of idle source blocks handled concurrently
+#define MAX_SYMBOLS_PER_FEC_BLOCK 100    // maximum number of idle source blocks handled concurrently
 
 #define DECODE_FEC_FRAME (PROTOOPID_DECODE_FRAMES + 0x30)
 
@@ -163,6 +164,7 @@ static inline void parse_fec_frame_header(fec_frame_header_t *header_to_parse, u
 }
 
 static inline void write_fec_frame_header(fec_frame_header_t *header_to_write, uint8_t *bytes) {
+    *(bytes++) = FEC_TYPE;
     encode_u16(*((uint16_t *) header_to_write), bytes);
     bytes+=2;
     *bytes++ = header_to_write->offset;
@@ -194,7 +196,7 @@ static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_
     return s;
 }
 
-// assumes that size if safe
+// assumes that size is safe
 static inline source_symbol_t *malloc_source_symbol_with_data(picoquic_cnx_t *cnx, source_fpid_t source_fpid,
                                                               uint8_t *data, uint16_t size) {
     source_symbol_t *s = malloc_source_symbol(cnx, source_fpid, size);
