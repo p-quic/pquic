@@ -2777,9 +2777,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
+                            size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
                             ret = picoquic_prepare_stream_frame(cnx, stream, &bytes[length],
-                                send_buffer_min_max - checksum_overhead - length, &data_bytes);
-
+                                stream_bytes_max, &data_bytes);
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)

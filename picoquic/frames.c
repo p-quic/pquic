@@ -1042,6 +1042,12 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
     return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
 }
 
+protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
+    size_t bytes_max = (size_t) cnx->protoop_inputv[0];
+    protoop_save_outputs(cnx, bytes_max);
+    return 0;
+}
+
 /**
  * See PROTOOP_NOPARAM_PREPARE_STREAM_FRAME
  */
@@ -1185,6 +1191,14 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
         stream, bytes, bytes_max);
     *consumed = (protoop_arg_t) outs[0];
     return ret;
+}
+
+size_t picoquic_stream_bytes_max(picoquic_cnx_t* cnx, size_t bytes_max, size_t header_length, uint8_t* bytes)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_BYTES_MAX, outs,
+        bytes_max, header_length, bytes);
+    return (size_t) outs[0];
 }
 
 /*
@@ -4009,5 +4023,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, &check_stream_frame_already_acked);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_AFTER_DECODING_FRAMES, &protoop_noop);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_BYTES_MAX, &stream_bytes_max);
 }
 
