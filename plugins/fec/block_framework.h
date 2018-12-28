@@ -106,7 +106,7 @@ static __attribute__((always_inline)) size_t get_repair_payload_from_queue(picoq
     repair_symbol_t *rs = bff->repair_symbols_queue[bff->repair_symbols_queue_head].repair_symbol;
     // FIXME: temporarily ensure that the repair symbols are not split into multiple frames
     if (bytes_max < rs->data_length) {
-        PROTOOP_PRINTF(cnx, "NOT ENOUGH BYTES TO SEND SYMBOL: %u < %u", bytes_max, rs->data_length);
+        PROTOOP_PRINTF(cnx, "NOT ENOUGH BYTES TO SEND SYMBOL: %u < %u\n", bytes_max, rs->data_length);
         return 0;
     }
     size_t amount = ((rs->data_length - bff->queue_byte_offset) <= bytes_max) ? (rs->data_length - bff->queue_byte_offset) : bytes_max;
@@ -189,7 +189,8 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
         queue_repair_symbols(cnx, bff, bff->current_block->repair_symbols, bff->current_block->total_repair_symbols, bff->current_block);
     }
     // FIXME: choose a correct max frame size
-    reserve_fec_frames(cnx, bff, 1200);
+
+    reserve_fec_frames(cnx, bff, PICOQUIC_MAX_PACKET_SIZE);
     return ret;
 }
 
