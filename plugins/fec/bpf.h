@@ -123,28 +123,26 @@ static uint8_t picoquic_cleartext_draft_10_salt[] = {
         0xe0, 0x6d, 0x6c, 0x38
 };
 
-/* Support for draft 13! */
-const picoquic_version_parameters_t picoquic_supported_versions[3] = {
-        { PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
-                picoquic_version_header_13,
-                sizeof(picoquic_cleartext_internal_test_1_salt),
-                picoquic_cleartext_internal_test_1_salt },
-        { PICOQUIC_EIGHT_INTEROP_VERSION, 0,
-                picoquic_version_header_13,
-                sizeof(picoquic_cleartext_draft_10_salt),
-                picoquic_cleartext_draft_10_salt },
-        { PICOQUIC_SEVENTH_INTEROP_VERSION, 0,
-                picoquic_version_header_13,
-                sizeof(picoquic_cleartext_draft_10_salt),
-                picoquic_cleartext_draft_10_salt }
-};
-
 
 static __attribute__((always_inline)) int my_get_version_index(uint32_t proposed_version)
 {
+    const picoquic_version_parameters_t picoquic_supported_versions[3] = {
+            { PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_internal_test_1_salt),
+                    picoquic_cleartext_internal_test_1_salt },
+            { PICOQUIC_EIGHT_INTEROP_VERSION, 0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_draft_10_salt),
+                    picoquic_cleartext_draft_10_salt },
+            { PICOQUIC_SEVENTH_INTEROP_VERSION, 0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_draft_10_salt),
+                    picoquic_cleartext_draft_10_salt }
+    };
+    const size_t nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
     int ret = -1;
-
-    for (size_t i = 0; i < picoquic_nb_supported_versions; i++) {
+    for (size_t i = 0; i < nb_supported_versions; i++) {
         if (picoquic_supported_versions[i].version == proposed_version) {
             ret = (int)i;
             break;
@@ -160,6 +158,22 @@ static __attribute__((always_inline)) int parse_packet_header(picoquic_cnx_t *cn
          * context. This depends on whether the quic context requires cnx_id or not.
          */
     // assume that the recovered packets come from the path 0
+
+    const picoquic_version_parameters_t picoquic_supported_versions[3] = {
+            {PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_internal_test_1_salt),
+                    picoquic_cleartext_internal_test_1_salt},
+            {PICOQUIC_EIGHT_INTEROP_VERSION,   0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_draft_10_salt),
+                    picoquic_cleartext_draft_10_salt},
+            {PICOQUIC_SEVENTH_INTEROP_VERSION, 0,
+                    picoquic_version_header_13,
+                    sizeof(picoquic_cleartext_draft_10_salt),
+                    picoquic_cleartext_draft_10_salt}
+    };
+
     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_REMOTE_CID, 0);
     uint8_t cnxid_length = (uint8_t) get_cnxid(remote_cnxid, CNXID_AK_LEN);
@@ -180,7 +194,6 @@ static __attribute__((always_inline)) int parse_packet_header(picoquic_cnx_t *cn
 
     // FIXME: maybe does not work
     ph->version_index = my_get_version_index((uint32_t) get_cnx(cnx, CNX_AK_PROPOSED_VERSION, 0));
-
     /* If the connection is identified, decode the short header per version ID */
     switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
         case picoquic_version_header_13:
@@ -199,6 +212,7 @@ static __attribute__((always_inline)) int parse_packet_header(picoquic_cnx_t *cn
             ph->pnmask = 0;
             break;
     }
+
     if (length < ph->offset) {
         ret = -1;
         ph->payload_length = 0;
@@ -206,12 +220,7 @@ static __attribute__((always_inline)) int parse_packet_header(picoquic_cnx_t *cn
         ph->payload_length = (uint16_t)(length - ph->offset);
     }
 
-
-
-
     // parse pn
-
-
 
     if (already_received != NULL) {
         *already_received = 0;
@@ -353,14 +362,14 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
     return 0;
 }
 
-#define MAX_RECOVERED_IN_ONE_ROW 20
+#define MAX_RECOVERED_IN_ONE_ROW 5
 
 static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *fb){
 
     protoop_arg_t args[5], outs[1];
     args[0] = (protoop_arg_t) fb;
-    uint8_t to_recover[MAX_RECOVERED_IN_ONE_ROW];
-    uint8_t n_to_recover = 0;
+    uint8_t *to_recover = (uint8_t *) my_malloc(cnx, MAX_RECOVERED_IN_ONE_ROW);
+    int n_to_recover = 0;
     picoquic_packet_header ph;
     for (uint8_t i = 0; i < fb->total_source_symbols && n_to_recover < MAX_RECOVERED_IN_ONE_ROW; i++) {
         if (fb->source_symbols[i] == NULL) {
@@ -369,33 +378,46 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
     }
 
     int ret = (int) run_noparam(cnx, "fec_recover", 1, args, outs);
-    for (int idx = 0 ; idx < n_to_recover ; idx++) {
-        int i = to_recover[idx];
-        if (!fb->source_symbols[i])
-            continue;
-        int already_received = 0;
-        ret = parse_packet_header(cnx, &ph, fb->source_symbols[i]->data, fb->source_symbols[i]->data_length, &already_received);
-        if (!ret) {
-            picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
-            picoquic_record_pn_received(cnx, path,
+    int idx = 0;
+    int i = 0;
+    for (idx = 0 ; idx < n_to_recover ; idx++) {
+        i = to_recover[idx];
+        if (fb->source_symbols[i]) {
+            int already_received = 0;
+            ret = parse_packet_header(cnx, &ph, fb->source_symbols[i]->data, fb->source_symbols[i]->data_length,
+                                      &already_received);
+            if (!ret) {
+                picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+                picoquic_record_pn_received(cnx, path,
                                             ph.pc, ph.pn64,
                                             picoquic_current_time());
-            PROTOOP_PRINTF(cnx, "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %x (%llx), ph.offset = %u, len_frames = %u, pl = %u\n", (protoop_arg_t) i, ph.pn, ph.pn64, ph.offset, fb->source_symbols[i]->data_length - ph.offset, ph.payload_length);
-            args[0] = (protoop_arg_t) fb->source_symbols[i]->data + ph.offset;
-            args[1] = ph.payload_length;
-            args[2] = (protoop_arg_t) ph.epoch;
-            args[3] = picoquic_current_time();
-            args[4] = (protoop_arg_t) path;
-            picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, ph.payload_length);
-            ret = (int) run_noparam(cnx, "decode_frames", 5, args, outs);
-            if (!ret) {
-                PROTOOP_PRINTF(cnx, "DECODED ! \n");
-            } else {
-                PROTOOP_PRINTF(cnx, "ERROR WHILE DECODING: %u ! \n", (uint32_t) ret);
+                PROTOOP_PRINTF(cnx,
+                               "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %x (%llx), ph.offset = %u, len_frames = %u, pl = %u\n",
+                               (protoop_arg_t) i, ph.pn, ph.pn64, ph.offset,
+                               fb->source_symbols[i]->data_length - ph.offset, ph.payload_length);
+
+//                args[0] = (protoop_arg_t) fb->source_symbols[i]->data + ph.offset;
+//                args[1] = ph.payload_length;
+//                args[2] = (protoop_arg_t) ph.epoch;
+//                args[3] = picoquic_current_time();
+//                args[4] = (protoop_arg_t) path;
+//                picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, ph.payload_length);
+
+
+                ret = picoquic_decode_frames_without_current_time(cnx, fb->source_symbols[i]->data + ph.offset, ph.payload_length, ph.epoch, path);
+
+
+//                ret = (int) run_noparam(cnx, "decode_frames", 5, args, outs);
+                if (!ret) {
+                    PROTOOP_PRINTF(cnx, "DECODED ! \n");
+                } else {
+                    PROTOOP_PRINTF(cnx, "ERROR WHILE DECODING: %u ! \n", (uint32_t) ret);
+                }
             }
         }
     }
-    state->fec_blocks[fb->fec_block_number] = NULL;
+    my_free(cnx, to_recover);
+    state->fec_blocks[fb->fec_block_number % MAX_FEC_BLOCKS] = NULL;
     remove_and_free_fec_block(cnx, state, fb);
 
     return ret;
@@ -413,6 +435,9 @@ static __attribute__((always_inline)) int received_repair_symbol_helper(picoquic
     if (fb && fb->fec_block_number < rs->fec_block_number) {
         remove_and_free_fec_block(cnx, state, fb);
         fb = NULL;
+    } else if (fb && fb->fec_block_number > rs->fec_block_number) {
+        // keep current FEC block and discard repair symbol
+        return false;
     }
     if (!fb)
         fb = malloc_fec_block(cnx, rs->fec_block_number);
@@ -446,7 +471,7 @@ static __attribute__((always_inline)) bool received_source_symbol_helper(picoqui
     if (!add_source_symbol_to_fec_block(ss, fb)) {
         return false;
     }
-    PROTOOP_PRINTF(cnx, "RECEIVED SS: BLOCK = %u, CURRENT_SS = %u, CURRENT_RS = %u, TOTAL_SS = %u, TOTAL_RS = %u\n", fb->fec_block_number, fb->current_source_symbols, fb->current_repair_symbols, fb->total_source_symbols, fb->total_repair_symbols);
+    PROTOOP_PRINTF(cnx, "RECEIVED SS %u: BLOCK = %u, CURRENT_SS = %u, CURRENT_RS = %u, TOTAL_SS = %u, TOTAL_RS = %u\n", ss->fec_block_offset, fb->fec_block_number, fb->current_source_symbols, fb->current_repair_symbols, fb->total_source_symbols, fb->total_repair_symbols);
     if (fb->current_repair_symbols > 0 && fb->current_source_symbols + fb->current_repair_symbols >= fb->total_source_symbols) {
         recover_block(cnx, state, fb);
     }

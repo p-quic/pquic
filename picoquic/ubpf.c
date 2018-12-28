@@ -84,6 +84,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x2c, "picoquic_log_frames_cnx", picoquic_log_frames_cnx);
 
     /* Specific QUIC functions */
+    ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
     ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);

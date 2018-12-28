@@ -3840,6 +3840,44 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
 }
 
+int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,
+                                                size_t bytes_max_size, int epoch, picoquic_path_t* path_x) {
+    const uint8_t *bytes_max = bytes + bytes_max_size;
+    int ack_needed = 0;
+    uint64_t current_time = picoquic_current_time();
+
+    while (bytes != NULL && bytes < bytes_max) {
+        uint8_t first_byte = bytes[0];
+
+        if (PICOQUIC_IN_RANGE(first_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+            if (epoch != 1 && epoch != 3) {
+                DBG_PRINTF("Data frame (0x%x), when only TLS stream is expected", first_byte);
+                picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+                bytes = NULL;
+                break;
+            }
+
+            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time, path_x);
+
+        } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
+                   && first_byte != picoquic_frame_type_path_challenge
+                   && first_byte != picoquic_frame_type_path_response
+                   && first_byte != picoquic_frame_type_connection_close
+                   && first_byte != picoquic_frame_type_crypto_hs
+                   && first_byte != picoquic_frame_type_ack
+                   && first_byte != picoquic_frame_type_ack_ecn) {
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+            bytes = NULL;
+            break;
+
+        } else {
+            bytes = picoquic_decode_frame(cnx, first_byte, bytes, bytes_max, current_time, epoch, &ack_needed, path_x);
+        }
+    }
+    picoquic_after_decoding_frames(cnx, path_x, ack_needed);
+
+    return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
+}
 /*
 * The STREAM skipping function only supports the varint format.
 * The old "fixed int" versions are supported by code in the skip_frame function
