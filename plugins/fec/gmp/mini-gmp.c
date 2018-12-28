@@ -48,6 +48,7 @@ see https://www.gnu.org/licenses/.  */
 
 #include <picoquic.h>
 
+#define MALLOC_FRAGMENTATION_AVOIDANCE 20
 #define size_t uint64_t
 #define mpn_invert_limb(x) mpn_invert_3by2 ((x), 0)
 
@@ -256,7 +257,7 @@ gmp_allocate_func(picoquic_cnx_t *cnx, size_t size) {
 
     assert (size > 0);
 
-    p = my_malloc(cnx, size);
+    p = my_malloc(cnx, size + MALLOC_FRAGMENTATION_AVOIDANCE);
     if (!p)
         gmp_die("gmp_default_alloc: Virtual memory exhausted.");
 
@@ -267,7 +268,7 @@ static __attribute__((always_inline)) void *
 gmp_default_realloc(picoquic_cnx_t *cnx, void *old, size_t old_size, size_t new_size) {
     void *p;
 
-    p = my_realloc(cnx, old, new_size);
+    p = my_realloc(cnx, old, new_size + MALLOC_FRAGMENTATION_AVOIDANCE);
 
     if (!p)
         gmp_die("gmp_default_realloc: Virtual memory exhausted.");
