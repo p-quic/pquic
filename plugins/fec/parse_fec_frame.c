@@ -31,7 +31,6 @@ protoop_arg_t parse_fec_frame(picoquic_cnx_t *cnx)
     if (!frame)
         return PICOQUIC_ERROR_MEMORY;
     parse_fec_frame_header(&frame->header, bytes_header+1);
-    PROTOOP_PRINTF(cnx, "FRAME DATA LENGTH = %u\n", frame->header.data_length);
     PROTOOP_PRINTF(cnx, "FRAME LENGTH = %u, FIN = %u, nss = %u, nrs = %u, block_number = %u, offset = %u\n",
             frame->header.data_length, frame->header.fin_bit, frame->header.nss, frame->header.nrs,
             frame->header.repair_fec_payload_id.fec_block_number, frame->header.repair_fec_payload_id.symbol_number);

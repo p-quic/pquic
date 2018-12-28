@@ -41,6 +41,5 @@ protoop_arg_t parse_source_fpid_frame(picoquic_cnx_t *cnx)
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) frame);
     set_cnx(cnx, CNX_AK_OUTPUT, 1, false);
     set_cnx(cnx, CNX_AK_OUTPUT, 2, false);
-    PROTOOP_PRINTF(cnx, "PARSED\n");
     return (protoop_arg_t) bytes_protected + 1 + sizeof(source_fpid_frame_t);
 }

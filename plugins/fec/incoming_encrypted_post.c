@@ -16,7 +16,6 @@
 protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
 {
     bpf_state *state = get_bpf_state(cnx);
-    PROTOOP_PRINTF(cnx, "END OF INCOMING ENCRYPTED, PACKET LENGTH = %d\n", state->current_packet_length);
     state->current_packet_length = 0;
     my_free(cnx, state->current_packet);
     state->current_packet = NULL;
