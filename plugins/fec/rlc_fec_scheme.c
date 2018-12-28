@@ -26,6 +26,7 @@ There are two options to do this in C.
 This program uses the first option.
 ********/
 static __attribute__((always_inline)) void gaussElimination(picoquic_cnx_t *cnx, int m, int n, mpz_t **a, mpz_t x[m]){
+    PROTOOP_PRINTF(cnx, "MALLOC FOR GAUSS\n");
     mpz_t *tmps = my_malloc(cnx, 4*sizeof(mpz_t));
     if (!tmps) {
         PROTOOP_PRINTF(cnx, "NOT ENOUGH MEMORY\n");
@@ -100,6 +101,7 @@ static __attribute__((always_inline)) void get_coefs(picoquic_cnx_t *cnx, tinymt
     int i;
     for (i = 0 ; i < n ; i++) {
         coefs[i] = (uint8_t) tinymt32_generate_uint32(prng);
+        PROTOOP_PRINTF(cnx, "COEF %d = %u\n", (protoop_arg_t) i, coefs[i]);
     }
 }
 
@@ -115,7 +117,7 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
     if (fec_block->total_repair_symbols == 0 || fec_block->current_source_symbols == fec_block->total_source_symbols ||
         fec_block->current_source_symbols + fec_block->current_repair_symbols < fec_block->total_source_symbols) {
         PROTOOP_PRINTF(cnx, "NO RECOVERY TO DO\n");
-        return 1;
+        return 0;
     }
     tinymt32_t *prng = my_malloc(cnx, sizeof(tinymt32_t));
     prng->mat1 = 0x8f7011ee;
@@ -132,6 +134,7 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
     mpz_t *unknowns = my_malloc(cnx, (n_unknowns)*sizeof(mpz_t));;//[n_unknowns];
     mpz_t **system = my_malloc(cnx, n_eq*sizeof(mpz_t *));;//[n_eq][n_unknowns + 1];
     mpz_t *tmp = my_malloc(cnx, sizeof(mpz_t));
+
 
     if (!coefs || !knowns || !unknowns || !system || !tmp) {
         PROTOOP_PRINTF(cnx, "NOT ENOUGH MEM\n");
@@ -193,6 +196,10 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
         if (!fec_block->source_symbols[j] && mpz_cmp_ui(unknowns[current_unknown], 0) != 0) {
             // TODO: handle the case where source symbols could be 0
             ss = malloc_source_symbol(cnx, (source_fpid_t) ((fec_block->fec_block_number << 8) + ((uint8_t)j)), fec_block->repair_symbols[0]->data_length);
+            if (!ss) {
+                mpz_clear(unknowns[current_unknown++]);
+                continue;
+            }
             uint64_t count;
             mpz_export(ss->data, &count, 1, 1, unknowns[current_unknown]);
             ss->data_length = (uint16_t) count;
