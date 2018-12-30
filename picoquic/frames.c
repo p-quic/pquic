@@ -990,10 +990,8 @@ protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx) {
             }
         };
 
-        /* Do only one pass if we found a stream, and remember the last visited
-         * stream so each stream is visited in turn. */
+        /* Do only one pass if we found a stream */
         if (stream != NULL) {
-            cnx->last_visited_stream_id = stream->stream_id;
             break;
         }
     }
@@ -1191,17 +1189,28 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 consumed = byte_index;
             }
 
-            if (ret == 0 && STREAM_FIN_REQUESTED(stream) && stream->send_queue == 0) {
-                /* Set the fin bit */
-                stream->fin_sent = 1;
-                bytes[0] |= 1;
+            if (ret == 0 && stream->send_queue == 0) {
+                if (stream->fin_requested) {
+                    /* Set the fin bit */
+                    stream->fin_sent = 1;
+                    bytes[0] |= 1;
 
-                picoquic_update_max_stream_ID_local(cnx, stream);
+                    picoquic_update_max_stream_ID_local(cnx, stream);
+                } else {
+                    if (cnx->callback_fn) {
+                        (cnx->callback_fn)(cnx, stream->stream_id, NULL, 0, picoquic_callback_ready_to_send, cnx->callback_ctx);
+                    }
+                }
                 consumed = byte_index;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
                 consumed = 0;
                 ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+            }
+
+            if (ret == 0) {
+                /* remember the last stream on which data is sent so each stream is visited in turn. */
+                cnx->last_visited_stream_id = stream->stream_id;
             }
         }
     }
@@ -1329,12 +1338,19 @@ protoop_arg_t prepare_plugin_frame(picoquic_cnx_t* cnx)
                 consumed = byte_index;
             }
 
-            if (ret == 0 && STREAM_FIN_REQUESTED(plugin_stream) && plugin_stream->send_queue == 0) {
-                /* Set the fin bit */
-                plugin_stream->fin_sent = 1;
-                bytes[1] = 1;
+            if (ret == 0 && plugin_stream->send_queue == 0) {
+                if (plugin_stream->fin_requested) {
+                    /* Set the fin bit */
+                    plugin_stream->fin_sent = 1;
+                    bytes[1] |= 1;
 
-                picoquic_update_max_stream_ID_local(cnx, plugin_stream);
+                    picoquic_update_max_stream_ID_local(cnx, plugin_stream);
+                } else {
+                    /* Not sure we want this
+                    if (cnx->callback_fn) {
+                        (cnx->callback_fn)(cnx, stream->stream_id, NULL, 0, picoquic_callback_ready_to_send, cnx->callback_ctx);
+                    } */
+                }
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
                 consumed = 0;
