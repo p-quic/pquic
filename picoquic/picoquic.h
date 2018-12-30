@@ -495,7 +495,7 @@ typedef enum {
     picoquic_callback_application_close, /* Application closed by peer. Stream=0, bytes=NULL, len=0 */
     picoquic_callback_stream_gap,  /* bytes=NULL, len = length-of-gap or 0 (if unknown) */
     picoquic_callback_challenge_response,
-    picoquic_callback_ready_to_send
+    picoquic_callback_ready_to_send /* all data queued on specified stream has been sent, ready for more */
 } picoquic_call_back_event_t;
 
 typedef struct plugin_stat {
