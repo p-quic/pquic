@@ -78,13 +78,16 @@ extern "C" {
 #define PICOQUIC_ERROR_STATELESS_RESET (PICOQUIC_ERROR_CLASS + 30)
 #define PICOQUIC_ERROR_CONNECTION_DELETED (PICOQUIC_ERROR_CLASS + 31)
 #define PICOQUIC_ERROR_CNXID_SEGMENT (PICOQUIC_ERROR_CLASS + 32)
+#define PICOQUIC_ERROR_CNXID_NOT_AVAILABLE (PICOQUIC_ERROR_CLASS + 33)
+#define PICOQUIC_ERROR_MIGRATION_DISABLED (PICOQUIC_ERROR_CLASS + 34)
+#define PICOQUIC_ERROR_CANNOT_COMPUTE_KEY (PICOQUIC_ERROR_CLASS + 35)
+#define PICOQUIC_ERROR_CANNOT_SET_ACTIVE_STREAM (PICOQUIC_ERROR_CLASS + 36)
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS (PICOQUIC_ERROR_CLASS + 40)
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC (PICOQUIC_ERROR_CLASS + 41)
 #define PICOQUIC_ERROR_INVALID_PLUGIN_STREAM_ID (PICOQUIC_ERROR_CLASS + 42)
 
 #define PICOQUIC_MISCCODE_CLASS 0x800
 #define PICOQUIC_MISCCODE_RETRY_NXT_PKT (PICOQUIC_MISCCODE_CLASS + 1)
-
 /*
  * Protocol errors defined in the QUIC spec
  */
@@ -495,7 +498,8 @@ typedef enum {
     picoquic_callback_application_close, /* Application closed by peer. Stream=0, bytes=NULL, len=0 */
     picoquic_callback_stream_gap,  /* bytes=NULL, len = length-of-gap or 0 (if unknown) */
     picoquic_callback_challenge_response,
-    picoquic_callback_ready_to_send /* all data queued on specified stream has been sent, ready for more */
+    picoquic_callback_prepare_to_send, /* asking the application how many bytes are available on the stream */
+    picoquic_callback_provide_data, /* asking the application to fill the send buffer */
 } picoquic_call_back_event_t;
 
 typedef struct plugin_stat {
@@ -728,13 +732,30 @@ void picoquic_destroy_packet(picoquic_packet_t *p);
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t** path);
 
-/* send and receive data on streams */
+/* Mark stream as active, or not.
+ * If a stream is active, it will be polled for data when the transport
+ * is ready to send.
+ * Returns an error if data was previously queued on the stream using
+ * "picoquic_add_to_stream" and the data has not been sent yet.
+ */
+int picoquic_mark_active_stream(picoquic_cnx_t* cnx,
+    uint64_t stream_id, int is_active);
+
+/* Queue data on a stream, so the transport can send it immediately
+ * when ready. The data is copied in an intermediate buffer managed by
+ * the transport. Calling this API automatically erases the "active
+ * mark" that might have been set by using "picoquic_mark_active_stream".
+ */
 int picoquic_add_to_stream(picoquic_cnx_t* cnx,
     uint64_t stream_id, const uint8_t* data, size_t length, int set_fin);
 
+/* Reset a stream, indicating that no more data will be sent on 
+ * that stream and that any data currently queued can be abandoned. */
 int picoquic_reset_stream(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint64_t local_stream_error);
 
+/* Ask the peer to stop sending on a stream. The peer is expected
+ * to reset that stream when receiving the "stop sending" signal. */
 int picoquic_stop_sending(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint64_t local_stream_error);
 

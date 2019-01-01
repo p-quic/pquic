@@ -352,6 +352,7 @@ typedef struct _picoquic_stream_head {
     picoquic_stream_data* send_queue;
     picoquic_sack_item_t first_sack_item;
     /* Flags describing the state of the stream */
+    unsigned int is_active : 1; /* The application is actively managing data sending through callbacks */
     unsigned int fin_requested : 1; /* Application has requested Fin of sending stream */
     unsigned int fin_sent : 1; /* Fin sent to peer */
     unsigned int fin_received : 1; /* Fin received from peer */
@@ -708,6 +709,7 @@ typedef struct st_picoquic_cnx_t {
     uint64_t latest_progress_time; /* last local time at which the connection progressed */
 
     /* Statistics */
+    uint64_t nb_bytes_queued;
     uint32_t nb_path_challenge_sent;
     uint32_t nb_path_response_received;
     uint32_t nb_zero_rtt_sent;
