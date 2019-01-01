@@ -1034,7 +1034,7 @@ uint8_t * picoquic_provide_stream_data_buffer(void * context, size_t length, int
         if (length < data_ctx->space) {
             if (length == data_ctx->space - 1) {
                 /* special case -- shift the header by one byte and insert one byte of padding */
-                for (size_t i = data_ctx->byte_index - 1; i >= 0; i--) {
+                for (int i = (int)data_ctx->byte_index - 1; i >= 0; i--) {
                     data_ctx->bytes[i + 1] = data_ctx->bytes[i];
                 }
                 data_ctx->bytes[0] = picoquic_frame_type_padding;
@@ -1190,7 +1190,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
 
             if (space < 3) {
                 /* that would be a silly encoding */
-                length = 0;
+                consumed = 0;
             }
             else if (stream->is_active && !stream->fin_requested) {
                 /* The application requested active polling for this stream */
