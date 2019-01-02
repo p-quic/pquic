@@ -80,6 +80,7 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/write_datagram_frame.c
     plugins/datagram/get_datagram_socket.c
     plugins/datagram/cnx_state_changed.c
+    plugins/datagram/process_datagram_buffer.c
 )
 
 SET(PLUGINS_COP2
