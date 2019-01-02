@@ -19,7 +19,21 @@ protoop_arg_t parse_datagram_frame(picoquic_cnx_t* cnx)
         goto exit;
     }
 
-    if (frame_type == FRAME_TYPE_DATAGRAM_WITH_LEN) {
+    if (HAS_ID(frame_type)) {
+        size_t varint_len = picoquic_varint_decode(bytes, bytes_max - bytes, &frame->datagram_id);
+        if (varint_len == 0) {
+            //PROTOOP_PRINTF(cnx, "Failed to decode datagram frame id field\n");
+            bytes = NULL;
+            my_free(cnx, frame);
+            frame = NULL;
+            goto exit;
+        }
+        bytes += varint_len;
+    } else {
+        frame->datagram_id = 0;
+    }
+
+    if (HAS_LEN(frame_type)) {
         size_t varint_len = picoquic_varint_decode(bytes, bytes_max - bytes, &frame->length);
         if (varint_len == 0) {
             //PROTOOP_PRINTF(cnx, "Failed to decode datagram frame length field\n");

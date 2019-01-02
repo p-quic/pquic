@@ -1,12 +1,20 @@
 be.mpiraux.datagram
-parse_frame param 0x1c replace parse_datagram_frame.o
-parse_frame param 0x1d replace parse_datagram_frame.o
-is_frame_congestion_controlled param 0x1c replace is_datagram_frame_congestion_controlled.o
-is_frame_congestion_controlled param 0x1d replace is_datagram_frame_congestion_controlled.o
-write_frame param 0x1c replace write_datagram_frame.o
-write_frame param 0x1d replace write_datagram_frame.o
-process_frame param 0x1c replace process_datagram_frame.o
-process_frame param 0x1d replace process_datagram_frame.o
+parse_frame param 0x20 replace parse_datagram_frame.o
+parse_frame param 0x21 replace parse_datagram_frame.o
+parse_frame param 0x22 replace parse_datagram_frame.o
+parse_frame param 0x23 replace parse_datagram_frame.o
+is_frame_congestion_controlled param 0x20 replace is_datagram_frame_congestion_controlled.o
+is_frame_congestion_controlled param 0x21 replace is_datagram_frame_congestion_controlled.o
+is_frame_congestion_controlled param 0x22 replace is_datagram_frame_congestion_controlled.o
+is_frame_congestion_controlled param 0x23 replace is_datagram_frame_congestion_controlled.o
+write_frame param 0x20 replace write_datagram_frame.o
+write_frame param 0x21 replace write_datagram_frame.o
+write_frame param 0x22 replace write_datagram_frame.o
+write_frame param 0x23 replace write_datagram_frame.o
+process_frame param 0x20 replace process_datagram_frame.o
+process_frame param 0x21 replace process_datagram_frame.o
+process_frame param 0x22 replace process_datagram_frame.o
+process_frame param 0x23 replace process_datagram_frame.o
 connection_state_changed post cnx_state_changed.o
 send_message extern send_datagram.o
 get_message_socket extern get_datagram_socket.o

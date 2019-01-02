@@ -2,8 +2,12 @@
 #include "memcpy.h"
 #include "getset.h"
 
-#define FRAME_TYPE_DATAGRAM 0x1c
-#define FRAME_TYPE_DATAGRAM_WITH_LEN 0x1d
+#define FT_DATAGRAM 0x20
+#define FT_DATAGRAM_LEN 0x01
+#define FT_DATAGRAM_ID 0x02
+#define IS_DATAGRAM(t) ((t & 0xFE) == FT_DATAGRAM)
+#define HAS_LEN(t) ((t & FT_DATAGRAM_LEN) == FT_DATAGRAM_LEN)
+#define HAS_ID(t) ((t & FT_DATAGRAM_ID) == FT_DATAGRAM_ID)
 
 #define DATAGRAM_OPAQUE_ID 0x00
 
@@ -11,10 +15,12 @@
 #define PLUGIN_SOCKET 0
 
 typedef struct st_datagram_memory_t {
+    uint64_t next_datagram_id;
     int socket_fds[2];  // TODO: When to free this socket ?
 } datagram_memory_t;
 
 typedef struct st_datagram_frame_t {
+    uint64_t datagram_id;
     uint64_t length;
     uint8_t * datagram_data_ptr;  /* Start of the data, not contained in the structure */
 } datagram_frame_t;
