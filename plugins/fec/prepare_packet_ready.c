@@ -19,7 +19,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     PROTOOP_PRINTF(cnx, "PRE PREPARE_PACKET_READY\n");
     // set the current fpid
     bpf_state *state = get_bpf_state(cnx);
+    if (state->current_sfpid_frame) {
+        my_free(cnx, state->current_sfpid_frame);
+    }
     state->current_sfpid_frame = NULL;
+    state->current_packet_contains_fpid_frame = false;
+    state->current_packet_contains_fec_frame = false;
 
     // if no stream data to send, do not protect anything anymore
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);

@@ -12,9 +12,13 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
         return -1;
     }
     bpf_state *state = get_bpf_state(cnx);
-    if (state->current_packet_contains_fec_frame) {
+    if (state->current_packet_contains_fec_frame || state->current_packet_contains_fpid_frame) {
         // no FPID frame in a packet containing a FEC Frame
         // FIXME: we loose a symbol number in the fec block...
+        if (state->current_sfpid_frame) {
+            my_free(cnx, state->current_sfpid_frame);
+        }
+        my_free(cnx, f);
         state->current_sfpid_frame = NULL;
         set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) 0);
         return 0;
@@ -25,11 +29,15 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
         return PICOQUIC_ERROR_MEMORY;
     size_t consumed = 0;
     helper_write_source_fpid_frame(cnx, f, fpid_buffer, bytes_max - bytes, &consumed);
+    if (state->current_sfpid_frame) {
+        my_free(cnx, state->current_sfpid_frame);
+    }
     state->current_sfpid_frame = f;
     state->current_packet_contains_fpid_frame = true;
     my_memcpy(bytes, fpid_buffer, consumed);
     PROTOOP_PRINTF(cnx, "WRITE SFPID FRAME block %u, symbol number %u, consumed = %u\n", f->source_fpid.fec_block_number, f->source_fpid.symbol_number, consumed);
     my_free(cnx, fpid_buffer);
+    my_free(cnx, NULL);
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
     return 0;
 }

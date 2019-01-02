@@ -187,6 +187,7 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
         mpz_clear(knowns[j]);
     }
     mpz_clear(*tmp);
+    my_free(cnx, tmp);
 
     // the system is built: let's recover it
     gaussElimination(cnx, n_eq, n_unknowns+1, system, unknowns);
