@@ -505,6 +505,9 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
     protocol_operation_struct_t *post;
+    if (pp->pid->hash == 0) {
+        pp->pid->hash = hash_value_str(pp->pid->id);
+    }
     HASH_FIND_PID(cnx->ops, &(pp->pid->hash), post);
     if (!post) {
         printf("FATAL ERROR: no protocol operation with id %s and hash %lu\n", pp->pid->id, pp->pid->hash);
