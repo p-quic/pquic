@@ -24,7 +24,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     }
 
 #ifdef DATAGRAM_WITH_ID
-    datagram_id = get_datagram_memory(cnx)->next_datagram_id++;
+    datagram_id = ++get_datagram_memory(cnx)->next_datagram_id;
     slot->frame_type = FT_DATAGRAM | FT_DATAGRAM_ID | FT_DATAGRAM_LEN;
     slot->nb_bytes = 1 + varint_len(datagram_id) + varint_len(len) + len;  // Unfortunately we are always forced to account for the length field
 #else
