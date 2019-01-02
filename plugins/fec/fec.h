@@ -228,7 +228,7 @@ static inline repair_symbol_t *malloc_repair_symbol_with_data(picoquic_cnx_t *cn
     repair_symbol_t *s = malloc_repair_symbol(cnx, repair_fpid, size);
     if (!s)
         return NULL;
-
+    s->data_length = size;
     my_memcpy(s->data, data, size);
     return s;
 }
