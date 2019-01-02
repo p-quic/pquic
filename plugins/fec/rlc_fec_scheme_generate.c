@@ -64,8 +64,8 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
             mpz_add(res, res, tmp);
         }
 
-
-        repair_symbol_t *rs = malloc_repair_symbol(cnx, rfpid, (uint16_t) mpz_sizeinbase(res, 256));
+        uint16_t sizeinbytes = (uint16_t) mpz_bytes_count(res);
+        repair_symbol_t *rs = malloc_repair_symbol(cnx, rfpid, sizeinbytes);
         uint64_t count;
         mpz_export(rs->data, &count, 1, 1, res);
         if (count != rs->data_length) {

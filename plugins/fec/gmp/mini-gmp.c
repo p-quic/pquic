@@ -1861,6 +1861,26 @@ mpz_import(mpz_t r, size_t count, int order, size_t size, const void *src) {
     r->_mp_size = (int) i;
 }
 
+static __attribute__((always_inline)) size_t mpz_bytes_count(const mpz_t u) {
+    // returns the number of bytes needed to store this symbol
+    mp_limb_t limb;
+    mp_size_t un = u->_mp_size;
+    size_t size = 1;
+    /* Count bytes in top limb. */
+    limb = u->_mp_d[un - 1];
+    assert (limb != 0);
+
+    size_t k = 0;
+    do {
+        k++;
+        limb >>= CHAR_BIT;
+    } while (limb != 0);
+
+    size_t count = (k + (un - 1) * sizeof(mp_limb_t) + size - 1) / size;
+
+    return count*size;
+}
+
 static __attribute__((always_inline)) void *
 mpz_export(void *r, size_t *countp, int order, size_t size, const mpz_t u) {
     size_t nails = 0;
