@@ -1,6 +1,6 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
-CFLAGS=-I../../picoquic -DDATAGRAM_WITH_ID
+CFLAGS=-I../../picoquic -DDATAGRAM_WITH_ID -DDATAGRAM_CONGESTION_CONTROLLED
 
 all: $(SRC) $(OBJ)
 
