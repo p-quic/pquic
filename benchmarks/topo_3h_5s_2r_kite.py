@@ -1,7 +1,7 @@
 from time import sleep
 
 from mininet.cli import CLI
-from mininet.node import Node, CPULimitedHost
+from mininet.node import Node, OVSBridge
 from mininet.link import TCLink
 from mininet.log import setLogLevel
 from mininet.net import Mininet
@@ -185,6 +185,20 @@ def setup_server_tun(nodes, id, server_addr):
     print node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
 
 
+def ping_matrix(net):
+    def ping_cmd(node, ip):
+        return net[node].cmd('ping -i 0.25 -c 4 -w 2 -s 1472 {}'.format(ip))
+
+    nodes = ('cl', 'web', 'vpn', 'r1', 'r2', 'r3')
+    for n1 in nodes:
+        for n2 in nodes:
+            if n1 is n2:
+                continue
+            for ip in net[n2].cmd('ip addr | grep -o -P "10.\d+.\d+.\d+"').splitlines():
+                print "%s -> %s @ %s" % (n1, n2, ip)
+                print ping_cmd(n1, ip)
+
+
 def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     setup_ips(net)
     setup_routes(net)
@@ -195,14 +209,26 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         setup_client_tun(net, 'cl')
         setup_server_tun(net, 'vpn', vpn_addr)
 
+    #ping_matrix(net)
+
+    net['cl'].cmd('ping -i 0.25 -I cl-eth0 -c 4 {}'.format(vpn_addr))
+    net['cl'].cmd('ping -i 0.25 -I cl-eth1 -c 4 {}'.format(vpn_addr))
+    net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.1.2'))
+    net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.0.2'))
+
     if quic_tun and tcpdump:
         net['cl'].cmd('tcpdump -i cl-eth0 -w cl1.pcap &')
         net['cl'].cmd('tcpdump -i cl-eth1 -w cl2.pcap &')
         net['vpn'].cmd('tcpdump -i tun1 -w tun1.pcap &')
-        net['r1'].cmd('tcpdump -i r1-eth0 -w r1.pcap &')
-        net['r2'].cmd('tcpdump -i r2-eth0 -w r2.pcap &')
+        net['r1'].cmd('tcpdump -i r1-eth0 -w r10.pcap &')
+        net['r1'].cmd('tcpdump -i r1-eth1 -w r11.pcap &')
+        net['r1'].cmd('tcpdump -i r1-eth2 -w r12.pcap &')
+        net['r2'].cmd('tcpdump -i r2-eth0 -w r20.pcap &')
+        net['r2'].cmd('tcpdump -i r2-eth1 -w r21.pcap &')
+        net['r3'].cmd('tcpdump -i r3-eth0 -w r30.pcap &')
+        net['r3'].cmd('tcpdump -i r3-eth1 -w r31.pcap &')
+        net['r3'].cmd('tcpdump -i r3-eth2 -w r32.pcap &')
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
-        net['vpn'].cmd('tcpdump -i vpn-eth1 -w vpn2.pcap &')
         sleep(1)
 
     if quic_tun:
@@ -244,9 +270,9 @@ def teardown_net(net):
 
 def run():
     net_cleanup()
-    net = Mininet(KiteTopo(bw_a=10, bw_b=25, delay_ms_a=5, delay_ms_b=8, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True)
+    net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=10, delay_ms_b=10, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True, switch=OVSBridge, controller=None)
     net.start()
-    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True)
+    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False)
 
     CLI(net)
     teardown_net(net)
