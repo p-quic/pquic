@@ -1048,6 +1048,18 @@ protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
     return 0;
 }
 
+protoop_arg_t stream_always_encode_length(picoquic_cnx_t* cnx) {
+    protoop_save_outputs(cnx, false);
+    return 0;
+}
+
+size_t picoquic_stream_always_encode_length(picoquic_cnx_t* cnx)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, outs, NULL);
+    return (size_t) outs[0];
+}
+
 /**
  * See PROTOOP_NOPARAM_PREPARE_STREAM_FRAME
  */
@@ -1121,29 +1133,30 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                     }
                 }
 
-                if (length >= space) {
+                if (!picoquic_stream_always_encode_length(cnx) && length >= space) {
                     length = space;
-                }
-                /* This is going to be a trial and error process */
-                size_t l_len = 0;
+                } else {
+                    /* This is going to be a trial and error process */
+                    size_t l_len = 0;
 
-                /* Try a simple encoding */
-                bytes[0] |= 2; /* Indicates presence of length */
-                l_len = picoquic_varint_encode(bytes + byte_index, space,
-                    (uint64_t)length);
-                if (l_len == 0 || (l_len == space && length > 0)) {
-                    /* Will not try a silly encoding */
-                    consumed = 0;
-                    ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-                } else if (length + l_len > space) {
-                    /* try a shorter packet */
-                    length = space - l_len;
+                    /* Try a simple encoding */
+                    bytes[0] |= 2; /* Indicates presence of length */
                     l_len = picoquic_varint_encode(bytes + byte_index, space,
                         (uint64_t)length);
-                    byte_index += l_len;
-                } else {
-                    /* This is good */
-                    byte_index += l_len;
+                    if (l_len == 0 || (l_len == space && length > 0)) {
+                        /* Will not try a silly encoding */
+                        consumed = 0;
+                        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+                    } else if (length + l_len > space) {
+                        /* try a shorter packet */
+                        length = space - l_len;
+                        l_len = picoquic_varint_encode(bytes + byte_index, space,
+                            (uint64_t)length);
+                        byte_index += l_len;
+                    } else {
+                        /* This is good */
+                        byte_index += l_len;
+                    }
                 }
             }
 
@@ -2297,6 +2310,7 @@ protoop_arg_t decode_ack_frame(picoquic_cnx_t *cnx)
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
     int epoch = (int) cnx->protoop_inputv[3];
     int ack_needed = (int) cnx->protoop_inputv[4];
+
     protoop_save_outputs(cnx, ack_needed);
     return (protoop_arg_t) picoquic_decode_ack_frame_maybe_ecn(cnx, bytes, bytes_max, current_time, epoch, 0);
 }
@@ -3686,8 +3700,14 @@ void picoquic_after_decoding_frames(picoquic_cnx_t *cnx, picoquic_path_t* path_x
         path_x, ack_needed);
 }
 
+/*
+ * Decoding of the received frames.
+ *
+ * In some cases, the expected frames are "restricted" to only ACK, STREAM 0 and PADDING.
+ */
+
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
-                           size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x)
+    size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x)
 {
     const uint8_t *bytes_max = bytes + bytes_max_size;
     int ack_needed = 0;
@@ -3709,12 +3729,12 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
             ack_needed = 1;
 
         } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
-                   && first_byte != picoquic_frame_type_path_challenge
-                   && first_byte != picoquic_frame_type_path_response
-                   && first_byte != picoquic_frame_type_connection_close
-                   && first_byte != picoquic_frame_type_crypto_hs
-                   && first_byte != picoquic_frame_type_ack
-                   && first_byte != picoquic_frame_type_ack_ecn) {
+                                            && first_byte != picoquic_frame_type_path_challenge
+                                            && first_byte != picoquic_frame_type_path_response
+                                            && first_byte != picoquic_frame_type_connection_close
+                                            && first_byte != picoquic_frame_type_crypto_hs
+                                            && first_byte != picoquic_frame_type_ack
+                                            && first_byte != picoquic_frame_type_ack_ecn) {
             picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
             bytes = NULL;
             break;
@@ -3957,5 +3977,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_AFTER_DECODING_FRAMES, &protoop_noop);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_BYTES_MAX, &stream_bytes_max);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, &stream_always_encode_length);
 }
 

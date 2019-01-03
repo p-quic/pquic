@@ -422,6 +422,13 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_BYTES_MAX;
 
 
 /**
+ * Returns true if the streams must always encode the payload length.
+ */
+#define PROTOOPID_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH "stream_always_encode_length"
+extern protoop_id_t PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH;
+
+
+/**
  * Prepare a CRYPTO HS frame.
  * \param[in] epoch \b int The current epoch
  * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame 

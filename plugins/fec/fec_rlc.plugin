@@ -14,3 +14,4 @@ prepare_packet_ready pre prepare_packet_ready.o
 finalize_and_protect_packet pre finalize_and_protect_packet.o
 skip_frame pre skip_frame_pre.o
 skip_frame post skip_frame_post.o
+stream_always_encode_length replace stream_always_encode_length.o
