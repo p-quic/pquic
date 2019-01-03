@@ -28,7 +28,7 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
             my_memcpy(r->datagram, frame, sizeof(datagram_frame_t));
             r->datagram->datagram_data_ptr = (uint8_t *) my_malloc(cnx, (unsigned int) frame->length);
             my_memcpy(r->datagram->datagram_data_ptr, frame->datagram_data_ptr, frame->length);
-            r->delivery_deadline = current_time + get_max_rtt_difference(cnx, path_x) + 100000;
+            r->delivery_deadline = current_time + ((get_max_rtt_difference(cnx, path_x)*5)/4);
             insert_into_datagram_buffer(m, r);
             process_datagram_buffer(m, cnx);
         }
