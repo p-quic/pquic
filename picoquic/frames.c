@@ -1053,7 +1053,7 @@ protoop_arg_t stream_always_encode_length(picoquic_cnx_t* cnx) {
     return 0;
 }
 
-size_t picoquic_stream_always_encode_length(picoquic_cnx_t* cnx)
+bool picoquic_stream_always_encode_length(picoquic_cnx_t* cnx)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, outs, NULL);
