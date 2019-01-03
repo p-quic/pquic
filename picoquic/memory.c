@@ -54,7 +54,7 @@ void *my_sbrk(protoop_plugin_t *p, intptr_t increment) {
  */ 
 meta_data *find_slot(protoop_plugin_t *p, unsigned int size) {
 	meta_data *iter = (meta_data*) p->heap_start;
-	while(iter) {
+	while(iter && iter->magic_number == MAGIC_NUMBER) {
 		if (iter->available && iter->size >= size) {
 			iter->available = 0;
 			return iter;
@@ -68,17 +68,20 @@ meta_data *find_slot(protoop_plugin_t *p, unsigned int size) {
  * If a free slot can accommodate atleast 1 more (METADATA_SIZE + ALIGNMENT FACTOR)
  * apart from the requested size, then the slot is divided to save space.
  */ 
-void divide_slot(void *slot, unsigned int size) {
+void divide_slot(protoop_plugin_t *p, void *slot, unsigned int size) {
 	meta_data *slot_to_divide = (meta_data *) slot;
-	meta_data *new_slot= (meta_data*) ((char *) slot_to_divide + METADATA_SIZE + size);
+	meta_data *new_slot= (meta_data*) (((char *) slot_to_divide) + METADATA_SIZE + size);
 	
 	new_slot->size=slot_to_divide->size - size - METADATA_SIZE;
 	new_slot->available = 1;
 	new_slot->next_block = slot_to_divide->next_block;
 	new_slot->magic_number = MAGIC_NUMBER;
-	
+
 	slot_to_divide->size = size;
 	slot_to_divide->next_block = new_slot;
+	if (p && (char *) slot_to_divide == p->heap_last_block) {
+	    p->heap_last_block = (char *) new_slot;
+	}
 }
 
 /**
@@ -130,7 +133,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 		slot = find_slot(p, size);
 		if (slot) {
 			if (((meta_data *) slot)->size > size + METADATA_SIZE) {
-				divide_slot(slot, size);
+				divide_slot(p, slot, size);
 			}
 		} else {
 			slot = extend(p, size);
@@ -140,7 +143,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
         DBG_MEMORY_PRINTF("Heap starts at: %p", p->heap_start);
 		slot = extend(p, size);
 	}
-	
+
 	if (!slot) { return slot; }
 
     DBG_MEMORY_PRINTF("Memory assigned from %p to %p", slot, (void *)((char *) slot + METADATA_SIZE + ((meta_data *) slot)->size));

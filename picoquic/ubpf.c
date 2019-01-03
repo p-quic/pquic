@@ -20,6 +20,7 @@
 #include "tls_api.h"
 #include "endianness.h"
 #include "getset.h"
+#include "picoquic_logger.h"
 
 #define JIT true /* putting to false show out of memory access */
 
@@ -28,8 +29,7 @@ void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_
 }
 
 static void
-register_functions(struct ubpf_vm *vm)
-{
+register_functions(struct ubpf_vm *vm) {
     /* We only have 64 values ... (so far) */
 
     /* specific API related */
@@ -80,10 +80,13 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x2a, "my_htons", my_htons);
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
+    // logging func
+
     /* Specific QUIC functions */
+    ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
-    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx); 
+    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);
     ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, 0x34, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
@@ -95,8 +98,8 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
     ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
     ubpf_register(vm, 0x3d, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
-
     /* This value is reserved. DO NOT OVERRIDE IT! */
+    ubpf_register(vm, 0x3e, "picoquic_record_pn_received", picoquic_record_pn_received);
     ubpf_register(vm, 0x3f, "picoquic_memory_bound_error", picoquic_memory_bound_error);
 }
 

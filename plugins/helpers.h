@@ -67,7 +67,7 @@ static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext
     return (uint32_t) run_noparam(cnx, PROTOOPID_NOPARAM_GET_CHECKSUM_LENGTH, 1, args, NULL);
 }
 
-static void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_arg_t *fmt_args, size_t args_len)
+static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t *cnx, const char *fmt, protoop_arg_t *fmt_args, size_t args_len)
 {
     protoop_arg_t args[3];
     args[0] = (protoop_arg_t) fmt;

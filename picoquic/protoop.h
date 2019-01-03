@@ -408,6 +408,27 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE;
  */
 #define PROTOOPID_NOPARAM_PREPARE_STREAM_FRAME "prepare_stream_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_STREAM_FRAME;
+
+
+/**
+ * Returns the maximal address writable for a stream in a packet.
+ * \param[in] bytes_max \b size_t Current max size that can be written
+ * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] bytes_max \b size_t Current max size that can be written
+ */
+#define PROTOOPID_NOPARAM_STREAM_BYTES_MAX "stream_bytes_max"
+extern protoop_id_t PROTOOP_NOPARAM_STREAM_BYTES_MAX;
+
+
+/**
+ * Returns true if the streams must always encode the payload length.
+ */
+#define PROTOOPID_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH "stream_always_encode_length"
+extern protoop_id_t PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH;
+
+
 /**
  * Prepare a CRYPTO HS frame.
  * \param[in] epoch \b int The current epoch
