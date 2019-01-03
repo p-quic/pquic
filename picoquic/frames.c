@@ -1042,6 +1042,24 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
     return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
 }
 
+protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
+    size_t bytes_max = (size_t) cnx->protoop_inputv[0];
+    protoop_save_outputs(cnx, bytes_max);
+    return 0;
+}
+
+protoop_arg_t stream_always_encode_length(picoquic_cnx_t* cnx) {
+    protoop_save_outputs(cnx, false);
+    return 0;
+}
+
+bool picoquic_stream_always_encode_length(picoquic_cnx_t* cnx)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, outs, NULL);
+    return (bool) outs[0];
+}
+
 /**
  * See PROTOOP_NOPARAM_PREPARE_STREAM_FRAME
  */
@@ -1115,7 +1133,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                     }
                 }
 
-                if (length >= space) {
+                if (!picoquic_stream_always_encode_length(cnx) && length >= space) {
                     length = space;
                 } else {
                     /* This is going to be a trial and error process */
@@ -1186,6 +1204,14 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
         stream, bytes, bytes_max);
     *consumed = (protoop_arg_t) outs[0];
     return ret;
+}
+
+size_t picoquic_stream_bytes_max(picoquic_cnx_t* cnx, size_t bytes_max, size_t header_length, uint8_t* bytes)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_BYTES_MAX, outs,
+        bytes_max, header_length, bytes);
+    return (size_t) outs[0];
 }
 
 /*
@@ -3728,6 +3754,44 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
 }
 
+int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,
+                                                size_t bytes_max_size, int epoch, picoquic_path_t* path_x) {
+    const uint8_t *bytes_max = bytes + bytes_max_size;
+    int ack_needed = 0;
+    uint64_t current_time = picoquic_current_time();
+
+    while (bytes != NULL && bytes < bytes_max) {
+        uint8_t first_byte = bytes[0];
+
+        if (PICOQUIC_IN_RANGE(first_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+            if (epoch != 1 && epoch != 3) {
+                DBG_PRINTF("Data frame (0x%x), when only TLS stream is expected", first_byte);
+                picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+                bytes = NULL;
+                break;
+            }
+
+            bytes = picoquic_decode_stream_frame(cnx, bytes, bytes_max, current_time, path_x);
+
+        } else if (epoch != 1 && epoch != 3 && first_byte != picoquic_frame_type_padding
+                   && first_byte != picoquic_frame_type_path_challenge
+                   && first_byte != picoquic_frame_type_path_response
+                   && first_byte != picoquic_frame_type_connection_close
+                   && first_byte != picoquic_frame_type_crypto_hs
+                   && first_byte != picoquic_frame_type_ack
+                   && first_byte != picoquic_frame_type_ack_ecn) {
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, first_byte);
+            bytes = NULL;
+            break;
+
+        } else {
+            bytes = picoquic_decode_frame(cnx, first_byte, bytes, bytes_max, current_time, epoch, &ack_needed, path_x);
+        }
+    }
+    picoquic_after_decoding_frames(cnx, path_x, ack_needed);
+
+    return bytes != NULL ? 0 : PICOQUIC_ERROR_DETECTED;
+}
 /*
 * The STREAM skipping function only supports the varint format.
 * The old "fixed int" versions are supported by code in the skip_frame function
@@ -3911,5 +3975,9 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CHECK_STREAM_FRAME_ALREADY_ACKED, &check_stream_frame_already_acked);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_AFTER_DECODING_FRAMES, &protoop_noop);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_BYTES_MAX, &stream_bytes_max);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, &stream_always_encode_length);
 }
 

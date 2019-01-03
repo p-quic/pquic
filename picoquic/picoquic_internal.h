@@ -602,6 +602,8 @@ typedef struct st_picoquic_cnx_t {
 
     /* Management of pending frames to be sent due to reservations */
     queue_t *reserved_frames;
+    /* Queue of frames to retry sending */
+    queue_t *retry_frames;
     /* Keep a pointer to the next plugin to look at first */
     protoop_plugin_t *first_drr;
     /* Core guaranteed rate (fraction over 1000) */
@@ -936,6 +938,8 @@ int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x);
 int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
+size_t picoquic_stream_bytes_max(picoquic_cnx_t* cnx, size_t bytes_max, size_t header_length, uint8_t* bytes);
+bool picoquic_stream_always_encode_length(picoquic_cnx_t* cnx);
 uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     const uint8_t* bytes_max, int epoch);
 int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
@@ -965,6 +969,9 @@ int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_
 
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x);
+
+int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,
+    size_t bytes_max_size, int epoch, picoquic_path_t* path_x);
 
 int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max_size, size_t* consumed, int* pure_ack);
 

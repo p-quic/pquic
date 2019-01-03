@@ -2620,9 +2620,52 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
                     reserve_frame_slot_t *rfs;
+                    reserve_frame_slot_t *first_retry = NULL;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
+                    /* First, retry previously considered frames */
+                    /* FIXME ugly code duplication, but the retry has a slightly different behaviour when retrying the packet */
+                    while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->retry_frames)) != NULL &&
+                           rfs != first_retry &&
+                           rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
+                        rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->retry_frames);
+                        /* If it has not been computed before, compute it now */
+                        if (PROTOOP_PARAM_WRITE_FRAME.hash == 0) {
+                            PROTOOP_PARAM_WRITE_FRAME.hash = hash_value_str(PROTOOP_PARAM_WRITE_FRAME.id);
+                        }
+                        ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
+                                &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
+                        data_bytes = (size_t) outs[0];
+                        /* TODO FIXME consumed */
+                        protoop_plugin_t *p = rfs->p;
+                        if (ret == 0 && data_bytes <= rfs->nb_bytes) {
+                            length += (uint32_t) data_bytes;
+                            /* Keep track of the bytes sent by the plugin */
+                            p->bytes_in_flight += (uint64_t) data_bytes;
+                            p->bytes_total += (uint64_t) data_bytes;
+                            p->frames_total += 1;
+                            /* And let the packet know that it has plugin bytes */
+                            register_plugin_bytes_in_pkt(packet, p, (uint64_t) data_bytes);
+                        } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
+                            if (first_retry == NULL) {
+                                first_retry = rfs;
+                            }
+                            /* Put the reservation in the retry queue, for the next packet */
+                            queue_enqueue(cnx->retry_frames, rfs);
+                        } else {
+                            if (data_bytes > rfs->nb_bytes) {
+                                printf("WARNING: plugin %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
+                                    cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                            }
+                            memset(&bytes[length], 0, rfs->nb_bytes);
+                        }
 
-                    /* First empty the reserved frames */
+                        if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
+                            /* It was reserved by the plugin, so it is a my_free */
+                            my_free_in_core(p, rfs);
+                        }
+                    }
+
+                    /* Second, empty the reserved frames */
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL && 
                            rfs->nb_bytes <= (send_buffer_min_max - checksum_overhead - length)) {
                         rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
@@ -2643,6 +2686,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             p->frames_total += 1;
                             /* And let the packet know that it has plugin bytes */
                             register_plugin_bytes_in_pkt(packet, p, (uint64_t) data_bytes);
+                        } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
+                            /* Put the reservation in the retry queue, for the next packet */
+                            queue_enqueue(cnx->retry_frames, rfs);
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
                                 if (cnx->current_plugin != NULL)
@@ -2655,8 +2701,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
 
-                        /* It was reserved by the plugin, so it is a my_free */
-                        my_free_in_core(p, rfs);
+                        if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
+                            /* It was reserved by the plugin, so it is a my_free */
+                            my_free_in_core(p, rfs);
+                        }
                     }
 
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
@@ -2732,9 +2780,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
+                            size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
                             ret = picoquic_prepare_stream_frame(cnx, stream, &bytes[length],
-                                send_buffer_min_max - checksum_overhead - length, &data_bytes);
-
+                                stream_bytes_max, &data_bytes);
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)
@@ -2742,7 +2790,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                     is_pure_ack = 0;
                                 }
 
-                                if (send_buffer_max > checksum_overhead + length + 8) {
+                                if (stream_bytes_max > checksum_overhead + length + 8) {
                                     stream = picoquic_find_ready_stream(cnx);
                                 }
                                 else {

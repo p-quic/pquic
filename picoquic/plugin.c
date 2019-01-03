@@ -24,7 +24,8 @@ int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, proto
     }
 
     /* Then check if we can load the plugin! */
-    pluglet_t *new_pluglet = load_elf_file(elf_fname);
+    /* FIXME make adjustable memory size */
+    pluglet_t *new_pluglet = load_elf_file(elf_fname, (uint64_t) p->memory, PLUGIN_MEMORY);
     if (!new_pluglet) {
         printf("Failed to insert %s\n", elf_fname);
         return 1;
@@ -549,7 +550,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     /* The actual protocol operation */
     if (popst->replace) {
-        DBG_PLUGIN_PRINTF("Running pluglet at proto op id %d", pid);
+        DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pp->pid->id);
         cnx->current_plugin = popst->replace->p;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         if (error_msg) {

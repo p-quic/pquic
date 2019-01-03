@@ -20,12 +20,16 @@
 #include "tls_api.h"
 #include "endianness.h"
 #include "getset.h"
+#include "picoquic_logger.h"
 
 #define JIT true /* putting to false show out of memory access */
 
+void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
+    printf("Out of bound access with val 0x%lx, start of mem is 0x%lx, top of stack is 0x%lx\n", val, mem_ptr, stack_ptr);
+}
+
 static void
-register_functions(struct ubpf_vm *vm)
-{
+register_functions(struct ubpf_vm *vm) {
     /* We only have 64 values ... (so far) */
 
     /* specific API related */
@@ -76,10 +80,13 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x2a, "my_htons", my_htons);
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
+    // logging func
+
     /* Specific QUIC functions */
+    ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, 0x31, "picoquic_varint_encode", picoquic_varint_encode);
-    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx); 
+    ubpf_register(vm, 0x32, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);
     ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, 0x34, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
@@ -91,6 +98,9 @@ register_functions(struct ubpf_vm *vm)
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
     ubpf_register(vm, 0x3c, "picoquic_set_cnx_state", picoquic_set_cnx_state);
     ubpf_register(vm, 0x3d, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
+    ubpf_register(vm, 0x3e, "picoquic_record_pn_received", picoquic_record_pn_received);
+    /* This value is reserved. DO NOT OVERRIDE IT! */
+    ubpf_register(vm, 0x3f, "picoquic_memory_bound_error", picoquic_memory_bound_error);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
@@ -136,7 +146,7 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
     return data;
 }
 
-pluglet_t *load_elf(void *code, size_t code_len) {
+pluglet_t *load_elf(void *code, size_t code_len, uint64_t memory_ptr, uint32_t memory_size) {
     pluglet_t *pluglet = (pluglet_t *)malloc(sizeof(pluglet_t));
     if (!pluglet) {
         return NULL;
@@ -156,9 +166,9 @@ pluglet_t *load_elf(void *code, size_t code_len) {
     char *errmsg;
     int rv;
     if (elf) {
-        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg);
+        rv = ubpf_load_elf(pluglet->vm, code, code_len, &errmsg, memory_ptr, memory_size);
     } else {
-        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg);
+        rv = ubpf_load(pluglet->vm, code, code_len, &errmsg, memory_ptr, memory_size);
     }
 
     if (rv < 0) {
@@ -182,14 +192,14 @@ pluglet_t *load_elf(void *code, size_t code_len) {
     return pluglet;
 }
 
-pluglet_t *load_elf_file(const char *code_filename) {
+pluglet_t *load_elf_file(const char *code_filename, uint64_t memory_ptr, uint32_t memory_size) {
 	size_t code_len;
 	void *code = readfile(code_filename, 1024*1024, &code_len);
 	if (code == NULL) {
 			return NULL;
 	}
 
-	pluglet_t *ret = load_elf(code, code_len);
+	pluglet_t *ret = load_elf(code, code_len, memory_ptr, memory_size);
 	free(code);
 	return ret;
 }
