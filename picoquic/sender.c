@@ -2662,6 +2662,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             /* It was reserved by the plugin, so it is a my_free */
                             my_free_in_core(p, rfs);
+                        } else {
+                            ret = 0;
                         }
                     }
 
@@ -2704,6 +2706,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             /* It was reserved by the plugin, so it is a my_free */
                             my_free_in_core(p, rfs);
+                        } else {
+                            ret = 0;
                         }
                     }
 

@@ -23,9 +23,8 @@
  * next block is the pointer to next slot of memory in heap.
  */
 typedef struct meta_data {
-	unsigned int size;
-	unsigned int available;
-	struct meta_data *next_block;
+	unsigned int size:31;
+	unsigned int available:1;
 	unsigned int magic_number;
 } meta_data;
 
@@ -49,6 +48,13 @@ void *my_sbrk(protoop_plugin_t *p, intptr_t increment) {
     return p->heap_end;
 }
 
+meta_data *get_next_slot(protoop_plugin_t *p, meta_data *iter) {
+	if ((char *)iter < (char *) p->heap_last_block) {
+		return (meta_data *) ((char *) iter + METADATA_SIZE + iter->size);
+	}
+	return NULL; 
+}
+
 /**
  * Goes through the whole heap to find an empty slot.
  */ 
@@ -59,7 +65,7 @@ meta_data *find_slot(protoop_plugin_t *p, unsigned int size) {
 			iter->available = 0;
 			return iter;
 		}
-		iter = iter->next_block;
+		iter = get_next_slot(p, iter);
 	}
 	return NULL;
 }
@@ -74,11 +80,9 @@ void divide_slot(protoop_plugin_t *p, void *slot, unsigned int size) {
 	
 	new_slot->size=slot_to_divide->size - size - METADATA_SIZE;
 	new_slot->available = 1;
-	new_slot->next_block = slot_to_divide->next_block;
 	new_slot->magic_number = MAGIC_NUMBER;
 
 	slot_to_divide->size = size;
-	slot_to_divide->next_block = new_slot;
 	if (p && (char *) slot_to_divide == p->heap_last_block) {
 	    p->heap_last_block = (char *) new_slot;
 	}
@@ -97,12 +101,8 @@ void *extend(protoop_plugin_t *p, unsigned int size) {
 	}
 	new_block->size = size;
 	new_block->available = 0;
-	new_block->next_block = NULL;
 	new_block->magic_number = MAGIC_NUMBER;
 	
-	if (p->heap_last_block) {
-		((meta_data *) p->heap_last_block)->next_block = new_block;	
-	}
 	p->heap_last_block = (char *) new_block;
 	return new_block;
 }
@@ -215,10 +215,12 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
     }
     /* Case 1a and 1b */
     unsigned int old_size = ptr_metadata->size;
+    /* This case is broken...
     if (size <= old_size) {
         ptr_metadata->size = size;
         return ptr;
     }
+    */
 
     /* This is clearly not the most optimized way, but it will always work */
     void *new_ptr = my_malloc(cnx, size);
@@ -226,7 +228,7 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
         my_free(cnx, ptr);
         return NULL;
     }
-    my_memcpy(new_ptr, ptr, old_size);
+    my_memcpy(new_ptr, ptr, old_size > size ? size : old_size);
     my_free(cnx, ptr);
     return new_ptr;
 }
