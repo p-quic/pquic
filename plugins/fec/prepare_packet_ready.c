@@ -16,7 +16,6 @@
  */
 protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 {
-    PROTOOP_PRINTF(cnx, "PRE PREPARE_PACKET_READY\n");
     // set the current fpid
     bpf_state *state = get_bpf_state(cnx);
     if (state->current_sfpid_frame) {

@@ -100,7 +100,6 @@ static __attribute__((always_inline)) void get_coefs(picoquic_cnx_t *cnx, tinymt
     int i;
     for (i = 0 ; i < n ; i++) {
         coefs[i] = (uint8_t) tinymt32_generate_uint32(prng);
-        PROTOOP_PRINTF(cnx, "COEF %d = %u\n", (protoop_arg_t) i, coefs[i]);
     }
 }
 
