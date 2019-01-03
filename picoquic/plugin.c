@@ -472,6 +472,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
             pp->pid->id, pp->inputc, PROTOOPARGS_MAX);
         return PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS;
     }
+
     char *error_msg = NULL;
 
     /* First save previous args, and update context with new ones
@@ -540,9 +541,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
-
         exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
-
         tmp = tmp->next;
     }
 
