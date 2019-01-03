@@ -2622,7 +2622,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     reserve_frame_slot_t *rfs;
                     reserve_frame_slot_t *first_retry = NULL;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
-
                     /* First, retry previously considered frames */
                     /* FIXME ugly code duplication, but the retry has a slightly different behaviour when retrying the packet */
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->retry_frames)) != NULL &&
@@ -2787,7 +2786,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                     is_pure_ack = 0;
                                 }
 
-                                if (send_buffer_max > checksum_overhead + length + 8) {
+                                if (stream_bytes_max > checksum_overhead + length + 8) {
                                     stream = picoquic_find_ready_stream(cnx);
                                 }
                                 else {
