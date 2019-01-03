@@ -602,6 +602,8 @@ typedef struct st_picoquic_cnx_t {
 
     /* Management of pending frames to be sent due to reservations */
     queue_t *reserved_frames;
+    /* Queue of frames to retry sending */
+    queue_t *retry_frames;
     /* Keep a pointer to the next plugin to look at first */
     protoop_plugin_t *first_drr;
     /* Core guaranteed rate (fraction over 1000) */

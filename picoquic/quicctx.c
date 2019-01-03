@@ -924,6 +924,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         register_protocol_operations(cnx);
         /* Also initialize reserve queue */
         cnx->reserved_frames = queue_init();
+        /* And the retry queue */
+        cnx->retry_frames = queue_init();
         /* TODO change this arbitrary value */
         cnx->core_rate = 500;
     }
@@ -1529,6 +1531,8 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
+        /* And also the retry frames */
+        queue_free(cnx->retry_frames);
 
         protoop_plugin_t *current_p, *tmp_p;
         HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
