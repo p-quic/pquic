@@ -234,9 +234,8 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     }
 
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
-
-    for (int i = 0; blocked != 0 && i < nb_paths; i++) {
-        picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
+    for (int i = (nb_paths > 1); blocked != 0 && i < nb_paths; i++) {
+        picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
         pd = mp_get_path_data(bpfd, path_x);
         /* If the path is not active, don't expect anything! */
         if (pd != NULL && pd->state != 2) {
