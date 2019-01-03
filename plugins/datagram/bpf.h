@@ -145,4 +145,7 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
             break;
         }
     }
+    if (m->datagram_buffer != NULL && get_cnx(cnx, CNX_AK_NEXT_WAKE_TIME, 0) > m->datagram_buffer->delivery_deadline) {
+        picoquic_reinsert_cnx_by_wake_time(cnx, m->datagram_buffer->delivery_deadline);
+    }
 }

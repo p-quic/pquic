@@ -31,9 +31,6 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
             r->delivery_deadline = current_time + get_max_rtt_difference(cnx, path_x) + 100000;
             insert_into_datagram_buffer(m, r);
             process_datagram_buffer(m, cnx);
-            if (m->datagram_buffer != NULL && get_cnx(cnx, CNX_AK_NEXT_WAKE_TIME, 0) > m->datagram_buffer->delivery_deadline) {
-                picoquic_reinsert_cnx_by_wake_time(cnx, m->datagram_buffer->delivery_deadline);
-            }
         }
     }
     return 0;
