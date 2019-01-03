@@ -23,10 +23,10 @@
  * next block is the pointer to next slot of memory in heap.
  */
 typedef struct meta_data {
-	unsigned int size;
-	unsigned int available;
-	struct meta_data *next_block;
+	unsigned int size:31;
+	unsigned int available:1;
 	unsigned int magic_number;
+	struct meta_data *next_block;
 } meta_data;
 
 /**
