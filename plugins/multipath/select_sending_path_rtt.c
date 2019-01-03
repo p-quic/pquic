@@ -48,6 +48,12 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 return (protoop_arg_t) path_c;
             }
 
+            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
+            if (mtu_needed) {
+                PROTOOP_PRINTF(cnx, "mtu needed %p", path_c);
+                return (protoop_arg_t) path_c;
+            }
+
             /* Don't consider invalid paths */
             if (!challenge_verified_c) {
                 continue;
