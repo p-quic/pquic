@@ -27,8 +27,6 @@
 #include "fnv1a.h"
 #include "picoquic_internal.h"
 #include "tls_api.h"
-#include "../plugins/helpers.h"
-#include "memory.h"
 
 void picoquic_log_bytes(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
@@ -1211,14 +1209,8 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
     return byte_index;
 }
 
-void picoquic_log_frames_cnx(FILE* F, picoquic_cnx_t *cnx, uint64_t cnx_id64, uint8_t* bytes, size_t length)
+void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
-    if (!F && !cnx)
-        return;
-
-    if (!F)
-        F = cnx->quic->F_log;
-
     size_t byte_index = 0;
 
     while (byte_index < length) {
@@ -1331,28 +1323,15 @@ void picoquic_log_frames_cnx(FILE* F, picoquic_cnx_t *cnx, uint64_t cnx_id64, ui
             /* Not implemented yet! */
             uint64_t frame_id64;
             if (picoquic_varint_decode(bytes + byte_index, length - byte_index, &frame_id64) > 0) {
-                fprintf(F, "    Unknown frame, type: %llu %s\n", (unsigned long long)frame_id64, cnx ? "(parsing...)" : "");
-                if (cnx) {
-                    void *frame;
-                    int ack_needed, is_retransmittable;
-                    byte_index = helper_parse_frame(cnx, (uint8_t) frame_id64, bytes + byte_index, bytes + length,
-                                                    &frame, &ack_needed, &is_retransmittable) - bytes;
-                    my_free(cnx, frame);
-                } else {
-                    byte_index = length;
-                }
+                fprintf(F, "    Unknown frame, type: %llu\n", (unsigned long long)frame_id64);
             } else {
                 fprintf(F, "    Truncated frame type\n");
-                byte_index = length;
             }
+            byte_index = length;
             break;
         }
         }
     }
-}
-
-void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length) {
-    picoquic_log_frames_cnx(F, NULL, cnx_id64, bytes, length);
 }
 
 void picoquic_log_decrypted_segment(void* F_log, int log_cnxid, picoquic_cnx_t* cnx,

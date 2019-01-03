@@ -81,7 +81,6 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
     // logging func
-    ubpf_register(vm, 0x2c, "picoquic_log_frames_cnx", picoquic_log_frames_cnx);
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
@@ -102,7 +101,6 @@ register_functions(struct ubpf_vm *vm) {
     /* This value is reserved. DO NOT OVERRIDE IT! */
     ubpf_register(vm, 0x3e, "picoquic_record_pn_received", picoquic_record_pn_received);
     ubpf_register(vm, 0x3f, "picoquic_memory_bound_error", picoquic_memory_bound_error);
-    ubpf_register(vm, 0x40, "picoquic_log_frames_cnx", picoquic_log_frames_cnx);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)
