@@ -490,5 +490,9 @@ static __attribute__((always_inline)) int process_fec_frame_helper(picoquic_cnx_
     // TODO: here, we don't handle the case where repair symbols are split into several frames. We should do it.
     repair_symbol_t *rs = malloc_repair_symbol_with_data(cnx, frame->header.repair_fec_payload_id, frame->data,
                                                          frame->header.data_length);
-    return received_repair_symbol_helper(cnx, rs, frame->header.nss, frame->header.nrs);
+    if(!received_repair_symbol_helper(cnx, rs, frame->header.nss, frame->header.nrs)) {
+        free_repair_symbol(cnx, rs);
+        return false;
+    }
+    return true;
 }

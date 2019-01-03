@@ -49,19 +49,22 @@ static __attribute__((always_inline)) void write_header(picoquic_cnx_t *cnx, pic
     uint64_t spin_last_trigger = (uint64_t) get_cnx(cnx, CNX_AK_SPIN_LAST_TRIGGER, 0);
     uint64_t seqnum = (uint64_t) get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
 
-    if (!spin_edge) spin_vec = 0;
-    else {
-        // for a source symbol, the spin_vec is always marked as LATE, to avoid differences between the source symbol and the real packet, because it depends on the clock
-        spin_vec = 1;
+    // for a source symbol, spin_bit is set to 0 and the spin_vec is always marked as LATE, to avoid differences between the source symbol and the real packet, because it depends on the clock
+    spin_vec = 1;
+    spin_bit = 0;
 
-
+//    if (!spin_edge) spin_vec = 0;
+//    else {
+//        spin_vec = 1;
+//
+//
 //        spin_edge = 0;
 //        uint64_t dt = picoquic_current_time() - spin_last_trigger;
 //        if (dt > PICOQUIC_SPIN_VEC_LATE) { // DELAYED
 //            spin_vec = 1;
 //            // fprintf(stderr, "Delayed Outgoing Spin=%d DT=%ld\n", cnx->current_spin, dt);
 //        }
-    }
+//    }
 
     uint32_t length = 0;
     bytes[length++] = (K | C | spin_bit | spin_vec);

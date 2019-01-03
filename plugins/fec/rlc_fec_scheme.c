@@ -26,7 +26,6 @@ There are two options to do this in C.
 This program uses the first option.
 ********/
 static __attribute__((always_inline)) void gaussElimination(picoquic_cnx_t *cnx, int m, int n, mpz_t **a, mpz_t x[m]){
-    PROTOOP_PRINTF(cnx, "MALLOC FOR GAUSS\n");
     mpz_t *tmps = my_malloc(cnx, 4*sizeof(mpz_t));
     if (!tmps) {
         PROTOOP_PRINTF(cnx, "NOT ENOUGH MEMORY\n");
@@ -183,7 +182,7 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
     }
 
 
-    for (j = 0 ; j < fec_block->current_repair_symbols ; j++) {
+    for (j = 0 ; j < fec_block->current_source_symbols ; j++) {
         mpz_clear(knowns[j]);
     }
     mpz_clear(*tmp);
@@ -205,6 +204,7 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
             mpz_export(ss->data, &count, 1, 1, unknowns[current_unknown]);
             ss->data_length = (uint16_t) count;
             fec_block->source_symbols[j] = ss;
+            fec_block->current_source_symbols++;
             mpz_clear(unknowns[current_unknown++]);
         }
     }
