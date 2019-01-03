@@ -85,7 +85,7 @@ static __attribute__((always_inline)) uint32_t get_max_datagram_size(picoquic_cn
 static __attribute__((always_inline)) uint64_t get_max_rtt_difference(picoquic_cnx_t *cnx, picoquic_path_t *path_x) {
     uint64_t highest_rtt = 0;
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
-    for (uint16_t i = 0; i < nb_paths; i++) {
+    for (uint16_t i = (uint16_t) (nb_paths > 1); i < nb_paths; i++) {
         picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
         uint64_t path_rtt = get_path(path, PATH_AK_SMOOTHED_RTT, 0);
         if (path_rtt > highest_rtt) {
