@@ -17,6 +17,7 @@ typedef struct {
     bool is_in_skip_frame;    // set to true if we are currently in skip_frame
     bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
     bool current_packet_contains_fpid_frame;    // set to true if the current packet contains a FPID Frame
+    bool sfpid_reserved;                        // set to true when a SFPID frame has been reserved
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
 } bpf_state;
 
