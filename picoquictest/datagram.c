@@ -27,7 +27,7 @@ static int datagram_parse_test()
         return ret;
     }
 
-    uint8_t *bytes = copy_to_cnx(&cnx, (char[]){0x20, 0xa, 0xb, 0xc, 0xd}, 5);
+    uint8_t *bytes = copy_to_cnx(&cnx, (char[]){0x2c, 0xa, 0xb, 0xc, 0xd}, 5);
     if (bytes == NULL) {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
@@ -41,7 +41,7 @@ static int datagram_parse_test()
     my_free_in_core(cnx.previous_plugin, (void *) out[0]);
     free(bytes);
 
-    bytes = copy_to_cnx(&cnx, (char[]){0x21, 0x40, 0x4, 0xa, 0xb, 0xc, 0xd}, 7);
+    bytes = copy_to_cnx(&cnx, (char[]){0x2d, 0x40, 0x4, 0xa, 0xb, 0xc, 0xd}, 7);
     if (bytes == NULL) {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
@@ -55,7 +55,7 @@ static int datagram_parse_test()
     my_free_in_core(cnx.previous_plugin, (void *) out[0]);
     free(bytes);
 
-    bytes = copy_to_cnx(&cnx, (char[]){0x21, 0x40, 0x12, 0xa, 0xb, 0xc, 0xd}, 7);
+    bytes = copy_to_cnx(&cnx, (char[]){0x2d, 0x40, 0x12, 0xa, 0xb, 0xc, 0xd}, 7);
     if (bytes == NULL) {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;

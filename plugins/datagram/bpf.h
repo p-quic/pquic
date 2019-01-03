@@ -3,7 +3,7 @@
 #include "getset.h"
 #include "../helpers.h"
 
-#define FT_DATAGRAM 0x20
+#define FT_DATAGRAM 0x2c
 #define FT_DATAGRAM_LEN 0x01
 #define FT_DATAGRAM_ID 0x02
 #define IS_DATAGRAM(t) ((t & 0xFE) == FT_DATAGRAM)
