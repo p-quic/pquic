@@ -215,10 +215,12 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
     }
     /* Case 1a and 1b */
     unsigned int old_size = ptr_metadata->size;
+    /* This case is broken...
     if (size <= old_size) {
         ptr_metadata->size = size;
         return ptr;
     }
+    */
 
     /* This is clearly not the most optimized way, but it will always work */
     void *new_ptr = my_malloc(cnx, size);
@@ -226,7 +228,7 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
         my_free(cnx, ptr);
         return NULL;
     }
-    my_memcpy(new_ptr, ptr, old_size);
+    my_memcpy(new_ptr, ptr, old_size > size ? size : old_size);
     my_free(cnx, ptr);
     return new_ptr;
 }
