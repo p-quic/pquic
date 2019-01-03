@@ -103,6 +103,7 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
  * Therefore, the operation is directly attached to the protocol operation ID.
  */
 
+/* @{ */
 
 /**
  * Decode the STREAM frame and process its content.
@@ -652,25 +653,6 @@ extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
  */
 #define PROTOOPID_NOPARAM_SELECT_SENDING_PATH "select_sending_path"
 extern protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH;
-/* @} */
-
-
-/**
- * Logs the frames in the given file.
- * \param[in] F \b FILE* The file on which to write
- * \param[in] cnx \b picoquic_cnx_t* The picoquic connection
- * \param[in] cnx_id64 \b uint64_t The 64bits connection ID
- * \param[in] bytes \b uint8_t* Pointer to the frames buffer to log
- * \param[in] length \b size_t size of the frames buffer
- *
- * \return \b size_t amount of bytes read
- */
-static const protoop_id_t PROTOOP_NOPARAM_LOG_FRAMES = {
-        .id = "log_frames",
-        .hash = 0,
-};
-
-
 /* @} */
 
 #endif
