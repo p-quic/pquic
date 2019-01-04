@@ -68,18 +68,19 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 
             if (path_c != path_0) {
                 uint64_t current_time = picoquic_current_time();
+                uint32_t send_mtu = (uint32_t) get_path(path_c, PATH_AK_SEND_MTU, 0);
                 if (pd->last_rtt_probe + RTT_PROBE_INTERVAL < current_time && !pd->rtt_probe_ready) {  // Prepares a RTT probe
                     pd->last_rtt_probe = current_time;
                     reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
                     if (slot == NULL) {
                         continue;
                     }
-                    slot->nb_bytes = path_c->send_mtu / 20;
+                    slot->nb_bytes = send_mtu / 20;
                     slot->frame_type = RTT_PROBE_TYPE;
                     slot->frame_ctx = (void *)(uint64_t) i;
                     size_t ret = reserve_frames(cnx, 1, slot);
                     if (ret == slot->nb_bytes) {
-                        PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", path_c->send_mtu / 20, i);
+                        PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", send_mtu / 20, i);
                     }
                 }
 
