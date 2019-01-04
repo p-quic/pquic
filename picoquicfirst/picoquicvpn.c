@@ -182,7 +182,6 @@ void handle_tun_read(picoquic_cnx_t *cnx, int tun, const uint8_t *buffer, int by
     protoop_arg_t pret = protoop_prepare_and_run_extern_noparam(cnx, &send_message, NULL, buffer, bytes_recv);
     if (pret != 0) {
         fprintf(stdout, "Unable to send message\n");
-        exit(-1);
     }
 }
 

@@ -15,6 +15,9 @@
 #define APP_SOCKET 1
 #define PLUGIN_SOCKET 0
 
+#define SEND_BUFFER 300000
+#define RECV_BUFFER 500000
+
 typedef struct st_datagram_frame_t {
     uint64_t datagram_id;
     uint64_t length;
@@ -32,6 +35,8 @@ typedef struct st_datagram_memory_t {
     uint64_t next_datagram_id;
     uint64_t expected_datagram_id;
     received_datagram_t *datagram_buffer;
+    uint32_t send_buffer;
+    uint32_t recv_buffer;
 } datagram_memory_t;
 
 static inline size_t varint_len(uint64_t val) {
@@ -128,7 +133,7 @@ static __attribute__((always_inline)) void insert_into_datagram_buffer(datagram_
     }
 }
 
-static __attribute__((always_inline)) void process_datagram_buffer(datagram_memory_t *m,picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) void process_datagram_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx) {
     received_datagram_t *r = m->datagram_buffer;
     uint64_t now = picoquic_current_time();
 
@@ -147,5 +152,16 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
     }
     if (m->datagram_buffer != NULL && get_cnx(cnx, CNX_AK_NEXT_WAKE_TIME, 0) > m->datagram_buffer->delivery_deadline) {
         picoquic_reinsert_cnx_by_wake_time(cnx, m->datagram_buffer->delivery_deadline);
+    }
+}
+
+static __attribute__((always_inline)) void send_head_datagram_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx) {
+    if (m->datagram_buffer != NULL) {
+        received_datagram_t *head = m->datagram_buffer;
+        send_datagram_to_application(m, cnx, head->datagram);
+        my_free(cnx, head->datagram->datagram_data_ptr);
+        my_free(cnx, head->datagram);
+        m->datagram_buffer = head->next;
+        my_free(cnx, head);
     }
 }

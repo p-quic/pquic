@@ -19,7 +19,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 
     reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
     if (slot == NULL) {
-        PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         return 1;
     }
 
@@ -34,13 +34,13 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 
     datagram_frame_t* frame = my_malloc(cnx, sizeof(datagram_frame_t));
     if (frame == NULL) {
-        PROTOOP_PRINTF(cnx, "Unable to allocate frame structure!\n");
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame structure!\n");
         my_free(cnx, slot);
         return 1;
     }
     frame->datagram_data_ptr = my_malloc(cnx, (unsigned int) len);
     if (frame->datagram_data_ptr == NULL) {
-        PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         my_free(cnx, frame);
         my_free(cnx, slot);
         return 1;
@@ -52,7 +52,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     slot->frame_ctx = frame;
     size_t reserved_size = reserve_frames(cnx, 1, slot);
     if (reserved_size < slot->nb_bytes) {
-        PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
+        //PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
         my_free(cnx, frame->datagram_data_ptr);
         my_free(cnx, frame);
         my_free(cnx, slot);

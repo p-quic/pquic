@@ -14,19 +14,35 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
     if (m->socket_fds[PLUGIN_SOCKET] != -1) {
         if (frame->datagram_id == 0) { // Send the datagram as a message on the socket
             return send_datagram_to_application(m, cnx, frame);
-        } else {  // Place the datagram in the buffer
-            received_datagram_t *r = (received_datagram_t *) my_malloc(cnx, sizeof(received_datagram_t));
-            if (r == NULL) {
-                PROTOOP_PRINTF(cnx, "Failed to allocate received_datagram_t\n");
-                return 1;
+        } else {  // Tries to place the datagram in the buffer
+            received_datagram_t *r = NULL;
+            // While we were not able to allocate memory for reordering, but are able to reclaim some from existing data in the buffer
+            while ((r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) && m->datagram_buffer != NULL) {
+                r = (received_datagram_t *) my_malloc(cnx, sizeof(received_datagram_t));
+                if (r == NULL) {
+                    send_head_datagram_buffer(m, cnx);
+                    break;
+                }
+                r->datagram = (datagram_frame_t *) my_malloc(cnx, sizeof(datagram_frame_t));
+                if (r->datagram == NULL) {
+                    my_free(cnx, r);
+                    send_head_datagram_buffer(m, cnx);
+                    break;
+                }
+                r->datagram->datagram_data_ptr = (uint8_t *) my_malloc(cnx, (unsigned int) frame->length);
+                if (r->datagram->datagram_data_ptr == NULL) {
+                    my_free(cnx, r->datagram);
+                    my_free(cnx, r);
+                    send_head_datagram_buffer(m, cnx);
+                }
             }
-            r->datagram = (datagram_frame_t *) my_malloc(cnx, sizeof(datagram_frame_t));
-            if (r->datagram == NULL) {
-                PROTOOP_PRINTF(cnx, "Failed to allocate datagram_frame_t\n");
-                return 1;
+            if (r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) {
+                PROTOOP_PRINTF(cnx, "Unable to reclaim enough memory to reserve buffer slot\n");
+                send_datagram_to_application(m, cnx, frame);
+                return 0;
             }
-            my_memcpy(r->datagram, frame, sizeof(datagram_frame_t));
-            r->datagram->datagram_data_ptr = (uint8_t *) my_malloc(cnx, (unsigned int) frame->length);
+            r->datagram->datagram_id = frame->datagram_id;
+            r->datagram->length = frame->length;
             my_memcpy(r->datagram->datagram_data_ptr, frame->datagram_data_ptr, frame->length);
             r->delivery_deadline = current_time + ((get_max_rtt_difference(cnx, path_x)*5)/4);
             insert_into_datagram_buffer(m, r);
