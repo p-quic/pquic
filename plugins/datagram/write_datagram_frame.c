@@ -56,6 +56,13 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
                 }
                 my_memcpy(bytes, frame->datagram_data_ptr, frame->length);
                 consumed += frame->length;
+                datagram_memory_t *m = get_datagram_memory(cnx);
+                if (frame->length <= m->send_buffer) {
+                    m->send_buffer -= frame->length;
+                } else {
+                    m->send_buffer = 0;
+                }
+                PROTOOP_PRINTF(cnx, "Send buffer size %d\n", m->send_buffer);
 
                 my_free(cnx, frame->datagram_data_ptr);
             } else {

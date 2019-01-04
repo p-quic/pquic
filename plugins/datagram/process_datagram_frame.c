@@ -41,12 +41,19 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
                 send_datagram_to_application(m, cnx, frame);
                 return 0;
             }
+
+            while (m->recv_buffer + frame->length > RECV_BUFFER) {
+                send_head_datagram_buffer(m, cnx);
+            }
+
             r->datagram->datagram_id = frame->datagram_id;
             r->datagram->length = frame->length;
             my_memcpy(r->datagram->datagram_data_ptr, frame->datagram_data_ptr, frame->length);
             r->delivery_deadline = current_time + ((get_max_rtt_difference(cnx, path_x)*5)/4);
             insert_into_datagram_buffer(m, r);
             process_datagram_buffer(m, cnx);
+
+            PROTOOP_PRINTF(cnx, "Recv buffer size %d\n", m->recv_buffer);
         }
     }
     return 0;

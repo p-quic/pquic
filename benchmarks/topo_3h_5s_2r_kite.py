@@ -57,7 +57,7 @@ class LinuxRouter(Node):
 
 class KiteTopo(Topo):
     def build(self, **opts):
-        generic_opts = {'delay': '5ms', 'max_queue_size': 174}
+        generic_opts = {'delay': '5ms', 'max_queue_size': 3 * 174}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
         self.r3 = self.addNode('r3', cls=LinuxRouter)

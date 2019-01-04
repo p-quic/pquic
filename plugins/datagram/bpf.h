@@ -104,7 +104,9 @@ static __attribute__((always_inline)) protoop_arg_t send_datagram_to_application
     ssize_t ret = write(m->socket_fds[PLUGIN_SOCKET], frame->datagram_data_ptr, frame->length);
     PROTOOP_PRINTF(cnx, "Wrote %d bytes to the message socket\n", ret);
     picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
-    m->expected_datagram_id = frame->datagram_id + 1;
+    if (frame->datagram_id != 0) {
+        m->expected_datagram_id = frame->datagram_id + 1;
+    }
     return (protoop_arg_t) (ret > 0 ? 0 : ret);
 }
 
@@ -131,6 +133,7 @@ static __attribute__((always_inline)) void insert_into_datagram_buffer(datagram_
         *prev = r;
         r->next = node;
     }
+    m->recv_buffer += r->datagram->length;
 }
 
 static __attribute__((always_inline)) void process_datagram_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx) {
@@ -140,6 +143,11 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
     while (r != NULL) {
         if (r->delivery_deadline < now || m->expected_datagram_id >= r->datagram->datagram_id) {
             send_datagram_to_application(m, cnx, r->datagram);
+            if (r->datagram->length <= m->recv_buffer) {
+                m->recv_buffer -= r->datagram->length;
+            } else {
+                m->recv_buffer = 0;
+            }
             my_free(cnx, r->datagram->datagram_data_ptr);
             my_free(cnx, r->datagram);
             m->datagram_buffer = r->next;
@@ -159,9 +167,44 @@ static __attribute__((always_inline)) void send_head_datagram_buffer(datagram_me
     if (m->datagram_buffer != NULL) {
         received_datagram_t *head = m->datagram_buffer;
         send_datagram_to_application(m, cnx, head->datagram);
+        if (head->datagram->length <= m->recv_buffer) {
+            m->recv_buffer -= head->datagram->length;
+        } else {
+            m->recv_buffer = 0;
+        }
         my_free(cnx, head->datagram->datagram_data_ptr);
         my_free(cnx, head->datagram);
         m->datagram_buffer = head->next;
         my_free(cnx, head);
     }
+}
+
+static __attribute__((always_inline)) void free_head_datagram_reserved(datagram_memory_t *m, picoquic_cnx_t *cnx) {
+    uint8_t nb_frames;
+    reserve_frame_slot_t *slots = cancel_head_reservation(cnx, &nb_frames);
+    if (slots == NULL) {
+        m->send_buffer = 0;
+        return;
+    }
+    for (int i = 0; i < nb_frames; i++) {
+        reserve_frame_slot_t *slot = (slots+i);
+        datagram_frame_t *frame = slot->frame_ctx;
+        my_free(cnx, frame->datagram_data_ptr);
+        if (frame->length <= m->send_buffer) {
+            m->send_buffer -= frame->length;
+        } else {
+            m->send_buffer = 0;
+        }
+        my_free(cnx, frame);
+        my_free(cnx, slot);
+    }
+}
+
+static __attribute__((always_inline)) void *my_malloc_on_sending_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx, unsigned int size) {
+    void *p = my_malloc(cnx, size);
+    while (p == NULL && m->send_buffer > 0) {
+        free_head_datagram_reserved(m, cnx);
+        p = my_malloc(cnx, size);
+    }
+    return p;
 }

@@ -10,6 +10,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     char *payload = (char *) get_cnx(cnx, CNX_AK_INPUT, 0);
     int len = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
     uint64_t datagram_id = 0;
+    datagram_memory_t *m = get_datagram_memory(cnx);
 
     uint32_t max_path_mtu = get_max_datagram_size(cnx);
     if (len > max_path_mtu) {
@@ -17,7 +18,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         return 1;
     }
 
-    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc_on_sending_buffer(m, cnx, sizeof(reserve_frame_slot_t));
     if (slot == NULL) {
         //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         return 1;
@@ -32,24 +33,29 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     slot->nb_bytes = 1 + varint_len(len) + len;  // Unfortunately we are always forced to account for the length field
 #endif
 
-    datagram_frame_t* frame = my_malloc(cnx, sizeof(datagram_frame_t));
+    datagram_frame_t* frame = my_malloc_on_sending_buffer(m, cnx, sizeof(datagram_frame_t));
     if (frame == NULL) {
         //PROTOOP_PRINTF(cnx, "Unable to allocate frame structure!\n");
         my_free(cnx, slot);
         return 1;
     }
-    frame->datagram_data_ptr = my_malloc(cnx, (unsigned int) len);
+    frame->datagram_data_ptr = my_malloc_on_sending_buffer(m, cnx, (unsigned int) len);
     if (frame->datagram_data_ptr == NULL) {
         //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         my_free(cnx, frame);
         my_free(cnx, slot);
         return 1;
     }
-    frame->datagram_id = datagram_id;
-    frame->length = (uint64_t) len;
 
+    frame->length = (uint64_t) len;
+    while (m->send_buffer + frame->length > SEND_BUFFER) {
+        free_head_datagram_reserved(m, cnx);
+    }
+
+    frame->datagram_id = datagram_id;
     my_memcpy(frame->datagram_data_ptr, payload, (size_t) len);
     slot->frame_ctx = frame;
+
     size_t reserved_size = reserve_frames(cnx, 1, slot);
     if (reserved_size < slot->nb_bytes) {
         //PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
@@ -58,6 +64,8 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         my_free(cnx, slot);
         return 1;
     }
+    m->send_buffer += frame->length;
+    PROTOOP_PRINTF(cnx, "Send buffer size %d\n", m->send_buffer);
     picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
     return 0;
 }
