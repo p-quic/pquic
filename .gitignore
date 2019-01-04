@@ -23,3 +23,13 @@ Release
 **/*.o
 html/**
 latex/**
+*.pcap
+__pycache__
+*.pyc
+random_*
+.idea
+callgrind.*
+*.log
+*.a
+CMakeCache.txt
+CMakeFiles
