@@ -32,31 +32,34 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         return 0;
     }
 
-    // reserve a new frame to  send a FEC-protected packet
-    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
-    if (!slot)
-        return PICOQUIC_ERROR_MEMORY;
-    slot->frame_type = SOURCE_FPID_TYPE;
-    slot->nb_bytes = 1 + sizeof(source_fpid_frame_t);
-    source_fpid_frame_t *f = (source_fpid_frame_t *) my_malloc(cnx, sizeof(source_fpid_frame_t));
-    if (!f)
-        return PICOQUIC_ERROR_MEMORY;
-    slot->frame_ctx = f;
+    if (!state->sfpid_reserved) {    // there is no frame currently reserved, so reserve one to protect this packet
+        // we need to reserve a new one
+        // reserve a new frame to  send a FEC-protected packet
+        reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+        if (!slot)
+            return PICOQUIC_ERROR_MEMORY;
+        slot->frame_type = SOURCE_FPID_TYPE;
+        slot->nb_bytes = 1 + sizeof(source_fpid_frame_t);
+        source_fpid_frame_t *f = (source_fpid_frame_t *) my_malloc(cnx, sizeof(source_fpid_frame_t));
+        if (!f)
+            return PICOQUIC_ERROR_MEMORY;
+        slot->frame_ctx = f;
 
-    f->source_fpid.fec_block_number = state->block_fec_framework->current_block_number;
-    f->source_fpid.symbol_number = state->block_fec_framework->current_block->current_source_symbols;
+        f->source_fpid.fec_block_number = state->block_fec_framework->current_block_number;
+        f->source_fpid.symbol_number = state->block_fec_framework->current_block->current_source_symbols;
 
-    state->current_packet_contains_fec_frame = false;
-    state->current_packet_contains_fpid_frame = false;
 
-    size_t reserved_size = reserve_frames(cnx, 1, slot);
-    PROTOOP_PRINTF(cnx, "RESERVE SFPID_FRAME %u, size = %d/%d\n", f->source_fpid.raw, reserved_size, slot->nb_bytes);
-    if (reserved_size < slot->nb_bytes) {
-        PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
-        my_free(cnx, f);
-        my_free(cnx, slot);
-        return 1;
-    }
+        size_t reserved_size = reserve_frames(cnx, 1, slot);
+
+        PROTOOP_PRINTF(cnx, "RESERVE SFPID_FRAME %u, size = %d/%d\n", f->source_fpid.raw, reserved_size, slot->nb_bytes);
+        if (reserved_size < slot->nb_bytes) {
+            PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
+            my_free(cnx, f);
+            my_free(cnx, slot);
+            return 1;
+        }
+        state->sfpid_reserved = true;
+    }   // else, an SFPID frame is already reserved, so we keep the frame that is currently reserved
 
     return 0;
 }
