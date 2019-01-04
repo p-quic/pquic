@@ -1,3 +1,4 @@
+#include <picoquic_internal.h>
 #include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
@@ -11,10 +12,9 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
     uint8_t selected_path_index = 255;
-    bool has_multiple_paths = false;
     start_using_path_if_possible(cnx);
     uint64_t smoothed_rtt_x = 0;
-    for (int i = 0; i < bpfd->nb_proposed; i++) {
+    for (uint8_t i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
         /* Lowest RTT-based scheduler */
         if (pd->state == 2) {
@@ -26,13 +26,17 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 
             if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < picoquic_current_time() && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 /* Start the challenge! */
-                return (protoop_arg_t) path_c;
+                path_x = path_c;
+                selected_path_index = i;
+                break;
             }
 
             int challenge_response_to_send_c = (int) get_path(path_c, PATH_AK_CHALLENGE_RESPONSE_TO_SEND, 0);
             if (challenge_response_to_send_c) {
                 /* Reply as soon as possible! */
-                return (protoop_arg_t) path_c;
+                path_x = path_c;
+                selected_path_index = i;
+                break;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -45,13 +49,16 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             int ping_received_c = (int) get_path(path_c, PATH_AK_PING_RECEIVED, 0);
             if (ping_received_c) {
                 /* We need some action from the path! */
-                return (protoop_arg_t) path_c;
+                path_x = path_c;
+                selected_path_index = i;
+                break;
             }
 
             int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
             if (mtu_needed) {
-                PROTOOP_PRINTF(cnx, "mtu needed %p", path_c);
-                return (protoop_arg_t) path_c;
+                path_x = path_c;
+                selected_path_index = i;
+                break;
             }
 
             /* Don't consider invalid paths */
@@ -60,10 +67,33 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             }
 
             if (path_c != path_0) {
-                has_multiple_paths = true;
+                uint64_t current_time = picoquic_current_time();
+                if (pd->last_rtt_probe + RTT_PROBE_INTERVAL < current_time && !pd->rtt_probe_ready) {  // Prepares a RTT probe
+                    pd->last_rtt_probe = current_time;
+                    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+                    if (slot == NULL) {
+                        continue;
+                    }
+                    slot->nb_bytes = path_c->send_mtu / 20;
+                    slot->frame_type = RTT_PROBE_TYPE;
+                    slot->frame_ctx = (void *)(uint64_t) i;
+                    size_t ret = reserve_frames(cnx, 1, slot);
+                    if (ret == slot->nb_bytes) {
+                        PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", path_c->send_mtu / 20, i);
+                    }
+                }
+
+                if (pd->rtt_probe_ready) {  // Sends the RTT probe in the retry queue
+                    PROTOOP_PRINTF(cnx, "Switching to path %d for sending probe\n", i);
+                    path_x = path_c;
+                    selected_path_index = i;
+                    break;
+                }
+
                 /* Set the default path to be this one */
                 if (path_x == path_0) {
                     path_x = path_c;
+                    selected_path_index = i;
                     smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
                     continue;
                 }
@@ -73,11 +103,11 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
             path_x = path_c;
+            selected_path_index = i;
             smoothed_rtt_x = smoothed_rtt_c;
         }
     }
 
     bpfd->last_path_index_sent = selected_path_index;
-
     return (protoop_arg_t) path_x;
 }
