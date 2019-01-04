@@ -16,3 +16,4 @@ predict_packet_header_length replace predict_packet_header_length.o
 connection_state_changed post connection_state_changed.o
 select_sending_path replace select_sending_path_rtt.o
 after_decoding_frames replace after_decoding_frames.o
+write_frame param 0x28 replace write_rtt_probe.o

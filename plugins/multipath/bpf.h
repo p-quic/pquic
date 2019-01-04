@@ -16,6 +16,9 @@
 #define MP_NEW_CONNECTION_ID_TYPE 0x26
 #define MP_ACK_TYPE 0x27
 
+#define RTT_PROBE_TYPE 0x28
+#define RTT_PROBE_INTERVAL 100000
+
 typedef struct {
     uint64_t path_id;
 } mp_new_connection_id_ctx_t;
@@ -40,6 +43,8 @@ typedef struct {
     picoquic_connection_id_t local_cnxid;
     picoquic_connection_id_t remote_cnxid;
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
+    uint64_t last_rtt_probe;
+    bool rtt_probe_ready;
 } path_data_t;
 
 typedef struct {

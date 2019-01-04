@@ -109,7 +109,8 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/set_next_wake_time.c
     plugins/multipath/write_add_address_frame.c
     plugins/multipath/write_mp_ack_frame.c
-    plugins/multipath/write_mp_new_connection_id_frame.c
+    plugins/multipath/write_rtt_probe.c
+    plugins/multipath/select_sending_path_rtt.c
 )
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
