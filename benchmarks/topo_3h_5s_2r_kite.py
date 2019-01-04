@@ -170,9 +170,6 @@ def setup_client_tun(nodes, id):
     print node.cmd('ip route add default via 10.1.0.1 dev cl-eth0 metric 100')
     print node.cmd('ip route add default via 10.1.1.1 dev cl-eth1 metric 101')
 
-    # TCP Dup ACK to 20
-    print node.cmd('sysctl -w net.ipv4.tcp_reordering=20')
-
 
 def setup_server_tun(nodes, id, server_addr):
     tun_addr = '10.4.0.1/24'
@@ -186,9 +183,6 @@ def setup_server_tun(nodes, id, server_addr):
 
     print node.cmd('sysctl net.ipv4.ip_forward=1')
     print node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
-
-    # TCP Dup ACK to 20
-    print node.cmd('sysctl -w net.ipv4.tcp_reordering=20')
 
 
 def ping_matrix(net):
@@ -221,8 +215,6 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipa
     net['cl'].cmd('ping -i 0.25 -I cl-eth1 -c 4 {}'.format(vpn_addr))
     net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.1.2'))
     net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.0.2'))
-
-    net['web'].cmd('sysctl -w net.ipv4.tcp_reordering=20')
 
     if quic_tun and tcpdump:
         net['cl'].cmd('tcpdump -i cl-eth0 -w cl1.pcap &')
