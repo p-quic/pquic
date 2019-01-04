@@ -57,7 +57,7 @@ class LinuxRouter(Node):
 
 class KiteTopo(Topo):
     def build(self, **opts):
-        generic_opts = {}#{'delay': '1ms'}
+        generic_opts = {'delay': '5ms', 'max_queue_size': 174}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
         self.r3 = self.addNode('r3', cls=LinuxRouter)
@@ -66,13 +66,13 @@ class KiteTopo(Topo):
             setattr(self, s, self.addSwitch(s))
 
         if 'bw_b' in opts and 'delay_ms_b' in opts:
-            mqs = int(1.5 * (((opts['bw_b'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_b'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
+            mqs = int(1.5 * (((opts['bw_b'] * 1000000) / 8) / 1500) * (2 * 70 / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1500 bytes
             self.addLink(self.s1, self.r1, bw=opts['bw_b'], delay='%dms' % opts['delay_ms_b'], loss=opts.get('loss_b', 0), max_queue_size=mqs, intfName2='r1-eth0')
         else:
             self.addLink(self.s1, self.r1, intfName2='r1-eth0')
         self.addLink(self.s3, self.r1, intfName2='r1-eth2', **generic_opts)
         if 'bw_a' in opts and 'delay_ms_a' in opts:
-            mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1200) * (2 * opts['delay_ms_a'] / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1200 bytes
+            mqs = int(1.5 * (((opts['bw_a'] * 1000000) / 8) / 1500) * (2 * 70 / 1000.0))  # 1.5 * BDP, TODO: This assumes that packet size is 1500 bytes
             self.addLink(self.s2, self.r2, bw=opts['bw_a'], delay='%dms' % opts['delay_ms_a'], loss=opts.get('loss_a', 0), max_queue_size=mqs, intfName2='r2-eth0')
         else:
             self.addLink(self.s2, self.r2, intfName2='r1-eth0')
@@ -84,8 +84,8 @@ class KiteTopo(Topo):
 
         self.addLink(self.cl, self.s1, intfName1='cl-eth0')
         self.addLink(self.cl, self.s2, intfName1='cl-eth1')
-        self.addLink(self.r1, self.r3, intfName1='r1-eth1', intfName2='r3-eth1')
-        self.addLink(self.r2, self.r3, intfName1='r2-eth1', intfName2='r3-eth2')
+        self.addLink(self.r1, self.r3, intfName1='r1-eth1', intfName2='r3-eth1', **generic_opts)
+        self.addLink(self.r2, self.r3, intfName1='r2-eth1', intfName2='r3-eth2', **generic_opts)
         self.addLink(self.vpn, self.s4, intfName1='vpn-eth0')
         self.addLink(self.web, self.s3, intfName1='web-eth0')
 
