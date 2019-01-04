@@ -2586,7 +2586,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) || path_x->cwin <= path_x->bytes_in_transit)
                 && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
                 && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)
-                && queue_peek(cnx->reserved_frames) == NULL) {
+                && queue_peek(cnx->reserved_frames) == NULL
+                && queue_peek(cnx->retry_frames) == NULL) {
                 if (ret == 0 && send_buffer_max > path_x->send_mtu
                     && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                     length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
@@ -2853,7 +2854,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         path_x->ping_received = 0;
     }
 
-    if (queue_peek(cnx->reserved_frames) != NULL && path_x->cwin > path_x->bytes_in_transit) {
+    if ((queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL) && path_x->cwin > path_x->bytes_in_transit) {
         picoquic_reinsert_by_wake_time(cnx->quic, cnx, current_time);
     } else {
         picoquic_cnx_set_next_wake_time(cnx, current_time);
