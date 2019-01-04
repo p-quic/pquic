@@ -1168,7 +1168,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     /* At the end, if we performed a single get, print the time */
     if (get_size > 0) {
         int time_us = (callback_ctx.tv_end.tv_sec - callback_ctx.tv_start.tv_sec) * 1000000 + callback_ctx.tv_end.tv_usec - callback_ctx.tv_start.tv_usec;
-        printf("%d.%d ms\n", time_us / 1000, time_us % 1000);
+        printf("%d.%03d ms\n", time_us / 1000, time_us % 1000);
     }
 
     return ret;
