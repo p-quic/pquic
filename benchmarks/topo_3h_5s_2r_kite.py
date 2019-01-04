@@ -170,6 +170,9 @@ def setup_client_tun(nodes, id):
     print node.cmd('ip route add default via 10.1.0.1 dev cl-eth0 metric 100')
     print node.cmd('ip route add default via 10.1.1.1 dev cl-eth1 metric 101')
 
+    # TCP Dup ACK to 20
+    print node.cmd('sysctl -w net.ipv4.tcp_reordering=20')
+
 
 def setup_server_tun(nodes, id, server_addr):
     tun_addr = '10.4.0.1/24'
@@ -183,6 +186,9 @@ def setup_server_tun(nodes, id, server_addr):
 
     print node.cmd('sysctl net.ipv4.ip_forward=1')
     print node.cmd('iptables -t nat -A POSTROUTING -o {}-eth0 -j SNAT --to {}'.format(id, server_addr))
+
+    # TCP Dup ACK to 20
+    print node.cmd('sysctl -w net.ipv4.tcp_reordering=20')
 
 
 def ping_matrix(net):
@@ -199,7 +205,7 @@ def ping_matrix(net):
                 print ping_cmd(n1, ip)
 
 
-def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
+def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipath=False):
     setup_ips(net)
     setup_routes(net)
 
@@ -216,6 +222,8 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
     net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.1.2'))
     net['vpn'].cmd('ping -i 0.25 -c 4 {}'.format('10.1.0.2'))
 
+    net['web'].cmd('sysctl -w net.ipv4.tcp_reordering=20')
+
     if quic_tun and tcpdump:
         net['cl'].cmd('tcpdump -i cl-eth0 -w cl1.pcap &')
         net['cl'].cmd('tcpdump -i cl-eth1 -w cl2.pcap &')
@@ -231,11 +239,15 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
         net['vpn'].cmd('tcpdump -i vpn-eth0 -w vpn.pcap &')
         sleep(1)
 
+    plugins = "-P plugins/datagram/datagram.plugin"
+    if multipath:
+        plugins += " -P plugins/multipath/multipath.plugin"
+
     if quic_tun:
         if gdb:
-            net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin -p 4443 2>&1 > log_server.log &')
+            net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn {} -p 4443 2>&1 > log_server.log &'.format(plugins))
         else:
-            net['vpn'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin -p 4443 2>&1 > log_server.log &')
+            net['vpn'].cmd('./picoquicvpn {} -p 4443 2>&1 > log_server.log &'.format(plugins))
         sleep(1)
 
     if tcpdump:
@@ -246,9 +258,9 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False):
 
     if quic_tun:
         if gdb:
-            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn -P plugins/datagram/datagram.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
+            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
         else:
-            net['cl'].cmd('./picoquicvpn -P plugins/datagram/datagram.plugin -P plugins/multipath/multipath.plugin 10.2.2.2 4443 2>&1 > log_client.log &')
+            net['cl'].cmd('./picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
 
     net['web'].cmd('python3 -m http.server 80 &')
     sleep(1)
@@ -272,7 +284,7 @@ def run():
     net_cleanup()
     net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=10, delay_ms_b=10, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True, switch=OVSBridge, controller=None)
     net.start()
-    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False)
+    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True, multipath=True)
 
     CLI(net)
     teardown_net(net)
