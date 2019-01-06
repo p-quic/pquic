@@ -121,6 +121,7 @@ int TlsStreamFrameTest();
 int draft13_vector_test();
 int fuzz_test();
 int random_tester_test();
+int cubic_test();
 int datagram_test();
 int microbench_plugin_run_test();
 

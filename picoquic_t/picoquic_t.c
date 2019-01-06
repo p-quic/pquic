@@ -127,6 +127,7 @@ static const picoquic_test_def_t test_table[] = {
     { "zero_rtt_spurious", zero_rtt_spurious_test },
     { "zero_rtt_retry", zero_rtt_retry_test },
     { "random_tester", random_tester_test},
+    { "cubic", cubic_test },
     { "stress", stress_test },
     { "fuzz", fuzz_test },
     { "datagram_test", datagram_test },
