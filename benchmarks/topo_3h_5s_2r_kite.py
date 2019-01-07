@@ -57,6 +57,13 @@ class LinuxRouter(Node):
 
 class KiteTopo(Topo):
     def build(self, **opts):
+        if 'delay_ms' in opts:
+            opts['delay_ms_a'] = opts['delay_ms']
+            opts['delay_ms_b'] = opts['delay_ms']
+        if 'bw' in opts:
+            opts['bw_a'] = opts['bw']
+            opts['bw_b'] = opts['bw']
+
         generic_opts = {'delay': '5ms', 'max_queue_size': 3 * 174}
         self.r1 = self.addNode('r1', cls=LinuxRouter)
         self.r2 = self.addNode('r2', cls=LinuxRouter)
@@ -199,7 +206,7 @@ def ping_matrix(net):
                 print ping_cmd(n1, ip)
 
 
-def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipath=False):
+def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipath=False, web_cmd='python3 -m http.server 80 &'):
     setup_ips(net)
     setup_routes(net)
 
@@ -254,7 +261,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipa
         else:
             net['cl'].cmd('./picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
 
-    net['web'].cmd('python3 -m http.server 80 &')
+    net['web'].cmd(web_cmd)
     sleep(1)
 
 
