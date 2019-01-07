@@ -17,17 +17,17 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
         } else {  // Tries to place the datagram in the buffer
             received_datagram_t *r = NULL;
             // While we were not able to allocate memory for reordering, but are able to reclaim some from existing data in the buffer
-            while ((r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) && m->datagram_buffer != NULL) {
+            do {
                 r = (received_datagram_t *) my_malloc(cnx, sizeof(received_datagram_t));
                 if (r == NULL) {
                     send_head_datagram_buffer(m, cnx);
-                    break;
+                    continue;
                 }
                 r->datagram = (datagram_frame_t *) my_malloc(cnx, sizeof(datagram_frame_t));
                 if (r->datagram == NULL) {
                     my_free(cnx, r);
                     send_head_datagram_buffer(m, cnx);
-                    break;
+                    continue;
                 }
                 r->datagram->datagram_data_ptr = (uint8_t *) my_malloc(cnx, (unsigned int) frame->length);
                 if (r->datagram->datagram_data_ptr == NULL) {
@@ -35,7 +35,8 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
                     my_free(cnx, r);
                     send_head_datagram_buffer(m, cnx);
                 }
-            }
+            } while ((r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) && m->datagram_buffer != NULL);
+
             if (r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) {
                 PROTOOP_PRINTF(cnx, "Unable to reclaim enough memory to reserve buffer slot\n");
                 send_datagram_to_application(m, cnx, frame);

@@ -112,8 +112,9 @@ static __attribute__((always_inline)) protoop_arg_t send_datagram_to_application
 
 static __attribute__((always_inline)) void dump_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx) {
     received_datagram_t *r = m->datagram_buffer;
+    uint64_t now = picoquic_current_time();
     while (r != NULL) {
-        PROTOOP_PRINTF(cnx, "{%d, d=%lu, n=%p} ", r->datagram->datagram_id, r->delivery_deadline, (protoop_arg_t) r->next);
+        PROTOOP_PRINTF(cnx, "{%d, d=%lu, n=%p} ", r->datagram->datagram_id, r->delivery_deadline < now ? 0 : r->delivery_deadline - now, (protoop_arg_t) r->next);
         r = r->next;
     }
     PROTOOP_PRINTF(cnx, "\n");
