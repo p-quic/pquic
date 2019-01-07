@@ -12,6 +12,7 @@ import datetime
 import os
 import sqlite3
 import time
+from os import sys, path
 
 from mininet.cli import CLI
 from mininet.net import Mininet
@@ -223,25 +224,10 @@ def generate_random_files(file_sizes):
             f.write(os.urandom(s))
 
 
-if __name__ == "__main__":
-    from os import sys, path
-    dir_path = path.dirname(path.abspath(__file__))
-    sys.path.append(dir_path)
-
-    ranges = {
-        #"bw_a": {"range": [0.5, 15], "type": int, "count": 1},  # Mbps
-        #"loss_a": {"range": [0.1, 2], "type": float, "count": 1},  # %, TODO: Characterise typical losses with LTE
-        #"delay_ms_a": {"range": [100, 400], "type": int, "count": 1},  # ms
-        "bw_b": {"range": [10, 30], "type": int, "count": 1},  # Mbps
-        "loss_b": {"range": [0.01, 1], "type": float, "count": 1},  # %
-        "delay_ms_b": {"range": [5, 25], "type": int, "count": 1},  # ms
-    }
-
-    file_sizes = (1500, 10000, 50000, 1000000, 10000000)
+def experimental_design(ranges, file_sizes, topo_opts, topo_names, database_name='results.db'):
     generate_random_files(file_sizes)
-    nets_opts = [{'quic_tun': False, 'ip_tun': False}, {'quic_tun': True, 'ip_tun': True, 'tcpdump': True}]
-    tests = ('tcp_over_path_b', 'tcp_over_picoquicvpn')
 
+    dir_path = path.dirname(path.abspath(__file__))
     filename = os.path.join(dir_path, "wsp_owd_8")
     nrows, ncols = 8, 139
     matrix = load_wsp(filename, nrows, ncols)
@@ -249,7 +235,7 @@ if __name__ == "__main__":
     vals = gen.generate_all_values()
     # vals = generate_variance_tests(ranges)
 
-    conn = sqlite3.connect(os.path.join(dir_path, 'results.db'))
+    conn = sqlite3.connect(os.path.join(dir_path, database_name))
     cursor = conn.cursor()
     sql_create_table = gen.generate_sql_create_table(additional_values=[('test_name', str), ('elapsed_time', float), ('var_elapsed_time', float), ('file_size', int)])
     print sql_create_table
@@ -263,14 +249,14 @@ if __name__ == "__main__":
             if isinstance(value, list):
                 v[key] = value[0]
 
-        for setup_nets_opts, test_name in zip(nets_opts, tests):
-            print "net config == " + str(setup_nets_opts)
+        for setup_topo_opts, test_name in zip(topo_opts, topo_names):
+            print "net config == " + str(setup_topo_opts)
             print "v == " + str(v)
 
             topo = KiteTopo(**v)
             net = Mininet(topo, link=TCLink, host=CPULimitedHost)
             net.start()
-            setup_net(net, **setup_nets_opts)
+            setup_net(net, **setup_topo_opts)
 
             print "experiment %d/%d" % (i, len(gen))
             for size in file_sizes:
@@ -308,3 +294,23 @@ if __name__ == "__main__":
             teardown_net(net)
             net.stop()
             net_cleanup()
+
+
+if __name__ == "__main__":
+    dir_path = path.dirname(path.abspath(__file__))
+    sys.path.append(dir_path)
+
+    ranges = {
+        "bw": {"range": [5, 15], "type": int, "count": 1},
+        "delay_ms": {"range": [5, 25], "type": int, "count": 1}
+        #"bw_a": {"range": [0.5, 15], "type": int, "count": 1},  # Mbps
+        #"loss_a": {"range": [0.1, 2], "type": float, "count": 1},  # %, TODO: Characterise typical losses with LTE
+        #"delay_ms_a": {"range": [100, 400], "type": int, "count": 1},  # ms
+        #"bw_b": {"range": [10, 30], "type": int, "count": 1},  # Mbps
+        #"loss_b": {"range": [0.01, 1], "type": float, "count": 1},  # %
+        #"delay_ms_b": {"range": [5, 25], "type": int, "count": 1},  # ms
+    }
+
+    file_sizes = (1500, 10000, 50000, 1000000, 10000000)
+    nets_opts = [{'quic_tun': False, 'ip_tun': False}, {'quic_tun': True, 'ip_tun': True, 'multipath': False}, {'quic_tun': True, 'ip_tun': True, 'multipath': True}]
+    tests = ('tcp_over_path_b', 'tcp_over_picoquicvpn', 'tcp_over_mpicoquic')

@@ -33,3 +33,4 @@ callgrind.*
 *.a
 CMakeCache.txt
 CMakeFiles
+benchmarks/*.sqlite
