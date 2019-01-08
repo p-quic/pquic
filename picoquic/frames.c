@@ -1519,24 +1519,31 @@ protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
             uint64_t max_reorder_gap = pkt_ctx->highest_acknowledged - p->sequence_number;
             picoquic_path_t * old_path = p->send_path;
 
-            if (p->length + p->checksum_overhead > old_path->send_mtu) {
-                old_path->send_mtu = (uint32_t)(p->length + p->checksum_overhead);
-                if (old_path->send_mtu > old_path->send_mtu_max_tried) {
-                    old_path->send_mtu_max_tried = old_path->send_mtu;
+            if (old_path != NULL) {
+                if (p->length + p->checksum_overhead > old_path->send_mtu) {
+                    old_path->send_mtu = (uint32_t)(p->length + p->checksum_overhead);
+                    if (old_path->send_mtu > old_path->send_mtu_max_tried) {
+                        old_path->send_mtu_max_tried = old_path->send_mtu;
+                    }
+                    old_path->mtu_probe_sent = 0;
                 }
-                old_path->mtu_probe_sent = 0;
-            }
 
-            if (max_spurious_rtt > old_path->max_spurious_rtt) {
-                old_path->max_spurious_rtt = max_spurious_rtt;
-            }
+                if (max_spurious_rtt > old_path->max_spurious_rtt) {
+                    old_path->max_spurious_rtt = max_spurious_rtt;
+                }
 
-            if (max_reorder_delay > old_path->max_reorder_delay) {
-                old_path->max_reorder_delay = max_reorder_delay;
-            }
+                if (max_reorder_delay > old_path->max_reorder_delay) {
+                    old_path->max_reorder_delay = max_reorder_delay;
+                }
 
-            if (max_reorder_gap > old_path->max_reorder_gap) {
-                old_path->max_reorder_gap = max_reorder_gap;
+                if (max_reorder_gap > old_path->max_reorder_gap) {
+                    old_path->max_reorder_gap = max_reorder_gap;
+                }
+
+                if (cnx->congestion_alg != NULL ) {
+                    cnx->congestion_alg->alg_notify(old_path, picoquic_congestion_notification_spurious_repeat,
+                        0, 0, p->sequence_number, current_time);
+                }
             }
 
             cnx->nb_spurious++;
