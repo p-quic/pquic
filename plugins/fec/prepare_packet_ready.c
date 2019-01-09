@@ -29,6 +29,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
     if (!ret) {
         PROTOOP_PRINTF(cnx, "no stream data to send, do not send SFPID frame\n");
+        flush_fec_block(cnx, state->block_fec_framework);
         return 0;
     }
 
