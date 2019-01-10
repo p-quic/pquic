@@ -1837,6 +1837,7 @@ protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t pa
     popst->param = param;
     popst->core = op;
     popst->intern = true;  /* Assumes it is internal */
+    popst->running = false; /* Of course, it does not run yet */
     /* Ensure NULL values */
     popst->replace = NULL;
     popst->pre = NULL;

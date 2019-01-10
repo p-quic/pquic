@@ -539,6 +539,14 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
         exit(-1);
     }
 
+    if (popst->running) {
+        printf("FATAL ERROR: Protocol operation call loop detected with id %s and param %u; exiting!\n", pp->pid->id, pp->param);
+        exit(-1);
+    }
+
+    /* Record the protocol operation on the call stack */
+    popst->running = true;
+
     /* First, is there any pre to run? */
     observer_node_t *tmp = popst->pre;
     while (tmp) {
@@ -603,6 +611,9 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * caller_inputc);
     memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * caller_outputc);
     cnx->protoop_inputc = caller_inputc;
+
+    /* Remove the protocol operation from the call stack */
+    popst->running = false;
 
     /* Also reset outputc to zero; if this protoop was called by another one that does not have any output,
      * it will likely not specify the outputc value, as it expects it to remain 0...

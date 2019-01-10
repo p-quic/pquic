@@ -455,6 +455,8 @@ typedef struct {
     pluglet_t *replace; /* Exclusive pluglet replacing the code operation */
     bool intern;  /* intern operations can only be called by pluglets and have observers,
                    * extern operations can only be called by the application and have no observers */
+    bool running; /* Indicates if the protocol operation is in the current call stack or not.
+                   * Efficient way to figure out if there are loops in protocol operation calls */ 
     observer_node_t *pre; /* List of observers, probing just before function invocation */
     observer_node_t *post; /* List of observers, probing just after function returns */
     UT_hash_handle hh; /* Make the structure hashable */
