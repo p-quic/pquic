@@ -618,6 +618,8 @@ typedef struct st_picoquic_first_client_callback_ctx_t {
     int progress_observed;
     struct timeval tv_start;
     struct timeval tv_end;
+    bool stream_ok;
+    bool only_get;
 } picoquic_first_client_callback_ctx_t;
 
 static void demo_client_open_stream(picoquic_cnx_t* cnx,
@@ -626,6 +628,10 @@ static void demo_client_open_stream(picoquic_cnx_t* cnx,
 {
     picoquic_first_client_stream_ctx_t* stream_ctx = (picoquic_first_client_stream_ctx_t*)
         malloc(sizeof(picoquic_first_client_stream_ctx_t));
+
+    if (stream_id == 4 && ctx->only_get) {
+        gettimeofday(&ctx->tv_start, NULL);
+    }
 
     if (stream_ctx == NULL) {
         fprintf(stdout, "Memory error!\n");
@@ -779,7 +785,10 @@ static void first_client_callback(picoquic_cnx_t* cnx,
         /* if FIN present, process request through http 0.9 */
         if (fin_or_event == picoquic_callback_stream_fin) {
             char buf[256];
-            gettimeofday(&ctx->tv_end, NULL);
+            if (stream_id == 4) {
+                gettimeofday(&ctx->tv_end, NULL);
+                ctx->stream_ok = true;
+            }
             /* if data generated, just send it. Otherwise, just FIN the stream. */
             fclose(stream_ctx->F);
             stream_ctx->F = NULL;
@@ -947,9 +956,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         callback_ctx.nb_demo_streams = test_scenario_nb;
                     } else {
                         sprintf(buf, "doc-%d.html", get_size);
-                        callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, buf, buf, 0 }};
-                        callback_ctx.nb_demo_streams = 1;
+                        callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                        callback_ctx.nb_demo_streams = 2;
                         gettimeofday(&callback_ctx.tv_start, NULL);
+                        callback_ctx.stream_ok = false;
+                        callback_ctx.only_get = true;
                     }
 
 
@@ -1071,9 +1082,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                                 callback_ctx.nb_demo_streams = test_scenario_nb;
                             } else {
                                 sprintf(buf, "doc-%d.html", get_size);
-                                callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, buf, buf, 0 }};
-                                callback_ctx.nb_demo_streams = 1;
-                                gettimeofday(&callback_ctx.tv_start, NULL);
+                                callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                                callback_ctx.nb_demo_streams = 2;
+                                callback_ctx.stream_ok = false;
+                                callback_ctx.only_get = true;
                             }
 
                             demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
@@ -1167,10 +1179,13 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
     /* At the end, if we performed a single get, print the time */
     if (get_size > 0) {
-        int time_us = (callback_ctx.tv_end.tv_sec - callback_ctx.tv_start.tv_sec) * 1000000 + callback_ctx.tv_end.tv_usec - callback_ctx.tv_start.tv_usec;
-        printf("%d.%03d ms\n", time_us / 1000, time_us % 1000);
+        if (callback_ctx.stream_ok) {
+            int time_us = (callback_ctx.tv_end.tv_sec - callback_ctx.tv_start.tv_sec) * 1000000 + callback_ctx.tv_end.tv_usec - callback_ctx.tv_start.tv_usec;
+            printf("%d.%03d ms\n", time_us / 1000, time_us % 1000);
+        } else {
+            printf("-1.0\n");
+        }
     }
-
     return ret;
 }
 
