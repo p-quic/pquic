@@ -44,6 +44,7 @@ typedef struct {
     picoquic_connection_id_t remote_cnxid;
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     uint64_t last_rtt_probe;
+    uint8_t rtt_probe_tries;
     bool rtt_probe_ready;
 } path_data_t;
 

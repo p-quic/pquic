@@ -72,6 +72,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 uint32_t send_mtu = (uint32_t) get_path(path_c, PATH_AK_SEND_MTU, 0);
                 if (pd->last_rtt_probe + smoothed_rtt_c + RTT_PROBE_INTERVAL < current_time && !pd->rtt_probe_ready) {  // Prepares a RTT probe
                     pd->last_rtt_probe = current_time;
+                    pd->rtt_probe_tries = 0;
                     reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
                     if (slot == NULL) {
                         continue;
