@@ -189,7 +189,9 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
         queue_repair_symbols(cnx, bff, bff->current_block->repair_symbols, bff->current_block->total_repair_symbols, bff->current_block);
     }
 
-    reserve_fec_frames(cnx, bff, PICOQUIC_MAX_PACKET_SIZE);
+    if ((int) run_noparam(cnx, "should_send_repair_symbols", 0, NULL, NULL)) {
+        reserve_fec_frames(cnx, bff, PICOQUIC_MAX_PACKET_SIZE);
+    }
     return ret;
 }
 
