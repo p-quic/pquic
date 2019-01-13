@@ -162,26 +162,31 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
         }
     }
 
+    int idx = 0;
+    int first_notnull_rs = -1;
     // building the system, equation by equation
     i = 0;
     repair_symbol_t *rs;
     for_each_repair_symbol(fec_block, rs) {
-        mpz_init(cnx, system[i][n_unknowns]);
-        mpz_import(system[i][n_unknowns], rs->data_length, 1, 1, rs->data);
-        get_coefs(cnx, prng, (rs->repair_fec_payload_id.source_fpid.raw), fec_block->total_source_symbols, coefs);
-        int current_unknown = 0;
-        int current_known = 0;
-        for (j = 0 ; j < fec_block->total_source_symbols ; j++) {
-            if (fec_block->source_symbols[j]) {
-                mpz_mul_ui(*tmp, knowns[current_known++], coefs[j]);
-                mpz_sub(system[i][n_unknowns], system[i][n_unknowns], *tmp);
-            } else if (current_unknown < n_unknowns) {
-                mpz_init_set_ui(cnx, system[i][current_unknown++], coefs[j]);
+        if (rs) {
+            if (first_notnull_rs == -1) first_notnull_rs = idx;
+            mpz_init(cnx, system[i][n_unknowns]);
+            mpz_import(system[i][n_unknowns], rs->data_length, 1, 1, rs->data);
+            get_coefs(cnx, prng, (rs->repair_fec_payload_id.source_fpid.raw), fec_block->total_source_symbols, coefs);
+            int current_unknown = 0;
+            int current_known = 0;
+            for (j = 0 ; j < fec_block->total_source_symbols ; j++) {
+                if (fec_block->source_symbols[j]) {
+                    mpz_mul_ui(*tmp, knowns[current_known++], coefs[j]);
+                    mpz_sub(system[i][n_unknowns], system[i][n_unknowns], *tmp);
+                } else if (current_unknown < n_unknowns) {
+                    mpz_init_set_ui(cnx, system[i][current_unknown++], coefs[j]);
+                }
             }
+            i++;
         }
-        i++;
+        idx++;
     }
-
 
     for (j = 0 ; j < fec_block->current_source_symbols ; j++) {
         mpz_clear(knowns[j]);
@@ -191,12 +196,11 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
 
     // the system is built: let's recover it
     gaussElimination(cnx, n_eq, n_unknowns+1, system, unknowns);
-
     int current_unknown = 0;
     for (j = 0 ; j < fec_block->total_source_symbols ; j++) {
         if (!fec_block->source_symbols[j] && mpz_cmp_ui(unknowns[current_unknown], 0) != 0) {
             // TODO: handle the case where source symbols could be 0
-            ss = malloc_source_symbol(cnx, (source_fpid_t) ((fec_block->fec_block_number << 8) + ((uint8_t)j)), fec_block->repair_symbols[0]->data_length);
+            ss = malloc_source_symbol(cnx, (source_fpid_t) ((fec_block->fec_block_number << 8) + ((uint8_t)j)), fec_block->repair_symbols[first_notnull_rs]->data_length);
             if (!ss) {
                 mpz_clear(unknowns[current_unknown++]);
                 continue;
