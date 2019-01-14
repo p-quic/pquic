@@ -74,7 +74,7 @@ static __attribute__((always_inline)) void put_item_at_index(block_fec_framework
 
 // adds a repair symbol in the queue waiting for the symbol to be sent
 static __attribute__((always_inline)) void queue_repair_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, repair_symbol_t *rs, fec_block_t *fb){
-    int idx = ((uint32_t) rs->repair_fec_payload_id.source_fpid.raw) % MAX_QUEUED_REPAIR_SYMBOLS;
+    int idx = ((uint32_t) bff->repair_symbols_queue_head + bff->repair_symbols_queue_length) % MAX_QUEUED_REPAIR_SYMBOLS;
     if (has_repair_symbol_at_index(bff, idx)) {
         remove_item_at_index(cnx, bff, idx);
         if (bff->repair_symbols_queue_length > 1 && bff->repair_symbols_queue_head == idx) {
