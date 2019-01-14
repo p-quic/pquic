@@ -1,7 +1,6 @@
 #include "picoquic.h"
 #include "plugin.h"
 #include "../helpers.h"
-#include "bpf.h"
 
 /* Special wake up decision logic in initial state */
 /* TODO: tie with per path scheduling */
@@ -16,8 +15,6 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
     picoquic_packet_context_t *pkt_ctx;
     int pc_ready_flag = 1 << picoquic_packet_context_initial;
-    bpf_data *bpfd = get_bpf_data(cnx);
-    path_data_t *pd = NULL;
     picoquic_stream_head *tls_stream_0 = (picoquic_stream_head *) get_cnx(cnx, CNX_AK_TLS_STREAM, 0);
 
     picoquic_crypto_context_t *crypto_context_1 = (picoquic_crypto_context_t *) get_cnx(cnx, CNX_AK_CRYPTO_CONTEXT, 1);
@@ -52,12 +49,6 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             for (int i = 0; blocked == 0 && i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-                pd = mp_get_path_data(bpfd, path_x);
-                /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != 2) {
-                    continue;
-                }
-
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
 
                 if ((pc_ready_flag & (1 << pc)) == 0) {
@@ -89,11 +80,6 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         {
             for (int i = 0; blocked != 0 && pacing == 0 && i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-                pd = mp_get_path_data(bpfd, path_x);
-                /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != 2) {
-                    continue;
-                }
                 uint64_t cwin_x = (uint64_t) get_path(path_x, PATH_AK_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, PATH_AK_BYTES_IN_TRANSIT, 0);
                 int challenge_verified_x = (int) get_path(path_x, PATH_AK_CHALLENGE_VERIFIED, 0);
@@ -101,14 +87,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
                         (crypto_context_1_aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, PATH_AK_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, PATH_AK_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
-                            blocked = 0;
-                        }
-                        else {
-                            pacing = 1;
-                        }
+                        blocked = 0;
                     }
                 }
             }
@@ -124,11 +103,6 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 for (int i = 0; i < nb_paths; i++) {
                     path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-                    pd = mp_get_path_data(bpfd, path_x);
-                    /* If the path is not active, don't expect anything! */
-                    if (pd != NULL && pd->state != 2) {
-                        continue;
-                    }
                     pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
                     picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
                     
@@ -145,7 +119,8 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                     if (p != NULL) {
                         picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
                         int pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
-                        int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
+                        int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
+
                         while (p != NULL &&
                             ptype == picoquic_packet_0rtt_protected &&
                             pis_evaluated == 1 &&
@@ -154,10 +129,10 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                             if (p != NULL) {
                                 ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
                                 pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
-                                pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
+                                pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
                             }
                         }
-                    }
+                    }    
 
                     if (p != NULL) {
                         uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
@@ -182,11 +157,6 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     /* Consider path challenges */
     for (int i = 0; i < nb_paths; i++) {
         path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-        pd = mp_get_path_data(bpfd, path_x);
-        /* If the path is not active, don't expect anything! */
-        if (pd != NULL && pd->state != 2) {
-            continue;
-        }
         int challenge_verified_x = (int) get_path(path_x, PATH_AK_CHALLENGE_VERIFIED, 0);
         if (blocked != 0 && challenge_verified_x == 0) {
             uint64_t challenge_time_x = (uint64_t) get_path(path_x, PATH_AK_CHALLENGE_TIME, 0);
@@ -207,19 +177,17 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 /**
  * See PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME
  */
-protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
+protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 0);
+    int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
     uint64_t latest_progress_time = (uint64_t) get_cnx(cnx, CNX_AK_LATEST_PROGRESS_TIME, 0);
-    uint64_t client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
     uint64_t next_time = latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - client_mode);
     picoquic_stream_head* stream = NULL;
     int timer_based = 0;
     int blocked = 1;
     int pacing = 0;
     int ret = 0;
-    bpf_data *bpfd = get_bpf_data(cnx);
-    path_data_t *pd = NULL;
     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
 
 
@@ -229,31 +197,17 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         return 0;
     }
 
-    int wake_now = get_cnx(cnx, CNX_AK_WAKE_NOW, 0);
-
-    if (wake_now) {
-        blocked = 0;
-        set_cnx(cnx, CNX_AK_WAKE_NOW, 0, 0);
-    }
-
     if (cnx_state == picoquic_state_disconnecting || cnx_state == picoquic_state_handshake_failure || cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
 
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
-    for (int i = (nb_paths > 1); blocked != 0 && i < nb_paths; i++) {
-        picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-        pd = mp_get_path_data(bpfd, path_x);
-        /* If the path is not active, don't expect anything! */
-        if (pd != NULL && pd->state != 2) {
-            continue;
-        }
+
+    for (int i = 0; blocked != 0 && i < nb_paths; i++) {
+        picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
         uint64_t cwin_x = (uint64_t) get_path(path_x, PATH_AK_CWIN, 0);
         uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, PATH_AK_BYTES_IN_TRANSIT, 0);
         if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
-            blocked = 0;
-        }
-        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
             blocked = 0;
         }
     }
@@ -263,11 +217,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     if (blocked != 0) {
         for (int i = 0; blocked != 0 && pacing == 0 && i < nb_paths; i++) {
             path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-            pd = mp_get_path_data(bpfd, path_x);
-            /* If the path is not active, don't expect anything! */
-            if (pd != NULL && pd->state != 2) {
-                continue;
-            }
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
@@ -288,14 +237,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         helper_is_tls_stream_ready(cnx) ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                         (stream = helper_find_ready_stream(cnx)) != NULL)) {
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, PATH_AK_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, PATH_AK_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
-                            blocked = 0;
-                        }
-                        else {
-                            pacing = 1;
-                        }
+                        blocked = 0;
                     }
                 }
             }
@@ -310,11 +252,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             for (int i = 0; i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-                pd = mp_get_path_data(bpfd, path_x);
-                /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != 2) {
-                    continue;
-                }
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
                 /* Consider delayed ACK */
@@ -339,8 +276,8 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     }
 
                     uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
-                    uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, PATH_AK_RETRANSMIT_TIMER, 0);
                     if (nb_retransmit == 0) {
+                        uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, PATH_AK_RETRANSMIT_TIMER, 0);
                         if (send_time + retransmit_timer_x < next_time) {
                             next_time = send_time + retransmit_timer_x;
                         }
@@ -356,11 +293,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 
         for (int i = 0; i < nb_paths; i++) {
             path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
-            pd = mp_get_path_data(bpfd, path_x);
-            /* If the path is not active, don't expect anything! */
-            if (pd != NULL && pd->state != 2) {
-                continue;
-            }
             int challenge_verified_x = (int) get_path(path_x, PATH_AK_CHALLENGE_VERIFIED, 0);
             /* Consider path challenges */
             if (challenge_verified_x == 0) {

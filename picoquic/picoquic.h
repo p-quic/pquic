@@ -709,6 +709,8 @@ uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max,
 
 void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
+bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
+
 #ifdef __cplusplus
 }
 #endif

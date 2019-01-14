@@ -1432,6 +1432,11 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         return 0;
     }
 
+    if (cnx->wake_now) {
+        blocked = 0;
+        cnx->wake_now = 0;
+    }
+
     if (cnx->cnx_state == picoquic_state_disconnecting || cnx->cnx_state == picoquic_state_handshake_failure || cnx->cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
@@ -1439,6 +1444,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
     for (int i = 0; blocked != 0 && i < cnx->nb_paths; i++) {
         picoquic_path_t * path_x = cnx->path[i];
         if (path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
+            blocked = 0;
+        }
+        if (path_x->cwin > path_x->bytes_in_transit && picoquic_has_booked_plugin_frames(cnx)) {
             blocked = 0;
         }
     }
@@ -2885,7 +2893,7 @@ int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoq
   
     /* Check that the connection is still alive -- the timer is asymmetric, so client will drop faster */
     if ((cnx->cnx_state < picoquic_state_disconnecting && 
-        (current_time - cnx->latest_progress_time) >= (PICOQUIC_MICROSEC_SILENCE_MAX*(2 - cnx->client_mode))) ||
+        current_time >= cnx->latest_progress_time && (current_time - cnx->latest_progress_time) >= (PICOQUIC_MICROSEC_SILENCE_MAX*(2 - cnx->client_mode))) ||
         (cnx->cnx_state < picoquic_state_client_ready &&
             current_time >= cnx->start_time + PICOQUIC_MICROSEC_HANDSHAKE_MAX))
     {

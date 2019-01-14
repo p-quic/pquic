@@ -31,6 +31,7 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
     state->current_sfpid_frame = f;
     state->current_packet_contains_fpid_frame = true;
     my_memcpy(bytes, fpid_buffer, consumed);
+    state->sfpid_reserved = false;
     PROTOOP_PRINTF(cnx, "WRITE SFPID FRAME block %u, symbol number %u, consumed = %u\n", f->source_fpid.fec_block_number, f->source_fpid.symbol_number, consumed);
     my_free(cnx, fpid_buffer);
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);

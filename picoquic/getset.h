@@ -324,6 +324,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define CNX_AK_CRYPTO_CONTEXT 0x31
 /** The retry token length */
 #define CNX_AK_RETRY_TOKEN_LENGTH 0x32
+/** Should we wake the implementation right now? */
+#define CNX_AK_WAKE_NOW 0x33
 
 /**
  * @}

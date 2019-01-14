@@ -146,7 +146,7 @@ static char* strip_endofline(char* buf, size_t bufmax, char const* line)
 }
 
 #define PICOQUIC_FIRST_COMMAND_MAX 128
-#define PICOQUIC_FIRST_RESPONSE_MAX (1 << 20)
+#define PICOQUIC_FIRST_RESPONSE_MAX (1 << 25)
 #define PICOQUIC_DEMO_MAX_PLUGIN_FILES 64
 
 typedef enum {
@@ -364,7 +364,7 @@ int quic_server(const char* server_name, int server_port,
     const char* pem_cert, const char* pem_key,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
-    int mtu_max, const char** plugin_fnames, int plugins)
+    int mtu_max, const char** plugin_fnames, int plugins, FILE *F_log)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -405,7 +405,7 @@ int quic_server(const char* server_name, int server_port,
             }
             qserver->mtu_max = mtu_max;
             /* TODO: add log level, to reduce size in "normal" cases */
-            PICOQUIC_SET_LOG(qserver, stdout);
+            PICOQUIC_SET_LOG(qserver, F_log);
         }
     }
 
@@ -419,7 +419,7 @@ int quic_server(const char* server_name, int server_port,
         if_index_to = 0;
 
         if (just_once != 0 && delta_t > 10000 && cnx_server != NULL) {
-            picoquic_log_congestion_state(stdout, cnx_server, current_time);
+            picoquic_log_congestion_state(F_log, cnx_server, current_time);
         }
 
         bytes_recv = picoquic_select(server_sockets.s_socket, PICOQUIC_NB_SERVER_SOCKETS,
@@ -591,7 +591,8 @@ static const demo_stream_desc_t test_scenario[] = {
     { 8, 0, "doc-123456.html", "doc-123456.html", 0 },
     { 12, 0, "main.jpg", "main.jpg", 1 },
     { 16, 0, "war-and-peace.txt", "war-and-peace.txt", 0 },
-    { 20, 0, "en/latest/", "slash_en_slash_latest.html", 0 }
+    { 20, 0, "en/latest/", "slash_en_slash_latest.html", 0 },
+    { 24, 0, "doc-4000000.html", "doc-4000000.html", 0 }
 #endif
 #endif
 };
@@ -615,6 +616,10 @@ typedef struct st_picoquic_first_client_callback_ctx_t {
     uint32_t nb_client_streams;
     uint64_t last_interaction_time;
     int progress_observed;
+    struct timeval tv_start;
+    struct timeval tv_end;
+    bool stream_ok;
+    bool only_get;
 } picoquic_first_client_callback_ctx_t;
 
 static void demo_client_open_stream(picoquic_cnx_t* cnx,
@@ -623,6 +628,10 @@ static void demo_client_open_stream(picoquic_cnx_t* cnx,
 {
     picoquic_first_client_stream_ctx_t* stream_ctx = (picoquic_first_client_stream_ctx_t*)
         malloc(sizeof(picoquic_first_client_stream_ctx_t));
+
+    if (stream_id == 4 && ctx->only_get) {
+        gettimeofday(&ctx->tv_start, NULL);
+    }
 
     if (stream_ctx == NULL) {
         fprintf(stdout, "Memory error!\n");
@@ -776,6 +785,10 @@ static void first_client_callback(picoquic_cnx_t* cnx,
         /* if FIN present, process request through http 0.9 */
         if (fin_or_event == picoquic_callback_stream_fin) {
             char buf[256];
+            if (stream_id == 4) {
+                gettimeofday(&ctx->tv_end, NULL);
+                ctx->stream_ok = true;
+            }
             /* if data generated, just send it. Otherwise, just FIN the stream. */
             fclose(stream_ctx->F);
             stream_ctx->F = NULL;
@@ -799,7 +812,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char** plugin_fnames, int plugins)
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char** plugin_fnames, int plugins, int get_size)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -829,6 +842,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int notified_ready = 0;
     const char* alpn = (proposed_version == 0xFF00000D)?"hq-13":"hq-14";
     int zero_rtt_available = 0;
+    char buf[25];
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
 
@@ -936,8 +950,19 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                     /* Queue a simple frame to perform 0-RTT test */
                     /* Start the download scenario */
-                    callback_ctx.demo_stream = test_scenario;
-                    callback_ctx.nb_demo_streams = test_scenario_nb;
+                    /* If get_size is greater than 0, select it */
+                    if (get_size <= 0) {
+                        callback_ctx.demo_stream = test_scenario;
+                        callback_ctx.nb_demo_streams = test_scenario_nb;
+                    } else {
+                        sprintf(buf, "doc-%d.html", get_size);
+                        callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                        callback_ctx.nb_demo_streams = 2;
+                        gettimeofday(&callback_ctx.tv_start, NULL);
+                        callback_ctx.stream_ok = false;
+                        callback_ctx.only_get = true;
+                    }
+
 
                     demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
                 }
@@ -1051,8 +1076,17 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                         if (zero_rtt_available == 0) {
                             /* Start the download scenario */
-                            callback_ctx.demo_stream = test_scenario;
-                            callback_ctx.nb_demo_streams = test_scenario_nb;
+                            /* If get_size is greater than 0, select it */
+                            if (get_size <= 0) {
+                                callback_ctx.demo_stream = test_scenario;
+                                callback_ctx.nb_demo_streams = test_scenario_nb;
+                            } else {
+                                sprintf(buf, "doc-%d.html", get_size);
+                                callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                                callback_ctx.nb_demo_streams = 2;
+                                callback_ctx.stream_ok = false;
+                                callback_ctx.only_get = true;
+                            }
 
                             demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
                         }
@@ -1143,6 +1177,15 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         SOCKET_CLOSE(fd);
     }
 
+    /* At the end, if we performed a single get, print the time */
+    if (get_size > 0) {
+        if (callback_ctx.stream_ok) {
+            int time_us = (callback_ctx.tv_end.tv_sec - callback_ctx.tv_start.tv_sec) * 1000000 + callback_ctx.tv_end.tv_usec - callback_ctx.tv_start.tv_usec;
+            printf("%d.%03d ms\n", time_us / 1000, time_us % 1000);
+        } else {
+            printf("-1.0\n");
+        }
+    }
     return ret;
 }
 
@@ -1184,6 +1227,7 @@ void usage()
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -c file               cert file (default: %s)\n", default_server_cert_file);
     fprintf(stderr, "  -k file               key file (default: %s)\n", default_server_key_file);
+    fprintf(stderr, "  -G size               GET size (default: -1)\n");
     fprintf(stderr, "  -P file               plugin file (default: NULL). Can be used several times to load several plugins.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
@@ -1262,10 +1306,11 @@ int main(int argc, char** argv)
     int ret = 0;
 
     /* HTTP09 test */
+    int get_size = -1;
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:v:1rhzi:s:l:m:n:t:P:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:v:1rhzi:s:l:m:n:t:P:G:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1276,6 +1321,12 @@ int main(int argc, char** argv)
         case 'P':
             plugin_fnames[plugins] = optarg;
             plugins++;
+            break;
+        case 'G':
+            if ((get_size = atoi(optarg)) <= 0) {
+                fprintf(stderr, "Invalid GET size: %s\n", optarg);
+                usage();
+            }
             break;
         case 'p':
             if ((server_port = atoi(optarg)) <= 0) {
@@ -1321,10 +1372,6 @@ int main(int argc, char** argv)
             cnx_id_mask_is_set = 1;
             break;
         case 'l':
-            if (optind + 1 > argc) {
-                fprintf(stderr, "option requires more arguments -- s\n");
-                usage();
-            }
             log_file = optarg;
             break;
         case 'm':
@@ -1373,6 +1420,24 @@ int main(int argc, char** argv)
 #endif
 
     if (is_client == 0) {
+        FILE* F_log = NULL;
+
+        if (log_file != NULL) {
+#ifdef _WINDOWS
+            if (fopen_s(&F_log, log_file, "w") != 0) {
+                F_log = NULL;
+            }
+#else
+            F_log = fopen(log_file, "w");
+#endif
+            if (F_log == NULL) {
+                fprintf(stderr, "Could not open the log file <%s>\n", log_file);
+            }
+        }
+
+        if (F_log == NULL) {
+            F_log = stdout;
+        }
         /* Run as server */
         printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d, and %d plugins\n",
             server_port, server_name, just_once, do_hrr, plugins);
@@ -1384,7 +1449,7 @@ int main(int argc, char** argv)
             /* TODO: find an alternative to using 64 bit mask. */
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
-            (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins);
+            (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins, F_log);
         printf("Server exit with code = %d\n", ret);
     } else {
         FILE* F_log = NULL;
@@ -1415,7 +1480,7 @@ int main(int argc, char** argv)
         for(int i = 0; i < plugins; i++) {
             printf("\tplugin %s\n", plugin_fnames[i]);
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size);
 
         printf("Client exit with code = %d\n", ret);
 

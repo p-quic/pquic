@@ -1750,6 +1750,7 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        bool remove_10 = false;
         if (strncmp("docker", ifa->ifa_name, 6) == 0 ||
             strncmp("lo", ifa->ifa_name, 2) == 0 ||
             strncmp("tun", ifa->ifa_name, 3) == 0)
@@ -1757,11 +1758,22 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
             /* Do not consider those addresses */
             continue;
         }
+        /* Special check for experiments */
+        if (strncmp("eth0", ifa->ifa_name, 4) == 0) {
+            remove_10 = true;
+        }
         /* What if an interface has no IP address? */
         if (ifa->ifa_addr) {
             family = ifa->ifa_addr->sa_family;
             if (family == AF_INET) {
                 struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
+                if (remove_10) {
+                    in_addr_t a = sai->sin_addr.s_addr & (in_addr_t) 0xff;
+                    if (a == (in_addr_t) 0x0a) {
+                        /* Don't consider this address */
+                        continue;
+                    }
+                }
                 if (count < sas_length) {
                     if_index = if_nametoindex(ifa->ifa_name);
                     memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));
@@ -1825,6 +1837,7 @@ protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t pa
     popst->param = param;
     popst->core = op;
     popst->intern = true;  /* Assumes it is internal */
+    popst->running = false; /* Of course, it does not run yet */
     /* Ensure NULL values */
     popst->replace = NULL;
     popst->pre = NULL;
@@ -1969,6 +1982,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         free(block);
         return 0;
     }
+    cnx->wake_now = 1;
     return block->total_bytes;
 }
 
@@ -1986,6 +2000,10 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
     reserve_frame_slot_t *slots = block->frames;
     free(block);
     return slots;
+}
+bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)
+{
+    return (queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL);
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
