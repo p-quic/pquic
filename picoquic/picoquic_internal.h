@@ -610,6 +610,8 @@ typedef struct st_picoquic_cnx_t {
     protoop_plugin_t *first_drr;
     /* Core guaranteed rate (fraction over 1000) */
     uint16_t core_rate;
+    /* Should we wake directly the stack due to a reserved frame? */
+    uint8_t wake_now:1;
 
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;

@@ -1982,7 +1982,13 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         free(block);
         return 0;
     }
+    cnx->wake_now = 1;
     return block->total_bytes;
+}
+
+bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)
+{
+    return (queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL); 
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)

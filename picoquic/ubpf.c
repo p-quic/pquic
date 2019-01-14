@@ -82,6 +82,8 @@ register_functions(struct ubpf_vm *vm) {
 
     // logging func
 
+    ubpf_register(vm, 0x2d, "picoquic_has_booked_plugin_frames", picoquic_has_booked_plugin_frames);
+
     /* Specific QUIC functions */
     ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, 0x30, "picoquic_varint_decode", picoquic_varint_decode);
