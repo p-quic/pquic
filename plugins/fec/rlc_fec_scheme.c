@@ -81,6 +81,10 @@ static __attribute__((always_inline)) void gaussElimination(picoquic_cnx_t *cnx,
             // TODO
             PROTOOP_PRINTF(cnx, "UNDETERMINED SOL\n");
         } else {
+            if (mpz_sgn(x[i]) < 0 && mpz_sgn(a[i][i]) < 0) {
+                mpz_abs(x[i], x[i]);
+                mpz_abs(a[i][i], a[i][i]);
+            }
             mpz_fdiv_q(x[i], x[i], a[i][i]);
         }
     }
