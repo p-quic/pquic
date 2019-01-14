@@ -86,13 +86,22 @@ extern protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED;
  * Write the frame whose the type is provided as parameter.
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
- * \param[in] frame_ctx \b void* The context of the frame to write. If not NULL, it has to be allocated in context memory and has to be free'd.
+ * \param[in] frame_ctx \b void* The context of the frame to write. If not NULL, it has to be allocated in context memory and has to be free'd by the plugin at some point.
  * 
  * \return \b int Error code, 0 iff everything was fine
  * \param[out] consumed \b int The number of bytes written in \p bytes
  */
 #define PROTOOPID_PARAM_WRITE_FRAME "write_frame"
 extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
+
+/**
+ * Notifies the reception (or not) of the frame by the peer and enables reservation frame slot cleaning.
+ * \param[in] rfs \b reserve_frame_slot_t* The reserved frame. Should be free'd to avoid memory leak in the plugin.
+ * \param[in] received \b int Indicates if the frame was received or not.
+ * 
+ */
+#define PROTOOPID_PARAM_NOTIFY_FRAME "notify_frame"
+extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
 
 /* @} */ 
 

@@ -632,6 +632,8 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         tmp = pppf;
         tmp->plugin->bytes_in_flight -= tmp->bytes;
         pppf = tmp->next;
+        protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL,
+            tmp->rfs, should_free);
         free(tmp);
     }
 
@@ -2452,7 +2454,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     }
 }
 
-void register_plugin_bytes_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p, uint64_t bytes)
+void register_plugin_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p, uint64_t bytes, reserve_frame_slot_t *rfs)
 {
     /* If there is no plugin frame in packet, just create the node! */
     if (packet->plugin_frames == NULL) {
@@ -2463,21 +2465,14 @@ void register_plugin_bytes_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p
         }
         packet->plugin_frames->plugin = p;
         packet->plugin_frames->bytes = bytes;
+        packet->plugin_frames->rfs = rfs;
         packet->plugin_frames->next = NULL;
         return;
     }
 
-    /* Otherwise, try to find the plugin */
-    picoquic_packet_plugin_frame_t* pppf = packet->plugin_frames;
-    do {
-        if (pppf->plugin == p) {
-            pppf->bytes += bytes;
-            return;
-        }
-        pppf = pppf->next;
-    } while (pppf);
-
-    /* If we reach here, we didn't found our plugin, so create the node */
+    /* Before, we aggregated the results from a same plugin. However, since we want to keep some context for each
+       reserved frame, we do not this anymore.
+    */
     picoquic_packet_plugin_frame_t* new_plugin_frames = malloc(sizeof(picoquic_packet_plugin_frame_t));
     if (!new_plugin_frames) {
         printf("WARNING: cannot allocate memory for picoquic_packet_plugin_frame_t!\n");
@@ -2485,6 +2480,7 @@ void register_plugin_bytes_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p
     }
     new_plugin_frames->plugin = p;
     new_plugin_frames->bytes = bytes;
+    new_plugin_frames->rfs = rfs;
     new_plugin_frames->next = packet->plugin_frames;
     packet->plugin_frames = new_plugin_frames;
 }
@@ -2641,6 +2637,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         if (PROTOOP_PARAM_WRITE_FRAME.hash == 0) {
                             PROTOOP_PARAM_WRITE_FRAME.hash = hash_value_str(PROTOOP_PARAM_WRITE_FRAME.id);
                         }
+                        if (PROTOOP_PARAM_NOTIFY_FRAME.hash == 0) {
+                            PROTOOP_PARAM_NOTIFY_FRAME.hash = hash_value_str(PROTOOP_PARAM_NOTIFY_FRAME.id);
+                        }
                         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
@@ -2653,7 +2652,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             p->bytes_total += (uint64_t) data_bytes;
                             p->frames_total += 1;
                             /* And let the packet know that it has plugin bytes */
-                            register_plugin_bytes_in_pkt(packet, p, (uint64_t) data_bytes);
+                            register_plugin_in_pkt(packet, p, (uint64_t) data_bytes, rfs);
                         } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             if (first_retry == NULL) {
                                 first_retry = rfs;
@@ -2668,10 +2667,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
 
-                        if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
-                            /* It was reserved by the plugin, so it is a my_free */
-                            my_free_in_core(p, rfs);
-                        } else {
+                        if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             ret = 0;
                         }
                     }
@@ -2683,6 +2679,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         /* If it has not been computed before, compute it now */
                         if (PROTOOP_PARAM_WRITE_FRAME.hash == 0) {
                             PROTOOP_PARAM_WRITE_FRAME.hash = hash_value_str(PROTOOP_PARAM_WRITE_FRAME.id);
+                        }
+                        if (PROTOOP_PARAM_NOTIFY_FRAME.hash == 0) {
+                            PROTOOP_PARAM_NOTIFY_FRAME.hash = hash_value_str(PROTOOP_PARAM_NOTIFY_FRAME.id);
                         }
                         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
@@ -2696,7 +2695,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             p->bytes_total += (uint64_t) data_bytes;
                             p->frames_total += 1;
                             /* And let the packet know that it has plugin bytes */
-                            register_plugin_bytes_in_pkt(packet, p, (uint64_t) data_bytes);
+                            register_plugin_in_pkt(packet, p, (uint64_t) data_bytes, rfs);
                         } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             /* Put the reservation in the retry queue, for the next packet */
                             queue_enqueue(cnx->retry_frames, rfs);
@@ -2708,10 +2707,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }
 
-                        if (ret != PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
-                            /* It was reserved by the plugin, so it is a my_free */
-                            my_free_in_core(p, rfs);
-                        } else {
+                        if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
                             ret = 0;
                         }
                     }

@@ -226,10 +226,27 @@ typedef enum {
 
 typedef struct protoop_plugin protoop_plugin_t;
 
+/* This structure is used for sending booking purposes */
+typedef struct reserve_frame_slot {
+    size_t nb_bytes;
+    uint64_t frame_type;
+    protoop_plugin_t *p; /* Whathever you place here, it will be overwritten */
+    /* TODO FIXME position */
+    void *frame_ctx;
+} reserve_frame_slot_t;
+
+typedef struct reserve_frames_block {
+    size_t total_bytes;
+    uint8_t nb_frames;
+    /* The following pointer is an array! */
+    reserve_frame_slot_t *frames;
+} reserve_frames_block_t;
+
 typedef struct st_picoquic_packet_plugin_frame_t {
     struct st_picoquic_packet_plugin_frame_t* next;
     protoop_plugin_t* plugin;
     uint64_t bytes;
+    reserve_frame_slot_t *rfs; /* Memory held by the plugin, responsible for its my_free */
 } picoquic_packet_plugin_frame_t;
 
 /*
@@ -285,22 +302,6 @@ typedef struct {
     protoop_arg_t *inputv;
     protoop_arg_t *outputv;
 } protoop_params_t;
-
-/* This structure is used for sending booking purposes */
-typedef struct reserve_frame_slot {
-    size_t nb_bytes;
-    uint64_t frame_type;
-    protoop_plugin_t *p; /* Whathever you place here, it will be overwritten */
-    /* TODO FIXME position */
-    void *frame_ctx;
-} reserve_frame_slot_t;
-
-typedef struct reserve_frames_block {
-    size_t total_bytes;
-    uint8_t nb_frames;
-    /* The following pointer is an array! */
-    reserve_frame_slot_t *frames;
-} reserve_frames_block_t;
 
 #define NO_PARAM (param_id_t) -1
 #define PROTOOPARGS_MAX 10 /* Minimum required value... */
