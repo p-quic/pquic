@@ -2383,11 +2383,6 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     protoop_plugin_t *p, *tmp_p;
     reserve_frames_block_t *block;
 
-    /* If we are over this path usage, don't consider this */
-    if (path_x->bytes_in_transit >= path_x->cwin) {
-        return;
-    }
-
     uint64_t plugin_use = 0;
     uint64_t num_plugins = 0;
 
@@ -2414,7 +2409,8 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     do {
         while ((block = queue_peek(p->block_queue)) != NULL &&
                 queued_bytes < frame_mss &&
-                p->bytes_in_flight < max_plugin_cwin / num_plugins)
+                p->bytes_in_flight < max_plugin_cwin / num_plugins &&
+                (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             has_frame = true;
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
@@ -2433,7 +2429,8 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     /* Second pass: consider all plugins */
     do {
         while ((block = queue_peek(p->block_queue)) != NULL &&
-                queued_bytes < frame_mss)
+                queued_bytes < frame_mss &&
+                (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             has_frame = true;
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);

@@ -1973,9 +1973,14 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     }
     block->nb_frames = nb_frames;
     block->total_bytes = 0;
+    uint8_t is_cc = 0;
     for (int i = 0; i < nb_frames; i++) {
         block->total_bytes += slots[i].nb_bytes;
+        if (!is_cc) {
+            is_cc = (uint8_t) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, slots[i].frame_type, NULL, NULL);
+        }
     }
+    block->is_congestion_controlled = is_cc;
     block->frames = slots;
     int err = queue_enqueue(cnx->current_plugin->block_queue, block);
     if (err) {

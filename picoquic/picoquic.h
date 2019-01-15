@@ -238,6 +238,7 @@ typedef struct reserve_frame_slot {
 typedef struct reserve_frames_block {
     size_t total_bytes;
     uint8_t nb_frames;
+    uint8_t is_congestion_controlled:1;
     /* The following pointer is an array! */
     reserve_frame_slot_t *frames;
 } reserve_frames_block_t;
