@@ -276,6 +276,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     blocked = 0;
                 }
                 else if (helper_is_ack_needed(cnx, current_time, pc, path_x)) {
+                    if (i > 0) {
+                        reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
+                    }
                     blocked = 0;
                 }
             }

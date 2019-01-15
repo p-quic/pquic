@@ -46,6 +46,12 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 selected_path_index = i;
             }
 
+            if (helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_c)) {
+                path_x = path_c;
+                selected_path_index = i;
+                break;
+            }
+
             /* Very important: don't go further if the cwin is exceeded! */
             uint64_t cwin_c = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
             uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
