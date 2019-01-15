@@ -2398,6 +2398,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     }
 
     uint64_t max_plugin_cwin = path_x->cwin * (1000 - cnx->core_rate) / 1000;
+    uint64_t total_plugin_bytes_in_flight = 0;
 
     if (stream != NULL && plugin_use >= max_plugin_cwin) {
         /* Don't go over the guaranteed rate! */
@@ -2446,11 +2447,16 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             /* Free the block */
             free(block);
         }
+        total_plugin_bytes_in_flight += p->bytes_in_flight;
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
 
     /* Finally, put the first pointer to the next one */
     if (has_frame) {
         cnx->first_drr = get_next_plugin(cnx, p);
+        /* If we scheduled a frame but no app data and we have congestion allowance, let's wake again */
+        if (stream == NULL || total_plugin_bytes_in_flight < max_plugin_cwin) {
+            cnx->wake_now = 1;
+        }
     }
 }
 
