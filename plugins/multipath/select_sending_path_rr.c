@@ -38,6 +38,12 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
+            /* At this point, this means path 0 should NEVER be reused anymore! */
+            if (path_x == path_0) {
+                path_x = path_c;
+                selected_path_index = i;
+            }
+
             /* Very important: don't go further if the cwin is exceeded! */
             uint64_t cwin_c = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
             uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
