@@ -7,6 +7,8 @@ write_frame param 0x1c replace write_datagram_frame.o
 write_frame param 0x1d replace write_datagram_frame.o
 process_frame param 0x1c replace process_datagram_frame.o
 process_frame param 0x1d replace process_datagram_frame.o
+notify_frame 0x1c replace notify_datagram_frame.o
+notify_frame 0x1d replace notify_datagram_frame.o
 connection_state_changed post cnx_state_changed.o
 send_message extern send_datagram.o
 get_message_socket extern get_datagram_socket.o

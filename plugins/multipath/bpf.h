@@ -16,7 +16,7 @@
 #define MP_NEW_CONNECTION_ID_TYPE 0x26
 #define MP_ACK_TYPE 0x27
 
-#define RTT_PROBE_TYPE 0x28
+#define RTT_PROBE_TYPE 0x42
 #define RTT_PROBE_INTERVAL 100000
 
 typedef struct {
