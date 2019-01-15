@@ -39,13 +39,8 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
-            /* Don't consider invalid paths */
-            if (!challenge_verified_c) {
-                continue;
-            }
-
             /* At this point, this means path 0 should NEVER be reused anymore! */
-            if (path_x == path_0) {
+            if (challenge_verified_c && path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
             }
@@ -77,6 +72,11 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 path_x = path_c;
                 selected_path_index = i;
                 break;
+            }
+
+            /* Don't consider invalid paths */
+            if (!challenge_verified_c) {
+                continue;
             }
 
             if (path_x == path_0) {
