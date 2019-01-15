@@ -158,6 +158,7 @@ static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, pa
     my_memcpy(remote_cnxid, &pd->remote_cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(pd->path, PATH_AK_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
+    PROTOOP_PRINTF(cnx, "Path %x ready!\n", pd->path_id);
 }
 
 static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)
