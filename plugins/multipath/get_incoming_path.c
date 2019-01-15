@@ -27,11 +27,14 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
             picoquic_path_t *path_i = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
             picoquic_connection_id_t *local_cnxid_x = (picoquic_connection_id_t *) get_path(path_i, PATH_AK_LOCAL_CID, 0);
             if (picoquic_compare_connection_id(destination_cnxid, local_cnxid_x) == 0) {
-                path_from = path_i;
-                path_data_t *pd = mp_get_path_data(bpfd, path_i);
-                if (pd->state == 1) {
-                    pd->state = 2;
+                if (path_from != NULL) {
+                    path_from = path_i;
+                    path_data_t *pd = mp_get_path_data(bpfd, path_i);
+                    if (pd && pd->state == 1) {
+                        pd->state = 2;
+                    }
                 }
+                
                 break;
             }
         }

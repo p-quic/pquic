@@ -201,7 +201,7 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
     reserve_frames(cnx, 1, rfs);
 }
 
-static void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_packet_context_enum pc)
+static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_packet_context_enum pc)
 {
     mp_ack_ctx_t *mac = (mp_ack_ctx_t *) my_malloc(cnx, sizeof(mp_ack_ctx_t));
     if (!mac) {
@@ -218,6 +218,9 @@ static void reserve_mp_ack_frame(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     rfs->frame_ctx = mac;
     rfs->nb_bytes = 14; /* This might probably change... */
     reserve_frames(cnx, 1, rfs);
+    /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
+    set_pkt_ctx(pkt_ctx, PKT_CTX_AK_ACK_NEEDED, 0);
 }
 
 /* Other multipath functions */

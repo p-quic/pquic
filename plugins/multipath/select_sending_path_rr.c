@@ -12,6 +12,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     path_data_t *pd = NULL;
     uint8_t selected_path_index = 255;
     start_using_path_if_possible(cnx);
+    uint64_t now = picoquic_current_time();
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
 
@@ -38,10 +39,22 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
+            /* Don't consider invalid paths */
+            if (!challenge_verified_c) {
+                continue;
+            }
+
             /* At this point, this means path 0 should NEVER be reused anymore! */
             if (path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
+            }
+
+            if (helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_c)) {
+                path_x = path_c;
+                selected_path_index = i;
+                reserve_mp_ack_frame(cnx, path_c, picoquic_packet_context_application);
+                break;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -66,10 +79,6 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
-            /* Don't consider invalid paths */
-            if (!challenge_verified_c) {
-                continue;
-            }
             if (path_x == path_0) {
                 path_x = pd->path;
                 selected_path_index = i;

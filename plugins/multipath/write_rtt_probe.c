@@ -21,9 +21,9 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
         } else {
             bpfd->paths[selected_path].rtt_probe_ready = true;
         }
-        PROTOOP_PRINTF(cnx, "RTT probe ready to be sent for path %d, try %d\n", selected_path, bpfd->paths[selected_path].rtt_probe_tries);
+        /* PROTOOP_PRINTF(cnx, "RTT probe ready to be sent for path %d, try %d\n", selected_path, bpfd->paths[selected_path].rtt_probe_tries); */
         if (bpfd->paths[selected_path].rtt_probe_tries >= 3) {
-            PROTOOP_PRINTF(cnx, "Too many tries for the probe for path %d, drop it\n", selected_path);
+            /* PROTOOP_PRINTF(cnx, "Too many tries for the probe for path %d, drop it\n", selected_path); */
             bpfd->paths[selected_path].rtt_probe_ready = false;
             ret = 0;
             consumed = 0;
@@ -36,7 +36,7 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
         my_memset(bytes + 1, picoquic_frame_type_padding, bytes_max - (bytes + 1));
         bpfd->paths[selected_path].rtt_probe_ready = false;
 
-        PROTOOP_PRINTF(cnx, "Wrote a %lu-byte long RTT probe for path %d\n", bytes_max - bytes, selected_path);
+        /* PROTOOP_PRINTF(cnx, "Wrote a %lu-byte long RTT probe for path %d\n", bytes_max - bytes, selected_path); */
         consumed = bytes_max - bytes;
     }
 

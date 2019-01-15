@@ -14,6 +14,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     uint8_t selected_path_index = 255;
     start_using_path_if_possible(cnx);
     uint64_t smoothed_rtt_x = 0;
+    uint64_t now = picoquic_current_time();
     for (uint8_t i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
         /* Lowest RTT-based scheduler */
@@ -39,10 +40,22 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
+            /* Don't consider invalid paths */
+            if (!challenge_verified_c) {
+                continue;
+            }
+
             /* At this point, this means path 0 should NEVER be reused anymore! */
             if (path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
+            }
+
+            if (helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_c)) {
+                path_x = path_c;
+                selected_path_index = i;
+                reserve_mp_ack_frame(cnx, path_c, picoquic_packet_context_application);
+                break;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -67,11 +80,6 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
-            /* Don't consider invalid paths */
-            if (!challenge_verified_c) {
-                continue;
-            }
-
             uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
             if (path_c != path_0) {
                 uint64_t current_time = picoquic_current_time();
@@ -88,12 +96,12 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     slot->frame_ctx = (void *)(uint64_t) i;
                     size_t ret = reserve_frames(cnx, 1, slot);
                     if (ret == slot->nb_bytes) {
-                        PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", send_mtu / 20, i);
+                        /* PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", send_mtu / 20, i); */
                     }
                 }
 
                 if (pd->rtt_probe_ready) {  // Sends the RTT probe in the retry queue
-                    PROTOOP_PRINTF(cnx, "Switching to path %d for sending probe\n", i);
+                    /* PROTOOP_PRINTF(cnx, "Switching to path %d for sending probe\n", i); */
                     path_x = path_c;
                     selected_path_index = i;
                     break;
