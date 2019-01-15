@@ -46,6 +46,7 @@ typedef struct {
     uint64_t last_rtt_probe;
     uint8_t rtt_probe_tries;
     bool rtt_probe_ready;
+    bool doing_ack;
 } path_data_t;
 
 typedef struct {
@@ -68,8 +69,6 @@ typedef struct {
     path_data_t paths[MAX_PATHS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
-
-    picoquic_path_t *ack_ok_paths[MAX_PATHS]; /* TODO cleaner support and support for more */
 } bpf_data;
 
 typedef struct add_address_frame {

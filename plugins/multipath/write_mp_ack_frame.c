@@ -142,12 +142,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 
     my_free(cnx, mac);
 
-    for (int i = 0; i < MAX_PATHS; i++) { /* TODO again, need clean support */
-        if (bpfd->ack_ok_paths[i] == path_x) {
-            bpfd->ack_ok_paths[i] = NULL;
-            break;
-        }
-    }
+    pd->doing_ack = false;
 
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
 
