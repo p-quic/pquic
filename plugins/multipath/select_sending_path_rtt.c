@@ -44,6 +44,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (challenge_verified_c && path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
+                smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
