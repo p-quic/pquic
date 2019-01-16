@@ -15,7 +15,7 @@
 #define APP_SOCKET 1
 #define PLUGIN_SOCKET 0
 
-#define SEND_BUFFER 300000
+#define SEND_BUFFER 900000
 #define RECV_BUFFER 500000
 
 typedef struct st_datagram_frame_t {
