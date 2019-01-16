@@ -43,7 +43,7 @@ typedef struct st_picoquic_cubic_state_t {
     uint64_t residual_ack;
 } picoquic_cubic_state_t;
 
-void picoquic_cubic_init(picoquic_path_t* path_x)
+void picoquic_cubic_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 {
     /* Initialize the state of the congestion control algorithm */
     picoquic_cubic_state_t* cubic_state = (picoquic_cubic_state_t*)malloc(sizeof(picoquic_cubic_state_t));
@@ -319,7 +319,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
 }
 
 /* Release the state of the congestion control algorithm */
-void picoquic_cubic_delete(picoquic_path_t* path_x)
+void picoquic_cubic_delete(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 {
     if (path_x->congestion_alg_state != NULL) {
         free(path_x->congestion_alg_state);
