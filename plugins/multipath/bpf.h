@@ -216,7 +216,7 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
     }
     rfs->frame_type = MP_ACK_TYPE;
     rfs->frame_ctx = mac;
-    rfs->nb_bytes = 14; /* This might probably change... */
+    rfs->nb_bytes = 200; /* FIXME dynamic count */
     reserve_frames(cnx, 1, rfs);
     /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);

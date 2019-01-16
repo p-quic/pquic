@@ -282,9 +282,12 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         if (pd && !pd->doing_ack) {
                             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
                             pd->doing_ack = true;
+                            blocked = 0;
                         }
+                        /* A booking is pending, please be patient... */
+                    } else {
+                        blocked = 0;
                     }
-                    blocked = 0;
                 }
             }
 
