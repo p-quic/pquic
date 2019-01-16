@@ -298,7 +298,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
-                        (stream = helper_find_ready_stream(cnx)) != NULL)) {
+                        ((stream = helper_find_ready_stream(cnx)) != NULL || run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL)))) {
                         uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, PATH_AK_NEXT_PACING_TIME, 0);
                         uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, PATH_AK_PACING_MARGIN_MICROS, 0);
                         if (next_pacing_time_x < current_time + pacing_margin_micros_x) {

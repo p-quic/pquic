@@ -1286,6 +1286,15 @@ uint32_t picoquic_prepare_mtu_probe(picoquic_cnx_t* cnx,
         path_x, header_length, checksum_length, bytes);   
 }
 
+protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
+{
+    if (t->hh.next != NULL) {
+        return t->hh.next;
+    }
+    /* Otherwise, it is the first one */
+    return cnx->plugins;
+}
+
 /* Special wake up decision logic in initial state */
 /* TODO: tie with per path scheduling */
 static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_time)
@@ -1428,6 +1437,30 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
 }
 
+protoop_arg_t has_congestion_controlled_plugin_frames_to_send(picoquic_cnx_t *cnx) {
+    protoop_arg_t ret = 0;
+    protoop_plugin_t *p = cnx->first_drr;
+
+    if(p) {
+        do {
+            queue_node_t *current = p->block_queue->head;
+            while (current)
+            {
+                if(((reserve_frames_block_t *) current->data)->is_congestion_controlled) {
+                    ret = 1;
+                    break;
+                }
+                current = current->next;
+            }
+        } while (!ret && (p = get_next_plugin(cnx, p)) != cnx->first_drr);
+    }
+    return ret;
+}
+
+bool picoquic_has_congestion_controlled_plugin_frames_to_send(picoquic_cnx_t *cnx) {
+    return (bool) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, NULL, NULL);
+}
+
 /**
  * See PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME
  */
@@ -1487,7 +1520,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     if (picoquic_should_send_max_data(cnx) ||
                         picoquic_is_tls_stream_ready(cnx) ||
                         ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
-                        (stream = picoquic_find_ready_stream(cnx)) != NULL)) {
+                                ((stream = picoquic_find_ready_stream(cnx)) != NULL || picoquic_has_congestion_controlled_plugin_frames_to_send(cnx)))) {
                         if (path_x->next_pacing_time < current_time + path_x->pacing_margin_micros) {
                             blocked = 0;
                         }
@@ -2373,15 +2406,6 @@ picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
     return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
 }
 
-protoop_plugin_t *get_next_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *t)
-{
-    if (t->hh.next != NULL) {
-        return t->hh.next;
-    }
-    /* Otherwise, it is the first one */
-    return cnx->plugins;
-}
-
 /* This implements a deficit round robin with bursts */
 void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss)
 {
@@ -3070,4 +3094,5 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT, &prepare_packet_old_context);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MTU_PROBE, &prepare_mtu_probe);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FINALIZE_AND_PROTECT_PACKET, &finalize_and_protect_packet);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, &has_congestion_controlled_plugin_frames_to_send);
 }
