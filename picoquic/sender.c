@@ -1071,7 +1071,19 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     if (packet_is_pure_ack) {
                         length = 0;
                     } else {
-                        if (timer_based_retransmit != 0) {
+                        /* We should also consider if some action was recently observed to consider that it is actually a RTO... */
+                        uint64_t retrans_timer = orig_path->pkt_ctx[pc].time_stamp_largest_received + orig_path->smoothed_rtt;
+                        if (orig_path->pkt_ctx[pc].latest_retransmit_time >= orig_path->pkt_ctx[pc].time_stamp_largest_received) {
+                            retrans_timer = orig_path->pkt_ctx[pc].latest_retransmit_time + orig_path->smoothed_rtt;
+                        }
+                        /* Or any packet acknowledged */
+                        if (orig_path->pkt_ctx[pc].latest_progress_time + orig_path->smoothed_rtt > retrans_timer) {
+                            retrans_timer = orig_path->pkt_ctx[pc].latest_progress_time + orig_path->smoothed_rtt;
+                        }
+                        
+                        bool is_timer_based = false;
+                        if (timer_based_retransmit != 0 && current_time >= retrans_timer) {
+                            is_timer_based = true;
                             if (orig_path->pkt_ctx[pc].nb_retransmit > 4) {
                                 /*
                                 * Max retransmission count was exceeded. Disconnect.
@@ -1091,6 +1103,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         }
 
                         if (should_retransmit != 0) {
+                            uint64_t retrans_cc_notification_timer = orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time + orig_path->smoothed_rtt;
                             if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
                                 DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
                                     p->ptype, p->pc,
@@ -1106,9 +1119,10 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             packet->length = length;
                             cnx->nb_retransmission_total++;
 
-                            if (cnx->congestion_alg != NULL) {
+                            if (current_time >= retrans_cc_notification_timer && cnx->congestion_alg != NULL) {
+                                orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time = current_time;
                                 cnx->congestion_alg->alg_notify(old_path,
-                                    (timer_based_retransmit == 0) ? picoquic_congestion_notification_repeat : picoquic_congestion_notification_timeout,
+                                    (is_timer_based) ? picoquic_congestion_notification_timeout : picoquic_congestion_notification_repeat,
                                     0, 0, lost_packet_number, current_time);
                             }
 
@@ -2719,6 +2733,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         }
                     }
 
+                    /* FIXME: Sorry, I'm lazy, this could be easily fixed by making this a PO.
+                     * This is needed by the way the cwin is now handled. */
                     if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                         send_buffer_min_max - checksum_overhead - length, &data_bytes)
                         == 0) {

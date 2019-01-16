@@ -20,6 +20,7 @@ INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
 SET(PICOQUIC_LIBRARY_FILES
+    picoquic/cubic.c
     picoquic/endianness.c
     picoquic/fnv1a.c
     picoquic/frames.c

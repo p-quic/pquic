@@ -31,12 +31,7 @@
 #ifndef _WINDOWS
 #include <sys/time.h>
 #endif
-/*
- * Default congestion algorithm
- */
-extern picoquic_congestion_algorithm_t* picoquic_newreno_algorithm;
 
-#define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_newreno_algorithm;
 
 /*
 * Structures used in the hash table of connections
@@ -709,10 +704,12 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 path_x->pkt_ctx[pc].send_sequence = 0;
                 path_x->pkt_ctx[pc].nb_retransmit = 0;
                 path_x->pkt_ctx[pc].latest_retransmit_time = 0;
+                path_x->pkt_ctx[pc].latest_retransmit_cc_notification_time = 0;
                 path_x->pkt_ctx[pc].retransmit_newest = NULL;
                 path_x->pkt_ctx[pc].retransmit_oldest = NULL;
                 path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
                 path_x->pkt_ctx[pc].latest_time_acknowledged = start_time;
+                path_x->pkt_ctx[pc].latest_progress_time = start_time;
                 path_x->pkt_ctx[pc].ack_needed = 0;
                 path_x->pkt_ctx[pc].ack_delay_local = 10000;
             }
