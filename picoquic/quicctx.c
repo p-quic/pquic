@@ -709,6 +709,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 path_x->pkt_ctx[pc].retransmit_oldest = NULL;
                 path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
                 path_x->pkt_ctx[pc].latest_time_acknowledged = start_time;
+                path_x->pkt_ctx[pc].latest_progress_time = start_time;
                 path_x->pkt_ctx[pc].ack_needed = 0;
                 path_x->pkt_ctx[pc].ack_delay_local = 10000;
             }

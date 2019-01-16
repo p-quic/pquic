@@ -2006,6 +2006,7 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
 
                 /* Any acknowledgement shows progress */
                 p->send_path->pkt_ctx[pc].nb_retransmit = 0;
+                p->send_path->pkt_ctx[pc].latest_progress_time = current_time;
 
                 picoquic_dequeue_retransmit_packet(cnx, p, 1);
                 p = next;

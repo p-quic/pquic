@@ -335,6 +335,7 @@ typedef struct st_picoquic_packet_context_t {
     uint64_t highest_ack_sent;
     uint64_t highest_ack_time;
     uint64_t ack_delay_local;
+    uint64_t latest_progress_time;
 
     uint64_t nb_retransmit;
     uint64_t latest_retransmit_time;

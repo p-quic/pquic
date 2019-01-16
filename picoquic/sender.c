@@ -1076,6 +1076,10 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         if (orig_path->pkt_ctx[pc].latest_retransmit_time >= orig_path->pkt_ctx[pc].time_stamp_largest_received) {
                             retrans_timer = orig_path->pkt_ctx[pc].latest_retransmit_time + orig_path->smoothed_rtt;
                         }
+                        /* Or any packet acknowledged */
+                        if (orig_path->pkt_ctx[pc].latest_progress_time + orig_path->smoothed_rtt > retrans_timer) {
+                            retrans_timer = orig_path->pkt_ctx[pc].latest_progress_time + orig_path->smoothed_rtt;
+                        }
                         
                         bool is_timer_based = false;
                         if (timer_based_retransmit != 0 && current_time >= retrans_timer) {
