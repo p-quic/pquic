@@ -338,6 +338,7 @@ typedef struct st_picoquic_packet_context_t {
 
     uint64_t nb_retransmit;
     uint64_t latest_retransmit_time;
+    uint64_t latest_retransmit_cc_notification_time;
     uint64_t highest_acknowledged;
     uint64_t latest_time_acknowledged; /* time at which the highest acknowledged was sent */
     picoquic_packet_t* retransmit_newest;

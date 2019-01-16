@@ -704,6 +704,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
                 path_x->pkt_ctx[pc].send_sequence = 0;
                 path_x->pkt_ctx[pc].nb_retransmit = 0;
                 path_x->pkt_ctx[pc].latest_retransmit_time = 0;
+                path_x->pkt_ctx[pc].latest_retransmit_cc_notification_time = 0;
                 path_x->pkt_ctx[pc].retransmit_newest = NULL;
                 path_x->pkt_ctx[pc].retransmit_oldest = NULL;
                 path_x->pkt_ctx[pc].highest_acknowledged = path_x->pkt_ctx[pc].send_sequence - 1;
