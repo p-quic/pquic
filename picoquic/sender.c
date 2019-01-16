@@ -1071,7 +1071,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     if (packet_is_pure_ack) {
                         length = 0;
                     } else {
-                        uint64_t retrans_timer = orig_path->pkt_ctx[pc].latest_retransmit_time + orig_path->smoothed_rtt;
+                        /* We should also consider if some action was recently observed to consider that it is actually a RTO... */
+                        uint64_t retrans_timer = orig_path->pkt_ctx[pc].time_stamp_largest_received + orig_path->smoothed_rtt;
+                        if (orig_path->pkt_ctx[pc].latest_retransmit_time >= orig_path->pkt_ctx[pc].time_stamp_largest_received) {
+                            retrans_timer = orig_path->pkt_ctx[pc].latest_retransmit_time + orig_path->smoothed_rtt;
+                        }
+                        
                         bool is_timer_based = false;
                         if (timer_based_retransmit != 0 && current_time >= retrans_timer) {
                             is_timer_based = true;
