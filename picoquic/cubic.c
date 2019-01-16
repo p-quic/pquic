@@ -198,10 +198,13 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
-                path_x->cwin += nb_bytes_acknowledged;
-                /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
-                if (path_x->cwin >= cubic_state->ssthresh) {
-                    picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                /* Only increase when the app is CWIN limited */
+                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                    path_x->cwin += nb_bytes_acknowledged;
+                    /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
+                    if (path_x->cwin >= cubic_state->ssthresh) {
+                        picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                    }
                 }
                 break;
             case picoquic_congestion_notification_repeat:
