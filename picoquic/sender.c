@@ -2704,8 +2704,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             queue_enqueue(cnx->retry_frames, rfs);
                         } else {
                             if (data_bytes > rfs->nb_bytes) {
-                                printf("WARNING: plugin %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
-                                    cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                                if (cnx->current_plugin != NULL)
+                                    printf("WARNING: plugin %s reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
+                                           cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
+                                else
+                                    printf("WARNING: plugin %p reserved frame %lu for %lu bytes, but wrote %lu; erasing the frame\n",
+                                           cnx->current_plugin, rfs->frame_type, rfs->nb_bytes, data_bytes);
                             }
                             memset(&bytes[length], 0, rfs->nb_bytes);
                         }

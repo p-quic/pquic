@@ -419,7 +419,7 @@ typedef struct st_picoquic_opaque_meta_t {
 
 #define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
-#define PLUGIN_MEMORY (5 * 64 * 1024) /* In bytes, at least needed by tests */
+#define PLUGIN_MEMORY (1024 * 1024) /* In bytes, at least needed by tests */
 
 typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */

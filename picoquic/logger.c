@@ -1209,6 +1209,25 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
     return byte_index;
 }
 
+size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max) {
+    size_t byte_index = 0;
+    uint64_t len = 0;
+    uint8_t *payload = NULL;
+
+    uint8_t type_byte = *bytes;
+    byte_index++;
+    if (type_byte == 0x1c) {
+        len = bytes_max - byte_index;
+        fprintf(F, " \tDATAGRAM\n");
+    } else {
+        byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
+        fprintf(F, " \tDATAGRAM (len=%lu)\n", len);
+    }
+    byte_index += len;
+
+    return byte_index;
+}
+
 void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
     size_t byte_index = 0;
@@ -1306,6 +1325,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
         case picoquic_frame_type_new_token:
             byte_index += picoquic_log_new_token_frame(F, bytes + byte_index,
                 length - byte_index);
+            break;
+        case 0x1c: /* DATAGRAM */
+        case 0x1d:
+            byte_index += picoquic_log_datagram_frame(F, cnx_id64, bytes + byte_index, length - byte_index);
             break;
         case 0x22: /* ADD_ADDRESS */
             byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,

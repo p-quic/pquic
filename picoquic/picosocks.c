@@ -19,6 +19,7 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <sys/stat.h>
 #include "picosocks.h"
 #include "util.h"
 
@@ -620,9 +621,15 @@ select_retry:
     } else if (ret_select > 0) {
         for (int i = 0; i < nb_sockets; i++) {
             if (FD_ISSET(sockets[i], &readfds)) {
-                bytes_recv = picoquic_recvmsg(sockets[i], addr_from, from_length,
-                    addr_dest, dest_length, dest_if,
-                    buffer, buffer_max);
+                struct stat statbuf;
+                fstat(sockets[i], &statbuf);
+                if (S_ISSOCK(statbuf.st_mode)) {
+                    bytes_recv = picoquic_recvmsg(sockets[i], addr_from, from_length,
+                                                  addr_dest, dest_length, dest_if,
+                                                  buffer, buffer_max);
+                } else {
+                    bytes_recv = (int) read(sockets[i], buffer, (size_t) buffer_max);
+                }
                 // bytes_recv = recvfrom(socket[i], buffer, buffer_max, 0, addr_from, from_length);
 
                 if (bytes_recv <= 0) {

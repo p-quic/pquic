@@ -664,6 +664,16 @@ void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_
  */
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);
 
+/**
+ * Cancels the reservation at the head of the plugin queue
+ * and returns its slots.
+ *
+ * \param[in] cnx The context of the connection
+ * \param[in] nb_frames A pointer to return the number of slots
+ * \return The slots in the reservation
+ */
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames);
+
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,
     uint8_t* response, size_t response_max, size_t* response_length);

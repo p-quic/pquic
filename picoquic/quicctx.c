@@ -1991,9 +1991,24 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     return block->total_bytes;
 }
 
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: cancel_head_reservation can only be called by pluglets with plugins!\n");
+        return 0;
+    }
+    reserve_frames_block_t *block = queue_dequeue(cnx->current_plugin->block_queue);
+    if (block == NULL) {
+        *nb_frames = 0;
+        return NULL;
+    }
+    *nb_frames = block->nb_frames;
+    reserve_frame_slot_t *slots = block->frames;
+    free(block);
+    return slots;
+}
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)
 {
-    return (queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL); 
+    return (queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL);
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)

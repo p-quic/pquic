@@ -80,6 +80,7 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/write_datagram_frame.c
     plugins/datagram/get_datagram_socket.c
     plugins/datagram/cnx_state_changed.c
+    plugins/datagram/process_datagram_buffer.c
 )
 
 SET(PLUGINS_COP2
@@ -154,6 +155,17 @@ ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
 TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${PTLS_CORE}
     ${PTLS_OPENSSL}    
+    ${PTLS_MINICRYPTO}
+    ${OPENSSL_LIBRARIES}
+    ${UBPF}
+    ${CMAKE_DL_LIBS}
+)
+
+ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
+                            picoquicfirst/getopt.c )
+TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
+    ${PTLS_CORE}
+    ${PTLS_OPENSSL}
     ${PTLS_MINICRYPTO}
     ${OPENSSL_LIBRARIES}
     ${UBPF}
