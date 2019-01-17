@@ -1481,11 +1481,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         return 0;
     }
 
-    if (cnx->wake_now) {
-        blocked = 0;
-        cnx->wake_now = 0;
-    }
-
     if (cnx->cnx_state == picoquic_state_disconnecting || cnx->cnx_state == picoquic_state_handshake_failure || cnx->cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
@@ -1533,7 +1528,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    if (blocked == 0) {
+    if (blocked == 0 || (cnx->wake_now && pacing == 0)) {
         next_time = current_time;
     } else if (pacing != 0) {
         next_time = path_x->next_pacing_time;
@@ -1591,7 +1586,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             }
         }
     }
-
+    cnx->wake_now = 0;
     /* reset the connection at its new logical position */
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
 
