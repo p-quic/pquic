@@ -9,7 +9,9 @@ incoming_encrypted pre incoming_encrypted.o
 incoming_encrypted post incoming_encrypted_post.o
 stream_bytes_max replace stream_bytes_max.o
 write_frame param 0x28 replace write_fec_frame.o
+notify_frame param 0x28 replace notify_fec_frame.o
 write_frame param 0x29 replace write_fpid_frame.o
+notify_frame param 0x29 replace notify_fpid_frame.o
 prepare_packet_ready pre prepare_packet_ready.o
 finalize_and_protect_packet pre finalize_and_protect_packet.o
 skip_frame pre skip_frame_pre.o
