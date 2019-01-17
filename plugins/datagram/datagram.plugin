@@ -15,10 +15,10 @@ process_frame param 0x2c replace process_datagram_frame.o
 process_frame param 0x2d replace process_datagram_frame.o
 process_frame param 0x2e replace process_datagram_frame.o
 process_frame param 0x2f replace process_datagram_frame.o
-notify_frame 0x2c replace notify_datagram_frame.o
-notify_frame 0x2d replace notify_datagram_frame.o
-notify_frame 0x2e replace notify_datagram_frame.o
-notify_frame 0x2f replace notify_datagram_frame.o
+notify_frame param 0x2c replace notify_datagram_frame.o
+notify_frame param 0x2d replace notify_datagram_frame.o
+notify_frame param 0x2e replace notify_datagram_frame.o
+notify_frame param 0x2f replace notify_datagram_frame.o
 connection_state_changed post cnx_state_changed.o
 send_message extern send_datagram.o
 get_message_socket extern get_datagram_socket.o
