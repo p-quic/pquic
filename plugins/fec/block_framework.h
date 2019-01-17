@@ -5,9 +5,9 @@
 #include "memcpy.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
-#define MAX_QUEUED_REPAIR_SYMBOLS 5
-#define DEFAULT_N 4
-#define DEFAULT_K 3
+#define MAX_QUEUED_REPAIR_SYMBOLS 7
+#define DEFAULT_N 30
+#define DEFAULT_K 25
 
 typedef uint32_t fec_block_number;
 
