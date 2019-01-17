@@ -18,4 +18,4 @@ skip_frame pre skip_frame_pre.o
 skip_frame post skip_frame_post.o
 stream_always_encode_length replace stream_always_encode_length.o
 set_next_wake_time replace set_next_wake_time.o
-should_send_repair_symbols replace always_send_repair_symbols.o
+should_send_repair_symbols replace send_repair_symbols_when_no_stream_data_to_send.o

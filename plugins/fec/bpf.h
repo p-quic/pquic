@@ -389,9 +389,9 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
                                       &already_received);
             if (!ret) {
                 picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
-                picoquic_record_pn_received(cnx, path,
-                                            ph.pc, ph.pn64,
-                                            picoquic_current_time());
+//                picoquic_record_pn_received(cnx, path,
+//                                            ph.pc, ph.pn64,
+//                                            picoquic_current_time());
                 PROTOOP_PRINTF(cnx,
                                "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %x (%llx), ph.offset = %u, len_frames = %u, pl = %u\n",
                                (protoop_arg_t) i, ph.pn, ph.pn64, ph.offset,

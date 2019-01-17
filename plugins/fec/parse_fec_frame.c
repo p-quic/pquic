@@ -47,7 +47,7 @@ protoop_arg_t parse_fec_frame(picoquic_cnx_t *cnx)
     uint8_t *bytes = my_malloc(cnx, (unsigned int) (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
     my_memcpy(bytes, bytes_protected + 1 + sizeof(fec_frame_header_t), (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
     frame->data = bytes;
-    set_cnx(cnx, CNX_AK_OUTPUT, 1, false);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, true);
     set_cnx(cnx, CNX_AK_OUTPUT, 2, false);
     return (protoop_arg_t) bytes_protected +  1 + sizeof(fec_frame_header_t) + frame->header.data_length;
 }

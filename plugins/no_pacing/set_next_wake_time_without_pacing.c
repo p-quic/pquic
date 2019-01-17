@@ -33,7 +33,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             pc_ready_flag |= 1 << picoquic_packet_context_application;
         }
         else if (crypto_context_2_aead_encrypt != NULL &&
-            tls_stream_1_send_queue == NULL) {
+                 tls_stream_1_send_queue == NULL) {
             pc_ready_flag |= 1 << picoquic_packet_context_handshake;
         }
     }
@@ -86,7 +86,8 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 if (cwin_x > bytes_in_transit_x && challenge_verified_x == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
-                        (crypto_context_1_aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
+                        (crypto_context_1_aead_encrypt != NULL &&
+                        ((stream = helper_find_ready_stream(cnx)) != NULL || run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL)))) {
                         blocked = 0;
                     }
                 }
@@ -105,11 +106,11 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                     path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, i);
                     pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
                     picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_RETRANSMIT_OLDEST);
-                    
+
                     if ((pc_ready_flag & (1 << pc)) == 0) {
                         continue;
                     }
-                    
+
                     /* Consider delayed ACK */
                     int ack_needed = (int) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_ACK_NEEDED);
                     if (ack_needed) {
@@ -119,20 +120,20 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                     if (p != NULL) {
                         picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
                         int pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
-                        int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
+                        int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
 
                         while (p != NULL &&
-                            ptype == picoquic_packet_0rtt_protected &&
-                            pis_evaluated == 1 &&
-                            pcontains_crypto == 0) {
+                               ptype == picoquic_packet_0rtt_protected &&
+                               pis_evaluated == 1 &&
+                               pcontains_crypto == 0) {
                             p = (picoquic_packet_t *) get_pkt(p, PKT_AK_NEXT_PACKET);
                             if (p != NULL) {
                                 ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
                                 pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
-                                pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
+                                pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
                             }
                         }
-                    }    
+                    }
 
                     if (p != NULL) {
                         uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_NB_RETRANSMIT);
@@ -197,6 +198,8 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         return 0;
     }
 
+    int wake_now = get_cnx(cnx, CNX_AK_WAKE_NOW, 0);
+
     if (cnx_state == picoquic_state_disconnecting || cnx_state == picoquic_state_handshake_failure || cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
@@ -208,6 +211,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         uint64_t cwin_x = (uint64_t) get_path(path_x, PATH_AK_CWIN, 0);
         uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, PATH_AK_BYTES_IN_TRANSIT, 0);
         if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
+            blocked = 0;
+        }
+        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
             blocked = 0;
         }
     }
@@ -236,7 +242,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
-                        (stream = helper_find_ready_stream(cnx)) != NULL)) {
+                         (stream = helper_find_ready_stream(cnx)) != NULL)) {
                         blocked = 0;
                     }
                 }
@@ -244,7 +250,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    if (blocked == 0) {
+    if (blocked == 0 || (wake_now && pacing == 0)) {
         next_time = current_time;
     } else if (pacing != 0) {
         next_time = (uint64_t) get_path(path_x, PATH_AK_NEXT_PACING_TIME, 0);
@@ -313,6 +319,8 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             }
         }
     }
+
+    set_cnx(cnx, CNX_AK_WAKE_NOW, 0, 0);
 
     /* reset the connection at its new logical position */
     picoquic_reinsert_cnx_by_wake_time(cnx, next_time);
