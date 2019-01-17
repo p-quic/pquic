@@ -1,7 +1,0 @@
-be.qdeconinck.basic_without_pacing
-set_next_wake_time replace set_next_wake_time_without_pacing.o
-retransmit_needed_by_packet replace retransmit_needed_by_packet.o
-retransmit_needed replace retransmit_needed.o
-update_rtt replace update_rtt.o
-process_ack_range replace process_ack_range.o
-process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
