@@ -38,7 +38,11 @@
 #define PICOQUIC_CHALLENGE_REPEAT_MAX 4
 
 #define PROTOOP_NUMARGS(...)  (sizeof((protoop_arg_t[]){__VA_ARGS__})/sizeof(protoop_arg_t))
+#ifndef DISABLE_PROTOOP_PRINTF
 #define PROTOOP_PRINTF(cnx, fmt, ...)   helper_protoop_printf(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#else
+#define PROTOOP_PRINTF(cnx, fmt, ...)
+#endif
 
 static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;
