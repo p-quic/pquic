@@ -17,7 +17,8 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
         // FIXME: we loose a symbol number in the fec block...
         my_free(cnx, f);
         set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) 0);
-        return 0;
+        state->sfpid_reserved = false;
+        return 0;//PICOQUIC_MISCCODE_RETRY_NXT_PKT;
 
     }
     uint8_t *fpid_buffer = my_malloc(cnx, 1 + sizeof(source_fpid_frame_t));
