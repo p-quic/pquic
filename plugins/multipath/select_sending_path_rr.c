@@ -13,6 +13,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     uint8_t selected_path_index = 255;
     start_using_path_if_possible(cnx);
     uint64_t now = picoquic_current_time();
+    int valid = 0;
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
 
@@ -28,6 +29,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* Start the challenge! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -36,6 +38,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* Reply as soon as possible! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -43,6 +46,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (challenge_verified_c && path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -57,6 +61,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* We need some action from the path! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -64,6 +69,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (mtu_needed) {
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -75,22 +81,22 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (path_x == path_0) {
                 path_x = pd->path;
                 selected_path_index = i;
+                valid = 1;
             } else if (bpfd->last_path_index_sent != i) {
                 path_x = pd->path;
                 selected_path_index = i;
+                valid = 1;
             }
         }
     }
     bpfd->last_path_index_sent = selected_path_index;
     if (selected_path_index < 255) {
         pd = &bpfd->paths[selected_path_index];
+        picoquic_stream_head *stream = helper_find_ready_stream(cnx);
 
-        if (pd->sent_pkt_non_ack >= 10 && !pd->doing_ack) {
-            pd->sent_pkt_non_ack = 0;
+        if (valid && stream != NULL && !pd->doing_ack) {
             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
             pd->doing_ack = true;
-        } else {
-            pd->sent_pkt_non_ack++;
         }
     }
 

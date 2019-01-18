@@ -15,6 +15,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     start_using_path_if_possible(cnx);
     uint64_t smoothed_rtt_x = 0;
     uint64_t now = picoquic_current_time();
+    int valid = 0;
     for (uint8_t i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
         /* Lowest RTT-based scheduler */
@@ -29,6 +30,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* Start the challenge! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -37,6 +39,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* Reply as soon as possible! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -45,6 +48,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 path_x = path_c;
                 selected_path_index = i;
                 smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
+                valid = 0;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -59,6 +63,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 /* We need some action from the path! */
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -66,6 +71,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (mtu_needed) {
                 path_x = path_c;
                 selected_path_index = i;
+                valid = 0;
                 break;
             }
 
@@ -99,6 +105,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     /* PROTOOP_PRINTF(cnx, "Switching to path %d for sending probe\n", i); */
                     path_x = path_c;
                     selected_path_index = i;
+                    valid = 0;
                     break;
                 }
 
@@ -107,6 +114,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     path_x = path_c;
                     selected_path_index = i;
                     smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
+                    valid = 0;
                     continue;
                 }
             }
@@ -116,19 +124,18 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             path_x = path_c;
             selected_path_index = i;
             smoothed_rtt_x = smoothed_rtt_c;
+            valid = 1;
         }
     }
 
     bpfd->last_path_index_sent = selected_path_index;
     if (selected_path_index < 255) {
         pd = &bpfd->paths[selected_path_index];
+        picoquic_stream_head *stream = helper_find_ready_stream(cnx);
 
-        if (pd->sent_pkt_non_ack >= 10 && !pd->doing_ack) {
-            pd->sent_pkt_non_ack = 0;
+        if (valid && stream != NULL && !pd->doing_ack) {
             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
             pd->doing_ack = true;
-        } else {
-            pd->sent_pkt_non_ack++;
         }
     }
     return (protoop_arg_t) path_x;
