@@ -82,6 +82,16 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
         }
     }
     bpfd->last_path_index_sent = selected_path_index;
+    if (selected_path_index < 255) {
+        pd = &bpfd->paths[selected_path_index];
+
+        if (pd->sent_pkt_non_ack >= 4 && !pd->doing_ack) {
+            reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
+            pd->doing_ack = true;
+        } else {
+            pd->sent_pkt_non_ack++;
+        }
+    }
 
     return (protoop_arg_t) path_x;
 }

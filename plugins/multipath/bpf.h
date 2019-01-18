@@ -45,6 +45,7 @@ typedef struct {
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
     uint64_t last_rtt_probe;
     uint8_t rtt_probe_tries;
+    uint8_t sent_pkt_non_ack;
     bool rtt_probe_ready;
     bool doing_ack;
 } path_data_t;
