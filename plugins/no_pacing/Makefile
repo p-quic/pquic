@@ -1,6 +1,6 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
-CFLAGS=-I../../picoquic -DDISABLE_PROTOOP_PRINTF
+CFLAGS=-I../../picoquic
 
 all: $(SRC) $(OBJ)
 

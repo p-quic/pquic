@@ -25,5 +25,12 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
     }
     my_memcpy(bytes, bytes_protected, state->current_packet_length);
     state->current_packet = bytes;
+
+    void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
+    if (!ret) {
+        PROTOOP_PRINTF(cnx, "no stream data to send, do not send SFPID frame\n");
+        flush_fec_block(cnx, state->block_fec_framework);
+        return 0;
+    }
     return 0;
 }

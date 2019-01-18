@@ -321,6 +321,13 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID;
  */
 #define PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME "set_next_wake_time"
 extern protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME;
+
+/**
+ * sets the return code to true when there are congestion-controlled plugin frames in the sending queue
+ */
+#define PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND "has_congestion_controlled_plugin_frames_to_send"
+extern protoop_id_t PROTOOP_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND;
+
 /**
  * Detect if a retransmission is needed.
  * \param[in] pc \b picoquic_packet_context_enum The packet context to retransmit
