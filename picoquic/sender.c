@@ -834,50 +834,55 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     int64_t delta_seq = send_path->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
     int should_retransmit = 0;
     char* reason = NULL;
+    uint64_t retransmit_time;
+    int is_timer_based = 0;
 
-    if (delta_seq > 3) {
-        /*
-         * SACK Logic.
-         * more than N packets were seen at the receiver after this one.
-         */
-        should_retransmit = 1;
-        reason = PROTOOPID_NOPARAM_FAST_RETRANSMIT;
+    if (delta_seq > 0) {
+        /* By default, we use timer based RACK logic to absorb out of order deliveries */
+        retransmit_time = p->send_time + send_path->smoothed_rtt + (send_path->smoothed_rtt >> 3);
+        is_timer_based = 0;
+
+        /* RACK logic fails when the smoothed RTT is too small, in which case we
+         * rely on dupack logic possible, or on a safe estimate of the RACK delay if it
+         * is not */
+        if (delta_seq < 3) {
+            uint64_t rack_timer_min = send_path->pkt_ctx[pc].latest_time_acknowledged + PICOQUIC_RACK_DELAY;
+            if (retransmit_time < rack_timer_min) {
+                retransmit_time = rack_timer_min;
+            }
+        } 
     } else {
-        int64_t delta_t = send_path->pkt_ctx[pc].latest_time_acknowledged - p->send_time;
-
-        /* TODO: out of order delivery time ought to be dynamic */
-        if (delta_t > PICOQUIC_RACK_DELAY && p->ptype != picoquic_packet_0rtt_protected) {
-            /*
-             * RACK logic.
-             * The latest acknowledged was sent more than X ms after this one.
-             */
-            should_retransmit = 1;
-        } else if (delta_t > 0) {
-            /* If the delta-t is larger than zero, add the time since the
-            * last ACK was received. If that is larger than the inter packet
-            * time, consider that there is a loss */
-            uint64_t time_from_last_ack = current_time - send_path->pkt_ctx[pc].latest_time_acknowledged + delta_t;
-
-            if (time_from_last_ack > 10000) {
-                should_retransmit = 1;
-            }
+        /* There has not been any higher packet acknowledged, thus we fall back on timer logic. */
+        uint64_t rto = (send_path->pkt_ctx[pc].nb_retransmit == 0) ?
+            send_path->retransmit_timer : (1000000ull << (send_path->pkt_ctx[pc].nb_retransmit - 1));
+        retransmit_time = p->send_time + rto;
+        is_timer_based = 1;
+    }
+    if (p->ptype == picoquic_packet_0rtt_protected) {
+        /* Special case for 0RTT packets */
+        if (cnx->cnx_state != picoquic_state_client_almost_ready &&
+            cnx->cnx_state != picoquic_state_server_almost_ready &&
+            cnx->cnx_state != picoquic_state_client_ready &&
+            cnx->cnx_state != picoquic_state_server_ready) {
+            /* Set the retransmit time ahead of current time since the connection is not ready */
+            retransmit_time = current_time + send_path->smoothed_rtt + PICOQUIC_RACK_DELAY;
         }
+        /* TODO: if early data was skipped by the server, we should retransmit
+         * immediately. However, there is not good API to do that */
+    }
 
-        if (should_retransmit == 0) {
-            /* Don't fire yet, because of possible out of order delivery */
-            int64_t time_out = current_time - p->send_time;
-            uint64_t retransmit_timer = (send_path->pkt_ctx[pc].nb_retransmit == 0) ?
-                send_path->retransmit_timer : (1000000ull << (send_path->pkt_ctx[pc].nb_retransmit - 1));
+    if (current_time >= retransmit_time) {
+        should_retransmit = 1;
+        if (is_timer_based) {
+            timer_based = 1;
+            reason = PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT;
 
-            if ((uint64_t)time_out < retransmit_timer) {
-                /* Do not retransmit if the timer has not yet elapsed */
-                should_retransmit = 0;
-            } else {
-                should_retransmit = 1;
-                timer_based = 1;
-                reason = PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT;
-            }
+        } else {
+            timer_based = 0;
+            reason = PROTOOPID_NOPARAM_FAST_RETRANSMIT;
         }
+    } else {
+        timer_based = 0;
     }
 
     protoop_save_outputs(cnx, timer_based, reason);
