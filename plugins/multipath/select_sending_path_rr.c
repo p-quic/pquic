@@ -24,7 +24,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, PATH_AK_RETRANSMIT_TIMER, 0);
             uint8_t challenge_repeat_count_c = (uint8_t) get_path(path_c, PATH_AK_CHALLENGE_REPEAT_COUNT, 0);
 
-            if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < picoquic_current_time() && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
+            if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < now && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 /* Start the challenge! */
                 path_x = path_c;
                 selected_path_index = i;
