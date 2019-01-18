@@ -86,7 +86,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
         pd = &bpfd->paths[selected_path_index];
 
         if (pd->sent_pkt_non_ack >= 10 && !pd->doing_ack) {
-            pd->sent_pkt_non_ack = 10;
+            pd->sent_pkt_non_ack = 0;
             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
             pd->doing_ack = true;
         } else {
