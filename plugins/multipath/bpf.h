@@ -69,6 +69,8 @@ typedef struct {
     path_data_t paths[MAX_PATHS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
+
+    uint8_t pkt_seen_non_ack;
 } bpf_data;
 
 typedef struct add_address_frame {
