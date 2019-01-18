@@ -12,7 +12,7 @@ protoop_arg_t after_decoding_frames(picoquic_cnx_t *cnx)
     bpf_data *bpfd = get_bpf_data(cnx);
 
     if (path_x != path_0) {
-        if (ack_needed || bpfd->pkt_seen_non_ack >= 10) {
+        if (ack_needed || bpfd->pkt_seen_non_ack >= 4) {
             bpfd->pkt_seen_non_ack = 0;
             bool should_reserve = true;
             path_data_t *pd = mp_get_path_data(bpfd, path_x);
