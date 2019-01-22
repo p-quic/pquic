@@ -50,11 +50,10 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
     repair_symbol_t *rs = fec_block->repair_symbols[0];
     uint16_t max_length = rs->data_length;
     uint8_t missing_offset = 0;
-    uint8_t i;
+    int i;
     for (i = 0 ; i < fec_block->total_source_symbols ; i++) {
         if (!fec_block->source_symbols[i]) {
             missing_offset = i;
-            continue;
         }
     }
     source_fpid_t sfpid;
