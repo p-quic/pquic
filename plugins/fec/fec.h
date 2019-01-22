@@ -20,12 +20,12 @@ protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repa
 #define DEFAULT_FEC_SCHEME "xor"
 
 #define for_each_source_symbol(fb, ____ss) \
-    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_source_symbols; ____i++, ____keep = !____keep ) \
-        for (____ss = fb->source_symbols[____i] ; ____keep ; ____keep = !____keep)
+    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_source_symbols; ____i++, ____keep = 1-____keep ) \
+        for (____ss = fb->source_symbols[____i] ; ____keep ; ____keep = 1-____keep)
 
 #define for_each_repair_symbol(fb, ____ss) \
-    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_repair_symbols; ____i++, ____keep = !____keep ) \
-        for (____ss = fb->repair_symbols[____i] ; ____keep ; ____keep = !____keep)
+    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_repair_symbols; ____i++, ____keep = 1-____keep ) \
+        for (____ss = fb->repair_symbols[____i] ; ____keep ; ____keep = 1-____keep)
 
 typedef union {
     uint32_t raw;
@@ -176,10 +176,6 @@ static inline void write_fec_frame_header(fec_frame_header_t *header_to_write, u
 
 static inline void parse_sfpid_frame(source_fpid_frame_t *frame_to_parse, uint8_t *bytes) {
     frame_to_parse->source_fpid.raw = decode_u32(bytes);
-}
-
-static inline void write_sfpid_frame(source_fpid_frame_t *frame_to_write, uint8_t *bytes) {
-    encode_u32(frame_to_write->source_fpid.raw, bytes);
 }
 
 // assumes that size if safe
