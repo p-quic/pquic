@@ -16,12 +16,10 @@ protoop_arg_t state_changed(picoquic_cnx_t *cnx)
         clock_gettime(CLOCK_MONOTONIC, &metrics->handshake_metrics.t_end);
         // Send it somewhere
     } else if (cnx_state == picoquic_state_disconnected) {
-        cop2_path_metrics *path = metrics->established_metrics;
-        while(path != NULL) {
-            // Send it somewhere
+        int limit = metrics->n_established_paths; // T2 oddity
+        for (int i = 0; i < limit; i++) {
             //TODO: complete the path  // An event should exist for path creation/deletion
-            clock_gettime(CLOCK_MONOTONIC, &path->t_end);
-            path = path->next;
+            clock_gettime(CLOCK_MONOTONIC, &(metrics->established_metrics + i)->t_end);
         }
         dump_metrics(cnx, metrics);
     }

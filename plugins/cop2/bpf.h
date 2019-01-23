@@ -63,6 +63,7 @@ typedef struct st_cop2_path_metrics {
 
 typedef struct {  // We might want to add CIDs to this
     cop2_path_metrics handshake_metrics;
+    int n_established_paths;
     cop2_path_metrics *established_metrics;
 } cop2_conn_metrics;
 
@@ -82,18 +83,9 @@ static __attribute__((always_inline)) cop2_conn_metrics *get_cop2_metrics(picoqu
     if (allocated) {
         *bpfd_ptr = initialize_metrics_data(cnx);
         clock_gettime(CLOCK_MONOTONIC, &((*bpfd_ptr)->handshake_metrics.t_start));
+        (*bpfd_ptr)->n_established_paths = 0;
     }
     return *bpfd_ptr;
-}
-
-static __attribute__((always_inline)) int count_paths(cop2_conn_metrics *metrics) {
-    int n_paths = 1;  // There always exists the handshake path
-    cop2_path_metrics *path = metrics->established_metrics;
-    while (path != NULL) {
-        n_paths++;
-        path = path->next;
-    }
-    return n_paths;
 }
 
 static __attribute__((always_inline)) int copy_path(char *dst, cop2_path_metrics *path) {
@@ -133,7 +125,8 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
     cop2_path_metrics *path_metrics = metrics->established_metrics;
     struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_LOCAL_ADDR, 0);
     struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(path, PATH_AK_PEER_ADDR, 0);
-    while(path_metrics != NULL && CMP_SOCKADDR_PTR(&path_metrics->local_addr, path_local_addr) && CMP_SOCKADDR_PTR(&path_metrics->peer_addr, path_peer_addr)) {
+    int limit = metrics->n_established_paths; // T2 oddity
+    for(int i = 0; i < limit && CMP_SOCKADDR_PTR(&path_metrics->local_addr, path_local_addr) && CMP_SOCKADDR_PTR(&path_metrics->peer_addr, path_peer_addr); i++) {
         prev_path = path_metrics;
         path_metrics = path_metrics->next;
     }
@@ -147,6 +140,7 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
             path_metrics = prev_path->next;
         }
 
+        metrics->n_established_paths++;
         my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
         picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, CNX_AK_INITIAL_CID, 0);
         picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, PATH_AK_REMOTE_CID, 0);
@@ -200,7 +194,7 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
     si.sin_port = my_htons(55555);
     inet_aton("127.0.0.1", &si.sin_addr);
 
-    int n_paths = count_paths(metrics);
+    int n_paths = metrics->n_established_paths + 1;
     size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics);
 
     char *buf = (char *) my_malloc(cnx, (unsigned int) (n_paths * len_path_metrics));
@@ -212,7 +206,7 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
     size_t copied = 0;
     copied += copy_path(buf + copied, &metrics->handshake_metrics);
     cop2_path_metrics *path = metrics->established_metrics;
-    for (int i = 1; i < n_paths; ++i) {
+    for (int i = 1; i < n_paths; i++) {
         copied += copy_path(buf + copied, path);
         path = path->next;
     }
