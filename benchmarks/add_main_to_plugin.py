@@ -10,6 +10,9 @@ with open(args.file, 'r') as f:
     print("""{}
 int main() {{
     picoquic_cnx_t *cnx;
-    return {}(cnx);
+    // silly loop needed for llvm2kittel to generate at least some bytecode
+    for (int i = 0 ; i < 1 ; i++) {{
+        return {}(cnx);
+    }}
 }}
 """.format(c_code, function_name))
