@@ -61,8 +61,8 @@ protoop_arg_t fec_recover(picoquic_cnx_t *cnx)
     sfpid.symbol_number = missing_offset;
     source_symbol_t *ss = malloc_source_symbol_with_data(cnx, sfpid, rs->data, max_length);
 
-
-    for_each_source_symbol(fec_block, source_symbol_t *source_symbol) {
+    source_symbol_t *source_symbol = NULL;
+    for_each_source_symbol_nobreak(fec_block, source_symbol) {
         if (source_symbol) {
             xor(ss->data, source_symbol->data, ss->data,
                 ss->data_length, source_symbol->data_length);

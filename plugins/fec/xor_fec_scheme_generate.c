@@ -50,9 +50,11 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
     }
     uint16_t max_length = 0;
     PROTOOP_PRINTF(cnx, "GENERATING SYMBOLS FOR BLOCK %u\n", fec_block->fec_block_number);
-
-    for_each_source_symbol(fec_block, source_symbol_t *source_symbol) {
-        max_length = MAX(source_symbol->data_length, max_length);
+    source_symbol_t *source_symbol = NULL;
+    for_each_source_symbol_nobreak(fec_block, source_symbol) {
+        if (source_symbol) {
+            max_length = MAX(source_symbol->data_length, max_length);
+        }
     }
 
     repair_fpid_t rfpid;
@@ -62,7 +64,7 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
 
 
     int i = 0;
-    for_each_source_symbol(fec_block, source_symbol_t *source_symbol) {
+    for_each_source_symbol_nobreak(fec_block, source_symbol) {
         if (source_symbol) {
             xor(rs->data, source_symbol->data, rs->data,
                 rs->data_length, source_symbol->data_length);
