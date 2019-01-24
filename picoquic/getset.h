@@ -564,6 +564,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define PH_AK_OFFSET 0x01
 /** The pointer to the payload length field */
 #define PH_AK_PAYLOAD_LENGTH 0x02
+/** The pointer to the pn64 field */
+#define PH_AK_SEQUENCE_NUMBER 0x03
 
 /**
  * @}
