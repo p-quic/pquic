@@ -23,8 +23,6 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
 
                 if (bytes_max - bytes < length_required)  {
                     PROTOOP_PRINTF(cnx, "Not enough space in the buffer left to encode the DATAGRAM frame, expected %lu and got %lu\n", length_required, bytes_max - bytes);
-                    my_free(cnx, frame->datagram_data_ptr);
-                    my_free(cnx, frame);
                     return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                 }
 
@@ -63,15 +61,12 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
                     m->send_buffer = 0;
                 }
                 PROTOOP_PRINTF(cnx, "Send buffer size %d\n", m->send_buffer);
-
-                my_free(cnx, frame->datagram_data_ptr);
             } else {
                 PROTOOP_PRINTF(cnx, "The frame ctx contained a length of 0\n");
             }
         } else {
             PROTOOP_PRINTF(cnx, "The frame ctx contained a NULL pointer\n");
         }
-        my_free(cnx, frame);
     }
 
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);

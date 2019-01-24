@@ -36,6 +36,7 @@ typedef struct st_datagram_memory_t {
     uint64_t expected_datagram_id;
     received_datagram_t *datagram_buffer;
     uint32_t send_buffer;
+    int recv_buffer_len;
     uint32_t recv_buffer;
 } datagram_memory_t;
 
@@ -70,6 +71,9 @@ static __attribute__((always_inline)) datagram_memory_t *get_datagram_memory(pic
         (*bpfd_ptr)->socket_fds[0] = -1;
         (*bpfd_ptr)->socket_fds[1] = -1;
         (*bpfd_ptr)->expected_datagram_id = 1;
+        (*bpfd_ptr)->send_buffer = 0;
+        (*bpfd_ptr)->recv_buffer_len = 0;
+        (*bpfd_ptr)->recv_buffer = 0;
     }
     return *bpfd_ptr;
 }
@@ -77,8 +81,8 @@ static __attribute__((always_inline)) datagram_memory_t *get_datagram_memory(pic
 static __attribute__((always_inline)) uint32_t get_max_datagram_size(picoquic_cnx_t *cnx) {
     uint32_t max_message_size = 0;
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
-    for (uint16_t i = 0; i < nb_paths; i++) {
-        picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
+    for (int i = 0; i < nb_paths; i++) {
+        picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, (uint16_t) i);
         uint32_t payload_mtu = (uint32_t) get_path(path, PATH_AK_SEND_MTU, 0) - 1 - (uint8_t) get_cnxid((picoquic_connection_id_t *)get_path(path, PATH_AK_REMOTE_CID, 0), CNXID_AK_LEN) - 4;  // Let's be conservative on the PN space used
         if (payload_mtu > max_message_size) {
             max_message_size = payload_mtu;
@@ -90,8 +94,8 @@ static __attribute__((always_inline)) uint32_t get_max_datagram_size(picoquic_cn
 static __attribute__((always_inline)) uint64_t get_max_rtt_difference(picoquic_cnx_t *cnx, picoquic_path_t *path_x) {
     uint64_t highest_rtt = 0;
     int nb_paths = (int) get_cnx(cnx, CNX_AK_NB_PATHS, 0);
-    for (uint16_t i = (uint16_t) (nb_paths > 1); i < nb_paths; i++) {
-        picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, i);
+    for (int i = (nb_paths > 1); i < nb_paths; i++) {
+        picoquic_path_t *path = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, (uint16_t) i);
         uint64_t path_rtt = get_path(path, PATH_AK_SMOOTHED_RTT, 0);
         if (path_rtt > highest_rtt) {
             highest_rtt = path_rtt;
@@ -127,13 +131,15 @@ static __attribute__((always_inline)) void insert_into_datagram_buffer(datagram_
     } else {
         received_datagram_t **prev = &m->datagram_buffer;
         received_datagram_t *node = m->datagram_buffer;
-        while(node != NULL && node->datagram->datagram_id < r->datagram->datagram_id) {
+        int limit = m->recv_buffer_len;
+        for(int i = 0; i < limit && node->datagram->datagram_id < r->datagram->datagram_id; i++) {
             prev = &(*prev)->next;
             node = node->next;
         }
         *prev = r;
         r->next = node;
     }
+    m->recv_buffer_len++;
     m->recv_buffer += r->datagram->length;
 }
 
@@ -141,7 +147,8 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
     received_datagram_t *r = m->datagram_buffer;
     uint64_t now = picoquic_current_time();
 
-    while (r != NULL) {
+    int limit = m->recv_buffer_len;
+    for (int i = 0; i < limit; i++) {
         if (r->delivery_deadline < now || m->expected_datagram_id >= r->datagram->datagram_id) {
             send_datagram_to_application(m, cnx, r->datagram);
             if (r->datagram->length <= m->recv_buffer) {
@@ -155,6 +162,7 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
             received_datagram_t *t = r;
             r = r->next;
             my_free(cnx, t);
+            m->recv_buffer_len--;
         } else {
             break;
         }
@@ -165,7 +173,7 @@ static __attribute__((always_inline)) void process_datagram_buffer(datagram_memo
 }
 
 static __attribute__((always_inline)) void send_head_datagram_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx) {
-    if (m->datagram_buffer != NULL) {
+    if (m->recv_buffer_len > 0) {
         received_datagram_t *head = m->datagram_buffer;
         send_datagram_to_application(m, cnx, head->datagram);
         if (head->datagram->length <= m->recv_buffer) {
@@ -177,6 +185,7 @@ static __attribute__((always_inline)) void send_head_datagram_buffer(datagram_me
         my_free(cnx, head->datagram);
         m->datagram_buffer = head->next;
         my_free(cnx, head);
+        m->recv_buffer_len--;
     }
 }
 
@@ -187,7 +196,7 @@ static __attribute__((always_inline)) void free_head_datagram_reserved(datagram_
         m->send_buffer = 0;
         return;
     }
-    for (int i = 0; i < nb_frames; i++) {
+    for (int i = 0; i < (int) nb_frames; i++) {
         reserve_frame_slot_t *slot = (slots+i);
         datagram_frame_t *frame = slot->frame_ctx;
         my_free(cnx, frame->datagram_data_ptr);
@@ -202,10 +211,19 @@ static __attribute__((always_inline)) void free_head_datagram_reserved(datagram_
 }
 
 static __attribute__((always_inline)) void *my_malloc_on_sending_buffer(datagram_memory_t *m, picoquic_cnx_t *cnx, unsigned int size) {
+    if (size <= 0) {
+        return NULL;
+    }
     void *p = my_malloc(cnx, size);
-    while (p == NULL && m->send_buffer > 0) {
+    int limit = (int) m->send_buffer;  // Dummy check for the prover
+    bool finished = false;  // Dummy flag for the prover
+    for(int i = 0; i <= limit && !finished; i++) {
         free_head_datagram_reserved(m, cnx);
         p = my_malloc(cnx, size);
+
+        if (p != NULL || m->send_buffer == 0) {  // Otherwise the prover cannot understand the loop
+            finished = true;
+        }
     }
     return p;
 }

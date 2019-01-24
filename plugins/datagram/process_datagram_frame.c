@@ -17,7 +17,9 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
         } else {  // Tries to place the datagram in the buffer
             received_datagram_t *r = NULL;
             // While we were not able to allocate memory for reordering, but are able to reclaim some from existing data in the buffer
+            int buffer_len = m->recv_buffer_len;
             do {
+                buffer_len--;
                 r = (received_datagram_t *) my_malloc(cnx, sizeof(received_datagram_t));
                 if (r == NULL) {
                     send_head_datagram_buffer(m, cnx);
@@ -34,8 +36,10 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
                     my_free(cnx, r->datagram);
                     my_free(cnx, r);
                     send_head_datagram_buffer(m, cnx);
+                    continue;
                 }
-            } while ((r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) && m->datagram_buffer != NULL);
+                break;
+            } while (buffer_len > 0);
 
             if (r == NULL || r->datagram == NULL || r->datagram->datagram_data_ptr == NULL) {
                 PROTOOP_PRINTF(cnx, "Unable to reclaim enough memory to reserve buffer slot\n");
@@ -43,8 +47,13 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
                 return 0;
             }
 
-            while (m->recv_buffer + frame->length > RECV_BUFFER) {
-                send_head_datagram_buffer(m, cnx);
+            int limit = m->recv_buffer_len;
+            for (int i = 0; i < limit; i++) {
+                if (m->recv_buffer + frame->length > RECV_BUFFER) {
+                    send_head_datagram_buffer(m, cnx);
+                } else {
+                    break;
+                }
             }
 
             r->datagram->datagram_id = frame->datagram_id;
@@ -58,4 +67,9 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
         }
     }
     return 0;
+}
+
+int main() {
+    picoquic_cnx_t *cnx;
+    process_datagram_frame(cnx);
 }
