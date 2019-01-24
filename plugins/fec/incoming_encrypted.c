@@ -18,12 +18,14 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
     uint8_t* bytes_protected = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0); //cnx->protoop_inputv[0];
     picoquic_packet_header* ph = (picoquic_packet_header *) get_cnx(cnx, CNX_AK_INPUT, 1); //cnx->protoop_inputv[1];
     bpf_state *state = get_bpf_state(cnx);
-    state->current_packet_length = (uint16_t) get_ph(ph, PH_AK_OFFSET) + (uint16_t) get_ph(ph, PH_AK_PAYLOAD_LENGTH);
+    state->current_packet_length = 1 + sizeof(uint64_t) + (uint16_t) get_ph(ph, PH_AK_PAYLOAD_LENGTH);
     uint8_t *bytes = my_malloc(cnx, state->current_packet_length);
     if (!bytes) {
         return PICOQUIC_ERROR_MEMORY;
     }
-    my_memcpy(bytes, bytes_protected, state->current_packet_length);
+    my_memcpy(bytes + 1 + sizeof(uint64_t), bytes_protected + (uint16_t) get_ph(ph, PH_AK_OFFSET), (uint16_t) get_ph(ph, PH_AK_PAYLOAD_LENGTH));
+    encode_u64(get_ph(ph, PH_AK_SEQUENCE_NUMBER), bytes + 1);
+    bytes[0] = FEC_MAGIC_NUMBER;
     state->current_packet = bytes;
 
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);

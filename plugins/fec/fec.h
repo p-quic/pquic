@@ -2,6 +2,7 @@
 #include "memcpy.h"
 #include "../helpers.h"
 
+#define FEC_MAGIC_NUMBER 0x10
 #define FEC_OPAQUE_ID 0x02
 #define MAX_FEC_BLOCKS 3   // maximum number of idle source blocks handled concurrently
 #define MAX_SYMBOLS_PER_FEC_BLOCK 100    // maximum number of idle source blocks handled concurrently
@@ -20,12 +21,21 @@ protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repa
 #define DEFAULT_FEC_SCHEME "xor"
 
 #define for_each_source_symbol(fb, ____ss) \
-    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_source_symbols; ____i++, ____keep = 1-____keep ) \
+    for (int ____i = 0, ____keep = 1, n = fb->total_source_symbols; ____keep && ____i < n; ____i++, ____keep = 1-____keep ) \
         for (____ss = fb->source_symbols[____i] ; ____keep ; ____keep = 1-____keep)
 
 #define for_each_repair_symbol(fb, ____ss) \
-    for (int ____i = 0, ____keep = 1; ____keep && ____i < fb->total_repair_symbols; ____i++, ____keep = 1-____keep ) \
+    for (int ____i = 0, ____keep = 1, n = fb->total_repair_symbols; ____keep && ____i < n; ____i++, ____keep = 1-____keep ) \
         for (____ss = fb->repair_symbols[____i] ; ____keep ; ____keep = 1-____keep)
+
+
+#define for_each_source_symbol_nobreak(fb, ____ss) \
+    for (int ____i = 0, n = fb->total_source_symbols; ____i < n; ____i++) \
+        if ((____ss = fb->source_symbols[____i]) || 1)
+
+#define for_each_repair_symbol_nobreak(fb, ____ss) \
+    for (int ____i = 0, n = fb->total_repair_symbols; ____i < n; ____i++) \
+        if (____ss = fb->repair_symbols[____i] || 1)
 
 typedef union {
     uint32_t raw;

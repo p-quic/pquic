@@ -80,17 +80,21 @@ static __attribute__((always_inline)) void write_header(picoquic_cnx_t *cnx, pic
  */
 protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx) {
     picoquic_packet_t *packet = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 0); // packet length including header length, excluding checksum
-    uint32_t length = (uint32_t) get_cnx(cnx, CNX_AK_INPUT, 2); // packet length including header length, excluding checksum
     int ret = (int) get_cnx(cnx, CNX_AK_INPUT, 1); // ret
+    uint32_t length = (uint32_t) get_cnx(cnx, CNX_AK_INPUT, 2); // packet length including header length, excluding checksum
+    int header_length = (uint32_t) get_cnx(cnx, CNX_AK_INPUT, 3);
     picoquic_packet_type_enum packet_type = get_pkt(packet, PKT_AK_TYPE);
     uint8_t *data = (uint8_t *) get_pkt(packet, PKT_AK_BYTES);
     bpf_state *state = get_bpf_state(cnx);
     if (state->current_sfpid_frame && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)){
-        uint8_t *data_with_header = my_malloc(cnx, length);
-        my_memcpy(data_with_header, data, length);
-        write_header(cnx, packet, data_with_header);
-        int err = protect_packet(cnx, &state->current_sfpid_frame->source_fpid, data_with_header, (uint16_t) length);
-        my_free(cnx, data_with_header);
+        uint8_t *payload_with_pn = my_malloc(cnx, length - header_length + 1 + sizeof(uint64_t));
+        // copy the packet payload without the header and put it 8 bytes after the start of the buffer
+        my_memcpy(payload_with_pn + 1 + sizeof(uint64_t), data + header_length, length - header_length);
+        uint64_t seqnum = (uint64_t) get_pkt(packet, PKT_AK_SEQUENCE_NUMBER);
+        encode_u64(seqnum, payload_with_pn + 1);
+        payload_with_pn[0] = FEC_MAGIC_NUMBER;
+        int err = protect_packet(cnx, &state->current_sfpid_frame->source_fpid, payload_with_pn, (uint16_t) (length - header_length + 1 + sizeof(uint64_t)));
+        my_free(cnx, payload_with_pn);
         if (err)
             return (protoop_arg_t) err;
     }

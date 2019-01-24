@@ -51,10 +51,6 @@ static __attribute__((always_inline)) bool ready_to_send(block_fec_framework_t *
     return (bff->current_block->current_source_symbols == bff->k);
 }
 
-static __attribute__((always_inline)) bool has_repair_symbols_to_send(block_fec_framework_t *bff) {
-    return bff->repair_symbols_queue_length > 0;
-}
-
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(block_fec_framework_t *bff, int idx) {
     return bff->repair_symbols_queue[idx].repair_symbol != NULL;
 }
@@ -137,6 +133,7 @@ static __attribute__((always_inline)) size_t get_repair_payload_from_queue(picoq
     return amount;
 }
 
+//TODO: currently unprovable
 static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx, block_fec_framework_t *bff, size_t size_max) {
     if (size_max <= sizeof(fec_frame_header_t))
         return -1;
@@ -226,9 +223,4 @@ static __attribute__((always_inline)) int flush_fec_block(picoquic_cnx_t *cnx, b
         sent_block(cnx, bff);
     }
     return 0;
-}
-
-static __attribute__((always_inline)) void destroy_block_fec_framework(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
-    my_free(cnx, bff->current_block);
-    my_free(cnx, bff);
 }
