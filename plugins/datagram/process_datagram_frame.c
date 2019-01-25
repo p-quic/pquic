@@ -68,8 +68,3 @@ protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
     }
     return 0;
 }
-
-int main() {
-    picoquic_cnx_t *cnx;
-    process_datagram_frame(cnx);
-}
