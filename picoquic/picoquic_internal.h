@@ -424,7 +424,16 @@ typedef struct st_picoquic_opaque_meta_t {
 
 #define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
-#define PLUGIN_MEMORY (1024 * 1024) /* In bytes, at least needed by tests */
+#define PLUGIN_MEMORY (3 * 1024 * 1024) /* In bytes, at least needed by tests */
+
+typedef struct memory_pool {
+    uint64_t num_of_blocks;
+    uint64_t size_of_each_block;
+    uint64_t num_free_blocks;
+    uint64_t num_initialized;
+    uint8_t *mem_start;
+    uint8_t *next;
+} memory_pool_t;
 
 typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */
@@ -439,9 +448,7 @@ typedef struct protoop_plugin {
      * Therefore, each plugin has its own memory space that should contain everything
      * needed for the given connection.
      */
-    char *heap_start;
-    char *heap_end; /* used to implement my_sbrk */
-    char *heap_last_block; /* keeps track of the last block used when extending heap. */
+    memory_pool_t memory_pool;
     char memory[PLUGIN_MEMORY]; /* Memory that can be used for malloc, free,... */
 } protoop_plugin_t;
 
