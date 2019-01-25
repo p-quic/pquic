@@ -92,8 +92,8 @@ void my_free(picoquic_cnx_t *cnx, void *ptr) {
  * If an invalid pointer is provided, it returns NULL without changing anything.
  */
 void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
-	/* NOT IMPLEMENTED! */
-	exit(-1);
+	my_free(cnx, ptr);
+	return my_malloc(cnx, size);
 }
 
 void init_memory_management(protoop_plugin_t *p)
