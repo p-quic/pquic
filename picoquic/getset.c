@@ -461,6 +461,8 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
             return 0;
         }
         return (protoop_arg_t) &path->pkt_ctx[param];
+    case PATH_AK_NB_PKT_SENT:
+        return path->nb_pkt_sent;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
         return 0;
@@ -571,6 +573,9 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
         break;
     case PATH_AK_PKT_CTX:
         printf("ERROR: setting the pkt ctx is not implemented!\n");
+        break;
+    case PATH_AK_NB_PKT_SENT:
+        path->nb_pkt_sent = val;
         break;
     default:
         printf("ERROR: unknown path access key %u\n", ak);

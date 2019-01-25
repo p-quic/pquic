@@ -2986,6 +2986,10 @@ int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoq
         }
     }
 
+    if (*send_length > 0 && *path) {
+        (*path)->nb_pkt_sent++;
+    }
+
     return ret;
 }
 

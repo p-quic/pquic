@@ -692,6 +692,8 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 			 */
             picoquic_public_random(path_x->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
 
+            path_x->nb_pkt_sent = 0;
+
             /* Initialize packet contexts */
             for (picoquic_packet_context_enum pc = 0;
                 pc < picoquic_nb_packet_context; pc++) {

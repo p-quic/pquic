@@ -399,6 +399,9 @@ typedef struct st_picoquic_path_t {
     uint64_t pacing_margin_micros;
     uint64_t next_pacing_time;
 
+    /* Statistics */
+    uint64_t nb_pkt_sent;
+
     /* QDC: Moved from the ctx */
     /* Connection IDs */
     picoquic_connection_id_t local_cnxid;

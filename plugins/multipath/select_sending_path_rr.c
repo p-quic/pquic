@@ -14,6 +14,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     start_using_path_if_possible(cnx);
     uint64_t now = picoquic_current_time();
     int valid = 0;
+    uint64_t selected_sent_pkt = 0;
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
 
@@ -78,14 +79,17 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
 
+            uint64_t pkt_sent_c = (uint64_t) get_path(path_c, PATH_AK_NB_PKT_SENT, 0);
             if (path_x == path_0) {
                 path_x = pd->path;
                 selected_path_index = i;
                 valid = 1;
-            } else if (bpfd->last_path_index_sent != i) {
+                selected_sent_pkt = pkt_sent_c;
+            } else if (pkt_sent_c < selected_sent_pkt) {
                 path_x = pd->path;
                 selected_path_index = i;
                 valid = 1;
+                selected_sent_pkt = pkt_sent_c;
             }
         }
     }

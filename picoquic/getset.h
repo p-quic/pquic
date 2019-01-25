@@ -405,6 +405,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define PATH_AK_RESET_SECRET 0x20
 /** The pointer to the packet context with the picoquic_packet_context_enum \p param */
 #define PATH_AK_PKT_CTX 0x21
+/** The number of packets sent on the path, in uint64_t */
+#define PATH_AK_NB_PKT_SENT 0x22
 
 /**
  * @}
