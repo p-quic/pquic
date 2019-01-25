@@ -18,12 +18,11 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         return 1;
     }
 
-    void *chunk = my_malloc_on_sending_buffer(m, cnx, sizeof(reserve_frame_slot_t) + sizeof(datagram_frame_t) + (size_t) len);
-    if (chunk == NULL) {
-        PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
+    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc_on_sending_buffer(m, cnx, sizeof(reserve_frame_slot_t));
+    if (slot == NULL) {
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         return 1;
     }
-    reserve_frame_slot_t *slot = chunk;
 
 #ifdef DATAGRAM_WITH_ID
     datagram_id = ++get_datagram_memory(cnx)->next_datagram_id;
@@ -34,32 +33,30 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     slot->nb_bytes = 1 + varint_len(len) + len;  // Unfortunately we are always forced to account for the length field
 #endif
 
-    datagram_frame_t* frame = chunk + sizeof(reserve_frame_slot_t);
-    frame->datagram_data_ptr = (uint8_t *) (frame + sizeof(datagram_frame_t));
-
-    frame->length = (uint64_t) len;
-    if (frame->length > SEND_BUFFER) {
-        PROTOOP_PRINTF(cnx, "%d-byte long frame cannot fit into %d-byte long send buffer", frame->length, SEND_BUFFER);
-        my_free(cnx, frame->datagram_data_ptr);
+    datagram_frame_t* frame = my_malloc_on_sending_buffer(m, cnx, sizeof(datagram_frame_t));
+    if (frame == NULL) {
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame structure!\n");
+        my_free(cnx, slot);
+        return 1;
+    }
+    frame->datagram_data_ptr = my_malloc_on_sending_buffer(m, cnx, (unsigned int) len);
+    if (frame->datagram_data_ptr == NULL) {
+        //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         my_free(cnx, frame);
         my_free(cnx, slot);
         return 1;
     }
 
-    int limit = (int) m->send_buffer;
-    for (int i = 0; i < limit; i++) {
-        if (m->send_buffer + frame->length > SEND_BUFFER) {
-            free_head_datagram_reserved(m, cnx);
-        } else {
-            break;
-        }
+    frame->length = (uint64_t) len;
+    while (m->send_buffer + frame->length > SEND_BUFFER) {
+        free_head_datagram_reserved(m, cnx);
     }
 
     frame->datagram_id = datagram_id;
     my_memcpy(frame->datagram_data_ptr, payload, (size_t) len);
     slot->frame_ctx = frame;
 
-    size_t reserved_size = reserve_frames(cnx, 1, slot);  // Apparently not provable
+    size_t reserved_size = reserve_frames(cnx, 1, slot);
     if (reserved_size < slot->nb_bytes) {
         //PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
         my_free(cnx, frame->datagram_data_ptr);
