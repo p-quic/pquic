@@ -5,7 +5,7 @@
 #include "memcpy.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
-#define MAX_QUEUED_REPAIR_SYMBOLS 7
+#define MAX_QUEUED_REPAIR_SYMBOLS 6
 #define DEFAULT_N 30
 #define DEFAULT_K 25
 
