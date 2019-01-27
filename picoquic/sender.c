@@ -2473,6 +2473,11 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                                 cnx->tls_stream[1].send_queue == NULL &&
                                 cnx->tls_stream[2].send_queue == NULL) {
                                 picoquic_set_cnx_state(cnx, picoquic_state_client_ready);
+                                if (cnx->callback_fn != NULL) {
+                                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_almost_ready, cnx->callback_ctx) != 0) {
+                                        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
+                                    }
+                                }
                             }
                             break;
                         default:
@@ -2601,6 +2606,11 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             if (ret == 0 && tls_ready != 0 && data_bytes > 0 && cnx->tls_stream[epoch].send_queue == NULL) {
                 if (epoch == 2 && picoquic_tls_client_authentication_activated(cnx->quic) == 0) {
                     picoquic_set_cnx_state(cnx, picoquic_state_server_ready);
+                    if (cnx->callback_fn != NULL) {
+                        if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_almost_ready, cnx->callback_ctx) != 0) {
+                            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
+                        }
+                    }
                 }
                 else {
                     picoquic_set_cnx_state(cnx, picoquic_state_server_handshake);
@@ -3031,6 +3041,25 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     picoquic_packet_type_enum packet_type = picoquic_packet_1rtt_protected_phi0;
+
+    if (!cnx->ready_notified &&
+        (cnx->cnx_state == picoquic_state_server_ready &&
+        cnx->crypto_context[3].aead_decrypt != NULL) ||
+        (cnx->cnx_state == picoquic_state_server_ready &&
+            cnx->one_rtt_data_acknowledged)) {
+        /* Transition to server ready state.
+         * The handshake is complete, all the handshake packets are implicitly acknowledged */
+        picoquic_implicit_handshake_ack(cnx, path_x, picoquic_packet_context_initial, current_time);
+        picoquic_implicit_handshake_ack(cnx, path_x, picoquic_packet_context_handshake, current_time);
+
+        cnx->ready_notified = 1;
+
+        if (cnx->callback_fn != NULL) {
+            if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx) != 0) {
+                picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
+            }
+        }
+    }
 
     /* TODO: manage multiple streams. */
     picoquic_stream_head* stream = NULL;

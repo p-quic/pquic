@@ -304,6 +304,13 @@ static int first_server_callback(picoquic_cnx_t* cnx,
         return -1;
     }
 
+    if (fin_or_event == picoquic_callback_almost_ready ||
+        fin_or_event == picoquic_callback_ready ||
+        fin_or_event == picoquic_callback_challenge_response) {
+        /* Nothing to do */
+        return 0;
+    }
+
     if (fin_or_event == picoquic_callback_close || 
         fin_or_event == picoquic_callback_application_close ||
         fin_or_event == picoquic_callback_stateless_reset) {
@@ -858,6 +865,13 @@ static int first_client_callback(picoquic_cnx_t* cnx,
 
     ctx->last_interaction_time = picoquic_current_time();
     ctx->progress_observed = 1;
+
+    if (fin_or_event == picoquic_callback_almost_ready ||
+        fin_or_event == picoquic_callback_ready ||
+        fin_or_event == picoquic_callback_challenge_response) {
+        /* Nothing to do */
+        return 0;
+    }
 
     if (fin_or_event == picoquic_callback_close || 
         fin_or_event == picoquic_callback_application_close ||
