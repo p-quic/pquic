@@ -65,8 +65,8 @@ static __attribute__((always_inline)) void add_fec_block(bpf_state *state, fec_b
 }
 
 static __attribute__((always_inline)) void remove_and_free_fec_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *fb){
-    free_fec_block(cnx, fb, false);
     state->fec_blocks[fb->fec_block_number % MAX_FEC_BLOCKS] = NULL;
+    free_fec_block(cnx, fb, false);
 }
 
 // protects the packet and writes the source_fpid
