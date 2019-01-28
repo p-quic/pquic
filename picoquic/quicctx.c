@@ -1826,6 +1826,13 @@ protoop_arg_t protoop_true(picoquic_cnx_t *cnx)
     return true;
 }
 
+/* Always return false */
+protoop_arg_t protoop_false(picoquic_cnx_t *cnx)
+{
+    return false;
+}
+
+
 protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op) 
 {
     protocol_operation_param_struct_t *popst = malloc(sizeof(protocol_operation_param_struct_t));

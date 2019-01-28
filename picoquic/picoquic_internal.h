@@ -1017,6 +1017,7 @@ void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
 picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length);
 
 protoop_arg_t protoop_true(picoquic_cnx_t *cnx);
+protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 
 #define STREAM_RESET_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_reset_sent) != 0)
 #define STREAM_RESET_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_reset_requested) != 0)

@@ -1173,9 +1173,10 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 }
 
                 stream->sent_offset += length;
-                if (stream->stream_id != 0) {
+                /* The client does not handle this correctly, so fix this at client side... */
+                // if (stream->stream_id != 0) {
                     cnx->data_sent += length;
-                }
+                //}
                 consumed = byte_index;
             }
 
@@ -3950,6 +3951,9 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ack_ecn, &process_ack_frame_maybe_ecn);
 
     register_param_protoop_default(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, &protoop_true);
+    register_param_protoop(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, picoquic_frame_type_ack, &protoop_false);
+    register_param_protoop(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, picoquic_frame_type_ack_ecn, &protoop_false);
+    register_param_protoop(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, picoquic_frame_type_padding, &protoop_false);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);
