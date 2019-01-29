@@ -21,7 +21,7 @@ protoop_arg_t state_changed(picoquic_cnx_t *cnx)
             //TODO: complete the path  // An event should exist for path creation/deletion
             clock_gettime(CLOCK_MONOTONIC, &(metrics->established_metrics + i)->t_end);
         }
-        dump_metrics(cnx, metrics);
+        //dump_metrics(cnx, metrics);
     }
     return 0;
 }
