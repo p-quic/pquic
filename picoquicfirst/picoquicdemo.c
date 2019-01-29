@@ -812,7 +812,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char** plugin_fnames, int plugins, int get_size)
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char** plugin_fnames, int plugins, int get_size, int only_stream_4)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -956,8 +956,13 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         callback_ctx.nb_demo_streams = test_scenario_nb;
                     } else {
                         sprintf(buf, "doc-%d.html", get_size);
-                        callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
-                        callback_ctx.nb_demo_streams = 2;
+                        if (only_stream_4) {
+                            callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 4, 0xFFFFFFFF, buf, "/dev/null", 0 }};
+                            callback_ctx.nb_demo_streams = 1;
+                        } else {
+                            callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                            callback_ctx.nb_demo_streams = 2;
+                        }
                         gettimeofday(&callback_ctx.tv_start, NULL);
                         callback_ctx.stream_ok = false;
                         callback_ctx.only_get = true;
@@ -1082,8 +1087,13 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                                 callback_ctx.nb_demo_streams = test_scenario_nb;
                             } else {
                                 sprintf(buf, "doc-%d.html", get_size);
-                                callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
-                                callback_ctx.nb_demo_streams = 2;
+                                if (only_stream_4) {
+                                    callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 4, 0xFFFFFFFF, buf, "/dev/null", 0 }};
+                                    callback_ctx.nb_demo_streams = 1;
+                                } else {
+                                    callback_ctx.demo_stream =  (demo_stream_desc_t []) {{ 0, 0xFFFFFFFF, "index.html", "/dev/null", 0 }, { 4, 0, buf, "/dev/null", 0 }};
+                                    callback_ctx.nb_demo_streams = 2;
+                                }
                                 callback_ctx.stream_ok = false;
                                 callback_ctx.only_get = true;
                             }
@@ -1228,6 +1238,7 @@ void usage()
     fprintf(stderr, "  -c file               cert file (default: %s)\n", default_server_cert_file);
     fprintf(stderr, "  -k file               key file (default: %s)\n", default_server_key_file);
     fprintf(stderr, "  -G size               GET size (default: -1)\n");
+    fprintf(stderr, "  -4                    if -G is set, only use a request through the stream 4 instead of 0 then 4\n");
     fprintf(stderr, "  -P file               plugin file (default: NULL). Can be used several times to load several plugins.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
@@ -1307,10 +1318,11 @@ int main(int argc, char** argv)
 
     /* HTTP09 test */
     int get_size = -1;
+    int only_stream_4 = 0;
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:v:1rhzi:s:l:m:n:t:P:G:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:v:14rhzi:s:l:m:n:t:P:G:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1327,6 +1339,9 @@ int main(int argc, char** argv)
                 fprintf(stderr, "Invalid GET size: %s\n", optarg);
                 usage();
             }
+            break;
+        case '4':
+            only_stream_4 = 1;
             break;
         case 'p':
             if ((server_port = atoi(optarg)) <= 0) {
@@ -1480,7 +1495,7 @@ int main(int argc, char** argv)
         for(int i = 0; i < plugins; i++) {
             printf("\tplugin %s\n", plugin_fnames[i]);
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4);
 
         printf("Client exit with code = %d\n", ret);
 
