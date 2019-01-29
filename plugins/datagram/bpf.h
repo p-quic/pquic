@@ -103,7 +103,12 @@ static __attribute__((always_inline)) uint64_t get_max_rtt_difference(picoquic_c
 static __attribute__((always_inline)) protoop_arg_t send_datagram_to_application(datagram_memory_t *m, picoquic_cnx_t *cnx, datagram_frame_t *frame) {
     ssize_t ret = write(m->socket_fds[PLUGIN_SOCKET], frame->datagram_data_ptr, frame->length);
     PROTOOP_PRINTF(cnx, "Wrote %d bytes to the message socket\n", ret);
-    picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
+    //picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
+    reserve_frame_slot_t *slot = my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    slot->frame_type = 0x60;
+    slot->nb_bytes = 1;
+    slot->frame_ctx = NULL;
+    reserve_frames(cnx, 1, slot);
     if (frame->datagram_id != 0) {
         m->expected_datagram_id = frame->datagram_id + 1;
     }
