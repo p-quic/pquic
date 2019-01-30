@@ -258,7 +258,7 @@ static inline void free_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *s) {
 
 static inline void free_fec_block(picoquic_cnx_t *cnx, fec_block_t *b, bool keep_repair_symbols) {
     int i = 0;
-    for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK; i++) {
+    for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK && b->current_source_symbols > 0; i++) {
         if (b->source_symbols[i]) {
             free_source_symbol(cnx, b->source_symbols[i]);
             if (!(--b->current_source_symbols)) // we freed everything
@@ -267,7 +267,7 @@ static inline void free_fec_block(picoquic_cnx_t *cnx, fec_block_t *b, bool keep
     }
 
     if (!keep_repair_symbols) {
-        for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK; i++) {
+        for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK && b->current_repair_symbols > 0; i++) {
             if (b->repair_symbols[i]) {
                 free_repair_symbol(cnx, b->repair_symbols[i]);
                 if (!(--b->current_repair_symbols)) // we freed everything

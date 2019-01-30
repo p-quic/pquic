@@ -89,6 +89,7 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
 }
 
 #define MAX_RECOVERED_IN_ONE_ROW 5
+#define MIN_DECODED_SYMBOL_TO_PARSE 50
 
 static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *fb){
 
@@ -107,7 +108,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
     int i = 0;
     for (idx = 0 ; idx < n_to_recover ; idx++) {
         i = to_recover[idx];
-        if (fb->source_symbols[i]) {
+        if (fb->source_symbols[i] && fb->source_symbols[i]->data_length > MIN_DECODED_SYMBOL_TO_PARSE) {
             uint64_t pn = decode_u64(fb->source_symbols[i]->data + 1);
 
             int payload_length = fb->source_symbols[i]->data_length - 1 - sizeof(uint64_t);
