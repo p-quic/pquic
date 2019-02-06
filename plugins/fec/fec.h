@@ -94,7 +94,7 @@ typedef struct {
 
 typedef struct {
     union {
-        source_fpid_t source_fec_payload_id;
+    source_fpid_t source_fec_payload_id;
         struct __attribute__((__packed__)) {
             uint8_t fec_block_offset;
             uint32_t fec_block_number : 24;

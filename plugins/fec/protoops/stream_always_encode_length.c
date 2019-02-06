@@ -1,5 +1,5 @@
 #include <getset.h>
-#include "../helpers.h"
+#include "../../helpers.h"
 
 /**
  * See PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH

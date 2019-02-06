@@ -1,8 +1,8 @@
 #include <picoquic_internal.h>
-#include "gmp/mini-gmp.c"
-#include "fec.h"
-#include "../helpers.h"
-#include "prng/tinymt32.c"
+#include "../gmp/mini-gmp.c"
+#include "../fec.h"
+#include "../../helpers.h"
+#include "../prng/tinymt32.c"
 
 
 static __attribute__((always_inline)) void print_bignum(picoquic_cnx_t *cnx, mpz_t bn) {

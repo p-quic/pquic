@@ -1,8 +1,8 @@
-#include "picoquic_internal.h"
-#include "fec.h"
-#include "../helpers.h"
-#include "memory.h"
-#include "memcpy.h"
+#include "../../../picoquic/picoquic_internal.h"
+#include "../fec.h"
+#include "../../helpers.h"
+#include "../../../picoquic/memory.h"
+#include "../../../picoquic/memcpy.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
 #define MAX_QUEUED_REPAIR_SYMBOLS 6
@@ -30,7 +30,7 @@ typedef struct {
 } block_fec_framework_t;
 
 
-static __attribute__((always_inline)) block_fec_framework_t *new_block_fec_framework(picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) block_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx) {
     block_fec_framework_t *bff = my_malloc(cnx, sizeof(block_fec_framework_t));
     if (!bff)
         return NULL;
@@ -192,23 +192,36 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     return ret;
 }
 
-static __attribute__((always_inline)) int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff) {
-    free_fec_block(cnx, ff->current_block, true);
-    ff->current_block_number++;
-    ff->current_block = malloc_fec_block(cnx, ff->current_block_number);
-    if (!ff->current_block)
-        return -1;
-    ff->current_block->total_source_symbols = ff->k;
-    ff->current_block->total_repair_symbols = ff->n - ff->k;
+static __attribute__((always_inline)) int sent_block(picoquic_cnx_t *cnx, block_fec_framework_t *ff, fec_block_t *fb) {
+    if (fb != ff->current_block) free_fec_block(cnx, fb, false);
+    else {
+        free_fec_block(cnx, ff->current_block, true);
+        ff->current_block_number++;
+        ff->current_block = malloc_fec_block(cnx, ff->current_block_number);
+        if (!ff->current_block)
+            return -1;
+        ff->current_block->total_source_symbols = ff->k;
+        ff->current_block->total_repair_symbols = ff->n - ff->k;
+    }
     return 0;
 }
 
+static __attribute__((always_inline)) source_fpid_t get_source_fpid(block_fec_framework_t *bff){
+    source_fpid_t s;
+    s.fec_block_number = bff->current_block_number;
+    s.symbol_number = bff->current_block->current_source_symbols;
+    return s;
+}
+
+// sets the source FPID of the Source Symbol and protects it.
 static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *cnx, block_fec_framework_t *bff, source_symbol_t *ss){
+    ss->source_fec_payload_id.fec_block_number = bff->current_block_number;
+    ss->source_fec_payload_id.symbol_number = bff->current_block->current_source_symbols;
     if (!add_source_symbol_to_fec_block(ss, bff->current_block))
         return -1;
     if (ready_to_send(bff)) {
         generate_and_queue_repair_symbols(cnx, bff);
-        sent_block(cnx, bff);
+        sent_block(cnx, bff,bff->current_block);
     }
     return 0;
 }
@@ -220,7 +233,7 @@ static __attribute__((always_inline)) int flush_fec_block(picoquic_cnx_t *cnx, b
         fb->total_repair_symbols = fb->current_source_symbols < fb->total_repair_symbols ? fb->current_source_symbols : fb->total_repair_symbols;
         PROTOOP_PRINTF(cnx, "FLUSH FEC BLOCK: %u source symbols, %u repair symbols\n", fb->total_source_symbols, fb->total_repair_symbols);
         generate_and_queue_repair_symbols(cnx, bff);
-        sent_block(cnx, bff);
+        sent_block(cnx, bff, fb);
     }
     return 0;
 }

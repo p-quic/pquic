@@ -1,8 +1,8 @@
 #include <picoquic_internal.h>
-#include "fec.h"
-#include "../helpers.h"
-#include "gmp/mini-gmp.c"
-#include "prng/tinymt32.c"
+#include "../fec.h"
+#include "../../helpers.h"
+#include "../gmp/mini-gmp.c"
+#include "../prng/tinymt32.c"
 
 
 

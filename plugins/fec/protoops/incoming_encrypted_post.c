@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "memory.h"
-#include "bpf.h"
+#include "../bpf.h"
 
 /**
  * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];

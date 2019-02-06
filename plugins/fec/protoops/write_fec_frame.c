@@ -1,7 +1,7 @@
 
 
 #include <picoquic_internal.h>
-#include "bpf.h"
+#include "../bpf.h"
 
 protoop_arg_t write_fec_frame(picoquic_cnx_t *cnx) {
     uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);

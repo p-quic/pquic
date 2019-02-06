@@ -1,5 +1,5 @@
 #include "picoquic_internal.h"
-#include "bpf.h"
+#include "../bpf.h"
 
 
 static inline void cpy(uint8_t *bytes, char *str, int len) {

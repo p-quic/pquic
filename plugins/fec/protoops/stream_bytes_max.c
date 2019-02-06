@@ -1,8 +1,8 @@
 
 #include <picoquic.h>
 #include <picoquic_internal.h>
-#include "../helpers.h"
-#include "block_framework.h"
+#include "../../helpers.h"
+#include "../framework/block_framework.h"
 
 /**
  * See PROTOOP_NOPARAM_STREAM_BYTES_MAX

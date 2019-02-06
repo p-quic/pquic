@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "memory.h"
-#include "bpf.h"
+#include "../bpf.h"
 
 /**
  * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
@@ -31,7 +31,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
     if (!ret) {
         PROTOOP_PRINTF(cnx, "no stream data to send, do not send SFPID frame\n");
-        flush_fec_block(cnx, state->block_fec_framework);
+        flush_repair_symbols(cnx);
         return 0;
     }
     return 0;

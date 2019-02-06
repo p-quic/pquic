@@ -1,5 +1,5 @@
 #include "picoquic_internal.h"
-#include "bpf.h"
+#include "../bpf.h"
 
 
 /**
@@ -29,7 +29,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
     if (!ret) {
         PROTOOP_PRINTF(cnx, "no stream data to send, do not send SFPID frame\n");
-        flush_fec_block(cnx, state->block_fec_framework);
+        flush_repair_symbols(cnx);
         return 0;
     }
 
@@ -46,9 +46,13 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             return PICOQUIC_ERROR_MEMORY;
         slot->frame_ctx = f;
 
-        f->source_fpid.fec_block_number = state->block_fec_framework->current_block_number;
-        f->source_fpid.symbol_number = state->block_fec_framework->current_block->current_source_symbols;
+        source_fpid_t s;
 
+        protoop_arg_t ret = set_source_fpid(cnx, &s);
+        if (ret)
+            return ret;
+
+        f->source_fpid = s;
 
         size_t reserved_size = reserve_frames(cnx, 1, slot);
 
