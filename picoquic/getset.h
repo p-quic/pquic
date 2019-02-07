@@ -479,8 +479,6 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define PKT_AK_TYPE 0x08
 /** The packet context, as picoquic_packet_context_enum */
 #define PKT_AK_CONTEXT 0x09
-/** Flag stating that the packet is evaluated */
-#define PKT_AK_IS_EVALUATED 0x0a
 /** Flag stating that the packet is a pure ACK */
 #define PKT_AK_IS_PURE_ACK 0x0b
 /** Flag stating that the packet contains crypto material */

@@ -229,6 +229,7 @@ typedef struct protoop_plugin protoop_plugin_t;
 /* This structure is used for sending booking purposes */
 typedef struct reserve_frame_slot {
     size_t nb_bytes;
+    uint8_t is_congestion_controlled:1;
     uint64_t frame_type;
     protoop_plugin_t *p; /* Whathever you place here, it will be overwritten */
     /* TODO FIXME position */
@@ -268,7 +269,6 @@ typedef struct st_picoquic_packet_t {
     uint32_t offset;
     picoquic_packet_type_enum ptype;
     picoquic_packet_context_enum pc;
-    unsigned int is_evaluated : 1;
     unsigned int is_pure_ack : 1;
     unsigned int contains_crypto : 1;
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
