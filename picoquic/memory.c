@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "picoquic_internal.h"
 
-#define MEM_BUFFER PLUGIN_MEMORY
+#define MAGIC_NUMBER 0xa110ca7ab1e
 
 uint8_t *addr_from_index(memory_pool_t *mp, uint64_t i) {
 	return mp->mem_start + (i * mp->size_of_each_block);
@@ -27,7 +27,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 		exit(1);
 	}
 	memory_pool_t *mp = &p->memory_pool;
-	if (size > mp->size_of_each_block) {
+	if (size > mp->size_of_each_block - 8) {
 		printf("Asking for %u bytes by slots up to %lu!\n", size, mp->size_of_each_block);
 		return NULL;
 	}
@@ -50,10 +50,15 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 	} else {
 		printf("Out of memory!\n");
 	}
-	return ret;
+	*((uint64_t *)ret) = MAGIC_NUMBER;
+	return ret + 8;
 }
 
 void my_free_in_core(protoop_plugin_t *p, void *ptr) {
+	ptr -= 8;
+	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
+		printf("MEMORY CURRUPTION: BAD METADATA: 0x%lx\n", *((uint64_t *) ptr));
+	}
 	memory_pool_t *mp = &p->memory_pool;
 	if (mp->next != NULL) {
 		(*(uint64_t *) ptr) = index_from_addr(mp, mp->next);
