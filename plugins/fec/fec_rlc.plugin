@@ -1,20 +1,26 @@
 be.michelfra.fecrlc
-fec_recover replace rlc_fec_scheme.o
-fec_generate_repair_symbols replace rlc_fec_scheme_generate.o
-parse_frame param 0x28 replace parse_fec_frame.o
-process_frame param 0x28 replace process_fec_frame.o
-parse_frame param 0x29 replace parse_source_fpid_frame.o
-process_frame param 0x29 replace process_source_fpid_frame.o
-incoming_encrypted pre incoming_encrypted.o
-incoming_encrypted post incoming_encrypted_post.o
-stream_bytes_max replace stream_bytes_max.o
-write_frame param 0x28 replace write_fec_frame.o
-notify_frame param 0x28 replace notify_fec_frame.o
-write_frame param 0x29 replace write_fpid_frame.o
-notify_frame param 0x29 replace notify_fpid_frame.o
-prepare_packet_ready pre prepare_packet_ready.o
-finalize_and_protect_packet pre finalize_and_protect_packet.o
-skip_frame pre skip_frame_pre.o
-skip_frame post skip_frame_post.o
-stream_always_encode_length replace stream_always_encode_length.o
-should_send_repair_symbols replace always_send_repair_symbols.o
+fec_recover replace fec_scheme_protoops/rlc_fec_scheme.o
+fec_generate_repair_symbols replace fec_scheme_protoops/rlc_fec_scheme_generate.o
+parse_frame param 0x28 replace protoops/parse_fec_frame.o
+process_frame param 0x28 replace protoops/process_fec_frame.o
+parse_frame param 0x29 replace protoops/parse_source_fpid_frame.o
+process_frame param 0x29 replace protoops/process_source_fpid_frame.o
+incoming_encrypted pre protoops/incoming_encrypted.o
+incoming_encrypted post protoops/incoming_encrypted_post.o
+stream_bytes_max replace protoops/stream_bytes_max.o
+write_frame param 0x28 replace protoops/write_fec_frame.o
+notify_frame param 0x28 replace protoops/notify_fec_frame.o
+write_frame param 0x29 replace protoops/write_fpid_frame.o
+notify_frame param 0x29 replace protoops/notify_fpid_frame.o
+prepare_packet_ready pre protoops/prepare_packet_ready.o
+finalize_and_protect_packet pre protoops/finalize_and_protect_packet.o
+skip_frame pre protoops/skip_frame_pre.o
+skip_frame post protoops/skip_frame_post.o
+stream_always_encode_length replace protoops/stream_always_encode_length.o
+should_send_repair_symbols replace protoops/always_send_repair_symbols.o
+create_fec_framework replace framework_protoops/block_create_framework.o
+flush_repair_symbols replace framework_protoops/block_flush_repair_symbols.o
+get_source_fpid replace framework_protoops/block_get_source_fpid.o
+fec_protect_source_symbol replace framework_protoops/block_protect_source_symbol.o
+receive_source_symbol replace framework_protoops/block_receive_source_symbol.o
+receive_repair_symbol replace framework_protoops/block_receive_repair_symbol.o

@@ -1,4 +1,3 @@
-#include "picoquic_internal.h"
 #include "../fec.h"
 #include "../../helpers.h"
 #include "memory.h"
@@ -70,12 +69,12 @@ static __attribute__((always_inline)) void put_item_at_index(window_fec_framewor
 
 // adds a repair symbol in the queue waiting for the symbol to be sent
 static __attribute__((always_inline)) void queue_repair_symbol(picoquic_cnx_t *cnx, window_fec_framework_t *wff, repair_symbol_t *rs, fec_block_t *fb){
-    int idx = ((uint32_t) wff->repair_symbols_queue_head + wff->repair_symbols_queue_length) % MAX_QUEUED_REPAIR_SYMBOLS;
+    int idx = ((uint32_t) ((uint32_t) wff->repair_symbols_queue_head + wff->repair_symbols_queue_length)) % MAX_QUEUED_REPAIR_SYMBOLS;
     if (has_repair_symbol_at_index(wff, idx)) {
         remove_item_at_index(cnx, wff, idx);
         if (wff->repair_symbols_queue_length > 1 && wff->repair_symbols_queue_head == idx) {
             // the head is the next symbol
-            wff->repair_symbols_queue_head = ( (uint32_t) wff->repair_symbols_queue_head + 1) % MAX_QUEUED_REPAIR_SYMBOLS;
+            wff->repair_symbols_queue_head = ((uint32_t) ( (uint32_t) wff->repair_symbols_queue_head + 1)) % MAX_QUEUED_REPAIR_SYMBOLS;
             wff->queue_byte_offset = 0;
         }
         wff->repair_symbols_queue_length--;
@@ -179,7 +178,7 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     if (!fb)
         return PICOQUIC_ERROR_MEMORY;
     for (int i = wff->last_sent_id ; i < wff->max_id ; i++) {
-        fb->source_symbols[i-wff->last_sent_id] = wff->fec_window[i % RECEIVE_BUFFER_MAX_LENGTH];
+        fb->source_symbols[i-wff->last_sent_id] = wff->fec_window[((uint32_t) i) % RECEIVE_BUFFER_MAX_LENGTH];
         fb->current_source_symbols++;
     }
     fb->total_source_symbols = fb->current_source_symbols;
@@ -218,7 +217,7 @@ static __attribute__((always_inline)) source_fpid_t get_source_fpid(window_fec_f
 
 static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *cnx, window_fec_framework_t *wff, source_symbol_t *ss){
     ss->source_fec_payload_id.raw = ++wff->max_id;
-    int idx = ss->source_fec_payload_id.raw % RECEIVE_BUFFER_MAX_LENGTH;
+    int idx = (int) (ss->source_fec_payload_id.raw % RECEIVE_BUFFER_MAX_LENGTH);
     if (wff->fec_window[idx]) {
         if (wff->fec_window[idx]->source_fec_payload_id.raw == wff->min_id) wff->min_id++;
         free_source_symbol(cnx, wff->fec_window[idx]);
@@ -240,9 +239,9 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
     return 0;
 }
 
-static __attribute__((always_inline)) int flush_fec_block(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
+static __attribute__((always_inline)) int flush_fec_window(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
     if (wff->max_id - wff->last_sent_id >= 1) {
-        PROTOOP_PRINTF(cnx, "FLUSH FEC BLOCK: %u source symbols\n", wff->max_id - wff->last_sent_id);
+        PROTOOP_PRINTF(cnx, "FLUSH FEC WINDOW: %u source symbols\n", wff->max_id - wff->last_sent_id);
         generate_and_queue_repair_symbols(cnx, wff);
     }
     return 0;

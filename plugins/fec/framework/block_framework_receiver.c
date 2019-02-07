@@ -29,7 +29,7 @@ static __attribute__((always_inline)) void remove_and_free_fec_block(picoquic_cn
 
 // returns true if the symbol has been successfully processed
 // returns false otherwise: the symbol can be destroyed
-static __attribute__((always_inline)) int receive_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs){
+static __attribute__((always_inline)) bool block_receive_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs){
     bpf_state *state = get_bpf_state(cnx);
     uint32_t fbn = rs->fec_block_number;
     fec_block_t *fb = get_fec_block(state, fbn);
@@ -60,7 +60,7 @@ static __attribute__((always_inline)) int receive_repair_symbol(picoquic_cnx_t *
 // returns true if the symbol has been successfully processed
 // returns false otherwise: the symbol can be destroyed
 //FIXME: we pass the state in the parameters because the call to get_bpf_state leads to an error when loading the code
-static __attribute__((always_inline)) bool receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, source_symbol_t *ss){
+static __attribute__((always_inline)) bool block_receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, source_symbol_t *ss){
     uint32_t fbn = ss->fec_block_number;
     fec_block_t *fb = get_fec_block(state, fbn);
     // there exists an older FEC block

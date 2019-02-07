@@ -1,8 +1,9 @@
+
+#include "../bpf.h"
 #include "picoquic_internal.h"
 #include "../../helpers.h"
 #include "memory.h"
 #include "memcpy.h"
-#include "../bpf.h"
 
 #define INITIAL_SYMBOL_ID 1
 #define DEFAULT_N 30
@@ -32,7 +33,7 @@ static __attribute__((always_inline)) window_fec_framework_receiver_t *create_fr
 
 // returns true if the symbol has been successfully processed
 // returns false otherwise: the symbol can be destroyed
-static __attribute__((always_inline)) int receive_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs){
+static __attribute__((always_inline)) int window_receive_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *rs, uint8_t nss, uint8_t nrs){
     bpf_state *state = get_bpf_state(cnx);
     uint32_t source_symbol_id = rs->repair_fec_payload_id.fec_scheme_specific;
     fec_block_t *fb = get_fec_block(state, source_symbol_id);
@@ -69,7 +70,7 @@ static __attribute__((always_inline)) void populate_fec_block(picoquic_cnx_t *cn
 // returns true if the symbol has been successfully processed
 // returns false otherwise: the symbol can be destroyed
 //FIXME: we pass the state in the parameters because the call to get_bpf_state leads to an error when loading the code
-static __attribute__((always_inline)) bool receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, window_fec_framework_receiver_t *wff, source_symbol_t *ss){
+static __attribute__((always_inline)) bool window_receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, window_fec_framework_receiver_t *wff, source_symbol_t *ss){
     int idx = ss->source_fec_payload_id.raw % RECEIVE_BUFFER_MAX_LENGTH;
     if (wff->fec_window[idx]) {
         // the same symbol is already present: nothing to do

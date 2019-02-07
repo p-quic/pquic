@@ -223,6 +223,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
         generate_and_queue_repair_symbols(cnx, bff);
         sent_block(cnx, bff,bff->current_block);
     }
+    PROTOOP_PRINTF(cnx, "SYMBOL PROTECTED\n");
     return 0;
 }
 

@@ -52,7 +52,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         if (ret)
             return ret;
 
-        f->source_fpid = s;
+        f->source_fpid.raw = s.raw;
 
         size_t reserved_size = reserve_frames(cnx, 1, slot);
 

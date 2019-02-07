@@ -1,3 +1,5 @@
+#ifndef FEC_H
+#define FEC_H
 #include "memory.h"
 #include "memcpy.h"
 #include "../helpers.h"
@@ -121,7 +123,7 @@ typedef struct __attribute__((__packed__)) {
 } fec_block_t;
 
 
-static inline uint64_t decode_un(uint8_t *bytes, int n) {
+static __attribute__((always_inline)) uint64_t decode_un(uint8_t *bytes, int n) {
     uint32_t retval = 0;
     int i;
     for (i = 0; i < n ; i++) {
@@ -131,39 +133,39 @@ static inline uint64_t decode_un(uint8_t *bytes, int n) {
     return retval;
 }
 
-static inline void encode_un(uint64_t to_encode, uint8_t *bytes, int n) {
+static __attribute__((always_inline)) void encode_un(uint64_t to_encode, uint8_t *bytes, int n) {
     int i;
     for (i = 0; i < n ; i++) {
         bytes[i] = (uint8_t) (to_encode >> 8*(n-i-1));
     }
 }
 
-static inline uint16_t decode_u16(uint8_t *bytes) {
+static __attribute__((always_inline)) uint16_t decode_u16(uint8_t *bytes) {
     return (uint16_t) decode_un(bytes, 2);
 }
 
-static inline uint32_t decode_u32(uint8_t *bytes) {
+static __attribute__((always_inline)) uint32_t decode_u32(uint8_t *bytes) {
     return (uint32_t) decode_un(bytes, 4);
 }
 
-static inline uint64_t decode_u64(uint8_t *bytes) {
+static __attribute__((always_inline)) uint64_t decode_u64(uint8_t *bytes) {
     return decode_un(bytes, 8);
 }
 
-static inline void encode_u16(uint16_t to_encode, uint8_t *bytes) {
+static __attribute__((always_inline)) void encode_u16(uint16_t to_encode, uint8_t *bytes) {
     encode_un(to_encode, bytes, 2);
 }
 
-static inline void encode_u32(uint32_t to_encode, uint8_t *bytes) {
+static __attribute__((always_inline)) void encode_u32(uint32_t to_encode, uint8_t *bytes) {
     encode_un(to_encode, bytes, 4);
 }
 
-static inline void encode_u64(uint64_t to_encode, uint8_t *bytes) {
+static __attribute__((always_inline)) void encode_u64(uint64_t to_encode, uint8_t *bytes) {
     encode_un(to_encode, bytes, 8);
 }
 
 
-static inline void parse_fec_frame_header(fec_frame_header_t *header_to_parse, uint8_t *bytes) {
+static __attribute__((always_inline)) void parse_fec_frame_header(fec_frame_header_t *header_to_parse, uint8_t *bytes) {
     *((uint16_t *) header_to_parse) = decode_u16(bytes);
     bytes += 2;
     header_to_parse->offset = *bytes++;
@@ -173,7 +175,7 @@ static inline void parse_fec_frame_header(fec_frame_header_t *header_to_parse, u
     header_to_parse->nrs = *bytes;
 }
 
-static inline void write_fec_frame_header(fec_frame_header_t *header_to_write, uint8_t *bytes) {
+static __attribute__((always_inline)) void write_fec_frame_header(fec_frame_header_t *header_to_write, uint8_t *bytes) {
     *(bytes++) = FEC_TYPE;
     encode_u16(*((uint16_t *) header_to_write), bytes);
     bytes+=2;
@@ -184,12 +186,12 @@ static inline void write_fec_frame_header(fec_frame_header_t *header_to_write, u
     *bytes = header_to_write->nrs;
 }
 
-static inline void parse_sfpid_frame(source_fpid_frame_t *frame_to_parse, uint8_t *bytes) {
+static __attribute__((always_inline)) void parse_sfpid_frame(source_fpid_frame_t *frame_to_parse, uint8_t *bytes) {
     frame_to_parse->source_fpid.raw = decode_u32(bytes);
 }
 
 // assumes that size if safe
-static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_fpid_t source_fpid, uint16_t size) {
+static __attribute__((always_inline)) source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_fpid_t source_fpid, uint16_t size) {
     source_symbol_t *s = (source_symbol_t *) my_malloc(cnx, sizeof(source_symbol_t));
     uint8_t *data_cpy = (uint8_t *) my_malloc(cnx, size);
     if (!s || !data_cpy)
@@ -203,7 +205,7 @@ static inline source_symbol_t *malloc_source_symbol(picoquic_cnx_t *cnx, source_
 }
 
 // assumes that size is safe
-static inline source_symbol_t *malloc_source_symbol_with_data(picoquic_cnx_t *cnx, source_fpid_t source_fpid,
+static __attribute__((always_inline)) source_symbol_t *malloc_source_symbol_with_data(picoquic_cnx_t *cnx, source_fpid_t source_fpid,
                                                               uint8_t *data, uint16_t size) {
     source_symbol_t *s = malloc_source_symbol(cnx, source_fpid, size);
     if (!s)
@@ -213,7 +215,7 @@ static inline source_symbol_t *malloc_source_symbol_with_data(picoquic_cnx_t *cn
 }
 
 // assumes that size if safe
-static inline repair_symbol_t *malloc_repair_symbol(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
+static __attribute__((always_inline)) repair_symbol_t *malloc_repair_symbol(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
                                                     uint16_t size) {
     repair_symbol_t *s = (repair_symbol_t *) my_malloc(cnx, sizeof(repair_symbol_t));
     uint8_t *data_cpy = (uint8_t *) my_malloc(cnx, size);
@@ -229,7 +231,7 @@ static inline repair_symbol_t *malloc_repair_symbol(picoquic_cnx_t *cnx, repair_
 }
 
 // assumes that size if safe
-static inline repair_symbol_t *malloc_repair_symbol_with_data(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
+static __attribute__((always_inline)) repair_symbol_t *malloc_repair_symbol_with_data(picoquic_cnx_t *cnx, repair_fpid_t repair_fpid,
                                                               uint8_t *data, uint16_t size) {
     repair_symbol_t *s = malloc_repair_symbol(cnx, repair_fpid, size);
     if (!s)
@@ -239,24 +241,24 @@ static inline repair_symbol_t *malloc_repair_symbol_with_data(picoquic_cnx_t *cn
     return s;
 }
 
-static inline fec_block_t *malloc_fec_block(picoquic_cnx_t *cnx, uint32_t fbn){
+static __attribute__((always_inline)) fec_block_t *malloc_fec_block(picoquic_cnx_t *cnx, uint32_t fbn){
     fec_block_t *fb = (fec_block_t *) my_malloc(cnx, sizeof(fec_block_t));
     my_memset(fb, 0, sizeof(fec_block_t));
     fb->fec_block_number = fbn;
     return fb;
 }
 
-static inline void free_source_symbol(picoquic_cnx_t *cnx, source_symbol_t *s) {
+static __attribute__((always_inline)) void free_source_symbol(picoquic_cnx_t *cnx, source_symbol_t *s) {
     my_free(cnx, s->data);
     my_free(cnx, s);
 }
 
-static inline void free_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *s) {
+static __attribute__((always_inline)) void free_repair_symbol(picoquic_cnx_t *cnx, repair_symbol_t *s) {
     my_free(cnx, s->data);
     my_free(cnx, s);
 }
 
-static inline void free_fec_block(picoquic_cnx_t *cnx, fec_block_t *b, bool keep_repair_symbols) {
+static __attribute__((always_inline)) void free_fec_block(picoquic_cnx_t *cnx, fec_block_t *b, bool keep_repair_symbols) {
     int i = 0;
     for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK && b->current_source_symbols > 0; i++) {
         if (b->source_symbols[i]) {
@@ -279,7 +281,7 @@ static inline void free_fec_block(picoquic_cnx_t *cnx, fec_block_t *b, bool keep
 }
 
 
-static inline bool add_repair_symbol_to_fec_block(repair_symbol_t *rs, fec_block_t *fb){
+static __attribute__((always_inline)) bool add_repair_symbol_to_fec_block(repair_symbol_t *rs, fec_block_t *fb){
     if (!fb->repair_symbols[rs->symbol_number]) {
         fb->repair_symbols[rs->symbol_number] = rs;
         fb->current_repair_symbols++;
@@ -288,7 +290,7 @@ static inline bool add_repair_symbol_to_fec_block(repair_symbol_t *rs, fec_block
     return false;
 }
 
-static inline bool add_source_symbol_to_fec_block(source_symbol_t *ss, fec_block_t *fb){
+static __attribute__((always_inline)) bool add_source_symbol_to_fec_block(source_symbol_t *ss, fec_block_t *fb){
     if (!fb->source_symbols[ss->fec_block_offset]) {
         fb->source_symbols[ss->fec_block_offset] = ss;
         fb->current_source_symbols++;
@@ -296,3 +298,4 @@ static inline bool add_source_symbol_to_fec_block(source_symbol_t *ss, fec_block
     }
     return false;
 }
+#endif

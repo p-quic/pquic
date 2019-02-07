@@ -1,3 +1,5 @@
+#ifndef FEC_BPF_H
+#define FEC_BPF_H
 #include <picoquic_logger.h>
 #include "picoquic_internal.h"
 #include "fec.h"
@@ -172,11 +174,11 @@ static __attribute__((always_inline)) int process_fec_frame_helper(picoquic_cnx_
     params[3] = (protoop_arg_t) frame->header.nrs;
     // receive_repair_symbol asks the underlying receiver-side FEC Framework to handle a received Repair Symbol
     int ret = (int) run_noparam(cnx, "receive_repair_symbol", 4, params, NULL);
-    if(ret) {
+    if(ret != 1) {
+        // the symbol could not be inserted: we do not care if an error happened, we free anyway and return the received error code
         free_repair_symbol(cnx, rs);
-        return false;
     }
-    return true;
+    return ret;
 }
 
 static __attribute__((always_inline)) int flush_repair_symbols(picoquic_cnx_t *cnx) {
@@ -196,6 +198,7 @@ static __attribute__((always_inline)) int set_source_fpid(picoquic_cnx_t *cnx, s
         return PICOQUIC_ERROR_MEMORY;
     }
     sfpid->raw = (uint32_t) run_noparam(cnx, "get_source_fpid", 1, (protoop_arg_t *) &state->framework_sender, NULL);
+    PROTOOP_PRINTF(cnx, "SFPID HAS BEEN SET TO %u\n", sfpid->raw);
     return 0;
 }
 
@@ -209,3 +212,4 @@ static __attribute__((always_inline)) int receive_source_symbol_helper(picoquic_
     return (int) run_noparam(cnx, "receive_source_symbol", 1, (protoop_arg_t *) &ss, NULL);
 }
 
+#endif
