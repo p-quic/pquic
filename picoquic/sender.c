@@ -1589,7 +1589,7 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
     header_length = length;
     packet->pc = picoquic_packet_context_application;
     packet->sequence_number = path_x->pkt_ctx[picoquic_packet_context_application].send_sequence;
-    packet->send_time = picoquic_current_time();
+    packet->send_time = current_time;
     packet->send_path = path_x;
     packet->checksum_overhead = checksum_overhead;
 
@@ -1710,7 +1710,7 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         packet->offset = length;
         header_length = length;
         packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->send_path = path_x;
     }
 
@@ -1725,7 +1725,7 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         }
         packet->length = length;
         /* document the send time & overhead */
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->checksum_overhead = checksum_overhead;
         packet->pc = pc;
     }
@@ -1845,7 +1845,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             } 
             /* document the send time & overhead */
             packet->length = length;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (ret == 0 && is_cleartext_mode && tls_ready == 0
@@ -1865,7 +1865,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->offset = length;
                 header_length = length;
                 packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-                packet->send_time = picoquic_current_time();
+                packet->send_time = current_time;
                 packet->send_path = path_x;
 
                 if ((tls_ready == 0 || path_x->cwin <= path_x->bytes_in_transit)
@@ -2023,7 +2023,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         packet->offset = length;
         header_length = length;
         packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->send_path = path_x;
         packet->pc = pc;
 
@@ -2110,7 +2110,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->length = length;
             }
             /* document the send time & overhead */
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (path_x->pkt_ctx[pc].ack_needed) {
@@ -2214,7 +2214,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* Send the disconnect frame */
@@ -2250,7 +2250,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
                     packet->offset = length;
                     header_length = length;
                     packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-                    packet->send_time = picoquic_current_time();
+                    packet->send_time = current_time;
                     packet->send_path = path_x;
 
                     /* Resend the disconnect frame */
@@ -2294,7 +2294,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* send either app close or connection close, depending on error code */
@@ -2609,7 +2609,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             }
             /* document the send time & overhead */
             is_pure_ack = 0;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (ret == 0) {
@@ -2619,7 +2619,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* First enqueue frames that can be fairly sent, if any */
@@ -2908,7 +2908,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 header_length = length;
                 packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
                 packet->send_path = path_x;
-                packet->send_time = picoquic_current_time();
+                packet->send_time = current_time;
                 bytes[length++] = picoquic_frame_type_ping;
                 bytes[length++] = 0;
                 cnx->latest_progress_time = current_time;

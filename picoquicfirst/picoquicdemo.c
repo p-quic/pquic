@@ -497,7 +497,7 @@ int quic_server(const char* server_name, int server_port,
                 }
 
                 while (ret == 0 && (cnx_next = picoquic_get_earliest_cnx_to_wake(qserver, loop_time)) != NULL) {
-                    ret = picoquic_prepare_packet(cnx_next, current_time,
+                    ret = picoquic_prepare_packet(cnx_next, picoquic_current_time(),
                         send_buffer, sizeof(send_buffer), &send_length, &path);
 
                     if (ret == PICOQUIC_ERROR_DISCONNECTED) {
@@ -972,7 +972,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     demo_client_start_streams(cnx_client, &callback_ctx, 0xFFFFFFFF);
                 }
 
-                ret = picoquic_prepare_packet(cnx_client, current_time,
+                ret = picoquic_prepare_packet(cnx_client, picoquic_current_time(),
                     send_buffer, sizeof(send_buffer), &send_length, &path);
 
                 if (ret == 0 && send_length > 0) {
@@ -1137,7 +1137,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 if (ret == 0) {
                     send_length = PICOQUIC_MAX_PACKET_SIZE;
 
-                    ret = picoquic_prepare_packet(cnx_client, current_time,
+                    ret = picoquic_prepare_packet(cnx_client, picoquic_current_time(),
                         send_buffer, sizeof(send_buffer), &send_length, &path);
 
                     if (ret == 0 && send_length > 0) {
@@ -1158,11 +1158,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                         picoquic_log_packet_address(F_log,
                             picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)),
-                            cnx_client, (struct sockaddr*)&server_address, 0, bytes_sent, current_time);
+                            cnx_client, (struct sockaddr*)&server_address, 0, bytes_sent, picoquic_current_time());
                     }
                 }
 
-                delta_t = picoquic_get_next_wake_delay(qclient, current_time, delay_max);
+                delta_t = picoquic_get_next_wake_delay(qclient, picoquic_current_time(), delay_max);
             }
         }
     }
