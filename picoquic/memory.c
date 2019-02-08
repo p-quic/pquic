@@ -28,7 +28,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 	}
 	memory_pool_t *mp = &p->memory_pool;
 	if (size > mp->size_of_each_block - 8) {
-		printf("Asking for %u bytes by slots up to %lu!\n", size, mp->size_of_each_block);
+		printf("Asking for %u bytes by slots up to %lu!\n", size, mp->size_of_each_block - 8);
 		return NULL;
 	}
 	if (mp->num_initialized < mp->num_of_blocks) {
@@ -57,7 +57,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 void my_free_in_core(protoop_plugin_t *p, void *ptr) {
 	ptr -= 8;
 	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
-		printf("MEMORY CURRUPTION: BAD METADATA: 0x%lx\n", *((uint64_t *) ptr));
+		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx\n", *((uint64_t *) ptr));
 	}
 	memory_pool_t *mp = &p->memory_pool;
 	if (mp->next != NULL) {
@@ -97,8 +97,18 @@ void my_free(picoquic_cnx_t *cnx, void *ptr) {
  * If an invalid pointer is provided, it returns NULL without changing anything.
  */
 void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
-	my_free(cnx, ptr);
-	return my_malloc(cnx, size);
+	protoop_plugin_t *p = cnx->current_plugin;
+	if (!p) {
+		fprintf(stderr, "FATAL ERROR: calling my_free outside plugin scope!\n");
+		exit(1);
+	}
+	// we cannot change the size of the block: if the new size is above the maximum, print an error,
+	// otherwise, return the same pointer
+	if (size > p->memory_pool.size_of_each_block - 8) {
+		printf("Asking for %u bytes by slots up to %lu!\n", size, p->memory_pool.size_of_each_block - 8);
+		return NULL;
+	}
+	return ptr;
 }
 
 void init_memory_management(protoop_plugin_t *p)
