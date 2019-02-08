@@ -382,7 +382,6 @@ int quic_server(const char* server_name, int server_port,
     uint8_t buffer[1536];
     uint8_t send_buffer[1536];
     size_t send_length = 0;
-    uint64_t current_time = 0;
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
 
@@ -391,10 +390,9 @@ int quic_server(const char* server_name, int server_port,
 
     /* Wait for packets and process them */
     if (ret == 0) {
-        current_time = picoquic_current_time();
         /* Create QUIC context */
         qserver = picoquic_create(8, pem_cert, pem_key, NULL, NULL, first_server_callback, NULL,
-            cnx_id_callback, cnx_id_callback_ctx, reset_seed, current_time, NULL, NULL, NULL, 0);
+            cnx_id_callback, cnx_id_callback_ctx, reset_seed, picoquic_current_time(), NULL, NULL, NULL, 0);
 
         if (qserver == NULL) {
             printf("Could not create server context\n");
@@ -411,15 +409,16 @@ int quic_server(const char* server_name, int server_port,
 
     /* Wait for packets */
     while (ret == 0 && (just_once == 0 || cnx_server == NULL || picoquic_get_cnx_state(cnx_server) != picoquic_state_disconnected)) {
-        int64_t delta_t = picoquic_get_next_wake_delay(qserver, current_time, delay_max);
-        uint64_t time_before = current_time;
+        uint64_t time_before = picoquic_current_time();
+        uint64_t current_time = picoquic_current_time();
+        int64_t delta_t = picoquic_get_next_wake_delay(qserver, picoquic_current_time(), delay_max);
         int bytes_recv;
 
         from_length = to_length = sizeof(struct sockaddr_storage);
         if_index_to = 0;
 
         if (just_once != 0 && delta_t > 10000 && cnx_server != NULL) {
-            picoquic_log_congestion_state(F_log, cnx_server, current_time);
+            picoquic_log_congestion_state(F_log, cnx_server, picoquic_current_time());
         }
 
         bytes_recv = picoquic_select(server_sockets.s_socket, PICOQUIC_NB_SERVER_SOCKETS,
@@ -478,7 +477,7 @@ int quic_server(const char* server_name, int server_port,
                 }
             }
             if (ret == 0) {
-                uint64_t loop_time = current_time;
+                uint64_t loop_time = picoquic_current_time();
 
                 while ((sp = picoquic_dequeue_stateless_packet(qserver)) != NULL) {
                     (void) picoquic_send_through_server_sockets(&server_sockets,
@@ -987,7 +986,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         {
                             picoquic_log_packet_address(F_log, 
                                 picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)),
-                                cnx_client, (struct sockaddr*)&server_address, 0, bytes_sent, current_time);
+                                cnx_client, (struct sockaddr*)&server_address, 0, bytes_sent, picoquic_current_time());
                         }
                         else {
                             fprintf(F_log, "Cannot send first packet to server, returns %d\n", bytes_sent);
@@ -1026,7 +1025,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             {
                 picoquic_log_packet_address(F_log,
                     picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)),
-                    cnx_client, (struct sockaddr*)&server_address, 1, bytes_recv, current_time);
+                    cnx_client, (struct sockaddr*)&server_address, 1, bytes_recv, picoquic_current_time());
             }
         }
 
@@ -1038,7 +1037,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 ret = picoquic_incoming_packet(qclient, buffer,
                     (size_t)bytes_recv, (struct sockaddr*)&packet_from,
                     (struct sockaddr*)&packet_to, if_index_to,
-                    current_time);
+                    picoquic_current_time());
                 client_receive_loop++;
 
                 picoquic_log_processing(F_log, cnx_client, bytes_recv, ret);
@@ -1123,7 +1122,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                             ret = picoquic_close(cnx_client, 0);
                         } else if (
-                            current_time > callback_ctx.last_interaction_time && current_time - callback_ctx.last_interaction_time > 10000000ull) {
+                            picoquic_current_time() > callback_ctx.last_interaction_time && picoquic_current_time() - callback_ctx.last_interaction_time > 10000000ull) {
                             fprintf(stdout, "No progress for 10 seconds. Closing. \n");
                             if (F_log != stdout && F_log != stderr)
                             {
@@ -1172,12 +1171,12 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         uint8_t* ticket;
         uint16_t ticket_length;
 
-        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, current_time, sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length)) {
+        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, picoquic_current_time(), sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length)) {
             fprintf(F_log, "Received ticket from %s:\n", sni);
             picoquic_log_picotls_ticket(F_log, picoquic_null_connection_id, ticket, ticket_length);
         }
 
-        if (picoquic_save_tickets(qclient->p_first_ticket, current_time, ticket_store_filename) != 0) {
+        if (picoquic_save_tickets(qclient->p_first_ticket, picoquic_current_time(), ticket_store_filename) != 0) {
             fprintf(stderr, "Could not store the saved session tickets.\n");
         }
         picoquic_free(qclient);
