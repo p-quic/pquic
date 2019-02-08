@@ -658,6 +658,10 @@ extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
 /**
  * Select the path on which the next packet will be sent.
  *
+ * \param[in] retransmit_p \b picoquic_packet_t* The packet to be retransmitted, or NULL if none
+ * \param[in] from_path \b picoquic_path_t* The path from which the packet originates, or NULL if none
+ * \param[in] reason \b char* The reason why packet should be retransmitted, or NULL if none
+ *
  * \return \b picoquic_path_t* The path on which the next packet will be sent.
  */
 #define PROTOOPID_NOPARAM_SELECT_SENDING_PATH "select_sending_path"
