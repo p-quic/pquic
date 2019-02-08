@@ -54,7 +54,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 }
             } else {
                 /* check if this is an ACK only packet */
-                int packet_is_pure_ack = 1;
+                int contains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
+                int packet_is_pure_ack = (int) get_pkt(p, PKT_AK_IS_PURE_ACK);
                 int do_not_detect_spurious = 1;
                 int frame_is_pure_ack = 0;
                 uint8_t* old_bytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
@@ -64,7 +65,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 /* TODO: should be the path on which the packet was transmitted */
                 picoquic_path_t * old_path = (picoquic_path_t *) get_pkt(p, PKT_AK_SEND_PATH);
                 uint32_t poffset = (uint32_t) get_pkt(p, PKT_AK_OFFSET);
-                int is_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
                 uint32_t plength = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
 
                 header_length = 0;
@@ -74,26 +74,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     int contains_crypto = 0;
                     byte_index = poffset;
                     uint8_t frame_type;
-
-                    if (is_evaluated == 0) {
-                        while (ret == 0 && byte_index < plength) {
-                            my_memcpy(&frame_type, &old_bytes[byte_index], 1);
-                            if (frame_type == picoquic_frame_type_crypto_hs) {
-                                contains_crypto = 1;
-                                packet_is_pure_ack = 0;
-                                break;
-                            }
-                            ret = helper_skip_frame(cnx, &old_bytes[byte_index],
-                                plength - byte_index, &frame_length, &frame_is_pure_ack);
-                            byte_index += frame_length;
-                        }
-                        set_pkt(p, PKT_AK_CONTAINS_CRYPTO, contains_crypto);
-                        set_pkt(p, PKT_AK_IS_PURE_ACK, packet_is_pure_ack);
-                        set_pkt(p, PKT_AK_IS_EVALUATED, 1);
-                    } else {
-                        contains_crypto = get_pkt(p, PKT_AK_CONTAINS_CRYPTO);
-                        packet_is_pure_ack = get_pkt(p, PKT_AK_IS_PURE_ACK);
-                    }
 
                     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
 
