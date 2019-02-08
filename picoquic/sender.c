@@ -2363,9 +2363,10 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     return (protoop_arg_t) cnx->path[0];
 }
 
-picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
+picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx, picoquic_packet_t* retransmit_p, picoquic_path_t* from_path, char* reason)
 {
-    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
+    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL,
+        retransmit_p, from_path, reason);
 }
 
 /* This implements a deficit round robin with bursts */
@@ -2512,16 +2513,49 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
      */
     size_t send_length = (size_t) cnx->protoop_inputv[5];
 
-    /* We should be able to get the retransmission, no matter the path we look at */
-
-
-    path_x = picoquic_select_sending_path(cnx);
-
-    int ret = 0;
     /* TODO: manage multiple streams. */
     picoquic_stream_head* stream = NULL;
     picoquic_packet_type_enum packet_type = picoquic_packet_1rtt_protected_phi0;
     picoquic_packet_context_enum pc = picoquic_packet_context_application;
+    int timer_based_retransmit = 0;
+    char* reason = NULL;
+
+    /* We should be able to get the retransmission, no matter the path we look at */
+    picoquic_packet_t* retransmit_p = NULL;
+    picoquic_path_t * from_path = NULL;
+    for (int i = 0; !retransmit_p && i < cnx->nb_paths; i++) {
+        picoquic_path_t* orig_path = cnx->path[i];
+        picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
+        /* TODO: while packets are pure ACK, drop them from retransmit queue */
+        while (p != NULL) {
+            picoquic_packet_t* p_next = p->next_packet;
+            int should_retransmit = 0;
+            timer_based_retransmit = 0;
+            reason = NULL;
+            /* Get the packet type */
+
+            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason);
+
+            if (should_retransmit == 0) {
+                break;
+            }
+
+            /* We might need to retransmit, but should we really? If it is a pure ACK, don't */
+            if (p->is_pure_ack) {
+                p = p_next;
+            } else {
+                /* Ok, we found one! */
+                retransmit_p = p;
+                from_path = p->send_path;
+                break;
+            }
+        }
+    }
+
+    /* FIXME cope with different path MTUs */
+    path_x = picoquic_select_sending_path(cnx, retransmit_p, from_path, reason);
+
+    int ret = 0;
     int tls_ready = 0;
     int is_cleartext_mode = 0;
     int is_pure_ack = 1;
