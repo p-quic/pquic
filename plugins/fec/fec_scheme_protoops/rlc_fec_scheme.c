@@ -41,7 +41,7 @@ static __attribute__((always_inline)) void gaussElimination(picoquic_cnx_t *cnx,
     int i,j,k;
     for(i=0;i<m-1;i++){
         for(k=i+1;k<m;k++){
-            //If diagonal element(absolute vallue) is smaller than any of the terms below it
+            //If diagonal element(absolute value) is smaller than any of the terms below it
             if(mpz_cmpabs(a[i][i], a[k][i]) < 0){
                 //Swap the rows
                 for(j=0;j<n;j++){

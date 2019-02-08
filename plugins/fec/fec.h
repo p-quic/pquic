@@ -124,7 +124,7 @@ typedef struct __attribute__((__packed__)) {
 
 
 static __attribute__((always_inline)) uint64_t decode_un(uint8_t *bytes, int n) {
-    uint32_t retval = 0;
+    uint64_t retval = 0;
     int i;
     for (i = 0; i < n ; i++) {
         retval <<= 8;

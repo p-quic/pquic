@@ -22,6 +22,7 @@ typedef struct {
     bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
     bool current_packet_contains_fpid_frame;    // set to true if the current packet contains a FPID Frame
     bool sfpid_reserved;                        // set to true when a SFPID frame has been reserved
+    bool in_recovery;                        // set to true when the plugin is currently in the process of a packet recovery
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
 } bpf_state;
 
@@ -96,7 +97,11 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
 #define MAX_RECOVERED_IN_ONE_ROW 5
 #define MIN_DECODED_SYMBOL_TO_PARSE 50
 
-static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *fb){
+static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *block){
+
+    fec_block_t *fb = malloc_fec_block(cnx, block->fec_block_number);
+    // we copy the FEC block to avoid any impact on the internal state of the underlying framework
+    my_memcpy(fb, block, sizeof(fec_block_t));
 
     protoop_arg_t args[5], outs[1];
     args[0] = (protoop_arg_t) fb;
@@ -134,9 +139,20 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
 //                args[4] = (protoop_arg_t) path;
 //                picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, ph.payload_length);
 
-
+                uint8_t *tmp_current_packet = state->current_packet;
+                uint16_t tmp_current_packet_length = state->current_packet_length;
+                // ensure that we don't consider it as a new Soruce Symbol when parsing
+                state->current_packet = fb->source_symbols[i]->data;
+                state->current_packet_length = fb->source_symbols[i]->data_length;
+                state->in_recovery = true;
                 ret = picoquic_decode_frames_without_current_time(cnx, fb->source_symbols[i]->data + sizeof(uint64_t) + 1, (size_t) payload_length, 3, path);
 
+                state->current_packet = tmp_current_packet;
+                state->current_packet_length = tmp_current_packet_length;
+                state->in_recovery = false;
+                // we should free the recovered symbol: it has been correctly handled when decoding the packet
+                free_source_symbol(cnx, fb->source_symbols[i]);
+                fb->source_symbols[i] = NULL;
 
 //                ret = (int) run_noparam(cnx, "decode_frames", 5, args, outs);
                 if (!ret) {
@@ -148,7 +164,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
         }
     }
     my_free(cnx, to_recover);
-    remove_and_free_fec_block_at(cnx, state, fb->fec_block_number);
+    my_free(cnx, fb);
 
     return ret;
 
@@ -209,7 +225,10 @@ static __attribute__((always_inline)) int receive_source_symbol_helper(picoquic_
     if (!state) {
         return PICOQUIC_ERROR_MEMORY;
     }
-    return (int) run_noparam(cnx, "receive_source_symbol", 1, (protoop_arg_t *) &ss, NULL);
+    protoop_arg_t  inputs[2];
+    inputs[0] = (protoop_arg_t) ss;
+    inputs[1] = true;
+    return (int) run_noparam(cnx, "receive_source_symbol", 2, inputs, NULL);
 }
 
 #endif

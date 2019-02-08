@@ -53,6 +53,7 @@ static __attribute__((always_inline)) bool block_receive_repair_symbol(picoquic_
     PROTOOP_PRINTF(cnx, "RECEIVED RS: CURRENT_SS = %u, CURRENT_RS = %u, TOTAL_SS = %u\n", fb->current_source_symbols, fb->current_repair_symbols, fb->total_source_symbols);
     if (fb->current_source_symbols + fb->current_repair_symbols >= fb->total_source_symbols) {
         recover_block(cnx, state, fb);
+        remove_and_free_fec_block_at(cnx, state, fb->fec_block_number);
     }
     return true;
 }
@@ -60,7 +61,7 @@ static __attribute__((always_inline)) bool block_receive_repair_symbol(picoquic_
 // returns true if the symbol has been successfully processed
 // returns false otherwise: the symbol can be destroyed
 //FIXME: we pass the state in the parameters because the call to get_bpf_state leads to an error when loading the code
-static __attribute__((always_inline)) bool block_receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, source_symbol_t *ss){
+static __attribute__((always_inline)) bool block_receive_source_symbol(picoquic_cnx_t *cnx, bpf_state *state, source_symbol_t *ss, bool recover){
     uint32_t fbn = ss->fec_block_number;
     fec_block_t *fb = get_fec_block(state, fbn);
     // there exists an older FEC block
@@ -75,8 +76,9 @@ static __attribute__((always_inline)) bool block_receive_source_symbol(picoquic_
         return false;
     }
     PROTOOP_PRINTF(cnx, "RECEIVED SS %u: BLOCK = %u, CURRENT_SS = %u, CURRENT_RS = %u, TOTAL_SS = %u, TOTAL_RS = %u\n", ss->fec_block_offset, fb->fec_block_number, fb->current_source_symbols, fb->current_repair_symbols, fb->total_source_symbols, fb->total_repair_symbols);
-    if (fb->current_repair_symbols > 0 && fb->current_source_symbols + fb->current_repair_symbols >= fb->total_source_symbols) {
+    if (!state->in_recovery && recover && fb->current_repair_symbols > 0 && fb->current_source_symbols + fb->current_repair_symbols >= fb->total_source_symbols) {
         recover_block(cnx, state, fb);
+        remove_and_free_fec_block_at(cnx, state, fb->fec_block_number);
     }
     return true;
 }

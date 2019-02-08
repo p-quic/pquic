@@ -26,6 +26,10 @@ protoop_arg_t write_fec_frame(picoquic_cnx_t *cnx) {
         return PICOQUIC_ERROR_MEMORY;
 
     write_fec_frame_header(&ff->header, header_buffer);
+    PROTOOP_PRINTF(cnx, "WRITE FEC FRAME WITH FSS = %u, raw = %lu, WRITTEN %llu\n", ff->header.repair_fec_payload_id.fec_scheme_specific, ff->header.repair_fec_payload_id.raw, decode_u64(header_buffer+4));
+    uint8_t array[8];
+    array[0] = array[1] = array[2] = array[3] = array[4] = array[5] = array[6] = array[7] = 0xFF;
+    PROTOOP_PRINTF(cnx, "DECODE FF AS %llu\n", decode_u64(array));
     state->current_packet_contains_fec_frame = true;
     // copy the frame header
     my_memcpy(bytes, header_buffer, 1 + sizeof(fec_frame_header_t));
