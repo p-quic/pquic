@@ -247,7 +247,7 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
         printf("No token for protocol operation id extracted!\n");
         return false;
     }
-    strncpy(inserted_pid, token, strlen(token) + 1);
+    strcpy(inserted_pid, token);
 
     /* Part one bis: extract param, if any */
     token = strsep(&line, " ");
@@ -301,9 +301,15 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
 
     /* Handle end of line */
     token[strcspn(token, "\r\n")] = 0;
-
-    char abs_path[250];
-    strncpy(abs_path, plugin_dirname, 250);
+    size_t max_dirname_size = 250;
+    char abs_path[max_dirname_size];
+    if (strlen(plugin_dirname) >= max_dirname_size){
+        printf("The size of the plugin path is too large (>= %lu)\n", max_dirname_size);
+        return false;
+    }
+    // here, we know that plugin_dirname will have a \0 at an index before max_dirname_size
+    // abs_path is thus large enough
+    strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
     strcat(abs_path, token);
     return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
@@ -472,8 +478,14 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
 
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
-    char buf[250];
-    strncpy(buf, plugin_fname, 250);
+    size_t max_filename_size = 250;
+    char buf[max_filename_size];
+    if (strlen(plugin_fname) >= max_filename_size){
+        printf("The size of the plugin path is too large (>= %lu)\n", max_filename_size);
+        return false;
+    }
+    // here, we know that plugin_fname has a \0 at an index before max_filename_size
+    strcpy(buf, plugin_fname);
     char *line = NULL;
     size_t len = 0;
     ssize_t read = 0;
@@ -523,7 +535,12 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
                 ok = false;
                 break;
             }
-            strncpy(tmp->pid, inserted_pid, strlen(inserted_pid) + 1);
+            if (strlen(inserted_pid) + 1 > sizeof(tmp->pid)){
+                printf("No enough memory to store the plugin id\n");
+                ok = false;
+                break;
+            }
+            strcpy(tmp->pid, inserted_pid);
             tmp->param = param;
             tmp->pte = pte;
             tmp->next = pid_stack_top;
