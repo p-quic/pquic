@@ -1,26 +1,6 @@
 be.michelfra.fecrlc
-fec_recover replace fec_scheme_protoops/rlc_fec_scheme.o
-fec_generate_repair_symbols replace fec_scheme_protoops/rlc_fec_scheme_generate.o
-parse_frame param 0x28 replace protoops/parse_fec_frame.o
-process_frame param 0x28 replace protoops/process_fec_frame.o
-parse_frame param 0x29 replace protoops/parse_source_fpid_frame.o
-process_frame param 0x29 replace protoops/process_source_fpid_frame.o
-incoming_encrypted pre protoops/incoming_encrypted.o
-incoming_encrypted post protoops/incoming_encrypted_post.o
-stream_bytes_max replace protoops/stream_bytes_max.o
-write_frame param 0x28 replace protoops/write_fec_frame.o
-notify_frame param 0x28 replace protoops/notify_fec_frame.o
-write_frame param 0x29 replace protoops/write_fpid_frame.o
-notify_frame param 0x29 replace protoops/notify_fpid_frame.o
-prepare_packet_ready pre protoops/prepare_packet_ready.o
-finalize_and_protect_packet pre protoops/finalize_and_protect_packet.o
-skip_frame pre protoops/skip_frame_pre.o
-skip_frame post protoops/skip_frame_post.o
 stream_always_encode_length replace protoops/stream_always_encode_length.o
 should_send_repair_symbols replace protoops/always_send_repair_symbols.o
-create_fec_framework replace framework_protoops/window_create_framework.o
-flush_repair_symbols replace framework_protoops/window_flush_repair_symbols.o
-get_source_fpid replace framework_protoops/window_get_source_fpid.o
-fec_protect_source_symbol replace framework_protoops/window_protect_source_symbol.o
-receive_source_symbol replace framework_protoops/window_receive_source_symbol.o
-receive_repair_symbol replace framework_protoops/window_receive_repair_symbol.o
+fec_core.plugin include
+fec_framework_window.plugin include
+fec_scheme_rlc.plugin include
