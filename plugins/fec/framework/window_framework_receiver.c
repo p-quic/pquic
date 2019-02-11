@@ -122,7 +122,7 @@ static __attribute__((always_inline)) bool window_receive_source_symbol(picoquic
         // the same symbol is already present: nothing to do
         if (wff->fec_window[idx]->source_fec_payload_id.raw == ss->source_fec_payload_id.raw)
             return false;
-        wff->highest_removed = MAX(wff->fec_window[idx]->source_fec_payload_id.raw, ss->source_fec_payload_id.raw);
+        wff->highest_removed = MAX(wff->fec_window[idx]->source_fec_payload_id.raw, wff->highest_removed);
         // another symbol is present: remove it
         free_source_symbol(cnx, wff->fec_window[idx]);
         wff->fec_window[idx] = NULL;
