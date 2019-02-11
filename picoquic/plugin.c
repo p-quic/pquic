@@ -253,7 +253,7 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
     token = strsep(&line, " ");
 
     if (token == NULL) {
-        printf("No param or keyword!\n");
+        printf("No param or keyword! line: %s\n", line);
         return false;
     }
 
@@ -353,13 +353,124 @@ typedef struct pid_node {
     struct pid_node *next;
 } pid_node_t;
 
-int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
+// FIXME: we do not handle cyclic includes
+int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char *plugin_fname, char **out) {
     FILE *file = fopen(plugin_fname, "r");
 
     if (file == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
         return 1;
     }
+
+    size_t file_len = 500;
+    *out = calloc(file_len, 1);
+    if (*out == NULL) {
+        fprintf(stderr, "Failed to allocate memory to preprocess plugin file %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+    size_t buffer_len = 250;
+    char *buf = malloc(buffer_len);
+    if (buf == NULL) {
+        free(*out);
+        *out = NULL;
+        fprintf(stderr, "Failed to allocate memory to preprocess plugin file %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read = 0;
+    const size_t max_filename_length = 150;
+    char included_file[max_filename_length];
+    while ((read = getline(&line, &len, file)) != -1) {
+        /* Skip blank lines */
+        if (len <= 1) {
+            continue;
+        }
+        char *line_tmp = line;
+        size_t line_len = strlen(line_tmp);
+        if (line_len > buffer_len-1) {
+            buffer_len = line_len*2;
+            buf = realloc(buf, buffer_len);
+            if (!buf) {
+                free(*out);
+                *out = NULL;
+                free(buf);
+                free(line);
+                fprintf(stderr, "Failed to allocate memory to preprocess plugin file %s: %s\n", plugin_fname, strerror(errno));
+                return 1;
+            }
+        }
+        strcpy(buf, line_tmp);
+
+        /* Part one: extract filename to include */
+        char *token = strsep(&line_tmp, " ");
+        if (token == NULL) {
+            printf("No token for plugin filename!\n");
+            free(*out);
+            *out = NULL;
+            free(buf);
+            free(line);
+            return 1;
+        }
+        if (strlen(token) > max_filename_length-1) {
+            printf("Too long filename to include!\n");
+            free(*out);
+            *out = NULL;
+            free(buf);
+            free(line);
+            return 1;
+        }
+        strncpy(included_file, token, max_filename_length);
+
+        /* Part one bis: perform including if needed */
+        token = strsep(&line_tmp, " ");
+        // if token is NULL, it just means that it cannot be an include and thus cannit be interpreted by the preprocessor
+        // so just don't try to interprete this line
+        if (token != NULL && strncmp(token, "include", 5) == 0) {
+            printf("include %s...\n", included_file);
+            //  we must include the asked file
+            char *subfile_content = NULL;
+            char full_filename[strlen(plugin_dirname) + strlen(included_file) + 2]; // +2 due to the added / and added \0
+            sprintf(full_filename, "%s/%s", plugin_dirname, included_file);
+            int ret = plugin_preprocess_file(cnx, plugin_dirname, full_filename, &subfile_content);
+            if(ret != 0) {
+                if (subfile_content)
+                    free(subfile_content);
+                free(*out);
+                *out = NULL;
+                free(buf);
+                free(line);
+                return 1;
+            }
+            size_t content_len = strlen(subfile_content);
+            size_t add_newline = subfile_content[content_len-1] == '\n' ? 0 : 1;
+            if (file_len < strlen(*out) + strlen(subfile_content) + add_newline) {
+                *out = realloc(*out, 2*(strlen(*out) + strlen(subfile_content) + add_newline));
+            }
+            strcat(*out, subfile_content);
+            if (add_newline)
+                strcat(*out, "\n");
+            free(subfile_content);
+        } else {
+            if (file_len < strlen(*out) + strlen(buf)) {
+                *out = realloc(*out, 2*(strlen(*out) + strlen(buf)));
+            }
+            strcat(*out, buf);
+        }
+
+    }
+
+    free(buf);
+    if (line)
+        free(line);
+    fclose(file);
+    return 0;
+}
+
+int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     char buf[250];
     strncpy(buf, plugin_fname, 250);
@@ -373,6 +484,18 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     pluglet_type_enum pte;
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
+
+    char *preprocessed = NULL;
+    if (plugin_preprocess_file(cnx, plugin_dirname, plugin_fname, &preprocessed) != 0 || !preprocessed) {
+        if (preprocessed) free(preprocessed);
+        return -1;
+    }
+    FILE *file = fmemopen(preprocessed, strlen(preprocessed)+1, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
 
     read = getline(&line, &len, file);
     if (read == -1) {
@@ -388,7 +511,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
-        if (len <= 1) {
+        if (read <= 1) {
             continue;
         }
         ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_str_id_t ) inserted_pid, &param, &pte);
@@ -424,6 +547,8 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         init_memory_management(p);
         HASH_ADD_STR(cnx->plugins, name, p);
     }
+
+    free(preprocessed);
 
     if (line) {
         free(line);
