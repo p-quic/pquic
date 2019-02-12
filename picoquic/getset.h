@@ -326,6 +326,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define CNX_AK_RETRY_TOKEN_LENGTH 0x32
 /** Should we wake the implementation right now? */
 #define CNX_AK_WAKE_NOW 0x33
+/** The return value of the protocol operation, only meaningful in post operations */
+#define CNX_AK_RETURN_VALUE 0x34
 
 /**
  * @}
