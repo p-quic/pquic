@@ -26,7 +26,9 @@ typedef struct {
     queue_item repair_symbols_queue[MAX_QUEUED_REPAIR_SYMBOLS];
     uint32_t max_id;
     uint32_t min_id;
-    uint32_t last_sent_id;
+    uint32_t highest_sent_id;
+    uint32_t smallest_in_transit;
+    uint32_t highest_in_transit;
     int window_length;
     int repair_symbols_queue_head;
     int repair_symbols_queue_length;
@@ -40,14 +42,24 @@ static __attribute__((always_inline)) window_fec_framework_t *create_framework_s
     if (!wff)
         return NULL;
     my_memset(wff, 0, sizeof(window_fec_framework_t));
-    wff->last_sent_id = INITIAL_SYMBOL_ID-1;
+    wff->highest_sent_id = INITIAL_SYMBOL_ID-1;
     wff->n = DEFAULT_N;
     wff->k = DEFAULT_K;
     return wff;
 }
 
+static __attribute__((always_inline)) void sfpid_has_landed(window_fec_framework_t *wff, source_fpid_t sfpid) {
+    wff->smallest_in_transit = MAX(wff->smallest_in_transit, sfpid.raw);
+    wff->highest_in_transit = MAX(wff->highest_in_transit, sfpid.raw);
+}
+
+static __attribute__((always_inline)) void sfpid_takes_off(window_fec_framework_t *wff, source_fpid_t sfpid) {
+    wff->highest_in_transit = MAX(wff->highest_in_transit, sfpid.raw);
+    wff->smallest_in_transit = MIN(wff->smallest_in_transit, sfpid.raw);
+}
+
 static __attribute__((always_inline)) bool ready_to_send(window_fec_framework_t *wff) {
-    return (wff->max_id-wff->last_sent_id == wff->k);
+    return (wff->max_id-wff->highest_sent_id == wff->k);
 }
 
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(window_fec_framework_t *wff, int idx) {
@@ -194,7 +206,7 @@ static __attribute__((always_inline)) void remove_source_symbols_from_block_and_
 }
 
 static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, window_fec_framework_t *wff){
-    protoop_arg_t args[1];
+    protoop_arg_t args[2];
     protoop_arg_t outs[1];
 
     // build the block to generate the symbols
@@ -203,38 +215,44 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     if (!fb)
         return PICOQUIC_ERROR_MEMORY;
 
-    for (int i = wff->last_sent_id + 1 ; i <= wff->max_id ; i++) {
-        fb->source_symbols[i-(wff->last_sent_id+1)] = wff->fec_window[((uint32_t) i) % RECEIVE_BUFFER_MAX_LENGTH];
-        fb->current_source_symbols++;
-    }
-    fb->total_source_symbols = fb->current_source_symbols;
-    fb->total_repair_symbols = MIN(wff->n-wff->k, fb->total_source_symbols);
-
     args[0] = (protoop_arg_t) fb;
+    args[1] = (protoop_arg_t) wff;
 
-    int ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 1, args, outs);
-    if (!ret) {
-        PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
-        uint8_t i = 0;
-        for_each_repair_symbol(fb, repair_symbol_t *rs) {
-            rs->fec_block_number = 0;
-            rs->symbol_number = i++;
-            rs->fec_scheme_specific = wff->last_sent_id+1;
+    int ret = 0;
+    bool should_send_rs = (bool) run_noparam(cnx, "should_send_repair_symbols", 0, NULL, NULL);
+    if (should_send_rs) {
+        ret = (int) run_noparam(cnx, "window_select_symbols_to_protect", 2, args, outs);
+        if (ret) {
+            my_free(cnx, fb);
+            PROTOOP_PRINTF(cnx, "ERROR WHEN SELECTING THE SYMBOLS TO PROTECT\n");
+            return ret;
         }
-
-        queue_repair_symbols(cnx, wff, fb->repair_symbols, fb->total_repair_symbols, fb);
+        if (fb->total_source_symbols > 0) {
+            PROTOOP_PRINTF(cnx, "PROTECT FEC BLOCK OF %u INFLIGHT SYMBOLS, SFPID = %u\n", fb->total_source_symbols, fb->source_symbols[0]->source_fec_payload_id.raw);
+            ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 1, args, outs);
+            if (!ret) {
+                PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
+                uint8_t i = 0;
+                for_each_repair_symbol(fb, repair_symbol_t *rs) {
+                        rs->fec_block_number = 0;
+                        rs->symbol_number = i++;
+                        rs->fec_scheme_specific = fb->source_symbols[0]->source_fec_payload_id.raw;
+                    }
+                queue_repair_symbols(cnx, wff, fb->repair_symbols, fb->total_repair_symbols, fb);
+                uint32_t last_id = fb->source_symbols[fb->total_source_symbols-1]->source_fec_payload_id.raw;
+                // we don't free the source symbols: they can still be used afterwards
+                // we don't free the repair symbols, they are queued and will be free afterwards
+                // so we only free the fec block
+                wff->highest_sent_id = MAX(last_id, wff->highest_sent_id);
+                reserve_fec_frames(cnx, wff, PICOQUIC_MAX_PACKET_SIZE);
+            }
+        } else {
+            PROTOOP_PRINTF(cnx, "NO SYMBOL TO PROTECT\n");
+        }
     }
 
-    uint32_t last_id = fb->source_symbols[fb->total_source_symbols-1]->source_fec_payload_id.raw;
-//    free_fec_block(cnx, fb, true);
-// we don't free the source symbols: they can still be used afterwards
-// we don't free the repair symbols, they are queued and will be free afterwards
-// so we only free the fec block
+
     my_free(cnx, fb);
-    wff->last_sent_id = last_id;
-    if ((int) run_noparam(cnx, "should_send_repair_symbols", 0, NULL, NULL)) {
-        reserve_fec_frames(cnx, wff, PICOQUIC_MAX_PACKET_SIZE);
-    }
     return ret;
 }
 
@@ -264,8 +282,8 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
 }
 
 static __attribute__((always_inline)) int flush_fec_window(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
-    if (wff->max_id - wff->last_sent_id >= 1) {
-        PROTOOP_PRINTF(cnx, "FLUSH FEC WINDOW: %u source symbols, max_id = %u, last = %u\n", wff->max_id - wff->last_sent_id, wff->max_id, wff->last_sent_id);
+    if (wff->max_id - wff->highest_sent_id >= 1) {
+        PROTOOP_PRINTF(cnx, "FLUSH FEC WINDOW\n");
         generate_and_queue_repair_symbols(cnx, wff);
     }
     return 0;
