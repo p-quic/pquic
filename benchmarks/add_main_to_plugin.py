@@ -12,7 +12,7 @@ int main() {{
     picoquic_cnx_t *cnx;
     // silly loop needed for llvm2kittel to generate at least some bytecode
     for (int i = 0 ; i < 1 ; i++) {{
-        return {}(cnx);
+        {}(cnx);
     }}
 }}
 """.format(c_code, function_name))
