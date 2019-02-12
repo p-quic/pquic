@@ -1,4 +1,4 @@
-SRC=$(wildcard protoops/*.c)
+SRC=$(wildcard *protoops/*.c)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DDISABLE_PROTOOP_PRINTF
 
