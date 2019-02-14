@@ -219,3 +219,29 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
     }
     my_free(cnx, buf);
 }
+
+
+static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoquic_cnx_t *cnx, cop2_path_metrics *path_metrics) {
+    struct sockaddr_in si;
+    memset(&si, 0, sizeof(struct sockaddr_in));
+    si.sin_family = AF_INET;
+    si.sin_port = my_htons(55555);
+    inet_aton("127.0.0.1", &si.sin_addr);
+
+    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics);
+    char *buf = (char *) my_malloc(cnx, (unsigned int) (len_path_metrics));
+    if (buf == NULL) {
+        PROTOOP_PRINTF(cnx, "Unable to allocate %d-byte buffer\n", len_path_metrics);
+        return;
+    }
+
+    size_t copied = (size_t) copy_path(buf, path_metrics);
+
+    int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    connect(udp_socket, (struct sockaddr *) &si, sizeof(struct sockaddr_in));
+    ssize_t sent = send(udp_socket, buf, copied, 0);
+    if (sent < copied) {
+        PROTOOP_PRINTF(cnx, "Unable to send path metrics\n");
+    }
+    my_free(cnx, buf);
+}

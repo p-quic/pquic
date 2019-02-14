@@ -12,14 +12,16 @@ protoop_arg_t state_changed(picoquic_cnx_t *cnx)
 {
     cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
+    PROTOOP_PRINTF(cnx, "New connection state = %d\n", cnx_state);
     if (cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) {
         clock_gettime(CLOCK_MONOTONIC, &metrics->handshake_metrics.t_end);
-        // Send it somewhere
+        send_path_metrics_to_exporter(cnx, &metrics->handshake_metrics);
     } else if (cnx_state == picoquic_state_disconnected) {
         int limit = metrics->n_established_paths; // T2 oddity
         for (int i = 0; i < limit; i++) {
             //TODO: complete the path  // An event should exist for path creation/deletion
             clock_gettime(CLOCK_MONOTONIC, &(metrics->established_metrics + i)->t_end);
+            send_path_metrics_to_exporter(cnx, metrics->established_metrics + i);
         }
         //dump_metrics(cnx, metrics);
     }
