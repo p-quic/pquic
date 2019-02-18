@@ -145,6 +145,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     pd->doing_ack = false;
 
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 0);
 
     return (protoop_arg_t) ret;
 }

@@ -84,6 +84,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     /* my_free(cnx, mncic); */
     
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 1);
 
     return (protoop_arg_t) ret;
 }

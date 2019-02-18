@@ -34,6 +34,7 @@ protoop_arg_t write_fec_frame(picoquic_cnx_t *cnx) {
     my_memcpy(bytes + 1 + sizeof(fec_frame_header_t), ff->data, bytes_max - (bytes + 1 + sizeof(fec_frame_header_t)));
     my_free(cnx, ff->data);
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) (1 + sizeof(fec_frame_header_t) + ff->header.data_length));
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 0);
     my_free(cnx, ff);
     PROTOOP_PRINTF(cnx, "WRITTEN FRAME OF LEN %u, TOTAL %u BYTES\n", ff->header.data_length, (1 + sizeof(fec_frame_header_t) + ff->header.data_length));
     return 0;

@@ -75,14 +75,6 @@ extern protoop_id_t PROTOOP_PARAM_PARSE_FRAME;
 extern protoop_id_t PROTOOP_PARAM_PROCESS_FRAME;
 
 /**
- * Returns whether the frame type provided as parameter is subject to congestion control.
- *
- * \return \b bool 0 iff not congestion controlled
- */
-#define PROTOOPID_PARAM_IS_FRAME_CONGESTION_CONTROLLED "is_frame_congestion_controlled"
-extern protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED;
-
-/**
  * Write the frame whose the type is provided as parameter.
  * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write
  * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the buffer to write
@@ -90,6 +82,7 @@ extern protoop_id_t PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED;
  * 
  * \return \b int Error code, 0 iff everything was fine
  * \param[out] consumed \b int The number of bytes written in \p bytes
+ * \param[out] is_retransmittable \b int Indicates if the parsed frame should be retransmitted if the packet carrying it is lost
  */
 #define PROTOOPID_PARAM_WRITE_FRAME "write_frame"
 extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
@@ -664,6 +657,10 @@ extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
 
 /**
  * Select the path on which the next packet will be sent.
+ *
+ * \param[in] retransmit_p \b picoquic_packet_t* The packet to be retransmitted, or NULL if none
+ * \param[in] from_path \b picoquic_path_t* The path from which the packet originates, or NULL if none
+ * \param[in] reason \b char* The reason why packet should be retransmitted, or NULL if none
  *
  * \return \b picoquic_path_t* The path on which the next packet will be sent.
  */

@@ -544,24 +544,6 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
 {
     picoquic_packet_context_enum pc = packet->pc;
 
-    /* Account for bytes in transit, for congestion control, if the packet contains at least one congestion-controlled frame */
-    if (!packet->is_evaluated) {
-        int ret = 0;
-        int byte_index = packet->offset;
-        size_t frame_length = 0;
-        int frame_is_pure_ack = 0;
-        while (ret == 0 && byte_index < packet->length && !packet->is_congestion_controlled) {
-            uint8_t frame_type = packet->bytes[byte_index];
-            if (!packet->is_congestion_controlled &&
-                protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_IS_FRAME_CONGESTION_CONTROLLED, frame_type, 0, NULL)) {
-                packet->is_congestion_controlled = 1;
-            }
-            ret = picoquic_skip_frame(cnx, &packet->bytes[byte_index], packet->length - byte_index, &frame_length,
-                                      &frame_is_pure_ack);
-            byte_index += frame_length;
-        }
-    }
-
     if (packet->is_congestion_controlled) {
         path_x->bytes_in_transit += length;
     }
@@ -959,10 +941,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                 }
             } else {
                 /* check if this is an ACK only packet */
-                int packet_is_pure_ack = 1;
                 int do_not_detect_spurious = 1;
                 int frame_is_pure_ack = 0;
-                uint8_t* old_bytes = p->bytes;
                 size_t frame_length = 0;
                 size_t byte_index = 0; /* Used when parsing the old packet */
                 size_t checksum_length = 0;
@@ -973,29 +953,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
                 if (p->ptype == picoquic_packet_0rtt_protected) {
                     /* Only retransmit as 0-RTT if contains crypto data */
-                    int contains_crypto = 0;
                     byte_index = p->offset;
 
-                    if (p->is_evaluated == 0) {
-                        while (ret == 0 && byte_index < p->length) {
-                            if (old_bytes[byte_index] == picoquic_frame_type_crypto_hs) {
-                                contains_crypto = 1;
-                                packet_is_pure_ack = 0;
-                                break;
-                            }
-                            ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
-                                p->length - byte_index, &frame_length, &frame_is_pure_ack);
-                            byte_index += frame_length;
-                        }
-                        p->contains_crypto = contains_crypto;
-                        p->is_pure_ack = packet_is_pure_ack;
-                        p->is_evaluated = 1;
-                    } else {
-                        contains_crypto = p->contains_crypto;
-                        packet_is_pure_ack = p->is_pure_ack;
-                    }
-
-                    if (contains_crypto) {
+                    if (p->contains_crypto) {
                         /* Because path_x must be old_path */
                         length = picoquic_predict_packet_header_length(cnx, picoquic_packet_0rtt_protected, old_path);
                         packet->ptype = picoquic_packet_0rtt_protected;
@@ -1031,7 +991,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         old_path->mtu_probe_sent = 0;
                         old_path->send_mtu_max_tried = (uint32_t)(p->length + p->checksum_overhead);
                         /* MTU probes should not be retransmitted */
-                        packet_is_pure_ack = 1;
                         do_not_detect_spurious = 0;
                     } else {
                         checksum_length = picoquic_get_checksum_length(cnx, is_cleartext_mode);
@@ -1061,7 +1020,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 }
                                 memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
                                 length += (uint32_t)frame_length;
-                                packet_is_pure_ack = 0;
                             }
                             byte_index += frame_length;
                         }
@@ -1070,7 +1028,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* Update the number of bytes in transit and remove old packet from queue */
                     /* If not pure ack, the packet will be placed in the "retransmitted" queue,
                     * in order to enable detection of spurious restransmissions */
-                    picoquic_dequeue_retransmit_packet(cnx, p, packet_is_pure_ack & do_not_detect_spurious);
+                    int packet_is_pure_ack = p->is_pure_ack;
+                    picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack & do_not_detect_spurious);
 
                     /* If we have a good packet, return it */
                     if (packet_is_pure_ack) {
@@ -1403,7 +1362,6 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
 
                     while (p != NULL &&
                         p->ptype == picoquic_packet_0rtt_protected &&
-                        p->is_evaluated == 1 &&
                         p->contains_crypto == 0) {
                         p = p->next_packet;
                     }
@@ -1631,7 +1589,7 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
     header_length = length;
     packet->pc = picoquic_packet_context_application;
     packet->sequence_number = path_x->pkt_ctx[picoquic_packet_context_application].send_sequence;
-    packet->send_time = picoquic_current_time();
+    packet->send_time = current_time;
     packet->send_path = path_x;
     packet->checksum_overhead = checksum_overhead;
 
@@ -1671,6 +1629,7 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
         }
     }
 
+    packet->is_congestion_controlled = 1;
     picoquic_finalize_and_protect_packet(cnx, packet,
         ret, length, header_length, checksum_overhead,
         send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
@@ -1751,7 +1710,7 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         packet->offset = length;
         header_length = length;
         packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->send_path = path_x;
     }
 
@@ -1766,7 +1725,7 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         }
         packet->length = length;
         /* document the send time & overhead */
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->checksum_overhead = checksum_overhead;
         packet->pc = pc;
     }
@@ -1886,7 +1845,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             } 
             /* document the send time & overhead */
             packet->length = length;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (ret == 0 && is_cleartext_mode && tls_ready == 0
@@ -1906,7 +1865,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->offset = length;
                 header_length = length;
                 packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-                packet->send_time = picoquic_current_time();
+                packet->send_time = current_time;
                 packet->send_path = path_x;
 
                 if ((tls_ready == 0 || path_x->cwin <= path_x->bytes_in_transit)
@@ -2003,6 +1962,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         /* Consider sending 0-RTT */
         ret = picoquic_prepare_packet_0rtt(cnx, path_x, packet, current_time, send_buffer, send_buffer_max, send_length);
     } else {
+        packet->is_congestion_controlled = 1;
         picoquic_finalize_and_protect_packet(cnx, packet,
             ret, length, header_length, checksum_overhead,
             send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
@@ -2063,7 +2023,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         packet->offset = length;
         header_length = length;
         packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-        packet->send_time = picoquic_current_time();
+        packet->send_time = current_time;
         packet->send_path = path_x;
         packet->pc = pc;
 
@@ -2150,7 +2110,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->length = length;
             }
             /* document the send time & overhead */
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (path_x->pkt_ctx[pc].ack_needed) {
@@ -2169,6 +2129,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         }
     }
 
+    packet->is_congestion_controlled = 1;
     picoquic_finalize_and_protect_packet(cnx, packet,
         ret, length, header_length, checksum_overhead,
         send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
@@ -2253,7 +2214,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* Send the disconnect frame */
@@ -2289,7 +2250,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
                     packet->offset = length;
                     header_length = length;
                     packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-                    packet->send_time = picoquic_current_time();
+                    packet->send_time = current_time;
                     packet->send_path = path_x;
 
                     /* Resend the disconnect frame */
@@ -2333,7 +2294,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* send either app close or connection close, depending on error code */
@@ -2385,6 +2346,7 @@ int picoquic_prepare_packet_closing(picoquic_cnx_t* cnx, picoquic_path_t ** path
         }
     }
 
+    packet->is_congestion_controlled = 1;
     picoquic_finalize_and_protect_packet(cnx, packet,
         ret, length, header_length, checksum_overhead,
         send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
@@ -2401,9 +2363,10 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     return (protoop_arg_t) cnx->path[0];
 }
 
-picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx)
+picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx, picoquic_packet_t* retransmit_p, picoquic_path_t* from_path, char* reason)
 {
-    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL, NULL);
+    return (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, NULL,
+        retransmit_p, from_path, reason);
 }
 
 /* This implements a deficit round robin with bursts */
@@ -2550,16 +2513,53 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
      */
     size_t send_length = (size_t) cnx->protoop_inputv[5];
 
-    path_x = picoquic_select_sending_path(cnx);
-
-    int ret = 0;
     /* TODO: manage multiple streams. */
     picoquic_stream_head* stream = NULL;
     picoquic_packet_type_enum packet_type = picoquic_packet_1rtt_protected_phi0;
     picoquic_packet_context_enum pc = picoquic_packet_context_application;
+    int timer_based_retransmit = 0;
+    char* reason = NULL;
+
+    /* We should be able to get the retransmission, no matter the path we look at */
+    picoquic_packet_t* retransmit_p = NULL;
+    picoquic_path_t * from_path = NULL;
+    for (int i = 0; !retransmit_p && i < cnx->nb_paths; i++) {
+        picoquic_path_t* orig_path = cnx->path[i];
+        picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
+        /* TODO: while packets are pure ACK, drop them from retransmit queue */
+        while (p != NULL) {
+            picoquic_packet_t* p_next = p->next_packet;
+            int should_retransmit = 0;
+            timer_based_retransmit = 0;
+            reason = NULL;
+            /* Get the packet type */
+
+            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason);
+
+            if (should_retransmit == 0) {
+                break;
+            }
+
+            /* We might need to retransmit, but should we really? If it is a pure ACK, don't */
+            if (p->is_pure_ack) {
+                p = p_next;
+            } else {
+                /* Ok, we found one! */
+                retransmit_p = p;
+                from_path = p->send_path;
+                break;
+            }
+        }
+    }
+
+    /* FIXME cope with different path MTUs */
+    path_x = picoquic_select_sending_path(cnx, retransmit_p, from_path, reason);
+
+    int ret = 0;
     int tls_ready = 0;
     int is_cleartext_mode = 0;
     int is_pure_ack = 1;
+    int contains_crypto = 0;
     size_t data_bytes = 0;
     int retransmit_possible = 1;
     uint32_t header_length = 0;
@@ -2609,7 +2609,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             }
             /* document the send time & overhead */
             is_pure_ack = 0;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
         else if (ret == 0) {
@@ -2619,7 +2619,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->offset = length;
             header_length = length;
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-            packet->send_time = picoquic_current_time();
+            packet->send_time = current_time;
             packet->send_path = path_x;
 
             /* First enqueue frames that can be fairly sent, if any */
@@ -2637,6 +2637,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                     length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
                     packet->length = length;
+                    packet->is_congestion_controlled = 1;
                     path_x->mtu_probe_sent = 1;
                     is_pure_ack = 0;
                 }
@@ -2651,6 +2652,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         length += (uint32_t)data_bytes;
                         path_x->challenge_time = current_time;
                         path_x->challenge_repeat_count++;
+                        packet->is_congestion_controlled = 1;
 
 
                         if (path_x->challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
@@ -2668,6 +2670,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     reserve_frame_slot_t *rfs;
                     reserve_frame_slot_t *first_retry = NULL;
                     protoop_arg_t outs[PROTOOPARGS_MAX];
+                    int is_retransmittable = 0;
                     /* First, retry previously considered frames */
                     /* FIXME ugly code duplication, but the retry has a slightly different behaviour when retrying the packet */
                     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->retry_frames)) != NULL &&
@@ -2684,6 +2687,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
+                        is_retransmittable = (int) outs[1];
                         /* TODO FIXME consumed */
                         protoop_plugin_t *p = rfs->p;
                         if (ret == 0 && data_bytes <= rfs->nb_bytes) {
@@ -2692,6 +2696,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             p->bytes_in_flight += (uint64_t) data_bytes;
                             p->bytes_total += (uint64_t) data_bytes;
                             p->frames_total += 1;
+                            /* Keep track if the packet should be retransmitted or not */
+                            if (is_retransmittable) {
+                                is_pure_ack = 0;
+                            }
+                            packet->is_congestion_controlled |= rfs->is_congestion_controlled;
                             /* And let the packet know that it has plugin bytes */
                             register_plugin_in_pkt(packet, p, (uint64_t) data_bytes, rfs);
                         } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
@@ -2727,6 +2736,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                 &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
                         data_bytes = (size_t) outs[0];
+                        is_retransmittable = (int) outs[1];
                         /* TODO FIXME consumed */
                         protoop_plugin_t *p = rfs->p;
                         if (ret == 0 && data_bytes <= rfs->nb_bytes) {
@@ -2735,6 +2745,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             p->bytes_in_flight += (uint64_t) data_bytes;
                             p->bytes_total += (uint64_t) data_bytes;
                             p->frames_total += 1;
+                            /* Keep track if the packet should be retransmitted or not */
+                            if (is_retransmittable) {
+                                is_pure_ack = 0;
+                            }
+                            packet->is_congestion_controlled |= rfs->is_congestion_controlled;
                             /* And let the packet know that it has plugin bytes */
                             register_plugin_in_pkt(packet, p, (uint64_t) data_bytes, rfs);
                         } else if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
@@ -2777,6 +2792,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 if (data_bytes > 0)
                                 {
                                     is_pure_ack = 0;
+                                    contains_crypto = 1;
+                                    packet->is_congestion_controlled = 1;
                                 }
                             }
                         }
@@ -2787,6 +2804,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             memcpy(&bytes[length+1], path_x->challenge_response, PICOQUIC_CHALLENGE_LENGTH);
                             path_x->challenge_response_to_send = 0;
                             length += PICOQUIC_CHALLENGE_LENGTH + 1;
+                            packet->is_congestion_controlled = 1;
                         }
                         /* If present, send misc frame */
                         while (cnx->first_misc_frame != NULL) {
@@ -2794,6 +2812,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 send_buffer_min_max - checksum_overhead - length, &data_bytes);
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
+                                packet->is_congestion_controlled = 1;
                             }
                             else {
                                 if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -2812,6 +2831,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 if (data_bytes > 0)
                                 {
                                     is_pure_ack = 0;
+                                    packet->is_congestion_controlled = 1;
                                 }
                             }
                             else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -2829,6 +2849,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                             if (data_bytes > 0)
                             {
                                 is_pure_ack = 0;
+                                packet->is_congestion_controlled = 1;
                             }
                         }
                         /* Encode the stream frame, or frames */
@@ -2841,6 +2862,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 if (data_bytes > 0)
                                 {
                                     is_pure_ack = 0;
+                                    packet->is_congestion_controlled = 1;
                                 }
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {
@@ -2886,13 +2908,16 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 header_length = length;
                 packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
                 packet->send_path = path_x;
-                packet->send_time = picoquic_current_time();
+                packet->send_time = current_time;
                 bytes[length++] = picoquic_frame_type_ping;
                 bytes[length++] = 0;
                 cnx->latest_progress_time = current_time;
             }
         }
     }
+
+    packet->is_pure_ack = is_pure_ack;
+    packet->contains_crypto = contains_crypto;
 
     picoquic_finalize_and_protect_packet(cnx, packet,
         ret, length, header_length, checksum_overhead,
