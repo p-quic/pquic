@@ -20,9 +20,8 @@ protoop_arg_t packet_received(picoquic_cnx_t *cnx)
     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
     size_t length = (size_t) get_cnx(cnx, CNX_AK_INPUT, 2);
 
-    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
-    int epoch = get_ph(ph, PH_AK_EPOCH);
-    if (epoch != 1 && epoch != 2) {
+    int epoch = (int) get_ph(ph, PH_AK_EPOCH);
+    if (epoch != 1 && epoch != 3) {
         path_metrics = &metrics->handshake_metrics;
     } else {
         path_metrics = find_metrics_for_path(cnx, metrics, path);

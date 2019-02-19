@@ -161,6 +161,10 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
         my_memcpy(&path_metrics->peer_addr, path_peer_addr, peer_addr_len);
         path_metrics->peer_addr_len = peer_addr_len;
         clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_start);
+
+        if (CMP_SOCKADDR_PTR(&path_metrics->local_addr, &metrics->handshake_metrics.local_addr) && CMP_SOCKADDR_PTR(&path_metrics->peer_addr, &metrics->handshake_metrics.local_addr)) {
+            path_metrics->metrics = metrics->handshake_metrics.metrics;
+        }
     }
 
     return path_metrics;
