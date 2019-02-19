@@ -707,8 +707,6 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return pkt->ptype;
     case PKT_AK_CONTEXT:
         return pkt->pc;
-    case PKT_AK_IS_EVALUATED:
-        return pkt->is_evaluated;
     case PKT_AK_IS_PURE_ACK:
         return pkt->is_pure_ack;
     case PKT_AK_CONTAINS_CRYPTO:
@@ -764,9 +762,6 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;
-        break;
-    case PKT_AK_IS_EVALUATED:
-        pkt->is_evaluated = val;
         break;
     case PKT_AK_IS_PURE_ACK:
         pkt->is_pure_ack = val;

@@ -6,6 +6,17 @@
 
 protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_path_t *from_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    char *reason = (char *) get_cnx(cnx, CNX_AK_INPUT, 2);
+
+    if (retransmit_p && from_path && reason) {
+        if (strncmp(PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT, reason, 23) != 0) {
+            /* Fast retransmit or TLP, stay on the same path! */
+            return (protoop_arg_t) from_path;
+        }
+    }
+
     picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0); /* We should NEVER return NULL */
     picoquic_path_t *path_0 = path_x;
     picoquic_path_t *path_c = NULL;

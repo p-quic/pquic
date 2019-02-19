@@ -125,17 +125,14 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
                     if (p != NULL) {
                         picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
-                        int pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
                         int pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
 
                         while (p != NULL &&
                             ptype == picoquic_packet_0rtt_protected &&
-                            pis_evaluated == 1 &&
                             pcontains_crypto == 0) {
                             p = (picoquic_packet_t *) get_pkt(p, PKT_AK_NEXT_PACKET);
                             if (p != NULL) {
                                 ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
-                                pis_evaluated = (int) get_pkt(p, PKT_AK_IS_EVALUATED);
                                 pcontains_crypto = (int) get_pkt(p, PKT_AK_CONTAINS_CRYPTO); 
                             }
                         }

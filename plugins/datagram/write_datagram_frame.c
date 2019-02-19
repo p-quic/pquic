@@ -75,6 +75,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
     }
 
     set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 0);
 
     return 0;
 }
