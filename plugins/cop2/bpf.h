@@ -50,6 +50,12 @@ typedef struct {
     uint64_t rtt_variance;
 } __attribute__((packed, aligned(8))) cop2_metrics;
 
+typedef struct {
+    /* QUIC streams */
+    uint64_t streams_opened;
+    uint64_t streams_closed;
+} cop2_quic_metrics;
+
 typedef struct st_cop2_path_metrics {
     struct timespec t_start;
     struct timespec t_end;
@@ -68,6 +74,7 @@ typedef struct st_cop2_path_metrics {
 } __attribute__((packed, aligned(8))) cop2_path_metrics;
 
 typedef struct {  // We might want to add CIDs to this
+    cop2_quic_metrics quic_metrics;
     cop2_path_metrics handshake_metrics;
     int n_established_paths;
     cop2_path_metrics *established_metrics;
@@ -238,7 +245,7 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
     si.sin_port = my_htons(55555);
     inet_aton("127.0.0.1", &si.sin_addr);
 
-    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics);
+    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics) + sizeof(cop2_quic_metrics);
     len_path_metrics += 2; // Accounts for flow states
     char *buf = (char *) my_malloc(cnx, (unsigned int) (len_path_metrics));
     if (buf == NULL) {
@@ -246,10 +253,12 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
         return;
     }
 
-    size_t copied = (size_t) copy_path(buf + 2, path_metrics);
-    buf[0] = flow_start_reason;
-    buf[1] = flow_end_reason;
+    memcpy(buf, &get_cop2_metrics(cnx)->quic_metrics, sizeof(cop2_quic_metrics));
+    size_t copied = sizeof(cop2_quic_metrics);
+    buf[copied] = flow_start_reason;
+    buf[copied + 1] = flow_end_reason;
     copied += 2;
+    copied += (size_t) copy_path(buf + copied, path_metrics);
 
     int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
     connect(udp_socket, (struct sockaddr *) &si, sizeof(struct sockaddr_in));

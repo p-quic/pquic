@@ -95,6 +95,8 @@ SET(PLUGINS_COP2
     plugins/cop2/fast_retransmit.c
     plugins/cop2/retransmission_timeout.c
     plugins/cop2/tail_loss_probe.c
+    plugins/cop2/stream_opened.c
+    plugins/cop2/stream_closed.c
 )
 
 SET(PLUGINS_MULTIPATH
@@ -112,6 +114,7 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/write_mp_ack_frame.c
     plugins/multipath/write_rtt_probe.c
     plugins/multipath/select_sending_path_rtt.c
+    plugins/multipath/select_sending_path_rr.c
 )
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)

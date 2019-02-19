@@ -1029,7 +1029,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
-#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || STREAM_RESET_SENT(stream)) && ((stream->stream_flags & picoquic_stream_flag_reset_received) != 0 && (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
+#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream)) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0)
 
 #ifdef __cplusplus
 }
