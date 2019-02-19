@@ -13,10 +13,16 @@
 #define COP2_OPAQUE_ID 0x02
 #define BILLION ((unsigned int) 1000000)
 
-
 #define CMP_SOCKADDR(a, b)  (picoquic_compare_addr((struct sockaddr *)&a, (struct sockaddr *)&b))
 #define CMP_SOCKADDR_PTR(a, b)  (picoquic_compare_addr((struct sockaddr *)a, (struct sockaddr *)b))
 #define TIME_SUBTRACT_MS(a, b)  (((b.tv_sec - a.tv_sec) * 1000) + (((unsigned long)(b.tv_nsec - a.tv_nsec)) / BILLION))
+
+#define FLOW_STATE_NEW 1
+#define FLOW_STATE_ESTABLISHED 2
+#define FLOW_STATE_UPDATE 3
+#define FLOW_STATE_FINISHED 4
+#define FLOW_STATE_BROKEN 5
+#define FLOW_STATE_UNREACHABLE 6
 
 typedef struct {
     /* sum in bytes */
@@ -221,7 +227,7 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
 }
 
 
-static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoquic_cnx_t *cnx, cop2_path_metrics *path_metrics) {
+static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoquic_cnx_t *cnx, cop2_path_metrics *path_metrics, uint8_t flow_start_reason, uint8_t flow_end_reason) {
     struct sockaddr_in si;
     memset(&si, 0, sizeof(struct sockaddr_in));
     si.sin_family = AF_INET;
@@ -229,13 +235,17 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
     inet_aton("127.0.0.1", &si.sin_addr);
 
     size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics);
+    len_path_metrics += 2; // Accounts for flow states
     char *buf = (char *) my_malloc(cnx, (unsigned int) (len_path_metrics));
     if (buf == NULL) {
         PROTOOP_PRINTF(cnx, "Unable to allocate %d-byte buffer\n", len_path_metrics);
         return;
     }
 
-    size_t copied = (size_t) copy_path(buf, path_metrics);
+    size_t copied = (size_t) copy_path(buf + 2, path_metrics);
+    buf[0] = flow_start_reason;
+    buf[1] = flow_end_reason;
+    copied += 2;
 
     int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
     connect(udp_socket, (struct sockaddr *) &si, sizeof(struct sockaddr_in));
