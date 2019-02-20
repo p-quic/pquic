@@ -11,3 +11,4 @@ retransmission_timeout post retransmission_timeout.o
 tail_loss_probe post tail_loss_probe.o
 stream_opened post stream_opened.o
 stream_closed post stream_closed.o
+prepare_stream_frame post stream_frame_written.o

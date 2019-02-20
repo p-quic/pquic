@@ -34,6 +34,7 @@ typedef struct {
 
     /* sum in packets */
     uint64_t pkt_sent;
+    uint64_t pkt_pure_ack_sent;
     uint64_t pkt_recv;
     uint64_t pkt_lost;
     uint64_t pkt_ooo;
@@ -54,6 +55,8 @@ typedef struct {
     /* QUIC streams */
     uint64_t streams_opened;
     uint64_t streams_closed;
+
+    uint64_t app_data_sent;
 } cop2_quic_metrics;
 
 typedef struct st_cop2_path_metrics {

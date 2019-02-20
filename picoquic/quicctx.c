@@ -1718,8 +1718,8 @@ void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, 
     protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
 }
 
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, length);
+void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, packet, length);
 }
 
 /*

@@ -783,7 +783,7 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     picoquic_packet_header ph = { 0 };
     picoquic_cnx_t *pcnx = cnx;
     if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, &ph, &pcnx, false) == 0) {
-        picoquic_before_sending_segment(cnx, &ph, path_x, length + checksum_overhead);
+        picoquic_before_sending_segment(cnx, &ph, path_x, packet, length + checksum_overhead);
     }
 
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
