@@ -96,7 +96,7 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
 #define PROTOOPID_PARAM_NOTIFY_FRAME "notify_frame"
 extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
 
-/* @} */ 
+/* @} */
 
 /**
  * @defgroup noparametrableProtoop Non-parametrable Protocol Operations
@@ -666,6 +666,17 @@ extern protoop_id_t PROTOOP_NOPARAM_TAIL_LOSS_PROBE;
  */
 #define PROTOOPID_NOPARAM_SELECT_SENDING_PATH "select_sending_path"
 extern protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH;
+
+/**
+ * Observer-only anchor that is triggered when an unknown transport parameter is received.
+ *
+ * \param[in] parameter_id \b uint16_t The id of the received parameter
+ * \param[in] length \b uint16_t The length of the value of the received extension
+ * \param[in] value \b uint8_t* A pointer to the value of the received extension
+ */
+#define PROTOOPID_NOPARAM_UNKNOWN_TP_RECEIVED "unknown_tp_received"
+extern protoop_id_t PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED;
+
 /* @} */
 
 #endif

@@ -80,8 +80,18 @@ typedef struct st_cop2_path_metrics {
     struct st_cop2_path_metrics *next;
 } __attribute__((packed, aligned(8))) cop2_path_metrics;
 
+typedef struct st_cop2_tp {
+    uint16_t type;
+    uint16_t length;
+    uint8_t *value;
+    struct st_cop2_tp *next;
+} cop2_tp;
+
 typedef struct {  // We might want to add CIDs to this
     cop2_quic_metrics quic_metrics;
+    int n_unknown_tps;
+    cop2_tp *unknown_tps;
+    cop2_tp *unknown_tps_tail;
     cop2_path_metrics handshake_metrics;
     int n_established_paths;
     cop2_path_metrics *established_metrics;
@@ -102,8 +112,8 @@ static __attribute__((always_inline)) cop2_conn_metrics *get_cop2_metrics(picoqu
     if (!bpfd_ptr) return NULL;
     if (allocated) {
         *bpfd_ptr = initialize_metrics_data(cnx);
+        my_memset(*bpfd_ptr, 0, sizeof(cop2_conn_metrics));
         clock_gettime(CLOCK_MONOTONIC, &((*bpfd_ptr)->handshake_metrics.t_start));
-        (*bpfd_ptr)->n_established_paths = 0;
     }
     return *bpfd_ptr;
 }
@@ -137,6 +147,17 @@ static __attribute__((always_inline)) int copy_path(char *dst, cop2_path_metrics
     my_memcpy(dst + copied, &path->metrics, sizeof(cop2_metrics));
     copied += sizeof(cop2_metrics);
     return copied;
+}
+
+static __attribute__((always_inline)) int unknown_tps_length(cop2_conn_metrics *metrics) {
+    int length = sizeof(int);
+    cop2_tp *tp = metrics->unknown_tps;
+    while(tp != NULL) {
+        length += 2 * sizeof(uint16_t);
+        length += tp->length;
+        tp = tp->next;
+    }
+    return length;
 }
 
 static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics, picoquic_path_t *path)
@@ -252,7 +273,8 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
     si.sin_port = my_htons(55555);
     inet_aton("127.0.0.1", &si.sin_addr);
 
-    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics) + sizeof(cop2_quic_metrics);
+    cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
+    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics) + sizeof(cop2_quic_metrics) + unknown_tps_length(metrics);
     len_path_metrics += 2; // Accounts for flow states
     char *buf = (char *) my_malloc(cnx, (unsigned int) (len_path_metrics));
     if (buf == NULL) {
@@ -260,8 +282,20 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
         return;
     }
 
-    memcpy(buf, &get_cop2_metrics(cnx)->quic_metrics, sizeof(cop2_quic_metrics));
+    my_memcpy(buf, &get_cop2_metrics(cnx)->quic_metrics, sizeof(cop2_quic_metrics));
     size_t copied = sizeof(cop2_quic_metrics);
+    my_memcpy(buf + copied, &metrics->n_unknown_tps, sizeof(int));
+    copied += sizeof(int);
+    cop2_tp *tp = metrics->unknown_tps;
+    while(tp != NULL) {
+        my_memcpy(buf + copied, &tp->type, sizeof(uint16_t));
+        copied += sizeof(uint16_t);
+        my_memcpy(buf + copied, &tp->length, sizeof(uint16_t));
+        copied += sizeof(uint16_t);
+        my_memcpy(buf + copied, tp->value, tp->length);
+        copied += tp->length;
+        tp = tp->next;
+    }
     buf[copied] = flow_start_reason;
     buf[copied + 1] = flow_end_reason;
     copied += 2;

@@ -559,6 +559,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                             break;
                         default:
                             /* ignore unknown extensions */
+                            protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, NULL, extension_type, extension_length, bytes + byte_index);
                             break;
                         }
 
