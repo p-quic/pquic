@@ -36,5 +36,9 @@ protoop_arg_t packet_sent(picoquic_cnx_t *cnx)
     if (path_metrics == &metrics->handshake_metrics) {
         complete_path(path_metrics, cnx, path);
     }
+    uint64_t recv_buf = get_cnx(cnx, CNX_AK_MAXDATA_LOCAL, 0) - get_cnx(cnx, CNX_AK_DATA_RECEIVED, 0);
+    uint64_t peer_recv_buf = get_cnx(cnx, CNX_AK_MAXDATA_REMOTE, 0) - get_cnx(cnx, CNX_AK_DATA_SENT, 0);
+    metrics->quic_metrics.max_recv_buf = recv_buf > metrics->quic_metrics.max_recv_buf ? recv_buf : metrics->quic_metrics.max_recv_buf;
+    metrics->quic_metrics.peer_max_recv_buf = peer_recv_buf > metrics->quic_metrics.peer_max_recv_buf ? peer_recv_buf : metrics->quic_metrics.peer_max_recv_buf;
     return 0;
 }

@@ -56,6 +56,10 @@ typedef struct {
     uint64_t streams_opened;
     uint64_t streams_closed;
 
+    /* Flow control */
+    uint64_t max_recv_buf;
+    uint64_t peer_max_recv_buf;
+
     uint64_t app_data_sent;
 } cop2_quic_metrics;
 
