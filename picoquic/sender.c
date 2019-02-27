@@ -928,7 +928,7 @@ void register_plugin_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p, uint
 
 // bytes = starting point of the buffer
 // max_bytes: max amont of bytes that can be used for the new frames
-int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t *packet, size_t *consumed, int *is_pure_ack) {
+int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t *packet, size_t *consumed, unsigned int *is_pure_ack) {
     reserve_frame_slot_t *rfs;
     reserve_frame_slot_t *first_retry = NULL;
     protoop_arg_t outs[PROTOOPARGS_MAX];
@@ -1879,6 +1879,7 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         packet->send_time = current_time;
         packet->checksum_overhead = checksum_overhead;
         packet->pc = pc;
+        packet->is_pure_ack = 0;
     }
 
     protoop_save_outputs(cnx, header_length);    
@@ -1998,6 +1999,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             packet->length = length;
             packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
+            packet->is_pure_ack = 0;
         }
         else if (ret == 0 && is_cleartext_mode && tls_ready == 0
             && cnx->first_misc_frame == NULL && path_x->pkt_ctx[pc].ack_needed == 0) {
@@ -2061,6 +2063,11 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                                 send_buffer_max - checksum_overhead - length, &data_bytes);
 
                             if (ret == 0) {
+                                if (data_bytes > 0) {
+                                    packet->is_pure_ack = 0;
+                                    packet->contains_crypto = 1;
+                                    packet->is_congestion_controlled = 1;
+                                }
                                 length += (uint32_t)data_bytes;
                             }
                             else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -2220,10 +2227,15 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 data_bytes = 0;
             }
 
-            /* Encode the stream frame */
+            /* Encode the crypto frame */
             ret = picoquic_prepare_crypto_hs_frame(cnx, epoch, &bytes[length],
                 send_buffer_max - checksum_overhead - length, &data_bytes);
             if (ret == 0) {
+                if (data_bytes > 0) {
+                    packet->is_pure_ack = 0;
+                    packet->contains_crypto = 1;
+                    packet->is_congestion_controlled = 1;
+                }
                 length += (uint32_t)data_bytes;
             }
             else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -2263,6 +2275,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             /* document the send time & overhead */
             packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
+            packet->is_pure_ack = 0;
         }
         else if (path_x->pkt_ctx[pc].ack_needed) {
             /* when in a handshake mode, send acks asap. */
@@ -2678,7 +2691,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     int ret = 0;
     int tls_ready = 0;
     int is_cleartext_mode = 0;
-    int is_pure_ack = 1;
+    packet->is_pure_ack = 1;
     int contains_crypto = 0;
     size_t data_bytes = 0;
     int retransmit_possible = 1;
@@ -2728,7 +2741,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 }
             }
             /* document the send time & overhead */
-            is_pure_ack = 0;
+            packet->is_pure_ack = 0;
             packet->send_time = current_time;
             packet->checksum_overhead = checksum_overhead;
         }
@@ -2760,7 +2773,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                     packet->length = length;
                     packet->is_congestion_controlled = 1;
                     path_x->mtu_probe_sent = 1;
-                    is_pure_ack = 0;
+                    packet->is_pure_ack = 0;
                 } else {
                     length = 0;
                 }
@@ -2789,9 +2802,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
                 if (cnx->cnx_state != picoquic_state_disconnected) {
                     size_t consumed = 0;
+                    unsigned int is_pure_ack = packet->is_pure_ack;
                     ret = scheduler_write_new_frames(cnx, &bytes[length],
                                                      send_buffer_min_max - checksum_overhead - length, packet,
                                                      &consumed, &is_pure_ack);
+                    packet->is_pure_ack = is_pure_ack;
                     if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {
                         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                     } else if (!ret) {
@@ -2814,7 +2829,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                     length += (uint32_t)data_bytes;
                                     if (data_bytes > 0)
                                     {
-                                        is_pure_ack = 0;
+                                        packet->is_pure_ack = 0;
                                         contains_crypto = 1;
                                         packet->is_congestion_controlled = 1;
                                     }
@@ -2853,7 +2868,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                     length += (uint32_t)data_bytes;
                                     if (data_bytes > 0)
                                     {
-                                        is_pure_ack = 0;
+                                        packet->is_pure_ack = 0;
                                         packet->is_congestion_controlled = 1;
                                     }
                                 }
@@ -2871,7 +2886,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)
                                 {
-                                    is_pure_ack = 0;
+                                    packet->is_pure_ack = 0;
                                     packet->is_congestion_controlled = 1;
                                 }
                             }
@@ -2884,7 +2899,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                                     length += (uint32_t)data_bytes;
                                     if (data_bytes > 0)
                                     {
-                                        is_pure_ack = 0;
+                                        packet->is_pure_ack = 0;
                                         packet->is_congestion_controlled = 1;
                                     }
 
@@ -2918,7 +2933,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             /* If necessary, encode and send the keep alive packet!
              * We only send keep alive packets when no other data is sent!
              */
-            if (is_pure_ack == 0)
+            if (packet->is_pure_ack == 0)
             {
                 cnx->latest_progress_time = current_time;
             }
@@ -2941,7 +2956,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
     }
 
-    packet->is_pure_ack = is_pure_ack;
+    packet->is_pure_ack = packet->is_pure_ack;
     packet->contains_crypto = contains_crypto;
 
     picoquic_finalize_and_protect_packet(cnx, packet,
