@@ -10,6 +10,7 @@ notify_frame param 0x28 replace protoops/notify_fec_frame.o
 write_frame param 0x29 replace protoops/write_fpid_frame.o
 notify_frame param 0x29 replace protoops/notify_fpid_frame.o
 prepare_packet_ready pre protoops/prepare_packet_ready.o
+select_sending_path pre protoops/select_sending_path.o
 finalize_and_protect_packet pre protoops/finalize_and_protect_packet.o
 skip_frame pre protoops/skip_frame_pre.o
 skip_frame post protoops/skip_frame_post.o
