@@ -677,6 +677,16 @@ extern protoop_id_t PROTOOP_NOPARAM_SELECT_SENDING_PATH;
 #define PROTOOPID_NOPARAM_UNKNOWN_TP_RECEIVED "unknown_tp_received"
 extern protoop_id_t PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED;
 
+/**
+ * Update the ack delay used locally based on the latest rtt estimate
+ * \param[in] pkt_ctx \b picoquic_packet_context_t* The packet context to update
+ * \param[in] old_path \b picoquic_path_t* The path on which the RTT estimate was computed
+ * \param[in] rtt_estimate \b int64_t The RTT estimate computed on the given path
+ * \param[in] first_estimate \b bool Indicates whether the RTT estimate was the first one for the given path
+ */
+#define PROTOOPID_NOPARAM_UPDATE_ACK_DELAY "update_ack_delay"
+extern protoop_id_t PROTOOP_NOPARAM_UPDATE_ACK_DELAY;
+
 /* @} */
 
 #endif

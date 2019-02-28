@@ -1572,6 +1572,26 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
         start_of_range, end_of_range, current_time, pc, path_x);
 }
 
+protoop_arg_t update_ack_delay(picoquic_cnx_t* cnx) {
+    picoquic_packet_context_t* pkt_ctx = (picoquic_packet_context_t *) cnx->protoop_inputv[0];
+    picoquic_path_t* old_path = (picoquic_path_t *) cnx->protoop_inputv[1];
+    int64_t rtt_estimate = (int64_t) cnx->protoop_inputv[2];
+    bool first_estimate = (bool) cnx->protoop_inputv[3];
+    pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
+    printf("old_path->rtt_min / 4 = %lu\n", pkt_ctx->ack_delay_local);
+    if (pkt_ctx->ack_delay_local < 1000) {
+        pkt_ctx->ack_delay_local = 1000;
+    } else if (!first_estimate && pkt_ctx->ack_delay_local > 10000) {
+        pkt_ctx->ack_delay_local = 10000;
+    }
+    printf("pkt_ctx->ack_delay_local = %lu\n", pkt_ctx->ack_delay_local);
+    return 0;
+}
+
+static void picoquic_update_ack_delay(picoquic_cnx_t *cnx, picoquic_packet_context_t* pkt_ctx, picoquic_path_t* old_path, int64_t rtt_estimate, bool first_estimate) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_UPDATE_ACK_DELAY, NULL, cnx, pkt_ctx, old_path, rtt_estimate, first_estimate);
+}
+
 /**
  * See PROTOOP_NOPARAM_UPDATE_RTT
  */
@@ -1624,10 +1644,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                         old_path->rtt_variant = rtt_estimate / 2;
                         old_path->rtt_min = rtt_estimate;
                         old_path->retransmit_timer = 3 * rtt_estimate + old_path->max_ack_delay;
-                        pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
-                        if (pkt_ctx->ack_delay_local < 1000) {
-                            pkt_ctx->ack_delay_local = 1000;
-                        }
+                        picoquic_update_ack_delay(cnx, pkt_ctx, old_path, rtt_estimate, true);
                     } else {
                         /* Computation per RFC 6298 */
                         int64_t delta_rtt = rtt_estimate - old_path->smoothed_rtt;
@@ -1643,13 +1660,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 
                         if (rtt_estimate < (int64_t)old_path->rtt_min) {
                             old_path->rtt_min = rtt_estimate;
-
-                            pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
-                            if (pkt_ctx->ack_delay_local < 1000) {
-                                pkt_ctx->ack_delay_local = 1000;
-                            } else if (pkt_ctx->ack_delay_local > 10000) {
-                                pkt_ctx->ack_delay_local = 10000;
-                            }
+                            picoquic_update_ack_delay(cnx, pkt_ctx, old_path, rtt_estimate, false);
                         }
 
                         if (4 * old_path->rtt_variant < old_path->rtt_min) {
@@ -3952,6 +3963,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_UPDATE_ACK_DELAY, &update_ack_delay);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PROCESS_ACK_RANGE, &process_ack_range);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CHECK_SPURIOUS_RETRANSMISSION, &check_spurious_retransmission);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PROCESS_POSSIBLE_ACK_OF_ACK_FRAME, &process_possible_ack_of_ack_frame);
