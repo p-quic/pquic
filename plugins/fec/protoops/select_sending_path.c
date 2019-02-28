@@ -1,6 +1,6 @@
 #include "picoquic_internal.h"
 #include "../bpf.h"
-
+#define MIN_BYTES_TO_RETRANSMIT_PROTECT 20
 
 /**
  * Select the path on which the next packet will be sent.
@@ -22,12 +22,18 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     state->current_sfpid_frame = NULL;
     state->current_packet_contains_fpid_frame = false;
     state->current_packet_contains_fec_frame = false;
+    state->cancel_sfpid_in_current_packet = false;
 
     // if no stream data to send, do not protect anything anymore
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
-    if (!ret && !retransmit_p) {
+    int is_pure_ack = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_IS_PURE_ACK) : 0;
+    size_t len = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_LENGTH) : 0;
+    PROTOOP_PRINTF(cnx, "IS_PURE_ACK = %d, LENGTH = %d, READY STREAM = %p\n", (protoop_arg_t) is_pure_ack, len, (protoop_arg_t) ret);
+    if (!ret && (!retransmit_p || is_pure_ack)) {
         PROTOOP_PRINTF(cnx, "no stream data to send nor retransmission, do not send SFPID frame\n");
-        flush_repair_symbols(cnx);
+        state->cancel_sfpid_in_current_packet = true;
+        if (!is_pure_ack)
+            flush_repair_symbols(cnx);
         return 0;
     }
 

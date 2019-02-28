@@ -22,6 +22,7 @@ typedef struct {
     bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
     bool current_packet_contains_fpid_frame;    // set to true if the current packet contains a FPID Frame
     bool sfpid_reserved;                        // set to true when a SFPID frame has been reserved
+    bool cancel_sfpid_in_current_packet;     // set to true when no SFPID frame should be written in the current packet
     bool in_recovery;                        // set to true when the plugin is currently in the process of a packet recovery
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
 } bpf_state;
