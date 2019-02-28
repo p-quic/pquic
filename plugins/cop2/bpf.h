@@ -49,6 +49,10 @@ typedef struct {
     /* time in msec */
     uint64_t smoothed_rtt;
     uint64_t rtt_variance;
+
+    /* time in µsec */
+    uint64_t ack_delay;
+    uint64_t max_ack_delay;
 } __attribute__((packed, aligned(8))) cop2_metrics;
 
 typedef struct {
