@@ -82,10 +82,11 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
     ubpf_register(vm, 0x2c, "strncmp", strncmp);
+    ubpf_register(vm, 0x2d, "strcmp", strcmp);
 
     // logging func
 
-    ubpf_register(vm, 0x2d, "picoquic_has_booked_plugin_frames", picoquic_has_booked_plugin_frames);
+    ubpf_register(vm, 0x2e, "picoquic_has_booked_plugin_frames", picoquic_has_booked_plugin_frames);
 
     /* Specific QUIC functions */
     ubpf_register(vm, 0x2f, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
