@@ -1589,7 +1589,7 @@ protoop_arg_t update_ack_delay(picoquic_cnx_t* cnx) {
 }
 
 static void picoquic_update_ack_delay(picoquic_cnx_t *cnx, picoquic_packet_context_t* pkt_ctx, picoquic_path_t* old_path, int64_t rtt_estimate, bool first_estimate) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_UPDATE_ACK_DELAY, NULL, cnx, pkt_ctx, old_path, rtt_estimate, first_estimate);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_UPDATE_ACK_DELAY, NULL, pkt_ctx, old_path, rtt_estimate, first_estimate);
 }
 
 /**

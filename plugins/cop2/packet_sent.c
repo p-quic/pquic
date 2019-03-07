@@ -22,6 +22,11 @@ protoop_arg_t packet_sent(picoquic_cnx_t *cnx)
     picoquic_packet_t *packet = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 2);
     size_t length = (size_t) get_cnx(cnx, CNX_AK_INPUT, 3);
 
+    uint64_t plen = get_pkt(packet, PKT_AK_LENGTH);
+    if (plen == 0 || plen <= get_pkt(packet, PKT_AK_OFFSET)) {
+        return 0; // This packet is empty
+    }
+
     int epoch = (int) get_ph(ph, PH_AK_EPOCH);
     if (epoch != 1 && epoch != 3) {
         path_metrics = &metrics->handshake_metrics;
@@ -30,7 +35,7 @@ protoop_arg_t packet_sent(picoquic_cnx_t *cnx)
     }
     path_metrics->metrics.data_sent += length;
     path_metrics->metrics.pkt_sent++;
-    if (packet->is_pure_ack) {
+    if (get_pkt(packet, PKT_AK_IS_PURE_ACK)) {
         path_metrics->metrics.pkt_pure_ack_sent++;
     }
     if (path_metrics == &metrics->handshake_metrics) {

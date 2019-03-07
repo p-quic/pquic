@@ -7,3 +7,8 @@
 #define ACK_DELAY_DIV 4
 #else
 #endif
+
+#ifndef ACK_THRESHOLD
+#define ACK_THRESHOLD 2
+#else
+#endif
