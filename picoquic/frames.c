@@ -1578,13 +1578,11 @@ protoop_arg_t update_ack_delay(picoquic_cnx_t* cnx) {
     int64_t rtt_estimate = (int64_t) cnx->protoop_inputv[2];
     bool first_estimate = (bool) cnx->protoop_inputv[3];
     pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
-    printf("old_path->rtt_min / 4 = %lu\n", pkt_ctx->ack_delay_local);
     if (pkt_ctx->ack_delay_local < 1000) {
         pkt_ctx->ack_delay_local = 1000;
     } else if (!first_estimate && pkt_ctx->ack_delay_local > 10000) {
         pkt_ctx->ack_delay_local = 10000;
     }
-    printf("pkt_ctx->ack_delay_local = %lu\n", pkt_ctx->ack_delay_local);
     return 0;
 }
 
