@@ -2036,4 +2036,6 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     /** \todo document these */
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
+
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, &protoop_noop);
 }
