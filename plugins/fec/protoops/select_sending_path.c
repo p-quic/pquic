@@ -2,6 +2,12 @@
 #include "../bpf.h"
 #define MIN_BYTES_TO_RETRANSMIT_PROTECT 20
 
+static __attribute__((always_inline)) bool is_mtu_probe(picoquic_packet_t *p, picoquic_path_t *path) {
+    if (!p || !path) return false;
+    // it is mtu if p->length + p->checksum_overhead > send_path->send_mtu
+    return get_pkt(p, PKT_AK_LENGTH) + get_pkt(p, PKT_AK_CHECKSUM_OVERHEAD) > get_path(path, PATH_AK_SEND_MTU, 0);
+}
+
 /**
  * Select the path on which the next packet will be sent.
  *
@@ -14,6 +20,8 @@
 protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
     picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_path_t *retransmit_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
+    picoquic_path_t *chosen_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_RETURN_VALUE, 0);
     // set the current fpid
     bpf_state *state = get_bpf_state(cnx);
     if (state->current_sfpid_frame) {
@@ -26,13 +34,19 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 
     // if no stream data to send, do not protect anything anymore
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
-    int is_pure_ack = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_IS_PURE_ACK) : 0;
+    bool stream_to_send = false;
+    if (ret) {
+        // there is a stream frame to send only of we're not congestion blocked
+        stream_to_send = get_path(chosen_path, PATH_AK_CWIN, 0) >= get_path(chosen_path, PATH_AK_BYTES_IN_TRANSIT, 0);
+    }
+    int is_pure_ack = is_mtu_probe(retransmit_p, retransmit_path) || (retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_IS_PURE_ACK) : 0);
     size_t len = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_LENGTH) : 0;
-    PROTOOP_PRINTF(cnx, "IS_PURE_ACK = %d, LENGTH = %d, READY STREAM = %p\n", (protoop_arg_t) is_pure_ack, len, (protoop_arg_t) ret);
-    if (!ret && (!retransmit_p || is_pure_ack)) {
+    int ptype = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_TYPE) : 6;
+    int contains_crypto = retransmit_p ? (int) get_pkt(retransmit_p, PKT_AK_CONTAINS_CRYPTO) : 0;
+    if (!stream_to_send && (!retransmit_p || is_pure_ack || contains_crypto || (ptype != picoquic_packet_1rtt_protected_phi0 && ptype != picoquic_packet_1rtt_protected_phi1))) {
         PROTOOP_PRINTF(cnx, "no stream data to send nor retransmission, do not send SFPID frame\n");
         state->cancel_sfpid_in_current_packet = true;
-        if (!is_pure_ack)
+        if (!is_pure_ack && !contains_crypto)
             flush_repair_symbols(cnx);
         return 0;
     }
