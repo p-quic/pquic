@@ -1145,6 +1145,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         /* Copy the relevant bytes from one packet to the next */
                         byte_index = p->offset;
 
+                        bool has_unlimited_frame = false;
                         while (ret == 0 && byte_index < p->length) {
                             ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
                                 p->length - byte_index, &frame_length, &frame_is_pure_ack);
@@ -1159,9 +1160,11 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             /* Prepare retransmission if needed */
                             if (ret == 0 && !frame_is_pure_ack) {
                                 if (picoquic_is_stream_frame_unlimited(&p->bytes[byte_index])) {
+                                    has_unlimited_frame = true;
                                     /* We are at the last frame of the packet, let's put all the plugin frames before it */
                                     size_t consumed = 0;
-                                    scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - frame_length, packet, &consumed, &frame_is_pure_ack);
+                                    if (checksum_length + length + frame_length < send_buffer_max)
+                                        scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, &frame_is_pure_ack);
                                     length += consumed;
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                     while (checksum_length + length + frame_length < send_buffer_max) {
@@ -1173,6 +1176,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 length += (uint32_t)frame_length;
                             }
                             byte_index += frame_length;
+                        }
+                        if (!has_unlimited_frame && checksum_length + length < send_buffer_max) {
+                            // there is remaining space in the packet
+                            size_t consumed = 0;
+                            scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, &frame_is_pure_ack);
+                            length += consumed;
                         }
                     }
 
@@ -1880,6 +1889,8 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         packet->checksum_overhead = checksum_overhead;
         packet->pc = pc;
         packet->is_pure_ack = 0;
+    } else {
+        packet->is_pure_ack = 1;
     }
 
     protoop_save_outputs(cnx, header_length);    
@@ -2720,6 +2731,12 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         stream = picoquic_find_ready_stream(cnx);
         packet->pc = pc;
 
+        /* First enqueue frames that can be fairly sent, if any */
+        /* Only schedule new frames if there is no planned frames */
+        if (queue_peek(cnx->reserved_frames) == NULL) {
+            picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
+        }
+
         char * reason = NULL;
         if (ret == 0 && retransmit_possible &&
             (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &reason)) > 0) {
@@ -2754,12 +2771,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
             packet->send_time = current_time;
             packet->send_path = path_x;
-
-            /* First enqueue frames that can be fairly sent, if any */
-            /* Only schedule new frames if there is no planned frames */
-            if (queue_peek(cnx->reserved_frames) == NULL) {
-                picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
-            }
 
             if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) ||
                  path_x->cwin <= path_x->bytes_in_transit)
