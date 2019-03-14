@@ -1228,6 +1228,11 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
     return byte_index;
 }
 
+size_t picoquic_log_sfpid_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max) {
+    fprintf(F, " \tSFPID FRAME: ID %u\n", be32toh(*((uint32_t *) (bytes+1))));
+    return 5;
+}
+
 void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
     size_t byte_index = 0;
@@ -1342,6 +1347,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
                 length - byte_index);
             break;
+        case 0x29: /* FEC SFPID */
+            byte_index += picoquic_log_sfpid_frame(F, cnx_id64, bytes + byte_index,
+                                                    length - byte_index);
+                break;
         default: {
             /* Not implemented yet! */
             uint64_t frame_id64;
