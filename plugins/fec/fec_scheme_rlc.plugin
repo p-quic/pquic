@@ -1,0 +1,2 @@
+fec_recover replace fec_scheme_protoops/rlc_fec_scheme.o
+fec_generate_repair_symbols replace fec_scheme_protoops/rlc_fec_scheme_generate.o

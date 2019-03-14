@@ -1,6 +1,7 @@
 be.michelfra.fecrlc
 stream_always_encode_length replace protoops/stream_always_encode_length.o
 should_send_repair_symbols replace protoops/send_repair_symbols_when_no_stream_data_to_send.o
+window_select_symbols_to_protect replace framework_protoops/window_protect_all_inflight_source_symbols.o
 fec_core.plugin include
-fec_framework_block.plugin include
+fec_framework_window.plugin include
 fec_scheme_rlc.plugin include

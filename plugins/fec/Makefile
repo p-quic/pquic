@@ -1,4 +1,4 @@
-SRC=$(wildcard *.c)
+SRC=$(wildcard *protoops/*.c)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DDISABLE_PROTOOP_PRINTF
 
@@ -10,6 +10,6 @@ $(OBJ): %.o
 	clang-6.0 $(CFLAGS) -O2 -fno-gnu-inline-asm -emit-llvm -c $< -o - | llc-6.0 -march=bpf -filetype=obj -o $@
 
 clean:
-	rm -rf *.o
+	rm -rf $(OBJ)
 
 .PHONY: %.o

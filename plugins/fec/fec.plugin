@@ -1,20 +1,6 @@
-be.michelfra.fecrlc
-fec_recover replace xor_fec_scheme.o
-fec_generate_repair_symbols replace xor_fec_scheme_generate.o
-parse_frame param 0x28 replace parse_fec_frame.o
-process_frame param 0x28 replace process_fec_frame.o
-parse_frame param 0x29 replace parse_source_fpid_frame.o
-process_frame param 0x29 replace process_source_fpid_frame.o
-incoming_encrypted pre incoming_encrypted.o
-incoming_encrypted post incoming_encrypted_post.o
-stream_bytes_max replace stream_bytes_max.o
-write_frame param 0x28 replace write_fec_frame.o
-notify_frame param 0x28 replace notify_fec_frame.o
-write_frame param 0x29 replace write_fpid_frame.o
-notify_frame param 0x29 replace notify_fpid_frame.o
-prepare_packet_ready pre prepare_packet_ready.o
-finalize_and_protect_packet pre finalize_and_protect_packet.o
-skip_frame pre skip_frame_pre.o
-skip_frame post skip_frame_post.o
+be.michelfra.fecxor
 stream_always_encode_length replace stream_always_encode_length.o
 should_send_repair_symbols replace always_send_repair_symbols.o
+fec_core.plugin include
+fec_framework_block.plugin include
+fec_scheme_xor.plugin include
