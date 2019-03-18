@@ -1164,7 +1164,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                     /* We are at the last frame of the packet, let's put all the plugin frames before it */
                                     size_t consumed = 0;
                                     if (checksum_length + length + frame_length < send_buffer_max)
-                                        scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, &frame_is_pure_ack);
+                                        scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                                     length += consumed;
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                     while (checksum_length + length + frame_length < send_buffer_max) {
@@ -1180,7 +1180,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         if (!has_unlimited_frame && checksum_length + length < send_buffer_max) {
                             // there is remaining space in the packet
                             size_t consumed = 0;
-                            scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, &frame_is_pure_ack);
+                            scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                             length += consumed;
                         }
                     }
@@ -2634,9 +2634,10 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
 }
 
 /* TODO FIXME packet should never be passed in this function, we should have a way to say send the retransmission now on the given path */
-int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_t current_time, int *is_cleartext_mode, picoquic_path_t **selected_path,
-    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_packet_t *packet, uint32_t *plength)
+int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_t current_time, picoquic_path_t **selected_path,
+    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_packet_t *packet, uint32_t *plength, int *contains_crypto)
 {
+    int is_cleartext_mode = 0;
     uint32_t checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
 
     /* FIXME cope with different path MTUs */
@@ -2652,7 +2653,6 @@ int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     picoquic_packet_type_enum packet_type = picoquic_packet_1rtt_protected_phi0;
-    int contains_crypto = 0;
 
     /* TODO: manage multiple streams. */
     picoquic_stream_head* stream = NULL;
@@ -2668,9 +2668,9 @@ int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_
 
     char * retrans_reason = NULL;
     if (ret == 0 && retransmit_possible &&
-        (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, is_cleartext_mode, &header_length, &reason)) > 0) {
+        (length = picoquic_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &retrans_reason)) > 0) {
         if (reason != NULL) {
-            protoop_id_t pid = { .id = reason };
+            protoop_id_t pid = { .id = retrans_reason };
             pid.hash = hash_value_str(pid.id);
             protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
         }
@@ -2771,7 +2771,7 @@ int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_
                                 if (data_bytes > 0)
                                 {
                                     packet->is_pure_ack = 0;
-                                    contains_crypto = 1;
+                                    *contains_crypto = 1;
                                     packet->is_congestion_controlled = 1;
                                 }
                             }
@@ -2938,12 +2938,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     int is_cleartext_mode = 0;
     packet->is_pure_ack = 1;
     int contains_crypto = 0;
-    size_t data_bytes = 0;
     uint32_t header_length = 0;
     uint8_t* bytes = packet->bytes;
     uint32_t length = 0;
-    uint32_t checksum_overhead;
-    uint32_t send_buffer_min_max;
+    uint32_t checksum_overhead = 0;
+    uint32_t send_buffer_min_max = 0;
 
     /* Verify first that there is no need for retransmit or ack
      * on initial or handshake context. This does not deal with EOED packets,
@@ -2963,8 +2962,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     if (length == 0) {
         packet->pc = pc;
-        ret = schedule_frames_on_path(cnx, send_buffer_max, current_time, &is_cleartext_mode, &path_x, retransmit_p,
-                                      from_path, reason, packet, &length);
+        ret = schedule_frames_on_path(cnx, send_buffer_max, current_time, &path_x, retransmit_p,
+                                      from_path, reason, packet, &length, &contains_crypto);
 
         if (cnx->cnx_state != picoquic_state_disconnected) {
             /* If necessary, encode and send the keep alive packet!
