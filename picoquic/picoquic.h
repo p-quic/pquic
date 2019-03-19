@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include "protoop.h"
+#include "queue.h"
 #ifdef _WINDOWS
 #include <WS2tcpip.h>
 #include <Ws2def.h>

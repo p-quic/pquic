@@ -328,6 +328,12 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define CNX_AK_WAKE_NOW 0x33
 /** The return value of the protocol operation, only meaningful in post operations */
 #define CNX_AK_RETURN_VALUE 0x34
+/** The reserved frames queue */
+#define CNX_AK_RESERVED_FRAMES 0x35
+/** The retry frames queue */
+#define CNX_AK_RETRY_FRAMES 0x36
+/** The first misc frame to be sent */
+#define CNX_AK_FIRST_MISC_FRAME 0x37
 
 /**
  * @}

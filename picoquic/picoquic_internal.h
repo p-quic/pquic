@@ -31,7 +31,6 @@
 #include "ubpf.h"
 #include "picosocks.h"
 #include "uthash.h"
-#include "queue.h"
 #include "plugin.h"
 
 #ifdef __cplusplus
