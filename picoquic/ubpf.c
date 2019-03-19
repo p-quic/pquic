@@ -107,6 +107,10 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x3e, "picoquic_record_pn_received", picoquic_record_pn_received);
     /* This value is reserved. DO NOT OVERRIDE IT! */
     ubpf_register(vm, 0x3f, "picoquic_memory_bound_error", picoquic_memory_bound_error);
+
+    ubpf_register(vm, 0x40, "queue_peek", queue_peek);
+    /* FIXME remove this function */
+    ubpf_register(vm, 0x41, "picoquic_frame_fair_reserve", picoquic_frame_fair_reserve);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

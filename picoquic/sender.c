@@ -926,9 +926,13 @@ void register_plugin_in_pkt(picoquic_packet_t* packet, protoop_plugin_t* p, uint
 }
 
 
-// bytes = starting point of the buffer
-// max_bytes: max amont of bytes that can be used for the new frames
-int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t *packet, size_t *consumed, unsigned int *is_pure_ack) {
+protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    size_t max_bytes = (size_t) cnx->protoop_inputv[1];
+    picoquic_packet_t *packet = (picoquic_packet_t *) cnx->protoop_inputv[2];
+
+    unsigned int is_pure_ack = 1;
+    
     reserve_frame_slot_t *rfs;
     reserve_frame_slot_t *first_retry = NULL;
     protoop_arg_t outs[PROTOOPARGS_MAX];
@@ -963,7 +967,7 @@ int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_b
             p->frames_total += 1;
             /* Keep track if the packet should be retransmitted or not */
             if (is_retransmittable) {
-                *is_pure_ack = 0;
+                is_pure_ack = 0;
             }
             packet->is_congestion_controlled |= rfs->is_congestion_controlled;
             /* And let the packet know that it has plugin bytes */
@@ -1012,7 +1016,7 @@ int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_b
             p->frames_total += 1;
             /* Keep track if the packet should be retransmitted or not */
             if (is_retransmittable) {
-                *is_pure_ack = 0;
+                is_pure_ack = 0;
             }
             packet->is_congestion_controlled |= rfs->is_congestion_controlled;
             /* And let the packet know that it has plugin bytes */
@@ -1036,7 +1040,19 @@ int scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_b
             ret = 0;
         }
     }
-    *consumed = length;
+    
+    protoop_save_outputs(cnx, length, is_pure_ack);
+    return ret;
+}
+
+// bytes = starting point of the buffer
+// max_bytes: max amont of bytes that can be used for the new frames
+int picoquic_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t *packet, size_t *consumed, unsigned int *is_pure_ack) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, outs,
+        bytes, max_bytes, packet);
+    *consumed = (size_t) outs[0];
+    *is_pure_ack &= outs[1];
     return ret;
 }
 
@@ -1164,7 +1180,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                     /* We are at the last frame of the packet, let's put all the plugin frames before it */
                                     size_t consumed = 0;
                                     if (checksum_length + length + frame_length < send_buffer_max)
-                                        scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
+                                        picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                                     length += consumed;
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                     while (checksum_length + length + frame_length < send_buffer_max) {
@@ -1180,7 +1196,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         if (!has_unlimited_frame && checksum_length + length < send_buffer_max) {
                             // there is remaining space in the packet
                             size_t consumed = 0;
-                            scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
+                            picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                             length += consumed;
                         }
                     }
@@ -2751,9 +2767,9 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             if (cnx->cnx_state != picoquic_state_disconnected) {
                 size_t consumed = 0;
                 unsigned int is_pure_ack = packet->is_pure_ack;
-                ret = scheduler_write_new_frames(cnx, &bytes[length],
-                                                    send_buffer_min_max - checksum_overhead - length, packet,
-                                                    &consumed, &is_pure_ack);
+                ret = picoquic_scheduler_write_new_frames(cnx, &bytes[length],
+                                                          send_buffer_min_max - checksum_overhead - length, packet,
+                                                          &consumed, &is_pure_ack);
                 packet->is_pure_ack = is_pure_ack;
                 if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {
                     ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
@@ -3213,6 +3229,7 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH, &schedule_frames_on_path);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, &scheduler_write_new_frames);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED, &retransmit_needed);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, &retransmit_needed_by_packet);

@@ -154,6 +154,19 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
 extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH;
 
 /**
+ * Write frames that were previously scheduled in the packet
+ * \param[in] bytes \b uint8_t* The array of bytes forming the packet content
+ * \param[in] max_bytes \b size_t The maximum amount of bytes that can be written on the packet
+ * \param[in] packet \b picoquic_packet_t* The packet to be sent
+ * 
+ * \return \b int 0 if everything is ok
+ * \param[out] consumed \b size_t The number of bytes written
+ * \param[out] is_pure_ack <b> unsigned int </b> Is this packet non retransmittable?
+ */
+#define PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES "scheduler_write_new_frames"
+extern protoop_id_t PROTOOP_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES;
+
+/**
  * Process "ack_range" blocks contained in an ACK frame and release acknowledged packets in the retransmit queue.
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ack range
  * \param[in] highest \b uint64_t The highest packet number acknowledged in the range

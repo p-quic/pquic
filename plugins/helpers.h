@@ -196,6 +196,20 @@ static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cn
     return ret;
 }
 
+static int helper_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t* packet,
+                                             size_t *consumed, unsigned int *is_pure_ack)
+{
+    protoop_arg_t outs[2];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) max_bytes;
+    args[2] = (protoop_arg_t) packet;
+    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    *is_pure_ack &= (unsigned int) outs[1];
+    return ret;
+}
+
 static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
 {
     return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
@@ -351,6 +365,17 @@ static int helper_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, 3, args, outs);
     *consumed = (size_t)outs[0];
     return ret;
+}
+
+static int helper_stream_bytes_max(picoquic_cnx_t* cnx, size_t bytes_max, size_t header_length, uint8_t* bytes)
+{
+    protoop_arg_t outs[1];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes_max;
+    args[1] = (protoop_arg_t) header_length;
+    args[2] = (protoop_arg_t) bytes;
+    run_noparam(cnx, PROTOOPID_NOPARAM_STREAM_BYTES_MAX, 3, args, outs);
+    return (size_t) outs[0];
 }
 
 static int helper_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
