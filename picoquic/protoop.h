@@ -138,6 +138,22 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
 // I would rather be in favor of plugins to define a separate metrics accessible via the cnx.
 
 /**
+ * Schedule frames and provide a packet with the path it should be sent on when connection is ready
+ * \param[in] packet \b picoquic_packet_t* The packet to be sent
+ * \param[in] send_buffer_max \b size_t The maximum amount of bytes that can be written on the packet
+ * \param[in] current_time \b uint64_t Time of the scheduling
+ * \param[in] retransmit_p \b picoquic_packet_t* A candidate packet for retransmission
+ * \param[in] from_path \b picoquic_path_t* The path on which the candidate packet was sent
+ * \param[in] reason \b char* A description of the reason for which the candidate packet is proposed
+ * 
+ * \return \b int 0 if everything is ok
+ * \param[out] path_x \b picoquic_path_t* The path on which the packet should be sent
+ * \param[out] length \b uint32_t The length of the packet to be sent
+ */
+#define PROTOOPID_NOPARAM_SCHEDULE_FRAMES_ON_PATH "schedule_frames_on_path"
+extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH;
+
+/**
  * Process "ack_range" blocks contained in an ACK frame and release acknowledged packets in the retransmit queue.
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ack range
  * \param[in] highest \b uint64_t The highest packet number acknowledged in the range
