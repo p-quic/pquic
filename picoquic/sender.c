@@ -2633,20 +2633,27 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     }
 }
 
-/* TODO FIXME packet should never be passed in this function, we should have a way to say send the retransmission now on the given path */
-int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_t current_time, picoquic_path_t **selected_path,
-    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_packet_t *packet, uint32_t *plength, int *contains_crypto)
+/**
+ * See PROTOOPID_NOPARAM_SCHEDULE_FRAMES_ON_PATH
+ */
+protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 {
+    picoquic_packet_t* packet = (picoquic_packet_t*) cnx->protoop_inputv[0];
+    size_t send_buffer_max = (size_t) cnx->protoop_inputv[1];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
+    picoquic_packet_t* retransmit_p = (picoquic_packet_t*) cnx->protoop_inputv[3];
+    picoquic_path_t* from_path = (picoquic_path_t*) cnx->protoop_inputv[4];
+    char* reason = (char*) cnx->protoop_inputv[5];
+
+    int ret = 0;
+    uint32_t length = 0;
     int is_cleartext_mode = 0;
     uint32_t checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
 
     /* FIXME cope with different path MTUs */
-    *selected_path = picoquic_select_sending_path(cnx, retransmit_p, from_path, reason);
-    picoquic_path_t *path_x = *selected_path;
+    picoquic_path_t *path_x = cnx->path[0];
 
     uint32_t send_buffer_min_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : (uint32_t)send_buffer_max;
-    uint32_t length = *plength;
-    int ret = 0;
     int retransmit_possible = 1;
     picoquic_packet_context_enum pc = picoquic_packet_context_application;
     size_t data_bytes = 0;
@@ -2771,7 +2778,7 @@ int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_
                                 if (data_bytes > 0)
                                 {
                                     packet->is_pure_ack = 0;
-                                    *contains_crypto = 1;
+                                    packet->contains_crypto = 1;
                                     packet->is_congestion_controlled = 1;
                                 }
                             }
@@ -2869,8 +2876,23 @@ int schedule_frames_on_path(picoquic_cnx_t *cnx, size_t send_buffer_max, uint64_
 
         }
     }
-    *plength = length;
-    return 0;
+
+    protoop_save_outputs(cnx, path_x, length);
+    return (protoop_arg_t) ret;
+}
+
+
+/* TODO FIXME packet should never be passed in this function, we should have a way to say send the retransmission now on the given path */
+int picoquic_schedule_frames_on_path(picoquic_cnx_t *cnx, picoquic_packet_t *packet, size_t send_buffer_max, uint64_t current_time,
+    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_path_t **path_x, uint32_t *length)
+{
+    
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH, outs,
+        packet, send_buffer_max, current_time, retransmit_p, from_path, reason);
+    *path_x = (picoquic_path_t*) outs[0];
+    *length = (uint32_t) outs[1];
+    return ret;
 }
 
 /**
@@ -2936,6 +2958,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     int ret = 0;
     int is_cleartext_mode = 0;
+    packet->contains_crypto = 0;
     packet->is_pure_ack = 1;
     int contains_crypto = 0;
     uint32_t header_length = 0;
@@ -2962,8 +2985,8 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     if (length == 0) {
         packet->pc = pc;
-        ret = schedule_frames_on_path(cnx, send_buffer_max, current_time, &path_x, retransmit_p,
-                                      from_path, reason, packet, &length, &contains_crypto);
+        ret = picoquic_schedule_frames_on_path(cnx, packet, send_buffer_max, current_time, retransmit_p,
+                                      from_path, reason, &path_x, &length);
 
         if (cnx->cnx_state != picoquic_state_disconnected) {
             /* If necessary, encode and send the keep alive packet!
@@ -3189,6 +3212,7 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SELECT_SENDING_PATH, &select_sending_path);
 
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH, &schedule_frames_on_path);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED, &retransmit_needed);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, &retransmit_needed_by_packet);
