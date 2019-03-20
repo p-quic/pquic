@@ -287,12 +287,11 @@ static int helper_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* byt
     size_t bytes_max, size_t* consumed, picoquic_path_t * path)
 {
     protoop_arg_t outs[1];
-    protoop_arg_t args[4];
+    protoop_arg_t args[3];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *consumed;
-    args[3] = (protoop_arg_t) path;
-    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, 4, args, outs);
+    args[2] = (protoop_arg_t) path;
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, 3, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
