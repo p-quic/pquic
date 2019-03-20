@@ -8,9 +8,9 @@
  */
 protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 {
-    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    const uint8_t *bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
-    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) get_cnx(cnx, CNX_AK_INPUT, 2);
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    const uint8_t *bytes_max = (const uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    mp_ack_ctx_t *mac = (mp_ack_ctx_t *) get_cnx(cnx, AK_CNX_INPUT, 2);
     
     size_t consumed = 0;
     
@@ -25,9 +25,9 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_first_range = 0;
-    picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-    picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_FIRST_SACK_ITEM);
-    picoquic_sack_item_t* next_sack = (picoquic_sack_item_t *) get_sack_item(first_sack, SACK_ITEM_AK_NEXT_SACK);
+    picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+    picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
+    picoquic_sack_item_t* next_sack = (picoquic_sack_item_t *) get_sack_item(first_sack, AK_SACKITEM_NEXT_SACK);
     uint64_t ack_delay = 0;
     uint64_t ack_range = 0;
     uint64_t ack_gap = 0;
@@ -39,7 +39,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     
 
     /* Check that there is enough room in the packet, and something to acknowledge */
-    uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, SACK_ITEM_AK_START_RANGE);
+    uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE);
     if (first_sack_start_range == (uint64_t)((int64_t)-1)) {
         consumed = 0;
     } else if (bytes_max - bytes < 14) {
@@ -58,7 +58,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             byte_index += l_path_id;
         }
         /* Encode the largest seen */
-        uint64_t first_sack_end_range = (uint64_t) get_sack_item(first_sack, SACK_ITEM_AK_END_RANGE);
+        uint64_t first_sack_end_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_END_RANGE);
         if (byte_index < bytes_max - bytes) {
             l_largest = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 first_sack_end_range);
@@ -66,10 +66,10 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         }
         /* Encode the ack delay */
         if (byte_index < bytes_max - bytes) {
-            uint64_t time_stamp_largest_received = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED);
+            uint64_t time_stamp_largest_received = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_TIME_STAMP_LARGEST_RECEIVED);
             if (current_time > time_stamp_largest_received) {
                 ack_delay = current_time - time_stamp_largest_received;
-                ack_delay >>= (uint8_t) get_cnx(cnx, CNX_AK_LOCAL_PARAMETER, TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT);
+                ack_delay >>= (uint8_t) get_cnx(cnx, AK_CNX_LOCAL_PARAMETER, TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT);
             }
             l_delay = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 ack_delay);
@@ -100,8 +100,8 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             while (num_block < 63 && next_sack != NULL) {
                 size_t l_gap = 0;
                 size_t l_range = 0;
-                uint64_t next_sack_end_range = (uint64_t) get_sack_item(next_sack, SACK_ITEM_AK_END_RANGE);
-                uint64_t next_sack_start_range = (uint64_t) get_sack_item(next_sack, SACK_ITEM_AK_START_RANGE);
+                uint64_t next_sack_end_range = (uint64_t) get_sack_item(next_sack, AK_SACKITEM_END_RANGE);
+                uint64_t next_sack_start_range = (uint64_t) get_sack_item(next_sack, AK_SACKITEM_START_RANGE);
 
                 if (byte_index < (size_t) (bytes_max - bytes)) {
                     ack_gap = lowest_acknowledged - next_sack_end_range - 2; /* per spec */
@@ -121,7 +121,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
                 } else {
                     byte_index += l_gap + l_range;
                     lowest_acknowledged = next_sack_start_range;
-                    next_sack = (picoquic_sack_item_t *) get_sack_item(next_sack, SACK_ITEM_AK_NEXT_SACK);
+                    next_sack = (picoquic_sack_item_t *) get_sack_item(next_sack, AK_SACKITEM_NEXT_SACK);
                     num_block++;
                 }
             }
@@ -129,23 +129,23 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             my_memset(&bytes[num_block_index], (uint8_t)num_block, 1);
 
             /* Remember the ACK value and time */
-            set_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACK_SENT, first_sack_end_range);
-            set_pkt_ctx(pkt_ctx, PKT_CTX_AK_HIGHEST_ACK_TIME, current_time);
+            set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_SENT, first_sack_end_range);
+            set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME, current_time);
 
             consumed = byte_index;
         }
     }
 
     if (ret == 0) {
-        set_pkt_ctx(pkt_ctx, PKT_CTX_AK_ACK_NEEDED, 0);
+        set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
     }
 
     my_free(cnx, mac);
 
     pd->doing_ack = false;
 
-    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
-    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 0);
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 0);
 
     return (protoop_arg_t) ret;
 }

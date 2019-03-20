@@ -124,7 +124,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
 
             int payload_length = fb->source_symbols[i]->data_length - 1 - sizeof(uint64_t);
             if (!ret) {
-                picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+                picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
 //                picoquic_record_pn_received(cnx, path,
 //                                            ph.pc, ph.pn64,
 //                                            picoquic_current_time());

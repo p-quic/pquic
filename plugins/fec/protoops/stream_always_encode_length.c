@@ -6,6 +6,6 @@
  */
 
 protoop_arg_t stream_always_encode_length(picoquic_cnx_t* cnx) {
-    set_cnx(cnx, CNX_AK_OUTPUT, 0, true);
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, true);
     return 0;
 }

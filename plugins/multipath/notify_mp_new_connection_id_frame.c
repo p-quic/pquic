@@ -7,8 +7,8 @@
 protoop_arg_t notify_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
 {
     /* FIXME make me loss resilient */
-    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    int received = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
+    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    int received = (int) get_cnx(cnx, AK_CNX_INPUT, 1);
 
     mp_new_connection_id_ctx_t *mncic = (mp_new_connection_id_ctx_t *) rfs->frame_ctx;
     

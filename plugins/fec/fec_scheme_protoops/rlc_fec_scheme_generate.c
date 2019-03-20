@@ -27,7 +27,7 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
     prng.mat1 = 0x8f7011ee;
     prng.mat2 = 0xfc78ff1f;
     prng.tmat = 0x3793fdff;
-    fec_block_t* fec_block = (fec_block_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    fec_block_t* fec_block = (fec_block_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     PROTOOP_PRINTF(cnx, "GENERATING SYMBOLS WITH RLC\n");
     if (fec_block->total_repair_symbols == 0
         || fec_block->total_source_symbols < 1

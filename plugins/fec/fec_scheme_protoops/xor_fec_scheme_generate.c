@@ -40,7 +40,7 @@ static inline void xor(uint8_t *a, uint8_t *b, uint8_t *container, int size_a, i
  */
 protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
 {
-    fec_block_t* fec_block = (fec_block_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    fec_block_t* fec_block = (fec_block_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     PROTOOP_PRINTF(cnx, "GENERATING SYMBOLS AFTER CALL, BEFORE MEMORY ACCESS, %p\n", fec_block->total_source_symbols);
     if (fec_block->total_repair_symbols != 1
             || fec_block->total_source_symbols < 1

@@ -6,8 +6,8 @@
 
 protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
 {
-    picoquic_state_enum from_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_INPUT, 0);
-    picoquic_state_enum to_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_INPUT, 1);
+    picoquic_state_enum from_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_INPUT, 0);
+    picoquic_state_enum to_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_INPUT, 1);
 
     /* Check that nothing nasty is done */
     if (from_state != to_state && (to_state == picoquic_state_client_ready ||

@@ -6,9 +6,9 @@
 
 protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    picoquic_path_t *from_path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
-    char *reason = (char *) get_cnx(cnx, CNX_AK_INPUT, 2);
+    picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    picoquic_path_t *from_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    char *reason = (char *) get_cnx(cnx, AK_CNX_INPUT, 2);
 
     if (retransmit_p && from_path && reason) {
         if (strncmp(PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT, reason, 23) != 0) {
@@ -17,7 +17,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
         }
     }
 
-    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0); /* We should NEVER return NULL */
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0); /* We should NEVER return NULL */
     picoquic_path_t *path_0 = path_x;
     picoquic_path_t *path_c = NULL;
     bpf_data *bpfd = get_bpf_data(cnx);
@@ -32,10 +32,10 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
         /* Lowest RTT-based scheduler */
         if (pd->state == 2) {
             path_c = pd->path;
-            int challenge_verified_c = (int) get_path(path_c, PATH_AK_CHALLENGE_VERIFIED, 0);
-            uint64_t challenge_time_c = (uint64_t) get_path(path_c, PATH_AK_CHALLENGE_TIME, 0);
-            uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, PATH_AK_RETRANSMIT_TIMER, 0);
-            uint8_t challenge_repeat_count_c = (uint8_t) get_path(path_c, PATH_AK_CHALLENGE_REPEAT_COUNT, 0);
+            int challenge_verified_c = (int) get_path(path_c, AK_PATH_CHALLENGE_VERIFIED, 0);
+            uint64_t challenge_time_c = (uint64_t) get_path(path_c, AK_PATH_CHALLENGE_TIME, 0);
+            uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, AK_PATH_RETRANSMIT_TIMER, 0);
+            uint8_t challenge_repeat_count_c = (uint8_t) get_path(path_c, AK_PATH_CHALLENGE_REPEAT_COUNT, 0);
 
             if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < now && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 /* Start the challenge! */
@@ -45,7 +45,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 break;
             }
 
-            int challenge_response_to_send_c = (int) get_path(path_c, PATH_AK_CHALLENGE_RESPONSE_TO_SEND, 0);
+            int challenge_response_to_send_c = (int) get_path(path_c, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0);
             if (challenge_response_to_send_c) {
                 /* Reply as soon as possible! */
                 path_x = path_c;
@@ -58,18 +58,18 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
             if (challenge_verified_c && path_x == path_0) {
                 path_x = path_c;
                 selected_path_index = i;
-                smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
+                smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
                 valid = 0;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
-            uint64_t cwin_c = (uint64_t) get_path(path_c, PATH_AK_CWIN, 0);
-            uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, PATH_AK_BYTES_IN_TRANSIT, 0);
+            uint64_t cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
+            uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
             if (cwin_c <= bytes_in_transit_c) {
                 continue;
             }
 
-            int ping_received_c = (int) get_path(path_c, PATH_AK_PING_RECEIVED, 0);
+            int ping_received_c = (int) get_path(path_c, AK_PATH_PING_RECEIVED, 0);
             if (ping_received_c) {
                 /* We need some action from the path! */
                 path_x = path_c;
@@ -91,10 +91,10 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 continue;
             }
 
-            uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
+            uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
             if (path_c != path_0) {
                 uint64_t current_time = picoquic_current_time();
-                uint32_t send_mtu = (uint32_t) get_path(path_c, PATH_AK_SEND_MTU, 0);
+                uint32_t send_mtu = (uint32_t) get_path(path_c, AK_PATH_SEND_MTU, 0);
                 /* ALWAYS AVOID PROBING A PATH IF ITS CWIN IS NEARLY FULL!!! */
                 if (bytes_in_transit_c * 2 <= cwin_c && pd->last_rtt_probe + smoothed_rtt_c + RTT_PROBE_INTERVAL < current_time && !pd->rtt_probe_ready) {  // Prepares a RTT probe
                     pd->last_rtt_probe = current_time;
@@ -124,7 +124,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                 if (path_x == path_0) {
                     path_x = path_c;
                     selected_path_index = i;
-                    smoothed_rtt_x = (uint64_t) get_path(path_c, PATH_AK_SMOOTHED_RTT, 0);
+                    smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
                     valid = 0;
                     continue;
                 }

@@ -10,7 +10,7 @@
  */
 protoop_arg_t process_source_fpid_frame(picoquic_cnx_t *cnx)
 {
-    source_fpid_frame_t *frame = (source_fpid_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    source_fpid_frame_t *frame = (source_fpid_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     PROTOOP_PRINTF(cnx, "PROCESS SFPID FRAME\n");
     bpf_state *state = get_bpf_state(cnx);
     if (!state) {

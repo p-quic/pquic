@@ -16,10 +16,10 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
      * extension of the largest number to 64 bits */
 
     picoquic_sack_item_t* target_sack = first_sack;
-    picoquic_sack_item_t* next_sack = (picoquic_sack_item_t*) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
+    picoquic_sack_item_t* next_sack = (picoquic_sack_item_t*) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
     while (next_sack != NULL) {
         target_sack = next_sack;
-        next_sack = (picoquic_sack_item_t*) get_sack_item(target_sack, SACK_ITEM_AK_NEXT_SACK);
+        next_sack = (picoquic_sack_item_t*) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
     }
 
     ret = helper_parse_ack_header(bytes, bytes_max,
@@ -103,32 +103,32 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
  */
 protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
 {
-    picoquic_packet_t* p = (picoquic_packet_t*) get_cnx(cnx, CNX_AK_INPUT, 0);
+    picoquic_packet_t* p = (picoquic_packet_t*) get_cnx(cnx, AK_CNX_INPUT, 0);
 
     int ret = 0;
     size_t byte_index;
     int frame_is_pure_ack = 0;
     size_t frame_length = 0;
 
-    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, PKT_AK_TYPE);
+    picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, AK_PKT_TYPE);
 
     if (ret == 0 && ptype == picoquic_packet_0rtt_protected) {
-        set_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, CNX_AK_NB_ZERO_RTT_ACKED, 0) + 1);
+        set_cnx(cnx, AK_CNX_NB_ZERO_RTT_ACKED, 0, get_cnx(cnx, AK_CNX_NB_ZERO_RTT_ACKED, 0) + 1);
     }
 
-    byte_index = (size_t) get_pkt(p, PKT_AK_OFFSET);
-    uint32_t length = (uint32_t) get_pkt(p, PKT_AK_LENGTH);
-    uint8_t *bytes = (uint8_t *) get_pkt(p, PKT_AK_BYTES);
+    byte_index = (size_t) get_pkt(p, AK_PKT_OFFSET);
+    uint32_t length = (uint32_t) get_pkt(p, AK_PKT_LENGTH);
+    uint8_t *bytes = (uint8_t *) get_pkt(p, AK_PKT_BYTES);
     uint8_t type_byte;
 
     while (ret == 0 && byte_index < length) {
         my_memcpy(&type_byte, &bytes[byte_index], 1);
         if (type_byte == picoquic_frame_type_ack || type_byte == picoquic_frame_type_ack_ecn) {
             int is_ecn = type_byte == picoquic_frame_type_ack_ecn ? 1 : 0;
-            picoquic_path_t *send_path = (picoquic_path_t *) get_pkt(p, PKT_AK_SEND_PATH);
-            picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, PKT_AK_CONTEXT);
-            picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(send_path, PATH_AK_PKT_CTX, pc);
-            picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_FIRST_SACK_ITEM);
+            picoquic_path_t *send_path = (picoquic_path_t *) get_pkt(p, AK_PKT_SEND_PATH);
+            picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, AK_PKT_CONTEXT);
+            picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(send_path, AK_PATH_PKT_CTX, pc);
+            picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
             ret = process_ack_of_ack_frame(cnx, first_sack,
                 &bytes[byte_index], length - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
