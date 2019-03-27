@@ -207,6 +207,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 0);
+    uint32_t last_pkt_length = (uint32_t) get_cnx(cnx, AK_CNX_INPUT, 1);
     uint64_t latest_progress_time = (uint64_t) get_cnx(cnx, AK_CNX_LATEST_PROGRESS_TIME, 0);
     uint64_t client_mode = (int) get_cnx(cnx, AK_CNX_CLIENT_MODE, 0);
     uint64_t next_time = latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - client_mode);
@@ -233,7 +234,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     }
 
     int nb_paths = (int) get_cnx(cnx, AK_CNX_NB_PATHS, 0);
-    for (int i = (nb_paths > 1); blocked != 0 && i < nb_paths; i++) {
+    for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
         picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
         pd = mp_get_path_data(bpfd, path_x);
         /* If the path is not active, don't expect anything! */

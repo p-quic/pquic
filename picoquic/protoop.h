@@ -340,6 +340,7 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID;
 /**
  * Set the timer for the select, i.e., specify the next wake time of the implementation
  * \param[in] current_time \b uint64_t The current time
+ * \param[in] last_pkt_length \b uint32_t Size of last packet sent
  */
 #define PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME "set_next_wake_time"
 extern protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME;
