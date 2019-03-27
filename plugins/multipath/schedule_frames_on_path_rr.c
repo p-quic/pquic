@@ -323,14 +323,13 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                         if (ret == 0) {
                             ret = helper_prepare_required_max_stream_data_frames(cnx, &bytes[length],
                                                                                     send_buffer_min_max - checksum_overhead - length, &data_bytes);
-                        }
-
-                        if (ret == 0) {
-                            length += (uint32_t)data_bytes;
-                            if (data_bytes > 0)
-                            {
-                                set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
-                                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                            if (ret == 0) {
+                                length += (uint32_t)data_bytes;
+                                if (data_bytes > 0)
+                                {
+                                    set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
+                                    set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                                }
                             }
                         }
                         /* Encode the stream frame, or frames */
@@ -358,11 +357,13 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 break;
                             }
                         }
-
-                        if (length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
-                            uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
-                            my_memset(&bytes[length], 0, pad_size);
-                        }
+                    }
+                    if (length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
+                        uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
+                        my_memset(&bytes[length], 0, pad_size);
+                    } else if (length == 0 || length == header_length) {
+                        /* Don't flood the network with packets! */
+                        length = 0;
                     }
                 }
             }

@@ -2844,16 +2844,16 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                         if (ret == 0) {
                             ret = picoquic_prepare_required_max_stream_data_frames(cnx, &bytes[length],
                                                                                     send_buffer_min_max - checksum_overhead - length, &data_bytes);
-                        }
-
-                        if (ret == 0) {
-                            length += (uint32_t)data_bytes;
-                            if (data_bytes > 0)
-                            {
-                                packet->is_pure_ack = 0;
-                                packet->is_congestion_controlled = 1;
+                            if (ret == 0) {
+                                length += (uint32_t)data_bytes;
+                                if (data_bytes > 0)
+                                {
+                                    packet->is_pure_ack = 0;
+                                    packet->is_congestion_controlled = 1;
+                                }
                             }
                         }
+
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
                             size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
@@ -2879,13 +2879,15 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 break;
                             }
                         }
-
-                        if (length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
-                            uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
-                            for (uint32_t i = 0; i < pad_size; i++) {
-                                bytes[length++] = 0;
-                            }
+                    }
+                    if (length > 0 && length != header_length && length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
+                        uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
+                        for (uint32_t i = 0; i < pad_size; i++) {
+                            bytes[length++] = 0;
                         }
+                    } else if (length == 0 || length == header_length) {
+                        /* Don't flood the network with packets! */
+                        length = 0;
                     }
                 }
             }
