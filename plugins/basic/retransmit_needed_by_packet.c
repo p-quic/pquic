@@ -52,12 +52,9 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 
         if (should_retransmit == 0) {
             /* Don't fire yet, because of possible out of order delivery */
-            int64_t time_out = current_time - send_time;
-            uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_NB_RETRANSMIT);
-            uint64_t retransmit_timer = (nb_retransmit == 0) ?
-                (uint64_t) get_path(send_path, AK_PATH_RETRANSMIT_TIMER, 0) : (1000000ull << (nb_retransmit - 1));
+            uint64_t rto_time = (uint64_t) get_pkt(p, AK_PKT_RTO_TIME);
 
-            if ((uint64_t)time_out < retransmit_timer) {
+            if (current_time < rto_time) {
                 /* Do not retransmit if the timer has not yet elapsed */
                 should_retransmit = 0;
             } else {

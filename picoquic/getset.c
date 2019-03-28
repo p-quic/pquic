@@ -730,6 +730,8 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return pkt->is_congestion_controlled;
     case AK_PKT_BYTES:
         return (protoop_arg_t) pkt->bytes;
+    case AK_PKT_RTO_TIME:
+        return pkt->rto_time;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;
@@ -789,6 +791,9 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_BYTES:
         printf("ERROR: setting bytes is not implemented!\n");
+        break;
+    case AK_PKT_RTO_TIME:
+        pkt->rto_time = val;
         break;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
