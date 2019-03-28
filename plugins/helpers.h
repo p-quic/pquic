@@ -172,8 +172,8 @@ static int helper_should_send_max_data(picoquic_cnx_t* cnx)
 {
     int ret = 0;
 
-    uint64_t data_received = (uint64_t) get_cnx(cnx, CNX_AK_DATA_RECEIVED, 0);
-    uint64_t maxdata_local = (uint64_t) get_cnx(cnx, CNX_AK_MAXDATA_LOCAL, 0);
+    uint64_t data_received = (uint64_t) get_cnx(cnx, AK_CNX_DATA_RECEIVED, 0);
+    uint64_t maxdata_local = (uint64_t) get_cnx(cnx, AK_CNX_MAXDATA_LOCAL, 0);
     if (2 * data_received > maxdata_local)
         ret = 1;
 
@@ -185,14 +185,28 @@ static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cn
 {
     int ret = 0;
 
-    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, CNX_AK_STATE, 0);
-    unsigned int mtu_probe_sent = (unsigned int) get_path(path_x, PATH_AK_MTU_PROBE_SENT, 0);
-    uint32_t send_mtu_max_tried = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU_MAX_TRIED, 0);
-    uint32_t send_mtu = (uint32_t) get_path(path_x, PATH_AK_SEND_MTU, 0);
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_STATE, 0);
+    unsigned int mtu_probe_sent = (unsigned int) get_path(path_x, AK_PATH_MTU_PROBE_SENT, 0);
+    uint32_t send_mtu_max_tried = (uint32_t) get_path(path_x, AK_PATH_SEND_MTU_MAX_TRIED, 0);
+    uint32_t send_mtu = (uint32_t) get_path(path_x, AK_PATH_SEND_MTU, 0);
     if ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) && mtu_probe_sent == 0 && (send_mtu_max_tried == 0 || (send_mtu + 10) < send_mtu_max_tried)) {
         ret = 1;
     }
 
+    return ret;
+}
+
+static int helper_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t* packet,
+                                             size_t *consumed, unsigned int *is_pure_ack)
+{
+    protoop_arg_t outs[2];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) max_bytes;
+    args[2] = (protoop_arg_t) packet;
+    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    *is_pure_ack &= (unsigned int) outs[1];
     return ret;
 }
 
@@ -273,12 +287,11 @@ static int helper_prepare_path_challenge_frame(picoquic_cnx_t *cnx, uint8_t* byt
     size_t bytes_max, size_t* consumed, picoquic_path_t * path)
 {
     protoop_arg_t outs[1];
-    protoop_arg_t args[4];
+    protoop_arg_t args[3];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *consumed;
-    args[3] = (protoop_arg_t) path;
-    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, 4, args, outs);
+    args[2] = (protoop_arg_t) path;
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, 3, args, outs);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -353,6 +366,17 @@ static int helper_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     return ret;
 }
 
+static int helper_stream_bytes_max(picoquic_cnx_t* cnx, size_t bytes_max, size_t header_length, uint8_t* bytes)
+{
+    protoop_arg_t outs[1];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes_max;
+    args[1] = (protoop_arg_t) header_length;
+    args[2] = (protoop_arg_t) bytes;
+    run_noparam(cnx, PROTOOPID_NOPARAM_STREAM_BYTES_MAX, 3, args, outs);
+    return (size_t) outs[0];
+}
+
 static int helper_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
@@ -387,11 +411,12 @@ static void helper_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_pac
 }
 
 /* TODO: tie with per path scheduling */
-static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
+static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time, uint32_t last_pkt_length)
 {
-    protoop_arg_t args[1];
+    protoop_arg_t args[2];
     args[0] = (protoop_arg_t) current_time;
-    run_noparam(cnx, PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME, 1, args, NULL);
+    args[1] = (protoop_arg_t) last_pkt_length;
+    run_noparam(cnx, PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME, 2, args, NULL);
 }
 
 static picoquic_packet_context_enum helper_context_from_epoch(int epoch)

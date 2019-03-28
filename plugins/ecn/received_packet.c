@@ -11,7 +11,7 @@
 protoop_arg_t received_packet(picoquic_cnx_t *cnx)
 {
     /* FIXME only for Linux! */
-    int socket = (int) get_cnx(cnx, CNX_AK_INPUT, 0);
+    int socket = (int) get_cnx(cnx, AK_CNX_INPUT, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     /* FIXME what if the socket is IPv6? */

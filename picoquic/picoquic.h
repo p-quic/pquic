@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include "protoop.h"
+#include "queue.h"
 #ifdef _WINDOWS
 #include <WS2tcpip.h>
 #include <Ws2def.h>
@@ -717,6 +718,8 @@ uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max,
 void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
+
+void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
 
 #ifdef __cplusplus
 }

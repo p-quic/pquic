@@ -6,9 +6,9 @@
 protoop_arg_t after_decoding_frames(picoquic_cnx_t *cnx)
 {
     /* We want to send an MP_ACK frame on the selected type */
-    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    int ack_needed = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
-    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    int ack_needed = (int) get_cnx(cnx, AK_CNX_INPUT, 1);
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     if (path_x != path_0) {

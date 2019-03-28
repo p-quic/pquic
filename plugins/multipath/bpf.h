@@ -146,18 +146,18 @@ static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
 static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
 {
     pd->state = 1;
-    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, 0);
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     /* By default, create the path with the current peer address of path 0 */
-    struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, PATH_AK_PEER_ADDR, 0);
+    struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
     int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
-    pd->path = (picoquic_path_t *) get_cnx(cnx, CNX_AK_PATH, cnx_path_index);
+    pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
     /* Also insert CIDs */
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_LOCAL_CID, 0);
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_LOCAL_CID, 0);
     my_memcpy(local_cnxid, &pd->local_cnxid, sizeof(picoquic_connection_id_t));
-    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, PATH_AK_REMOTE_CID, 0);
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_REMOTE_CID, 0);
     my_memcpy(remote_cnxid, &pd->remote_cnxid, sizeof(picoquic_connection_id_t));
-    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, PATH_AK_RESET_SECRET, 0);
+    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
     PROTOOP_PRINTF(cnx, "Path %x ready!\n", pd->path_id);
 }
@@ -221,8 +221,8 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
     rfs->nb_bytes = 200; /* FIXME dynamic count */
     reserve_frames(cnx, 1, rfs);
     /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
-    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-    set_pkt_ctx(pkt_ctx, PKT_CTX_AK_ACK_NEEDED, 0);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+    set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
 }
 
 /* Other multipath functions */
@@ -344,7 +344,7 @@ static int helper_prepare_add_address_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
 }
 
 static void start_using_path_if_possible(picoquic_cnx_t* cnx) {
-    int client_mode = (int) get_cnx(cnx, CNX_AK_CLIENT_MODE, 0);
+    int client_mode = (int) get_cnx(cnx, AK_CNX_CLIENT_MODE, 0);
     /* Prevent the server from starting using new paths */
     if (!client_mode) {
         return;
@@ -369,27 +369,27 @@ static void start_using_path_if_possible(picoquic_cnx_t* cnx) {
             if (pd->path_id == 2 && bpfd->loc_addrs[0].sa != NULL && bpfd->rem_addrs[0].sa) {
                 pd->loc_addr_id = 1;
                 adl = &bpfd->loc_addrs[0];
-                set_path(pd->path, PATH_AK_LOCAL_ADDR_LEN, 0, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(pd->path, PATH_AK_LOCAL_ADDR, 0);
+                set_path(pd->path, AK_PATH_LOCAL_ADDR_LEN, 0, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
+                struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(pd->path, AK_PATH_LOCAL_ADDR, 0);
                 my_memcpy(path_local_addr, adl->sa, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                set_path(pd->path, PATH_AK_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);
+                set_path(pd->path, AK_PATH_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);
                 pd->rem_addr_id = 1;
                 adr = &bpfd->rem_addrs[0];
-                set_path(pd->path, PATH_AK_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(pd->path, PATH_AK_PEER_ADDR, 0);
+                set_path(pd->path, AK_PATH_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
+                struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(pd->path, AK_PATH_PEER_ADDR, 0);
                 my_memcpy(path_peer_addr, adr->sa,(adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
             } else if (pd->path_id == 4 && bpfd->loc_addrs[1].sa != NULL && bpfd->rem_addrs[0].sa) {
                 // Path id is 4
                 pd->loc_addr_id = 2;
                 adl = &bpfd->loc_addrs[1];
-                set_path(pd->path, PATH_AK_LOCAL_ADDR_LEN, 0, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(pd->path, PATH_AK_LOCAL_ADDR, 0);
+                set_path(pd->path, AK_PATH_LOCAL_ADDR_LEN, 0, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
+                struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(pd->path, AK_PATH_LOCAL_ADDR, 0);
                 my_memcpy(path_local_addr, adl->sa, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                set_path(pd->path, PATH_AK_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);
+                set_path(pd->path, AK_PATH_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);
                 pd->rem_addr_id = 1;
                 adr = &bpfd->rem_addrs[0];
-                set_path(pd->path, PATH_AK_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(pd->path, PATH_AK_PEER_ADDR, 0);
+                set_path(pd->path, AK_PATH_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
+                struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(pd->path, AK_PATH_PEER_ADDR, 0);
                 my_memcpy(path_peer_addr, adr->sa,(adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
             }
         }

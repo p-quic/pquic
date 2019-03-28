@@ -24,11 +24,11 @@ static void picoquic_newreno_enter_recovery(picoquic_path_t* path_x,
     uint64_t current_time)
 {
 
-    nr_state->ssthresh = get_path(path_x, PATH_AK_CWIN, 0) / 2;
+    nr_state->ssthresh = get_path(path_x, AK_PATH_CWIN, 0) / 2;
     if (nr_state->ssthresh < PICOQUIC_CWIN_MINIMUM) {
         nr_state->ssthresh = PICOQUIC_CWIN_MINIMUM;
     }
-    set_path(path_x, PATH_AK_CWIN, 0, nr_state->ssthresh);
+    set_path(path_x, AK_PATH_CWIN, 0, nr_state->ssthresh);
 
     nr_state->recovery_start = current_time;
 
@@ -42,22 +42,22 @@ static void picoquic_newreno_enter_recovery(picoquic_path_t* path_x,
  */
 protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
 { 
-    ack_frame_t *orig_frame = (ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
-    int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
+    ack_frame_t *orig_frame = (ack_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 1);
+    int epoch = (int) get_cnx(cnx, AK_CNX_INPUT, 2);
 
     ack_frame_t ok_frame;
     ack_frame_t *frame = &ok_frame;
     my_memcpy(frame, orig_frame, sizeof(ack_frame_t));
 
-    picoquic_path_t* path_x = (picoquic_path_t*) get_cnx(cnx, CNX_AK_PATH, 0);
+    picoquic_path_t* path_x = (picoquic_path_t*) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     uint8_t first_byte = (frame->is_ack_ecn) ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack;
 
-    picoquic_newreno_state_t *nrs = (picoquic_newreno_state_t *) get_path(path_x, PATH_AK_CONGESTION_ALGORITHM_STATE, 0);
+    picoquic_newreno_state_t *nrs = (picoquic_newreno_state_t *) get_path(path_x, AK_PATH_CONGESTION_ALGORITHM_STATE, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
-    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_SEND_SEQUENCE);
     protoop_arg_t args[3];
 
     if (epoch == 1) {
@@ -74,9 +74,9 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         return 1;
     } else {
         if (frame->is_ack_ecn) {
-            set_cnx(cnx, CNX_AK_ECN_ECT0_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[0]);
-            set_cnx(cnx, CNX_AK_ECN_ECT1_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[1]);
-            set_cnx(cnx, CNX_AK_ECN_CE_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[2]);
+            set_cnx(cnx, AK_CNX_ECN_ECT0_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[0]);
+            set_cnx(cnx, AK_CNX_ECN_ECT1_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[1]);
+            set_cnx(cnx, AK_CNX_ECN_CE_TOTAL_REMOTE, 0, (protoop_arg_t) frame->ecnx3[2]);
         }
 
         /* Attempt to update the RTT */

@@ -10,9 +10,9 @@
  */
 protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 { 
-    mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
-    int epoch = (int) get_cnx(cnx, CNX_AK_INPUT, 2);
+    mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 1);
+    int epoch = (int) get_cnx(cnx, AK_CNX_INPUT, 2);
 
     bpf_data *bpfd = get_bpf_data(cnx);
 
@@ -25,8 +25,8 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 
     picoquic_path_t *path_x = bpfd->paths[path_index].path;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
-    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, PATH_AK_PKT_CTX, pc);
-    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, PKT_CTX_AK_SEND_SEQUENCE);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+    uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_SEND_SEQUENCE);
 
     if (epoch == 1) {
         helper_protoop_printf(cnx, "MP ACK frame not expected in 0-RTT packet", NULL, 0);

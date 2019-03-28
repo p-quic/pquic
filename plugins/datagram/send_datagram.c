@@ -7,8 +7,8 @@
 
 protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
 {
-    char *payload = (char *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    int len = (int) get_cnx(cnx, CNX_AK_INPUT, 1);
+    char *payload = (char *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    int len = (int) get_cnx(cnx, AK_CNX_INPUT, 1);
     uint64_t datagram_id = 0;
     datagram_memory_t *m = get_datagram_memory(cnx);
 

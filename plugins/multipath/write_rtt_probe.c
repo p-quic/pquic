@@ -8,9 +8,9 @@
  */
 protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the path disappears ?
 {
-    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
-    uint8_t selected_path = (uint8_t) get_cnx(cnx, CNX_AK_INPUT, 2);
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    uint8_t selected_path = (uint8_t) get_cnx(cnx, AK_CNX_INPUT, 2);
     int ret = 0;
     size_t consumed = 0;
 
@@ -29,7 +29,7 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
             consumed = 0;
         } else {
             ret = PICOQUIC_MISCCODE_RETRY_NXT_PKT;
-            helper_cnx_set_next_wake_time(cnx, picoquic_current_time());
+            helper_cnx_set_next_wake_time(cnx, picoquic_current_time(), 1);
         }
     } else {
         my_memset(bytes, picoquic_frame_type_ping, 1);
@@ -40,7 +40,7 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
         consumed = bytes_max - bytes;
     }
 
-    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
-    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 1);
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 1);
     return (protoop_arg_t) ret;
 }
