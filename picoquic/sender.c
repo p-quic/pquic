@@ -185,6 +185,7 @@ picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx)
 
     if (packet != NULL) {
         memset(packet, 0, sizeof(picoquic_packet_t));
+        packet->is_pure_ack = 1;
     }
 
     return packet;
@@ -1905,7 +1906,6 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         packet->send_time = current_time;
         packet->checksum_overhead = checksum_overhead;
         packet->pc = pc;
-        packet->is_pure_ack = 0;
     } else {
         packet->is_pure_ack = 1;
     }
@@ -3034,7 +3034,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         }
     }
 
-    packet->is_pure_ack = packet->is_pure_ack;
     packet->contains_crypto = contains_crypto;
 
     picoquic_finalize_and_protect_packet(cnx, packet,
