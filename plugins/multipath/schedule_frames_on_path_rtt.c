@@ -399,12 +399,12 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             }
                         }
                     }
-                    if (length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
-                        uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
-                        my_memset(&bytes[length], 0, pad_size);
-                    } else if (length == 0 || length == header_length) {
+                    if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */
                         length = 0;
+                    } else if (length > 0 && length != header_length && length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
+                        uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
+                        my_memset(&bytes[length], 0, pad_size);
                     }
                 }
             }
