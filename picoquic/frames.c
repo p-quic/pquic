@@ -2558,9 +2558,20 @@ protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx)
     int ret = 0;
     picoquic_packet_context_t * pkt_ctx = &path_x->pkt_ctx[pc];
 
-    if (pkt_ctx->highest_ack_sent + 2 <= pkt_ctx->first_sack_item.end_of_sack_range ||
+    if (pkt_ctx->ack_needed) {
+        if (pkt_ctx->highest_ack_sent + 2 <= pkt_ctx->first_sack_item.end_of_sack_range ||
+            pkt_ctx->highest_ack_time + pkt_ctx->ack_delay_local <= current_time) {
+            ret = 1;
+        }
+    } else if (pkt_ctx->highest_ack_sent + 8 <= pkt_ctx->first_sack_item.end_of_sack_range &&
         pkt_ctx->highest_ack_time + pkt_ctx->ack_delay_local <= current_time) {
-        ret = pkt_ctx->ack_needed;
+        /* Force sending an ack-of-ack from time to time, as a low priority action */
+        if (pkt_ctx->first_sack_item.end_of_sack_range == (uint64_t)((int64_t)-1)) {
+            ret = 0;
+        }
+        else {
+            ret = 1;
+        }
     }
 
     return (protoop_arg_t) ret;
