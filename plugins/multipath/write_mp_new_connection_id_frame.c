@@ -46,9 +46,12 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         }
 
         /* Create the connection ID and the related reset token */
-        picoquic_create_random_cnx_id_for_cnx(cnx, &p->local_cnxid, 8);
-        picoquic_create_cnxid_reset_secret_for_cnx(cnx, &p->local_cnxid, (uint8_t *) &p->reset_secret[0]);
-        picoquic_register_cnx_id_for_cnx(cnx, &p->local_cnxid);
+        if (!p->proposed_cid) {
+            picoquic_create_random_cnx_id_for_cnx(cnx, &p->local_cnxid, 8);
+            picoquic_create_cnxid_reset_secret_for_cnx(cnx, &p->local_cnxid, (uint8_t *) &p->reset_secret[0]);
+            picoquic_register_cnx_id_for_cnx(cnx, &p->local_cnxid);
+            p->proposed_cid = true;
+        }
 
         size_t byte_index = 0;
         size_t path_id_l = 0;

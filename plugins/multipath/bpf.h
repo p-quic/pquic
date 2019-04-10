@@ -46,6 +46,7 @@ typedef struct {
     uint64_t last_rtt_probe;
     uint8_t rtt_probe_tries;
     bool rtt_probe_ready;
+    bool proposed_cid;
     // bool doing_ack;
 } path_data_t;
 
