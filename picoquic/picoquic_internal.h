@@ -423,7 +423,7 @@ typedef struct st_picoquic_opaque_meta_t {
 
 #define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
-#define PLUGIN_MEMORY (8 * 1024 * 1024) /* In bytes, at least needed by tests */
+#define PLUGIN_MEMORY (16 * 1024 * 1024) /* In bytes, at least needed by tests */
 
 typedef struct memory_pool {
     uint64_t num_of_blocks;
