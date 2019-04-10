@@ -276,20 +276,20 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     blocked = 0;
                 }
                 else if (helper_is_ack_needed(cnx, current_time, pc, path_x)) {
-                    if (i > 0) {
-                        bpf_data *bpfd = get_bpf_data(cnx);
-                        path_data_t *pd = mp_get_path_data(bpfd, path_x);
-                        if (pd && !pd->doing_ack) {
-                            reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
-                            pd->doing_ack = true;
-                            blocked = 0;
-                            PROTOOP_PRINTF(cnx, "Requesting ACK for path index %d pointer %p\n", i, path_x);
-                        }
-                        /* A booking is pending, please be patient... */
-                    } else {
+                    // if (i > 0) {
+                    //     bpf_data *bpfd = get_bpf_data(cnx);
+                    //     path_data_t *pd = mp_get_path_data(bpfd, path_x);
+                    //     if (pd && !pd->doing_ack) {
+                    //         reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
+                    //         pd->doing_ack = true;
+                    //         blocked = 0;
+                    //         PROTOOP_PRINTF(cnx, "Requesting ACK for path index %d pointer %p\n", i, path_x);
+                    //     }
+                    //     /* A booking is pending, please be patient... */
+                    // } else {
                         blocked = 0;
-                        PROTOOP_PRINTF(cnx, "%s", "Ack needed on initial path\n");
-                    }
+                        PROTOOP_PRINTF(cnx, "%s", "Ack needed on path index %d\n", i);
+                    // }
                 }
             }
 
@@ -297,15 +297,19 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 if (cwin_x > bytes_in_transit_x) {
-                    if (helper_should_send_max_data(cnx) ||
-                        helper_is_tls_stream_ready(cnx) ||
+                    int should_send_max_data = helper_should_send_max_data(cnx);
+                    int is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
+                    int has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
+                    if (should_send_max_data ||
+                        is_tls_stream_ready ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
-                        ((stream = helper_find_ready_stream(cnx)) != NULL || run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL)))) {
+                        ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
 #ifdef PACING
                         uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
                         uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
                         if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
 #endif
+                            PROTOOP_PRINTF(cnx, "Not blocked because should max data %d tls ready %d cnx_state %d stream %p has_cc %d\n", should_send_max_data, is_tls_stream_ready, cnx_state, stream, has_cc_to_send);
                             blocked = 0;
 #ifdef PACING
                         }
@@ -345,6 +349,11 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         PROTOOP_PRINTF(cnx, "ACK time for path %p is %lu\n", path_x, ack_time);
                         next_time = ack_time;
                     }
+
+                    // if (ack_time <= current_time && !pd->doing_ack) {
+                    //     reserve_mp_ack_frame(cnx, path_x, pc);
+                    //     pd->doing_ack = true;
+                    // }
                 }
 
                 /* Consider delayed RACK */

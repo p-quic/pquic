@@ -46,7 +46,7 @@ typedef struct {
     uint64_t last_rtt_probe;
     uint8_t rtt_probe_tries;
     bool rtt_probe_ready;
-    bool doing_ack;
+    // bool doing_ack;
 } path_data_t;
 
 typedef struct {
@@ -70,7 +70,7 @@ typedef struct {
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
 
-    uint8_t pkt_seen_non_ack;
+    // uint8_t pkt_seen_non_ack;
 } bpf_data;
 
 typedef struct add_address_frame {

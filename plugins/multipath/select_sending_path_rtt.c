@@ -129,7 +129,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     continue;
                 }
             }
-            if (path_x && smoothed_rtt_x < smoothed_rtt_c) {
+            if (path_x && valid && smoothed_rtt_x < smoothed_rtt_c) {
                 continue;
             }
             path_x = path_c;
@@ -142,12 +142,16 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
     bpfd->last_path_index_sent = selected_path_index;
     if (selected_path_index < 255) {
         pd = &bpfd->paths[selected_path_index];
-        picoquic_stream_head *stream = helper_find_ready_stream(cnx);
+        int is_ack_needed = helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_x);
+        // picoquic_stream_head *stream = helper_find_ready_stream(cnx);
 
-        if (valid && stream != NULL && !pd->doing_ack) {
+        // if (valid && stream != NULL && !pd->doing_ack) {
+            /*
+        if (is_ack_needed && !pd->doing_ack) {
             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
             pd->doing_ack = true;
         }
+        */
     }
     return (protoop_arg_t) path_x;
 }

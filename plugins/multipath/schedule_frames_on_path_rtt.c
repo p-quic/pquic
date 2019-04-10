@@ -21,6 +21,8 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
     uint64_t smoothed_rtt_x = 0;
     uint64_t now = picoquic_current_time();
     int valid = 0;
+    picoquic_stream_head *stream = helper_find_ready_stream(cnx);
+    int tls_ready = helper_is_tls_stream_ready(cnx);
     for (uint8_t i = 0; i < bpfd->nb_proposed; i++) {
         pd = &bpfd->paths[i];
         /* Lowest RTT-based scheduler */
@@ -76,7 +78,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
             }
 
             int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (mtu_needed) {
+            if (stream == NULL && tls_ready == 0 && mtu_needed) {
                 path_x = path_c;
                 selected_path_index = i;
                 valid = 0;
@@ -84,9 +86,29 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 break;
             }
 
+            /* Stupid heuristic, but needed: we require to retransmit the packet from the given path */
+            /* FIXME */
+            if (path_c == from_path) {
+                path_x = path_c;
+                selected_path_index = i;
+                valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for retransmission\n", path_x);
+                break;
+            }
+
             /* Don't consider invalid paths */
             if (!challenge_verified_c) {
                 continue;
+            }
+
+            /* If we require ACK, favour the path! */
+            int is_ack_needed = helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_x);
+            if (is_ack_needed) {
+                path_x = path_c;
+                selected_path_index = i;
+                valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for ACK\n", path_x);
+                break;
             }
 
             uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
@@ -138,15 +160,18 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
     }
 
     bpfd->last_path_index_sent = selected_path_index;
-    if (selected_path_index < 255) {
-        pd = &bpfd->paths[selected_path_index];
-        picoquic_stream_head *stream = helper_find_ready_stream(cnx);
+    // if (selected_path_index < 255) {
+    //     pd = &bpfd->paths[selected_path_index];
+    //     int is_ack_needed = helper_is_ack_needed(cnx, now, picoquic_packet_context_application, path_x);
+    //     // picoquic_stream_head *stream = helper_find_ready_stream(cnx);
 
-        if (valid && stream != NULL && !pd->doing_ack) {
-            reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
-            pd->doing_ack = true;
-        }
-    }
+    //     // if (valid && stream != NULL && !pd->doing_ack) {
+    //     if (is_ack_needed && !pd->doing_ack) {
+    //         reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
+    //         PROTOOP_PRINTF(cnx, "Reserve MP ACK in scheduler for path %d\n", pd->path_id);
+    //         pd->doing_ack = true;
+    //     }
+    // }
 
     return path_x;
 }
@@ -189,13 +214,33 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     /* First enqueue frames that can be fairly sent, if any */
     /* Only schedule new frames if there is no planned frames */
 
-    queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
-    if (queue_peek(reserved_frames) == NULL) {
-        picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
-    }
-
     picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(packet, AK_PKT_TYPE);
     char * retrans_reason = NULL;
+
+    // path_data_t *pd = NULL;
+    // bpf_data *bpfd = get_bpf_data(cnx);
+    // pd = mp_get_path_data(bpfd, path_x);
+
+    // /* Hotfix: if ACK are required, send them now! */
+    // int is_ack_needed = helper_is_ack_needed(cnx, current_time, ptype, path_x);
+    // int retransmit_p_pure_ack = 1;
+    // if (retransmit_p) {
+    //     retransmit_p_pure_ack = (int) get_pkt(retransmit_p, AK_PKT_IS_PURE_ACK);
+    // }
+    // if (pd && pd->doing_ack && retransmit_p && !retransmit_p_pure_ack && is_ack_needed) {
+    //     size_t consumed = 0;
+    //     unsigned int is_pure_ack = (unsigned int) get_pkt(packet, AK_PKT_IS_PURE_ACK);
+    //     ret = helper_scheduler_write_new_frames(cnx, &bytes[length],
+    //                                             send_buffer_min_max - checksum_overhead - length, packet,
+    //                                             &consumed, &is_pure_ack);
+    //     set_pkt(packet, AK_PKT_IS_PURE_ACK, is_pure_ack);
+    //     PROTOOP_PRINTF(cnx, "Here consumed %d and ret %d...\n", consumed, ret);
+    //     if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {
+    //         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+    //     } else if (!ret) {
+    //         length += consumed;
+    //     }
+    // } else 
     if (ret == 0 && retransmit_possible &&
         (length = helper_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &retrans_reason)) > 0) {
         if (reason != NULL) {
@@ -239,15 +284,17 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         set_pkt(packet, AK_PKT_SEND_TIME, current_time);
         set_pkt(packet, AK_PKT_SEND_PATH, (protoop_arg_t) path_x);
 
+        int mtu_needed = helper_is_mtu_probe_needed(cnx, path_x);
+
         if (((stream == NULL && tls_ready == 0 && first_misc_frame == NULL) ||
                 cwin <= bytes_in_transit)
             && helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
             && challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
-            && queue_peek(reserved_frames) == NULL
+            && mtu_needed
             && queue_peek(retry_frames) == NULL) {
             if (ret == 0 && send_buffer_max > path_send_mtu
-                && cwin > bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
+                && cwin > bytes_in_transit && mtu_needed) {
                 PROTOOP_PRINTF(cnx, "Preparing MTU probe on path %p\n", path_x);
                 length = helper_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
                 set_pkt(packet, AK_PKT_LENGTH, length);
@@ -255,10 +302,12 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                 set_path(path_x, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {
-                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %lu and BIF %lu\n", path_x, cwin, bytes_in_transit);
-                length = 0;
+                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %lu and BIF %lu MTU needed %d stream %p tls_ready %d send_buffer_max %d path_send_mtu %d ret %d\n", path_x, cwin, bytes_in_transit, mtu_needed, stream, tls_ready, send_buffer_max, path_send_mtu, ret);
+                length = header_length;
             }
-        } else {
+        }
+        /* If we are blocked by something, let's send control frames */
+        if (length == header_length) {
             if (challenge_verified == 0 &&
                 current_time >= (challenge_time + retransmit_timer)) {
                 if (helper_prepare_path_challenge_frame(cnx, &bytes[length],
@@ -284,6 +333,31 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             picoquic_state_enum cnx_state = get_cnx(cnx, AK_CNX_STATE, 0);
 
             if (cnx_state != picoquic_state_disconnected) {
+                picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+                /* FIXME I know Multipath somewhat breaks the reservation rules, but it is required here... */
+                /* Initially, we only reserved for the path we received the packet. But we should send MP ACK for ALL paths! */
+                int add_acks = 0;
+                bpf_data *bpfd = get_bpf_data(cnx);
+                for (int i = 0; pc == picoquic_packet_context_application && i < bpfd->nb_proposed; i++) {
+                    path_data_t *pdtmp = &bpfd->paths[i];
+                    if (pdtmp->state == 2 && helper_is_ack_needed(cnx, current_time, pc, pdtmp->path)) {
+                        add_acks = 1;
+                        break;
+                    }
+                }
+                if (add_acks) {
+                    for (int i = 0; i < bpfd->nb_proposed; i++) {
+                        path_data_t *pdtmp = &bpfd->paths[i];
+                        reserve_mp_ack_frame(cnx, pdtmp->path, picoquic_packet_context_application);
+                    }
+                }
+
+                queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
+                if (queue_peek(reserved_frames) == NULL) {
+                    picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
+                }
+                PROTOOP_PRINTF(cnx, "reserved frame top is %p\n", queue_peek(reserved_frames));
+
                 size_t consumed = 0;
                 unsigned int is_pure_ack = (unsigned int) get_pkt(packet, AK_PKT_IS_PURE_ACK);
                 ret = helper_scheduler_write_new_frames(cnx, &bytes[length],
@@ -294,10 +368,9 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                     ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                 } else if (!ret) {
                     length += consumed;
-                    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
                     /* FIXME: Sorry, I'm lazy, this could be easily fixed by making this a PO.
                         * This is needed by the way the cwin is now handled. */
-                    if (path_x == path_0 && (header_length != length || helper_is_ack_needed(cnx, current_time, pc, path_x))) {
+                    if (helper_is_ack_needed(cnx, current_time, pc, path_0)) {
                         if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes) == 0) {
                             length += (uint32_t)data_bytes;
                         }
@@ -421,5 +494,6 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) path_x);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, length);
+
     return (protoop_arg_t) ret;
 }

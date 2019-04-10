@@ -97,11 +97,12 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rr(picoquic
     if (selected_path_index < 255) {
         pd = &bpfd->paths[selected_path_index];
         picoquic_stream_head *stream = helper_find_ready_stream(cnx);
-
+/*
         if (valid && stream != NULL && !pd->doing_ack) {
             reserve_mp_ack_frame(cnx, path_x, picoquic_packet_context_application);
             pd->doing_ack = true;
         }
+        */
     }
 
     return path_x;
