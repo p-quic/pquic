@@ -1,10 +1,5 @@
 #include "picoquic.h"
-
-#ifdef DATAGRAM_CONGESTION_CONTROLLED
-#define DCC true
-#else
-#define DCC false
-#endif
+#include "bpf.h"
 
 protoop_arg_t is_datagram_frame_congestion_controlled(picoquic_cnx_t* cnx)
 {

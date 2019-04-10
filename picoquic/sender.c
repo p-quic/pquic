@@ -1588,14 +1588,9 @@ protoop_arg_t has_congestion_controlled_plugin_frames_to_send(picoquic_cnx_t *cn
 
     if(p) {
         do {
-            queue_node_t *current = p->block_queue->head;
-            while (current)
-            {
-                if(((reserve_frames_block_t *) current->data)->is_congestion_controlled) {
-                    ret = 1;
-                    break;
-                }
-                current = current->next;
+            if (queue_peek(p->block_queue_cc)) {
+                ret = 1;
+                break;
             }
         } while (!ret && (p = get_next_plugin(cnx, p)) != cnx->first_drr);
     }
@@ -2586,25 +2581,29 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     uint64_t max_plugin_cwin = path_x->cwin * (1000 - cnx->core_rate) / 1000;
     uint64_t total_plugin_bytes_in_flight = 0;
 
+    /*
     if (stream != NULL && plugin_use >= max_plugin_cwin) {
-        /* Don't go over the guaranteed rate! */
+        printf("Fair reserve over rate! Stream %p plugin_use %lu max_plugin_cwin %lu\n", stream, plugin_use, max_plugin_cwin);
+        // Don't go over the guaranteed rate!
         return;
     }
+    */
 
     bool has_frame = false;
     uint64_t queued_bytes = 0;
 
     p = cnx->first_drr;
 
-    /* First pass: consider only under-rated plugins */
+    /* First pass: consider only under-rated plugins with CC */
     do {
-        while ((block = queue_peek(p->block_queue)) != NULL &&
+        while ((block = queue_peek(p->block_queue_cc)) != NULL &&
                 queued_bytes < frame_mss &&
-                p->bytes_in_flight < max_plugin_cwin / num_plugins &&
+                !(stream != NULL && plugin_use >= max_plugin_cwin) &&
+                !(stream != NULL && p->bytes_in_flight >= max_plugin_cwin / num_plugins) &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             has_frame = true;
-            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
+            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_cc);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
                 block->frames[i].p = p;
@@ -2617,14 +2616,14 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
         }
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
 
-    /* Second pass: consider all plugins */
+    /* Second pass: consider all plugins with non CC */
     do {
-        while ((block = queue_peek(p->block_queue)) != NULL &&
+        while ((block = queue_peek(p->block_queue_non_cc)) != NULL &&
                 queued_bytes < frame_mss &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             has_frame = true;
-            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue);
+            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_non_cc);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
                 block->frames[i].p = p;

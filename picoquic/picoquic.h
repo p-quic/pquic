@@ -677,9 +677,10 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
  *
  * \param[in] cnx The context of the connection
  * \param[in] nb_frames A pointer to return the number of slots
+ * \param[in] congestion_controlled \b iny Do we consider the congestion controlled queue or the non one?
  * \return The slots in the reservation
  */
-reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames);
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames, int congestion_controlled);
 
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,

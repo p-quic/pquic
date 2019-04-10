@@ -437,7 +437,8 @@ typedef struct memory_pool {
 typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */
     char name[PROTOOPPLUGINNAME_MAX];
-    queue_t *block_queue; /* Send reservation queue */
+    queue_t *block_queue_cc; /* Send reservation queue for congestion controlled frames */
+    queue_t *block_queue_non_cc; /* Send reservation queue for non-congestion controlled frames */
     uint64_t bytes_in_flight; /* Number of bytes in flight due to generated frames */
     uint64_t bytes_total; /* Number of total bytes by generated frames, for monitoring */
     uint64_t frames_total; /* Number of total generated frames, for monitoring */

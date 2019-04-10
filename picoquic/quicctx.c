@@ -1537,7 +1537,8 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
             HASH_DEL(cnx->plugins, current_p);
             /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-            queue_free(current_p->block_queue);
+            queue_free(current_p->block_queue_cc);
+            queue_free(current_p->block_queue_non_cc);
             free(current_p);
         }
 
@@ -1984,7 +1985,12 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         block->is_congestion_controlled |= slots[i].is_congestion_controlled;
     }
     block->frames = slots;
-    int err = queue_enqueue(cnx->current_plugin->block_queue, block);
+    int err = 0;
+    if (block->is_congestion_controlled) {
+        err = queue_enqueue(cnx->current_plugin->block_queue_cc, block);
+    } else {
+        err = queue_enqueue(cnx->current_plugin->block_queue_non_cc, block);
+    }
     if (err) {
         free(block);
         return 0;
@@ -1993,12 +1999,13 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     return block->total_bytes;
 }
 
-reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames) {
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames, int congestion_controlled) {
     if (!cnx->current_plugin) {
         printf("ERROR: cancel_head_reservation can only be called by pluglets with plugins!\n");
         return 0;
     }
-    reserve_frames_block_t *block = queue_dequeue(cnx->current_plugin->block_queue);
+    queue_t *block_queue = congestion_controlled ? cnx->current_plugin->block_queue_cc : cnx->current_plugin->block_queue_non_cc;
+    reserve_frames_block_t *block = queue_dequeue(block_queue);
     if (block == NULL) {
         *nb_frames = 0;
         return NULL;

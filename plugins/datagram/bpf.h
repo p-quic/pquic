@@ -18,6 +18,12 @@
 #define SEND_BUFFER 900000
 #define RECV_BUFFER 500000
 
+#ifdef DATAGRAM_CONGESTION_CONTROLLED
+#define DCC true
+#else
+#define DCC false
+#endif
+
 typedef struct st_datagram_frame_t {
     uint64_t datagram_id;
     uint64_t length;
@@ -187,7 +193,7 @@ static __attribute__((always_inline)) void send_head_datagram_buffer(datagram_me
 
 static __attribute__((always_inline)) void free_head_datagram_reserved(datagram_memory_t *m, picoquic_cnx_t *cnx) {
     uint8_t nb_frames;
-    reserve_frame_slot_t *slots = cancel_head_reservation(cnx, &nb_frames);
+    reserve_frame_slot_t *slots = cancel_head_reservation(cnx, &nb_frames, (int) DCC);
     if (slots == NULL) {
         m->send_buffer = 0;
         return;

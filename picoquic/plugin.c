@@ -339,9 +339,16 @@ protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line
     }
 
     strncpy(p->name, token, PROTOOPPLUGINNAME_MAX);
-    p->block_queue = queue_init();
-    if (!p->block_queue) {
-        printf("Cannot allocate memory for sending queue!\n");
+    p->block_queue_cc = queue_init();
+    if (!p->block_queue_cc) {
+        printf("Cannot allocate memory for sending queue congestion control!\n");
+        free(p);
+        return NULL;
+    }
+    p->block_queue_non_cc = queue_init();
+    if (!p->block_queue_non_cc) {
+        printf("Cannot allocate memory for sending queue non congestion control!\n");
+        free(p->block_queue_cc);
         free(p);
         return NULL;
     }
