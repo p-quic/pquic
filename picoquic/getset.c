@@ -732,6 +732,8 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return (protoop_arg_t) pkt->bytes;
     case AK_PKT_RTO_TIME:
         return pkt->rto_time;
+    case AK_PKT_IS_MTU_PROBE:
+        return pkt->is_mtu_probe;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;
@@ -794,6 +796,9 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_RTO_TIME:
         pkt->rto_time = val;
+        break;
+    case AK_PKT_IS_MTU_PROBE:
+        pkt->is_mtu_probe = val;
         break;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);

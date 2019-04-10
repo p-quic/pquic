@@ -275,6 +275,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int contains_crypto : 1;
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
     unsigned int has_plugin_frames : 1;
+    unsigned int is_mtu_probe : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 

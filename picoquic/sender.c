@@ -1155,11 +1155,17 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         is_cleartext_mode = 1;
                     }
 
-                    if ((p->length + p->checksum_overhead) > old_path->send_mtu) {
+                    /* Update the number of bytes in transit and remove old packet from queue */
+                    /* If not pure ack, the packet will be placed in the "retransmitted" queue,
+                    * in order to enable detection of spurious restransmissions */
+                    int packet_is_pure_ack = p->is_pure_ack;
+
+                    if (p->is_mtu_probe && p->length > old_path->send_mtu) {
                         /* MTU probe was lost, presumably because of packet too big */
                         old_path->mtu_probe_sent = 0;
-                        old_path->send_mtu_max_tried = (uint32_t)(p->length + p->checksum_overhead);
+                        old_path->send_mtu_max_tried = (uint32_t)(p->length);
                         /* MTU probes should not be retransmitted */
+                        packet_is_pure_ack = 1;
                         do_not_detect_spurious = 0;
                     } else {
                         checksum_length = picoquic_get_checksum_length(cnx, is_cleartext_mode);
@@ -1207,10 +1213,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         }
                     }
 
-                    /* Update the number of bytes in transit and remove old packet from queue */
-                    /* If not pure ack, the packet will be placed in the "retransmitted" queue,
-                    * in order to enable detection of spurious restransmissions */
-                    int packet_is_pure_ack = p->is_pure_ack;
                     picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack & do_not_detect_spurious);
 
                     /* If we have a good packet, return it */
@@ -2735,6 +2737,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             if (ret == 0 && send_buffer_max > path_x->send_mtu
                 && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                 length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
+                packet->is_mtu_probe = 1;
                 packet->length = length;
                 packet->is_congestion_controlled = 1;
                 path_x->mtu_probe_sent = 1;

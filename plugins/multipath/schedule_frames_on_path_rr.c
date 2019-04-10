@@ -206,6 +206,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             if (ret == 0 && send_buffer_max > path_send_mtu
                 && cwin > bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
                 length = helper_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
+                set_pkt(packet, AK_PKT_IS_MTU_PROBE, 1);
                 set_pkt(packet, AK_PKT_LENGTH, length);
                 set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                 set_path(path_x, AK_PATH_MTU_PROBE_SENT, 0, 1);
