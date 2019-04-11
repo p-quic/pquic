@@ -267,7 +267,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             if (pd != NULL && pd->state != 2) {
                 continue;
             }
-            for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
+            for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context && (i == 0 || pc == picoquic_packet_context_application); pc++) {
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
 
@@ -309,7 +309,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
                         if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
 #endif
-                            PROTOOP_PRINTF(cnx, "Not blocked because should max data %d tls ready %d cnx_state %d stream %p has_cc %d\n", should_send_max_data, is_tls_stream_ready, cnx_state, stream, has_cc_to_send);
+                            PROTOOP_PRINTF(cnx, "Not blocked because path %p has should max data %d tls ready %d cnx_state %d stream %p has_cc %d cwin %d BIF %d\n", path_x, should_send_max_data, is_tls_stream_ready, cnx_state, stream, has_cc_to_send, cwin_x, bytes_in_transit_x);
                             blocked = 0;
 #ifdef PACING
                         }
@@ -402,7 +402,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             uint64_t keep_alive_interval = (uint64_t) get_cnx(cnx, AK_CNX_KEEP_ALIVE_INTERVAL, 0);
             if (keep_alive_interval != 0 && next_time > (latest_progress_time + keep_alive_interval)) {
                 next_time = latest_progress_time + keep_alive_interval;
-                PROTOOP_PRINTF(cnx, "Keep alive for path %p is %lu\n", path_x, next_time);
+                //PROTOOP_PRINTF(cnx, "Keep alive for path %p is %lu\n", path_x, next_time);
             }
         }
     }
