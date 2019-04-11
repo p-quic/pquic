@@ -267,6 +267,7 @@ typedef struct st_picoquic_packet_t {
     uint64_t send_time;
     uint64_t rto_time;
     uint32_t length;
+    uint32_t send_length;
     uint32_t checksum_overhead;
     uint32_t offset;
     picoquic_packet_type_enum ptype;

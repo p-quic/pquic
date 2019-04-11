@@ -546,7 +546,8 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     picoquic_packet_context_enum pc = packet->pc;
 
     if (packet->is_congestion_controlled) {
-        path_x->bytes_in_transit += length;
+        packet->send_length = length;
+        path_x->bytes_in_transit += packet->send_length;
     }
 
     /* Manage the double linked packet list for retransmissions */
@@ -572,7 +573,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
     picoquic_packet_t *p = (picoquic_packet_t *) cnx->protoop_inputv[0];
     int should_free = (int) cnx->protoop_inputv[1];
 
-    size_t dequeued_length = p->length + p->checksum_overhead;
+    size_t dequeued_length = p->send_length;
     picoquic_packet_context_enum pc = p->pc;
     picoquic_path_t* send_path = p->send_path;
 
