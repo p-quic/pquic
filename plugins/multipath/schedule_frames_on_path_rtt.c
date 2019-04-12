@@ -36,6 +36,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 path_x = path_c;
                 selected_path_index = i;
                 valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for challenge\n", path_x);
                 break;
             }
 
@@ -45,6 +46,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 path_x = path_c;
                 selected_path_index = i;
                 valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for challenge response\n", path_x);
                 break;
             }
 
@@ -69,6 +71,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 path_x = path_c;
                 selected_path_index = i;
                 valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for ping\n", path_x);
                 break;
             }
 
@@ -77,6 +80,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 path_x = path_c;
                 selected_path_index = i;
                 valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected for MTU\n", path_x);
                 break;
             }
 
@@ -102,15 +106,15 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                     slot->frame_ctx = (void *)(uint64_t) i;
                     size_t ret = reserve_frames(cnx, 1, slot);
                     if (ret == slot->nb_bytes) {
-                        /* PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path %d\n", send_mtu / 20, i); */
+                        PROTOOP_PRINTF(cnx, "Reserving %d bytes for RTT probe on path index %d pointer %p\n", send_mtu / 20, i, path_c);
                     }
                 }
 
                 if (pd->rtt_probe_ready) {  // Sends the RTT probe in the retry queue
-                    /* PROTOOP_PRINTF(cnx, "Switching to path %d for sending probe\n", i); */
                     path_x = path_c;
                     selected_path_index = i;
                     valid = 0;
+                    PROTOOP_PRINTF(cnx, "Switching to path index %d pointer %p for sending probe\n", i, path_x);
                     break;
                 }
 
@@ -123,7 +127,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                     continue;
                 }
             }
-            if (path_x && smoothed_rtt_x < smoothed_rtt_c) {
+            if (path_x && valid && smoothed_rtt_x < smoothed_rtt_c) {
                 continue;
             }
             path_x = path_c;
@@ -244,12 +248,14 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             && queue_peek(retry_frames) == NULL) {
             if (ret == 0 && send_buffer_max > path_send_mtu
                 && cwin > bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
+                PROTOOP_PRINTF(cnx, "Preparing MTU probe on path %p\n", path_x);
                 length = helper_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
                 set_pkt(packet, AK_PKT_LENGTH, length);
                 set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                 set_path(path_x, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {
+                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %lu and BIF %lu\n", path_x, cwin, bytes_in_transit);
                 length = 0;
             }
         } else {
@@ -265,7 +271,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                     set_path(path_x, AK_PATH_CHALLENGE_REPEAT_COUNT, 0, challenge_repeat_count);
                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
 
-
+                    PROTOOP_PRINTF(cnx, "Path %p CWIN %lu BIF %lu\n", path_x, cwin, bytes_in_transit);
                     if (challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
                         PROTOOP_PRINTF(cnx, "%s\n", "Too many challenge retransmits, disconnect");
                         picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
@@ -401,6 +407,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                     }
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */
+                        PROTOOP_PRINTF(cnx, "Don't send packet of size 0 on %p\n", path_x);
                         length = 0;
                     } else if (length > 0 && length != header_length && length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
                         uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
