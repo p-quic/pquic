@@ -7,7 +7,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
     if (retransmit_p && from_path && reason) {
         if (strncmp(PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT, reason, 23) != 0) {
             /* Fast retransmit or TLP, stay on the same path! */
-            return (protoop_arg_t) from_path;
+            return from_path;
         }
     }
 
