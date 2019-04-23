@@ -1,0 +1,3 @@
+create_fec_schemes replace fec_scheme_protoops/create_rlc_fec_scheme_gf256.o
+fec_recover replace fec_scheme_protoops/rlc_fec_scheme_gf256.o
+fec_generate_repair_symbols replace fec_scheme_protoops/rlc_fec_scheme_generate_gf256.o

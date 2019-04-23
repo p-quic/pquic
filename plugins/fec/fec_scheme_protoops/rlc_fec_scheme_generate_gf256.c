@@ -3,7 +3,7 @@
 #include "../gf256/swif_symbol.c"
 #include "../../helpers.h"
 #include "../prng/tinymt32.c"
-
+#include "rlc_fec_scheme_gf256.h"
 
 
 static inline void get_coefs(picoquic_cnx_t *cnx, tinymt32_t *prng, uint32_t seed, int n, uint8_t coefs[n]) {
@@ -28,7 +28,9 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
     prng.mat2 = 0xfc78ff1f;
     prng.tmat = 0x3793fdff;
     fec_block_t* fec_block = (fec_block_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
-    PROTOOP_PRINTF(cnx, "GENERATING SYMBOLS WITH RLC\n");
+    rlc_gf256_fec_scheme_t *fs = (rlc_gf256_fec_scheme_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    uint8_t **mul = fs->table_mul;
+    PROTOOP_PRINTF(cnx, "GENERATING SYMBOLS WITH RLC GF256\n");
     if (fec_block->total_repair_symbols == 0
         || fec_block->total_source_symbols < 1
         || fec_block->current_source_symbols != fec_block->total_source_symbols) {
@@ -59,7 +61,9 @@ protoop_arg_t fec_generate_repair_symbols(picoquic_cnx_t *cnx)
         get_coefs(cnx, &prng, rfpid.source_fpid.raw, fec_block->total_source_symbols, coefs);
         repair_symbol_t *rs = malloc_repair_symbol(cnx, rfpid, max_length);
         for (j = 0 ; j < fec_block->total_source_symbols ; j++) {
-            symbol_add_scaled(rs->data, coefs[j], knowns[j], max_length);
+//            PROTOOP_PRINTF(cnx, "ADD coef = %d, data = %p, rs[8] = 0x%x, symbol2 = %p, tab = %p\n", coefs[j], (protoop_arg_t) rs->data, rs->data[8], (protoop_arg_t) knowns[j], (protoop_arg_t) mul);
+
+            symbol_add_scaled(rs->data, coefs[j], knowns[j], max_length, mul);
         }
         fec_block->repair_symbols[i] = rs;
     }
