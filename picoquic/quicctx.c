@@ -1365,6 +1365,83 @@ int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_
         local_error, frame_type);
 }
 
+void picoquic_free_protoops_and_plugins(picoquic_cnx_t* cnx)
+{
+    protocol_operation_struct_t *current_post, *tmp_protoop;
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    observer_node_t *cur_del, *tmp;
+
+    HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
+        HASH_DEL(cnx->ops, current_post);
+
+        if (current_post->is_parametrable) {
+            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                HASH_DEL(current_post->params, current_popst);
+                if (current_popst->replace) {
+                    release_elf(current_popst->replace);
+                }
+
+                if (current_popst->pre) {
+                    cur_del = current_popst->pre;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                if (current_popst->post) {
+                    cur_del = current_popst->post;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                free(current_popst);
+            }
+        } else {
+            current_popst = current_post->params;
+            if (current_popst->replace) {
+                release_elf(current_popst->replace);
+            }
+
+            if (current_popst->pre) {
+                cur_del = current_popst->pre;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            if (current_popst->post) {
+                cur_del = current_popst->post;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            free(current_popst);
+        }
+
+        free(current_post->pid.id);
+        free(current_post);
+    }
+
+    protoop_plugin_t *current_p, *tmp_p;
+    HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
+        HASH_DEL(cnx->plugins, current_p);
+        /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+        queue_free(current_p->block_queue_cc);
+        queue_free(current_p->block_queue_non_cc);
+        free(current_p);
+    }
+}
+
 void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 {
     picoquic_stream_head* stream;
@@ -1463,84 +1540,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         /* Free protocol operations and plugins */
-        protocol_operation_struct_t *current_post, *tmp_protoop;
-        protocol_operation_param_struct_t *current_popst, *tmp_popst;
-        observer_node_t *cur_del, *tmp;
-
-        HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
-            HASH_DEL(cnx->ops, current_post);
-
-            if (current_post->is_parametrable) {
-                HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
-                    HASH_DEL(current_post->params, current_popst);
-                    if (current_popst->replace) {
-                        release_elf(current_popst->replace);
-                    }
-
-                    if (current_popst->pre) {
-                        cur_del = current_popst->pre;
-                        while (cur_del) {
-                            tmp = cur_del->next;
-                            release_elf(cur_del->observer);
-                            free(cur_del);
-                            cur_del = tmp;
-                        }
-                    }
-                    if (current_popst->post) {
-                        cur_del = current_popst->post;
-                        while (cur_del) {
-                            tmp = cur_del->next;
-                            release_elf(cur_del->observer);
-                            free(cur_del);
-                            cur_del = tmp;
-                        }
-                    }
-                    free(current_popst);
-                }
-            } else {
-                current_popst = current_post->params;
-                if (current_popst->replace) {
-                    release_elf(current_popst->replace);
-                }
-
-                if (current_popst->pre) {
-                    cur_del = current_popst->pre;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
-                }
-                if (current_popst->post) {
-                    cur_del = current_popst->post;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
-                }
-                free(current_popst);
-            }
-
-            free(current_post->pid.id);
-            free(current_post);
-        }
+        picoquic_free_protoops_and_plugins(cnx);
 
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
         /* And also the retry frames */
         queue_free(cnx->retry_frames);
-
-        protoop_plugin_t *current_p, *tmp_p;
-        HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
-            HASH_DEL(cnx->plugins, current_p);
-            /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-            queue_free(current_p->block_queue_cc);
-            queue_free(current_p->block_queue_non_cc);
-            free(current_p);
-        }
 
         free(cnx);
     }
