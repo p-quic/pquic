@@ -17,20 +17,60 @@ static __attribute__((always_inline)) bool is_mtu_probe(picoquic_packet_t *p, pi
  *
  * \return \b picoquic_path_t* The path on which the next packet will be sent.
  */
-protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
+protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 {
-    picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
-    picoquic_path_t *retransmit_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
-    picoquic_path_t *chosen_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_RETURN_VALUE, 0);
+    picoquic_packet_t *packet = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    picoquic_packet_t *retransmit_p = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 3);
+    picoquic_path_t *retransmit_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 4);
+    picoquic_path_t *chosen_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_OUTPUT, 0);
+    uint32_t length = get_cnx(cnx, AK_CNX_OUTPUT, 1);
     // set the current fpid
     bpf_state *state = get_bpf_state(cnx);
+
+
+    // protect the source symbol
+    uint8_t *data = (uint8_t *) get_pkt(packet, AK_PKT_BYTES);
+    picoquic_packet_type_enum packet_type = get_pkt(packet, AK_PKT_TYPE);
+//    uint32_t length = get_pkt(packet, AK_PKT_LENGTH);
+    uint32_t header_length = get_pkt(packet, AK_PKT_OFFSET);
+    PROTOOP_PRINTF(cnx, "PROTECT, LENGTH  %d, OFFSET = %d\n", length, header_length);
+
+    if (state->current_sfpid_frame && (packet_type == picoquic_packet_1rtt_protected_phi0 || packet_type == picoquic_packet_1rtt_protected_phi1)){
+        uint8_t *payload_with_pn = my_malloc(cnx, length - header_length + 1 + sizeof(uint64_t));
+        // copy the packet payload without the header and put it 8 bytes after the start of the buffer
+//        my_memcpy(payload_with_pn + 1 + sizeof(uint64_t), data + header_length, length - header_length);
+//        uint64_t seqnum = (uint64_t) get_pkt(packet, AK_PKT_SEQUENCE_NUMBER);
+//        encode_u64(seqnum, payload_with_pn + 1);
+//        payload_with_pn[0] = FEC_MAGIC_NUMBER;
+
+
+
+
+        protoop_arg_t args[4];
+        args[0] = (protoop_arg_t) data + header_length;
+        args[1] = (protoop_arg_t) payload_with_pn;
+        args[2] = length - header_length;
+        args[3] = get_pkt(packet, AK_PKT_SEQUENCE_NUMBER);
+        uint32_t symbol_length = (uint32_t) run_noparam(cnx, "packet_payload_to_source_symbol", 4, args, NULL);
+
+
+
+
+
+        int err = protect_packet(cnx, &state->current_sfpid_frame->source_fpid, payload_with_pn, symbol_length);
+        my_free(cnx, payload_with_pn);
+        if (err)
+            return (protoop_arg_t) err;
+    }
     if (state->current_sfpid_frame) {
         my_free(cnx, state->current_sfpid_frame);
+        state->current_sfpid_frame = NULL;
     }
-    state->current_sfpid_frame = NULL;
-    state->current_packet_contains_fpid_frame = false;
-    state->current_packet_contains_fec_frame = false;
-    state->cancel_sfpid_in_current_packet = false;
+
+
+
+
+
 
     // if no stream data to send, do not protect anything anymore
     void *ret = (void *) run_noparam(cnx, "find_ready_stream", 0, NULL, NULL);
