@@ -139,6 +139,17 @@ int picoquic_load_tickets(picoquic_stored_ticket_t** pp_first_ticket,
     uint64_t current_time, char const* ticket_file_name);
 void picoquic_free_tickets(picoquic_stored_ticket_t** pp_first_ticket);
 
+/**
+ * XXX: For now, we assume we always request the same plugin.
+ * If not, we would require an hash map with linked list, but the current behaviour
+ * of the client and the server does not require it now. Currently, a queue does
+ * well the job.
+ */
+typedef struct st_cached_plugins_t {
+    protocol_operation_struct_t* ops; /* A hash map to the protocol operations */
+    protoop_plugin_t *plugins; /* A hash map to the plugins referenced by ops */
+} cached_plugins_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -187,6 +198,9 @@ typedef struct st_picoquic_quic_t {
 
     picoquic_fuzz_fn fuzz_fn;
     void* fuzz_ctx;
+
+    /* Queue of cached plugins */
+    queue_t* cached_plugins_queue;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -476,7 +490,7 @@ typedef struct {
 
 protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op);
 
-typedef struct {
+typedef struct st_protocol_operation_struct_t {
     protoop_id_t pid; /* Key, the hash is the primary one */
     char name[PROTOOPNAME_MAX];
     bool is_parametrable;
@@ -500,7 +514,6 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx);
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
-
 
 /* 
  * Per connection context.

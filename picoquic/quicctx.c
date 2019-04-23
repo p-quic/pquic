@@ -157,6 +157,98 @@ const picoquic_version_parameters_t picoquic_supported_versions[] = {
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
 
+void picoquic_free_protoops(protocol_operation_struct_t * ops)
+{
+    protocol_operation_struct_t *current_post, *tmp_protoop;
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    observer_node_t *cur_del, *tmp;
+
+    HASH_ITER(hh, ops, current_post, tmp_protoop) {
+        HASH_DEL(ops, current_post);
+
+        if (current_post->is_parametrable) {
+            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                HASH_DEL(current_post->params, current_popst);
+                if (current_popst->replace) {
+                    release_elf(current_popst->replace);
+                }
+
+                if (current_popst->pre) {
+                    cur_del = current_popst->pre;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                if (current_popst->post) {
+                    cur_del = current_popst->post;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                free(current_popst);
+            }
+        } else {
+            current_popst = current_post->params;
+            if (current_popst->replace) {
+                release_elf(current_popst->replace);
+            }
+
+            if (current_popst->pre) {
+                cur_del = current_popst->pre;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            if (current_popst->post) {
+                cur_del = current_popst->post;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            free(current_popst);
+        }
+
+        free(current_post->pid.id);
+        free(current_post);
+    }
+}
+
+void picoquic_free_plugins(protoop_plugin_t *plugins)
+{
+    protoop_plugin_t *current_p, *tmp_p;
+    HASH_ITER(hh, plugins, current_p, tmp_p) {
+        HASH_DEL(plugins, current_p);
+        /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+        queue_free(current_p->block_queue_cc);
+        queue_free(current_p->block_queue_non_cc);
+        free(current_p);
+    }
+}
+
+void picoquic_free_protoops_and_plugins(picoquic_cnx_t* cnx)
+{
+    picoquic_free_protoops(cnx->ops);
+    picoquic_free_plugins(cnx->plugins);
+}
+
+void picoquic_free_cached_plugins(cached_plugins_t* cplugins)
+{
+    picoquic_free_protoops(cplugins->ops);
+    picoquic_free_plugins(cplugins->plugins);
+    free(cplugins);
+}
 
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
@@ -234,6 +326,12 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 picoquic_crypto_random(quic, quic->reset_seed, sizeof(quic->reset_seed));
             else
                 memcpy(quic->reset_seed, reset_seed, sizeof(quic->reset_seed));
+
+            quic->cached_plugins_queue = queue_init();
+            if (!quic->cached_plugins_queue) {
+                ret = -1;
+                DBG_PRINTF("%s", "Cannot create cached plugins queue \n");
+            }
         }
     }
 
@@ -302,6 +400,15 @@ void picoquic_free(picoquic_quic_t* quic)
 
             free(quic->tls_master_ctx);
             quic->tls_master_ctx = NULL;
+        }
+
+        if (quic->cached_plugins_queue != NULL) {
+            cached_plugins_t* tmp;
+            while(queue_peek(quic->cached_plugins_queue) != NULL) {
+                tmp = queue_dequeue(quic->cached_plugins_queue);
+                picoquic_free_cached_plugins(tmp);
+            }
+            queue_free(quic->cached_plugins_queue);
         }
 
         free(quic);
@@ -1365,83 +1472,6 @@ int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_
         local_error, frame_type);
 }
 
-void picoquic_free_protoops_and_plugins(picoquic_cnx_t* cnx)
-{
-    protocol_operation_struct_t *current_post, *tmp_protoop;
-    protocol_operation_param_struct_t *current_popst, *tmp_popst;
-    observer_node_t *cur_del, *tmp;
-
-    HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
-        HASH_DEL(cnx->ops, current_post);
-
-        if (current_post->is_parametrable) {
-            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
-                HASH_DEL(current_post->params, current_popst);
-                if (current_popst->replace) {
-                    release_elf(current_popst->replace);
-                }
-
-                if (current_popst->pre) {
-                    cur_del = current_popst->pre;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
-                }
-                if (current_popst->post) {
-                    cur_del = current_popst->post;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
-                }
-                free(current_popst);
-            }
-        } else {
-            current_popst = current_post->params;
-            if (current_popst->replace) {
-                release_elf(current_popst->replace);
-            }
-
-            if (current_popst->pre) {
-                cur_del = current_popst->pre;
-                while (cur_del) {
-                    tmp = cur_del->next;
-                    release_elf(cur_del->observer);
-                    free(cur_del);
-                    cur_del = tmp;
-                }
-            }
-            if (current_popst->post) {
-                cur_del = current_popst->post;
-                while (cur_del) {
-                    tmp = cur_del->next;
-                    release_elf(cur_del->observer);
-                    free(cur_del);
-                    cur_del = tmp;
-                }
-            }
-            free(current_popst);
-        }
-
-        free(current_post->pid.id);
-        free(current_post);
-    }
-
-    protoop_plugin_t *current_p, *tmp_p;
-    HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
-        HASH_DEL(cnx->plugins, current_p);
-        /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-        queue_free(current_p->block_queue_cc);
-        queue_free(current_p->block_queue_non_cc);
-        free(current_p);
-    }
-}
-
 void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 {
     picoquic_stream_head* stream;
@@ -1539,8 +1569,37 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             cnx->path = NULL;
         }
 
-        /* Free protocol operations and plugins */
-        picoquic_free_protoops_and_plugins(cnx);
+        /* If we are the server, keep the protocol operations in the cache */
+        if (!picoquic_is_client(cnx)) {
+            /* TODO */
+            cached_plugins_t* cached = malloc(sizeof(cached_plugins_t));
+            if (!cached) {
+                DBG_PRINTF("%s", "Cannot allocate memory to cache plugins; free them.\n");
+                picoquic_free_protoops_and_plugins(cnx);
+            } else {
+                cached->ops = cnx->ops;
+                cached->plugins = cnx->plugins;
+                protoop_plugin_t *current_p, *tmp_p;
+                HASH_ITER(hh, cached->plugins, current_p, tmp_p) {
+                    /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+                    while(queue_peek(current_p->block_queue_cc) != NULL) {queue_dequeue(current_p->block_queue_cc);}
+                    while(queue_peek(current_p->block_queue_non_cc) != NULL) {queue_dequeue(current_p->block_queue_non_cc);}
+                    /* The additional critical data that should be reset is the opaque data in plugins */
+                    memset(current_p->opaque_metas, 0, sizeof(current_p->opaque_metas));
+                    /* And reinit the memory */
+                    init_memory_management(current_p);
+                }
+                int err = queue_enqueue(cnx->quic->cached_plugins_queue, cached);
+                if (err) {
+                    DBG_PRINTF("%s", "Cannot insert cached plugins; free them.\n");
+                    picoquic_free_protoops_and_plugins(cnx);
+                    free(cached);
+                }
+            }
+        } else {
+            /* Free protocol operations and plugins */
+            picoquic_free_protoops_and_plugins(cnx);
+        }
 
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
