@@ -13,10 +13,12 @@ typedef struct {
     bool should_check_block_flush;
     char underlying_fec_scheme[8];
     uint32_t oldest_fec_block_number : 24;
-    uint8_t *current_packet;
-    uint16_t current_packet_length;
+    uint8_t *current_symbol;
+    uint16_t current_symbol_length;
     fec_framework_t framework_sender;
     fec_framework_t framework_receiver;
+    fec_scheme_t scheme_sender;
+    fec_scheme_t scheme_receiver;
     source_fpid_frame_t *current_sfpid_frame;    // this variable is not-null only between prepare_packet_ready and finalize_and_protect_packet
     bool is_in_skip_frame;    // set to true if we are currently in skip_frame
     bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
@@ -33,14 +35,25 @@ static __attribute__((always_inline)) bpf_state *initialize_bpf_state(picoquic_c
     if (!state) return NULL;
     my_memset(state, 0, sizeof(bpf_state));
     protoop_arg_t frameworks[2];
-    // create_fec_framework creates the receiver (0) and sender (1) FEC Frameworks. If an error happens, ret != 0 and both frameworks are freed by the protoop
-    int ret = (int) run_noparam(cnx, "create_fec_framework", 0, NULL, frameworks);
-    state->framework_receiver = (fec_framework_t) frameworks[0];
-    state->framework_sender = (fec_framework_t) frameworks[1];
+    protoop_arg_t schemes[2];
+    // create_fec_schemes creates the receiver (0) and sender (1) FEC Schemes. If an error happens, ret != 0 and both schemes are freed by the protoop
+    int ret = (int) run_noparam(cnx, "create_fec_schemes", 0, NULL, schemes);
     if (ret) {
+        PROTOOP_PRINTF(cnx, "ERROR WHEN CREATING FEC SCHEMES\n");
         my_free(cnx, state);
         return NULL;
     }
+    state->scheme_receiver = (fec_scheme_t) schemes[0];
+    state->scheme_sender = (fec_scheme_t) schemes[1];
+    // create_fec_framework creates the receiver (0) and sender (1) FEC Frameworks. If an error happens, ret != 0 and both frameworks are freed by the protoop
+    ret = (int) run_noparam(cnx, "create_fec_framework", 2, schemes, frameworks);
+    if (ret) {
+        my_free(cnx, state);
+        PROTOOP_PRINTF(cnx, "ERROR WHEN CREATING FRAMEWORKS\n");
+        return NULL;
+    }
+    state->framework_receiver = (fec_framework_t) frameworks[0];
+    state->framework_sender = (fec_framework_t) frameworks[1];
     return state;
 }
 
@@ -106,6 +119,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
 
     protoop_arg_t args[5], outs[1];
     args[0] = (protoop_arg_t) fb;
+    args[1] = (protoop_arg_t) state->scheme_receiver;
     uint8_t *to_recover = (uint8_t *) my_malloc(cnx, MAX_RECOVERED_IN_ONE_ROW);
     int n_to_recover = 0;
     for (uint8_t i = 0; i < fb->total_source_symbols && n_to_recover < MAX_RECOVERED_IN_ONE_ROW; i++) {
@@ -114,58 +128,55 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
         }
     }
 
-    int ret = (int) run_noparam(cnx, "fec_recover", 1, args, outs);
-    int idx = 0;
-    int i = 0;
-    for (idx = 0 ; idx < n_to_recover ; idx++) {
-        i = to_recover[idx];
-        if (fb->source_symbols[i] && fb->source_symbols[i]->data_length > MIN_DECODED_SYMBOL_TO_PARSE) {
-            uint64_t pn = decode_u64(fb->source_symbols[i]->data + 1);
+    int ret = 0;
+    if (n_to_recover > 0) {
+        ret = (int) run_noparam(cnx, "fec_recover", 2, args, outs);
+        int idx = 0;
+        int i = 0;
+        for (idx = 0 ; idx < n_to_recover ; idx++) {
+            i = to_recover[idx];
+            if (fb->source_symbols[i] && fb->source_symbols[i]->data_length > MIN_DECODED_SYMBOL_TO_PARSE) {
+                uint64_t pn = decode_u64(fb->source_symbols[i]->data + 1);
 
-            int payload_length = fb->source_symbols[i]->data_length - 1 - sizeof(uint64_t);
-            if (!ret) {
-                picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+                int payload_length = fb->source_symbols[i]->data_length - 1 - sizeof(uint64_t);
+                if (!ret) {
+                    picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
 //                picoquic_record_pn_received(cnx, path,
 //                                            ph.pc, ph.pn64,
 //                                            picoquic_current_time());
-                PROTOOP_PRINTF(cnx,
-                               "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %llx, len_frames = %u, start = 0x%x\n",
-                               (protoop_arg_t) i, pn,
-                               payload_length, fb->source_symbols[i]->data[0]);
+                    PROTOOP_PRINTF(cnx,
+                                   "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %llx, len_frames = %u, start = 0x%x\n",
+                                   (protoop_arg_t) i, pn,
+                                   payload_length, fb->source_symbols[i]->data[0]);
 
-//                args[0] = (protoop_arg_t) fb->source_symbols[i]->data + ph.offset;
-//                args[1] = ph.payload_length;
-//                args[2] = (protoop_arg_t) ph.epoch;
-//                args[3] = picoquic_current_time();
-//                args[4] = (protoop_arg_t) path;
-//                picoquic_log_frames_cnx(NULL, cnx, 1, fb->source_symbols[i]->data + ph.offset, ph.payload_length);
+                    uint8_t *tmp_current_packet = state->current_symbol;
+                    uint16_t tmp_current_packet_length = state->current_symbol_length;
+                    // ensure that we don't consider it as a new Soruce Symbol when parsing
+                    state->current_symbol = fb->source_symbols[i]->data;
+                    state->current_symbol_length = fb->source_symbols[i]->data_length;
+                    state->in_recovery = true;
+                    ret = picoquic_decode_frames_without_current_time(cnx, fb->source_symbols[i]->data + sizeof(uint64_t) + 1, (size_t) payload_length, 3, path);
 
-                uint8_t *tmp_current_packet = state->current_packet;
-                uint16_t tmp_current_packet_length = state->current_packet_length;
-                // ensure that we don't consider it as a new Soruce Symbol when parsing
-                state->current_packet = fb->source_symbols[i]->data;
-                state->current_packet_length = fb->source_symbols[i]->data_length;
-                state->in_recovery = true;
-                ret = picoquic_decode_frames_without_current_time(cnx, fb->source_symbols[i]->data + sizeof(uint64_t) + 1, (size_t) payload_length, 3, path);
-
-                state->current_packet = tmp_current_packet;
-                state->current_packet_length = tmp_current_packet_length;
-                state->in_recovery = false;
-                // we should free the recovered symbol: it has been correctly handled when decoding the packet
-                free_source_symbol(cnx, fb->source_symbols[i]);
-                fb->source_symbols[i] = NULL;
+                    state->current_symbol = tmp_current_packet;
+                    state->current_symbol_length = tmp_current_packet_length;
+                    state->in_recovery = false;
+                    // we should free the recovered symbol: it has been correctly handled when decoding the packet
+                    free_source_symbol(cnx, fb->source_symbols[i]);
+                    fb->source_symbols[i] = NULL;
 
 //                ret = (int) run_noparam(cnx, "decode_frames", 5, args, outs);
-                if (!ret) {
-                    PROTOOP_PRINTF(cnx, "DECODED ! \n");
-                } else {
-                    PROTOOP_PRINTF(cnx, "ERROR WHILE DECODING: %u ! \n", (uint32_t) ret);
+                    if (!ret) {
+                        PROTOOP_PRINTF(cnx, "DECODED ! \n");
+                    } else {
+                        PROTOOP_PRINTF(cnx, "ERROR WHILE DECODING: %u ! \n", (uint32_t) ret);
+                    }
                 }
             }
         }
+        my_free(cnx, to_recover);
+        my_free(cnx, fb);
     }
-    my_free(cnx, to_recover);
-    my_free(cnx, fb);
+
 
     return ret;
 

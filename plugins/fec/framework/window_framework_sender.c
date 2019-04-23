@@ -20,6 +20,7 @@ typedef struct {
 } queue_item;
 
 typedef struct {
+    fec_scheme_t fec_scheme;
     source_symbol_t *fec_window[RECEIVE_BUFFER_MAX_LENGTH];
     uint8_t n;
     uint8_t k;
@@ -37,7 +38,7 @@ typedef struct {
 } window_fec_framework_t;
 
 
-static __attribute__((always_inline)) window_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) window_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx, fec_scheme_t fs) {
     window_fec_framework_t *wff = (window_fec_framework_t *) my_malloc(cnx, sizeof(window_fec_framework_t));
     if (!wff)
         return NULL;
@@ -45,6 +46,7 @@ static __attribute__((always_inline)) window_fec_framework_t *create_framework_s
     wff->highest_sent_id = INITIAL_SYMBOL_ID-1;
     wff->n = DEFAULT_N;
     wff->k = DEFAULT_K;
+    wff->fec_scheme = fs;
     return wff;
 }
 
@@ -168,7 +170,7 @@ static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx
         slot->frame_type = FEC_TYPE;
         slot->nb_bytes = 1 + sizeof(fec_frame_header_t) + payload_size;
         slot->frame_ctx = ff;
-
+        PROTOOP_PRINTF(cnx, "RESERVE FEC FRAMES\n");
         size_t reserved_size = reserve_frames(cnx, 1, slot);
         if (reserved_size < slot->nb_bytes) {
             PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
@@ -229,7 +231,8 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
         }
         if (fb->total_source_symbols > 0) {
             PROTOOP_PRINTF(cnx, "PROTECT FEC BLOCK OF %u INFLIGHT SYMBOLS, SFPID = %u\n", fb->total_source_symbols, fb->source_symbols[0]->source_fec_payload_id.raw);
-            ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 1, args, outs);
+            args[1] = (protoop_arg_t) wff->fec_scheme;
+            ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 2, args, outs);
             if (!ret) {
                 PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
                 uint8_t i = 0;

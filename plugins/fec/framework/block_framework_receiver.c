@@ -10,8 +10,8 @@
 #define DEFAULT_K 25
 
 
-static __attribute__((always_inline)) void *create_framework_receiver(picoquic_cnx_t *cnx) {
-    return NULL;
+static __attribute__((always_inline)) void *create_framework_receiver(picoquic_cnx_t *cnx, fec_scheme_t fs) {
+    return fs;
 }
 
 static __attribute__((always_inline)) fec_block_t *get_fec_block(bpf_state *state, uint32_t fbn){
