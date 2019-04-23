@@ -39,6 +39,8 @@ protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repa
     for (int ____i = 0, n = fb->total_repair_symbols; ____i < n; ____i++) \
         if (____ss = fb->repair_symbols[____i] || 1)
 
+typedef void * fec_scheme_t;
+
 typedef union {
     uint32_t raw;
     struct __attribute__((__packed__)) {

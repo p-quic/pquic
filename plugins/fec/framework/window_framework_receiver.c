@@ -18,6 +18,7 @@
 
 typedef struct {
     uint32_t highest_removed;
+    fec_scheme_t fs;
     source_symbol_t *fec_window[RECEIVE_BUFFER_MAX_LENGTH];
 } window_fec_framework_receiver_t;
 
@@ -29,10 +30,12 @@ static __attribute__((always_inline)) void add_fec_block_at(bpf_state *state, fe
     state->fec_blocks[where % MAX_FEC_BLOCKS] = fb;
 }
 
-static __attribute__((always_inline)) window_fec_framework_receiver_t *create_framework_receiver(picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) window_fec_framework_receiver_t *create_framework_receiver(picoquic_cnx_t *cnx, fec_scheme_t fs) {
     window_fec_framework_receiver_t *wff = my_malloc(cnx, sizeof(window_fec_framework_receiver_t));
-    if (wff)
+    if (wff) {
         my_memset(wff, 0, sizeof(window_fec_framework_receiver_t));
+        wff->fs = fs;
+    }
     return wff;
 }
 
@@ -129,6 +132,7 @@ static __attribute__((always_inline)) bool window_receive_source_symbol(picoquic
     }
 
     wff->fec_window[idx] = ss;
+    PROTOOP_PRINTF(cnx, "RECEIVED SYMBOL %u\n", ss->source_fec_payload_id.raw);
     // let's find all the blocks protecting this symbol to see if we can recover the remaining
     // we don't recover symbols if we already are in recovery mode
     if (!state->in_recovery && recover) {
