@@ -219,7 +219,6 @@ static void first_server_callback(picoquic_cnx_t* cnx,
     if (fin_or_event == picoquic_callback_close || 
         fin_or_event == picoquic_callback_application_close ||
         fin_or_event == picoquic_callback_stateless_reset) {
-        printf("Server CB: Coucou ctx is %p\n", ctx);
         if (ctx != NULL) {
             first_server_callback_delete_context(ctx);
             picoquic_set_callback(cnx, first_server_callback, NULL);
