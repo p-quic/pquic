@@ -2044,6 +2044,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     }
     block->nb_frames = nb_frames;
     block->total_bytes = 0;
+    block->is_congestion_controlled = false;
     for (int i = 0; i < nb_frames; i++) {
         block->total_bytes += slots[i].nb_bytes;
         block->is_congestion_controlled |= slots[i].is_congestion_controlled;
