@@ -565,6 +565,22 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     picoquic_update_pacing_after_send(path_x, current_time);
 }
 
+void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int should_free, picoquic_packet_t *p) {
+
+    /* If the packet contained plugin frames, update their counters */
+    picoquic_packet_plugin_frame_t* pppf = p->plugin_frames;
+    picoquic_packet_plugin_frame_t* tmp;
+    while (pppf) {
+        tmp = pppf;
+        tmp->plugin->bytes_in_flight -= tmp->bytes;
+        pppf = tmp->next;
+        protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL,
+                                      tmp->rfs, should_free);
+        free(tmp);
+    }
+    p->plugin_frames = NULL;
+}
+
 /**
  * See PROTOOP_NOPARAM_DEQUEUE_RETRANSMIT_PACKET
  */
@@ -609,18 +625,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         }
     }
 
-    /* If the packet contained plugin frames, update their counters */
-    picoquic_packet_plugin_frame_t* pppf = p->plugin_frames;
-    picoquic_packet_plugin_frame_t* tmp;
-    while (pppf) {
-        tmp = pppf;
-        tmp->plugin->bytes_in_flight -= tmp->bytes;
-        pppf = tmp->next;
-        protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL,
-            tmp->rfs, should_free);
-        free(tmp);
-    }
-
+    remove_registered_plugin_frames(cnx, should_free, p);
     if (should_free) {
         free(p);
     }
@@ -1047,7 +1052,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
             ret = 0;
         }
     }
-    
+
     protoop_save_outputs(cnx, length, is_pure_ack);
     return ret;
 }
@@ -1185,8 +1190,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 ret = picoquic_check_stream_frame_already_acked(cnx, &p->bytes[byte_index],
                                     frame_length, &frame_is_pure_ack);
                             }
-
                             /* Prepare retransmission if needed */
+                            // FIXME: if the packet contained a retransmittable plugin frame, it will be retransmitted while the plugin thinks it has been lost...
+                            // FIXME: At the end, the plugin frames must never be retransmitted and use notify to perform retransmission
                             if (ret == 0 && !frame_is_pure_ack) {
                                 if (picoquic_is_stream_frame_unlimited(&p->bytes[byte_index])) {
                                     has_unlimited_frame = true;
@@ -1219,6 +1225,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* If we have a good packet, return it */
                     if (packet_is_pure_ack) {
                         length = 0;
+                        remove_registered_plugin_frames(cnx, true, packet);
                     } else {
                         /* We should also consider if some action was recently observed to consider that it is actually a RTO... */
                         uint64_t retrans_timer = orig_path->pkt_ctx[pc].time_stamp_largest_received + orig_path->smoothed_rtt;
@@ -2592,7 +2599,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     }
     */
 
-    bool has_frame = false;
+    bool should_wake_now = false;
     uint64_t queued_bytes = 0;
 
     p = cnx->first_drr;
@@ -2605,7 +2612,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
                 !(stream != NULL && p->bytes_in_flight >= max_plugin_cwin / num_plugins) &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
-            has_frame = true;
+            should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_cc);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
@@ -2625,7 +2632,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
                 queued_bytes < frame_mss &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
-            has_frame = true;
+            should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_non_cc);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
@@ -2639,12 +2646,11 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
         }
         total_plugin_bytes_in_flight += p->bytes_in_flight;
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
-
     /* Now we put all we could */
     cnx->wake_now = 0;
 
     /* Finally, put the first pointer to the next one */
-    if (has_frame) {
+    if (should_wake_now) {
         cnx->first_drr = get_next_plugin(cnx, p);
         /* If we scheduled a frame but no app data and we have congestion allowance, let's wake again */
         if (stream == NULL || total_plugin_bytes_in_flight < max_plugin_cwin) {
@@ -2745,6 +2751,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                 packet->is_pure_ack = 0;
             } else {
                 length = 0;
+                packet->offset = 0;
             }
         } else {
             if (path_x->challenge_verified == 0 &&
@@ -2765,6 +2772,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
                         }
                         length = 0;
+                        packet->offset = 0;
                     }
                 }
             }
@@ -2888,6 +2896,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */
                         length = 0;
+                        packet->offset = 0;
                     } else if (length > 0 && length != header_length && length + checksum_overhead <= PICOQUIC_RESET_PACKET_MIN_SIZE) {
                         uint32_t pad_size = PICOQUIC_RESET_PACKET_MIN_SIZE - checksum_overhead - length + 1;
                         for (uint32_t i = 0; i < pad_size; i++) {
