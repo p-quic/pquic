@@ -283,18 +283,36 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
                 /* Consider delayed RACK */
                 if (p != NULL) {
-                    uint64_t latest_time_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_TIME_ACKNOWLEDGED);
+                    int64_t delta_seq = get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED) - get_pkt(p, AK_PKT_SEQUENCE_NUMBER);
+                    uint64_t latest_time_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_TIME_ACKNOWLEDGED); // time at which the latest acknowledged packet was sent
                     uint64_t send_time = (uint64_t) get_pkt(p, AK_PKT_SEND_TIME);
+                    uint64_t smoothed_rtt = get_path(path_x, AK_PATH_SMOOTHED_RTT, 0);
                     picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, AK_PKT_TYPE);
-                    if (latest_time_acknowledged > send_time
-                        && send_time + PICOQUIC_RACK_DELAY < next_time
+                    if (latest_time_acknowledged > send_time    // we already received an acknowledgement for an older packet, so there is a hole. Identical to checking delta_seq > 0
+                        && send_time + smoothed_rtt + (smoothed_rtt >> 3) < next_time
                         && ptype != picoquic_packet_0rtt_protected) {
-                        next_time = send_time + PICOQUIC_RACK_DELAY;
+                        next_time = send_time + smoothed_rtt + (smoothed_rtt >> 3); // we retransmit the packet after at least 9/8*rtt
+                        /* RACK logic fails when the smoothed RTT is too small, in which case we
+                         * rely on dupack logic possible, or on a safe estimate of the RACK delay if it
+                         * is not */
+                        if (delta_seq < 3) {
+                            uint64_t rack_timer_min = latest_time_acknowledged + PICOQUIC_RACK_DELAY; // ensure at least a safe delay of PICOQUIC_RACK_DELAY
+                            if (next_time < rack_timer_min)
+                                next_time = rack_timer_min;
+                        }
                     }
 
-                    uint64_t rto_time = (uint64_t) get_pkt(p, AK_PKT_RTO_TIME);
-                    if (rto_time < next_time) {
-                        next_time = rto_time;
+                    uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_NB_RETRANSMIT);
+                    if (nb_retransmit == 0) {
+                        uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, AK_PATH_RETRANSMIT_TIMER, 0);
+                        if (send_time + retransmit_timer_x < next_time) {
+                            next_time = send_time + retransmit_timer_x;
+                        }
+                    }
+                    else {
+                        if (send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
+                            next_time = send_time + (1000000ull << (nb_retransmit - 1));
+                        }
                     }
                 }
             }
