@@ -2042,12 +2042,14 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     if (!block) {
         return 0;
     }
+    memset(block, 0, sizeof(reserve_frames_block_t));
     block->nb_frames = nb_frames;
     block->total_bytes = 0;
-    block->is_congestion_controlled = false;
+    block->low_priority = true;
     for (int i = 0; i < nb_frames; i++) {
         block->total_bytes += slots[i].nb_bytes;
         block->is_congestion_controlled |= slots[i].is_congestion_controlled;
+        block->low_priority &= slots[i].low_priority;   // it is higher priority as soon as a higher priority slot is present
     }
     block->frames = slots;
     int err = 0;
