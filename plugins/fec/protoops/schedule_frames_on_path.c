@@ -61,8 +61,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         my_free(cnx, payload_with_pn);
     }
     if (state->current_sfpid_frame) {
-        my_free(cnx, state->current_sfpid_frame);
         state->current_sfpid_frame = NULL;
+        // we don't need to free it because it will be freed by notify_frame
     }
 
     return 0;
