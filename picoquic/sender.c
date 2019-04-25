@@ -565,7 +565,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     picoquic_update_pacing_after_send(path_x, current_time);
 }
 
-void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int should_free, picoquic_packet_t *p) {
+void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int received, picoquic_packet_t *p) {
 
     /* If the packet contained plugin frames, update their counters */
     picoquic_packet_plugin_frame_t* pppf = p->plugin_frames;
@@ -575,7 +575,7 @@ void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int should_free, picoq
         tmp->plugin->bytes_in_flight -= tmp->bytes;
         pppf = tmp->next;
         protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL,
-                                      tmp->rfs, should_free);
+                                      tmp->rfs, received);
         free(tmp);
     }
     p->plugin_frames = NULL;
@@ -1198,7 +1198,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                     has_unlimited_frame = true;
                                     /* We are at the last frame of the packet, let's put all the plugin frames before it */
                                     size_t consumed = 0;
-                                    if (checksum_length + length + frame_length < send_buffer_max)
+                                    if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max)
                                         picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                                     length += consumed;
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
@@ -1212,7 +1212,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             }
                             byte_index += frame_length;
                         }
-                        if (!has_unlimited_frame && checksum_length + length < send_buffer_max) {
+                        if (!packet_is_pure_ack && !has_unlimited_frame && checksum_length + length < send_buffer_max) {
                             // there is remaining space in the packet
                             size_t consumed = 0;
                             picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
@@ -1225,7 +1225,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* If we have a good packet, return it */
                     if (packet_is_pure_ack) {
                         length = 0;
-                        remove_registered_plugin_frames(cnx, true, packet);
                     } else {
                         /* We should also consider if some action was recently observed to consider that it is actually a RTO... */
                         uint64_t retrans_timer = orig_path->pkt_ctx[pc].time_stamp_largest_received + orig_path->smoothed_rtt;
