@@ -2900,14 +2900,14 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         }
     }
 
-    protoop_save_outputs(cnx, path_x, length);
+    protoop_save_outputs(cnx, path_x, length, header_length);
     return (protoop_arg_t) ret;
 }
 
 
 /* TODO FIXME packet should never be passed in this function, we should have a way to say send the retransmission now on the given path */
 int picoquic_schedule_frames_on_path(picoquic_cnx_t *cnx, picoquic_packet_t *packet, size_t send_buffer_max, uint64_t current_time,
-    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_path_t **path_x, uint32_t *length)
+    picoquic_packet_t* retransmit_p, picoquic_path_t * from_path, char * reason, picoquic_path_t **path_x, uint32_t *length, uint32_t *header_length)
 {
     
     protoop_arg_t outs[PROTOOPARGS_MAX];
@@ -2915,6 +2915,7 @@ int picoquic_schedule_frames_on_path(picoquic_cnx_t *cnx, picoquic_packet_t *pac
         packet, send_buffer_max, current_time, retransmit_p, from_path, reason);
     *path_x = (picoquic_path_t*) outs[0];
     *length = (uint32_t) outs[1];
+    *header_length = (uint32_t) outs[2];
     return ret;
 }
 
@@ -3009,7 +3010,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     if (length == 0) {
         packet->pc = pc;
         ret = picoquic_schedule_frames_on_path(cnx, packet, send_buffer_max, current_time, retransmit_p,
-                                      from_path, reason, &path_x, &length);
+                                      from_path, reason, &path_x, &length, &header_length);
 
         if (cnx->cnx_state != picoquic_state_disconnected) {
             /* If necessary, encode and send the keep alive packet!

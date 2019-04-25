@@ -495,6 +495,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) path_x);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, length);
+    set_cnx(cnx, AK_CNX_OUTPUT, 2, header_length);
 
     return (protoop_arg_t) ret;
 }

@@ -149,6 +149,7 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
  * \return \b int 0 if everything is ok
  * \param[out] path_x \b picoquic_path_t* The path on which the packet should be sent
  * \param[out] length \b uint32_t The length of the packet to be sent
+ * \param[out] header_length \b uint32_t The length of the header of the packet to be sent
  */
 #define PROTOOPID_NOPARAM_SCHEDULE_FRAMES_ON_PATH "schedule_frames_on_path"
 extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH;
