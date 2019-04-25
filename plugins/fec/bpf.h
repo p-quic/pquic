@@ -111,7 +111,7 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
 }
 
 #define MAX_RECOVERED_IN_ONE_ROW 5
-#define MIN_DECODED_SYMBOL_TO_PARSE 50
+#define MIN_DECODED_SYMBOL_TO_PARSE 20
 
 static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf_state *state, fec_block_t *block){
 
