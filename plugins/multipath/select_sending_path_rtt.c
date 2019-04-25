@@ -103,6 +103,7 @@ protoop_arg_t select_sending_path(picoquic_cnx_t *cnx)
                     if (slot == NULL) {
                         continue;
                     }
+                    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
                     slot->nb_bytes = send_mtu / 20;
                     slot->frame_type = RTT_PROBE_TYPE;
                     slot->frame_ctx = (void *)(uint64_t) i;

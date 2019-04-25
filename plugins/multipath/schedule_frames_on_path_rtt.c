@@ -123,6 +123,7 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                     if (slot == NULL) {
                         continue;
                     }
+                    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
                     slot->nb_bytes = send_mtu / 20;
                     slot->frame_type = RTT_PROBE_TYPE;
                     slot->frame_ctx = (void *)(uint64_t) i;

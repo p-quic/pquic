@@ -111,6 +111,7 @@ static __attribute__((always_inline)) protoop_arg_t send_datagram_to_application
     PROTOOP_PRINTF(cnx, "Wrote %d bytes to the message socket\n", ret);
     //picoquic_reinsert_cnx_by_wake_time(cnx, picoquic_current_time());
     reserve_frame_slot_t *slot = my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
     slot->frame_type = 0x60;
     slot->nb_bytes = 1;
     slot->frame_ctx = NULL;

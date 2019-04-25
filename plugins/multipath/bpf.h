@@ -175,6 +175,7 @@ static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t pat
         my_free(cnx, mncic);
         return;
     }
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
     rfs->frame_type = MP_NEW_CONNECTION_ID_TYPE;
     rfs->frame_ctx = mncic;
     rfs->nb_bytes = 52; /* This is the max value, in practice it won't be so much, but spare the estimation process here */
@@ -198,6 +199,7 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
         my_free(cnx, aac);
         return;
     }
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
     rfs->frame_type = ADD_ADDRESS_TYPE;
     rfs->frame_ctx = aac;
     rfs->nb_bytes = frame_size_v4 * aac->nb_addrs;
@@ -217,6 +219,7 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
         my_free(cnx, mac);
         return;
     }
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
     rfs->frame_type = MP_ACK_TYPE;
     rfs->frame_ctx = mac;
     rfs->nb_bytes = 200; /* FIXME dynamic count */

@@ -23,7 +23,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
         //PROTOOP_PRINTF(cnx, "Unable to allocate frame slot!\n");
         return 1;
     }
-
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
 #ifdef DATAGRAM_WITH_ID
     datagram_id = ++get_datagram_memory(cnx)->next_datagram_id;
     slot->frame_type = FT_DATAGRAM | FT_DATAGRAM_ID | FT_DATAGRAM_LEN;
