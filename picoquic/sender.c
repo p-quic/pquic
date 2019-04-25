@@ -1698,10 +1698,21 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
                 /* Consider delayed RACK */
                 if (p != NULL) {
-                    if (path_x->pkt_ctx[pc].latest_time_acknowledged > p->send_time
-                        && p->send_time + PICOQUIC_RACK_DELAY < next_time
+                    int64_t delta_seq = path_x->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
+                    if (path_x->pkt_ctx[pc].latest_time_acknowledged > p->send_time  // we already received an acknowledgement for an older packet, so there is a hole. Identical to checking delta_seq > 0
+                        && p->send_time + path_x->smoothed_rtt + (path_x->smoothed_rtt >> 3) < next_time
                         && p->ptype != picoquic_packet_0rtt_protected) {
-                        next_time = p->send_time + PICOQUIC_RACK_DELAY;
+                        next_time = p->send_time + path_x->smoothed_rtt + (path_x->smoothed_rtt >> 3); // we retransmit the packet after at least 9/8*rtt
+
+                        /* RACK logic fails when the smoothed RTT is too small, in which case we
+                         * rely on dupack logic possible, or on a safe estimate of the RACK delay if it
+                         * is not */
+                        if (delta_seq < 3) {
+                            uint64_t rack_timer_min = path_x->pkt_ctx[pc].latest_time_acknowledged + PICOQUIC_RACK_DELAY; // ensure at least a safe delay of PICOQUIC_RACK_DELAY
+                            if (next_time < rack_timer_min)
+                                next_time = rack_timer_min;
+                        }
+
                     }
 
                     if (p->rto_time < next_time) {
