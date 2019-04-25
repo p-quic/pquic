@@ -26,6 +26,8 @@ typedef struct {
     bool sfpid_reserved;                        // set to true when a SFPID frame has been reserved
     bool cancel_sfpid_in_current_packet;     // set to true when no SFPID frame should be written in the current packet
     bool in_recovery;                        // set to true when the plugin is currently in the process of a packet recovery
+    bool has_ready_stream;                   // set to true when there is a ready stream in the current packet loop
+    uint8_t *written_sfpid_frame;            // set by write_sfpid_frame to the address of the sfpid frame written in the packet, used to undo a packet protection
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
 } bpf_state;
 

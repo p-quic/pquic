@@ -156,9 +156,11 @@ static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx
         reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
         if (!slot)
             return PICOQUIC_ERROR_MEMORY;
+        my_memset(slot, 0, sizeof(reserve_frame_slot_t));
         slot->frame_type = FEC_TYPE;
         slot->nb_bytes = 1 + sizeof(fec_frame_header_t) + payload_size;
         slot->frame_ctx = ff;
+        slot->is_congestion_controlled = true;
 
         size_t reserved_size = reserve_frames(cnx, 1, slot);
         if (reserved_size < slot->nb_bytes) {

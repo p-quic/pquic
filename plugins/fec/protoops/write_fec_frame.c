@@ -17,7 +17,9 @@ protoop_arg_t write_fec_frame(picoquic_cnx_t *cnx) {
     if (state->current_packet_contains_fpid_frame) {
         // TODO: re-reserve the frame
         set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) 0);
+        set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 0);
         my_free(cnx, ff->data);
+        PROTOOP_PRINTF(cnx, "DONT WRITE FEC FRAME: ALREADY CONTAINS SFPID FRAME\n");
         return 0;
 
     }

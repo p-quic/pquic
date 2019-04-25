@@ -36,6 +36,8 @@ protoop_arg_t parse_fec_frame(picoquic_cnx_t *cnx)
             frame->header.data_length, frame->header.fin_bit, frame->header.nss, frame->header.nrs,
             frame->header.repair_fec_payload_id.fec_block_number, frame->header.repair_fec_payload_id.symbol_number);
     my_free(cnx, bytes_header);
+    set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) true);
+    set_cnx(cnx, AK_CNX_OUTPUT, 2, (protoop_arg_t) false);
     if (frame->header.data_length > (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t)))){
         my_free(cnx, frame);
         return 0;
@@ -47,7 +49,5 @@ protoop_arg_t parse_fec_frame(picoquic_cnx_t *cnx)
     uint8_t *bytes = my_malloc(cnx, (unsigned int) (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
     my_memcpy(bytes, bytes_protected + 1 + sizeof(fec_frame_header_t), (bytes_max - bytes_protected - (1 + sizeof(fec_frame_header_t))));
     frame->data = bytes;
-    set_cnx(cnx, AK_CNX_OUTPUT, 1, true);
-    set_cnx(cnx, AK_CNX_OUTPUT, 2, false);
     return (protoop_arg_t) bytes_protected +  1 + sizeof(fec_frame_header_t) + frame->header.data_length;
 }

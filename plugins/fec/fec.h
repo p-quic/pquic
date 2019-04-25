@@ -15,8 +15,8 @@
 #define PREPARE_MP_ACK_FRAME (PROTOOPID_SENDER + 0x49)
 #define PREPARE_ADD_ADDRESS_FRAME (PROTOOPID_SENDER + 0x4a)
 
-#define FEC_TYPE 0x28
 #define SOURCE_FPID_TYPE 0x29
+#define FEC_TYPE 0x2a
 
 protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repair_symbols" };
 

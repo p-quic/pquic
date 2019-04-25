@@ -15,7 +15,9 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
         // FIXME: we loose a symbol number in the fec block...
         my_free(cnx, f);
         set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) 0);
+        set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 0);
         state->sfpid_reserved = false;
+        PROTOOP_PRINTF(cnx, "DONT WRITE SFPID FRAME: ALREADY CONTAINS FEC FRAME\n");
         return 0;//PICOQUIC_MISCCODE_RETRY_NXT_PKT;
 
     }
@@ -33,6 +35,7 @@ protoop_arg_t write_fpid_frame(picoquic_cnx_t *cnx) {
     state->sfpid_reserved = false;
     PROTOOP_PRINTF(cnx, "WRITE SFPID FRAME block %u, symbol number %u, consumed = %u\n", f->source_fpid.fec_block_number, f->source_fpid.symbol_number, consumed);
     my_free(cnx, fpid_buffer);
+    state->written_sfpid_frame = bytes;
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 0);
     return 0;
