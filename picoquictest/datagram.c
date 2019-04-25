@@ -109,6 +109,7 @@ static int datagram_write_test() {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
 
     slot->frame_type = FT_DATAGRAM | FT_DATAGRAM_LEN;
     slot->nb_bytes = 1 + varint_len(frame->length) + frame->length;
