@@ -28,7 +28,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
     // protect the source symbol
     uint8_t *data = (uint8_t *) get_pkt(packet, AK_PKT_BYTES);
-    picoquic_packet_type_enum packet_type = get_pkt(packet, AK_PKT_TYPE);
+    picoquic_packet_type_enum packet_type = retransmit_p ? get_pkt(retransmit_p, AK_PKT_TYPE) : get_pkt(packet, AK_PKT_TYPE);
     uint32_t header_length = get_pkt(packet, AK_PKT_OFFSET);
 
 
@@ -63,6 +63,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     if (state->current_sfpid_frame) {
         state->current_sfpid_frame = NULL;
         // we don't need to free it because it will be freed by notify_frame
+
     }
 
     return 0;
