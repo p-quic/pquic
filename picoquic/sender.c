@@ -2973,7 +2973,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     for (int i = 0; !retransmit_p && i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
         picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
-        /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
             picoquic_packet_t* p_next = p->next_packet;
             int should_retransmit = 0;
@@ -2989,6 +2988,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
             /* We might need to retransmit, but should we really? If it is a pure ACK, don't */
             if (p->is_pure_ack) {
+                picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack);
                 p = p_next;
             } else {
                 /* Ok, we found one! */
