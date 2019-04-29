@@ -1165,6 +1165,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* If not pure ack, the packet will be placed in the "retransmitted" queue,
                     * in order to enable detection of spurious restransmissions */
                     int packet_is_pure_ack = p->is_pure_ack;
+                    int written_non_pure_ack_frames = 0;
 
                     if (p->is_mtu_probe && p->length > old_path->send_mtu) {
                         /* MTU probe was lost, presumably because of packet too big */
@@ -1175,7 +1176,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         do_not_detect_spurious = 0;
                     } else {
                         checksum_length = picoquic_get_checksum_length(cnx, is_cleartext_mode);
-
+                        if (p->send_length > send_buffer_max) {
+                            // if the packet is too big to be retransmitted, then give up
+                            //TODO: retransmit parts of the packet
+                            length = 0;
+                            break;
+                        }
                         /* Copy the relevant bytes from one packet to the next */
                         byte_index = p->offset;
 
@@ -1198,17 +1204,27 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                     has_unlimited_frame = true;
                                     /* We are at the last frame of the packet, let's put all the plugin frames before it */
                                     size_t consumed = 0;
-                                    if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max)
-                                        picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
-                                    length += consumed;
+                                    int new_plugin_frame_is_pure_ack = 0;
+                                    if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max) {
+                                        picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &new_plugin_frame_is_pure_ack);
+                                        if (consumed > 0) {
+                                            // we might have written non-pure-ack frames
+                                            written_non_pure_ack_frames |= !new_plugin_frame_is_pure_ack;
+                                        }
+                                        length += consumed;
+                                    }
                                     /* Need to PAD to the end of the frame to avoid sending extra bytes */
                                     while (checksum_length + length + frame_length < send_buffer_max) {
                                         new_bytes[length] = picoquic_frame_type_padding;
                                         length++;
                                     }
                                 }
-                                memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
-                                length += (uint32_t)frame_length;
+                                if (length + frame_length + checksum_length <= send_buffer_max) {
+                                    memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
+                                    length += (uint32_t)frame_length;
+                                    // we have written non-pure-ack frames
+                                    written_non_pure_ack_frames |= !frame_is_pure_ack;
+                                }
                             }
                             byte_index += frame_length;
                         }
@@ -1217,8 +1233,15 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             size_t consumed = 0;
                             picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
                             length += consumed;
+                            if (consumed > 0) {
+                                // we might have written non-pure-ack frames
+                                written_non_pure_ack_frames |= !frame_is_pure_ack;
+                            }
                         }
                     }
+
+                    if (written_non_pure_ack_frames)
+                        packet->is_pure_ack = 0;
 
                     picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack & do_not_detect_spurious);
 
@@ -1237,6 +1260,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         }
                         
                         bool is_timer_based = false;
+                        uint64_t retrans_cc_notification_timer = orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time + orig_path->smoothed_rtt;
                         if (timer_based_retransmit != 0 && current_time >= retrans_timer) {
                             is_timer_based = true;
                             if (orig_path->pkt_ctx[pc].nb_retransmit > 4) {
@@ -1252,13 +1276,14 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 stop = true;
                                 break;
                             } else {
-                                orig_path->pkt_ctx[pc].nb_retransmit++;
                                 orig_path->pkt_ctx[pc].latest_retransmit_time = current_time;
+                                if (current_time >= retrans_cc_notification_timer) {
+                                    orig_path->pkt_ctx[pc].nb_retransmit++;
+                                }
                             }
                         }
 
                         if (should_retransmit != 0) {
-                            uint64_t retrans_cc_notification_timer = orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time + orig_path->smoothed_rtt;
                             if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
                                 DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
                                     p->ptype, p->pc,
