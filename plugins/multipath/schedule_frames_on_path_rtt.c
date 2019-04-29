@@ -3,7 +3,7 @@
 #include "../helpers.h"
 #include "bpf.h"
 
-static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoquic_cnx_t *cnx, picoquic_packet_t *retransmit_p, picoquic_path_t *from_path, char* reason) {
+static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoquic_cnx_t *cnx, picoquic_packet_t *retransmit_p, picoquic_path_t *from_path, char* reason, int change_path) {
     if (retransmit_p && from_path && reason) {
         if (strncmp(PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT, reason, 23) != 0) {
             /* Fast retransmit or TLP, stay on the same path! */
@@ -58,6 +58,16 @@ static __attribute__((always_inline)) picoquic_path_t *schedule_path_rtt(picoqui
                 selected_path_index = i;
                 smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
                 valid = 0;
+            }
+
+            /* If we want another path, ask for it now */
+            if (change_path && i != bpfd->last_path_index_sent) {
+                path_x = path_c;
+                selected_path_index = i;
+                smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
+                valid = 0;
+                PROTOOP_PRINTF(cnx, "Path %p selected because requires change\n", path_x);
+                break;
             }
 
             /* Very important: don't go further if the cwin is exceeded! */
@@ -194,8 +204,11 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     int is_cleartext_mode = 0;
     uint32_t checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
 
+    /* Check if we need to change of path */
+    bpf_duplicate_data *bpfdd = get_bpf_duplicate_data(cnx);
+
     /* FIXME cope with different path MTUs */
-    picoquic_path_t *path_x = schedule_path_rtt(cnx, retransmit_p, from_path, reason);
+    picoquic_path_t *path_x = schedule_path_rtt(cnx, retransmit_p, from_path, reason, bpfdd->requires_duplication);
     uint32_t path_send_mtu = (uint32_t) get_path(path_x, AK_PATH_SEND_MTU, 0);
 
     uint32_t send_buffer_min_max = (send_buffer_max > path_send_mtu) ? path_send_mtu : (uint32_t)send_buffer_max;
@@ -336,6 +349,16 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
             if (cnx_state != picoquic_state_disconnected) {
                 picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+
+                /* Before going further, let's duplicate all required frames first */
+                if (bpfdd->requires_duplication) {
+                    my_memcpy(&bytes[length], bpfdd->data, bpfdd->data_length);
+                    length += (uint32_t) bpfdd->data_length;
+                    /* And of course, don't retry again later */
+                    bpfdd->data_length = 0;
+                    bpfdd->requires_duplication = 0;
+                }
+
                 /* FIXME I know Multipath somewhat breaks the reservation rules, but it is required here... */
                 /* Initially, we only reserved for the path we received the packet. But we should send MP ACK for ALL paths! */
                 int add_acks = 0;
@@ -432,6 +455,13 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)
                                 {
+                                    /* Let's copy data for further duplication in next packet */
+                                    my_memcpy(&bpfdd->data[bpfdd->data_length], &bytes[length-data_bytes], data_bytes);
+                                    bpfdd->requires_duplication = 1;
+                                    bpfdd->data_length += data_bytes;
+                                    /* And requires waking now */
+                                    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);
+
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                                 }
@@ -448,6 +478,13 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)
                                 {
+                                    /* Let's copy data for further duplication in next packet */
+                                    my_memcpy(&bpfdd->data[bpfdd->data_length], &bytes[length-data_bytes], data_bytes);
+                                    bpfdd->requires_duplication = 1;
+                                    bpfdd->data_length += data_bytes;
+                                    /* And requires waking now */
+                                    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);
+
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                                 }

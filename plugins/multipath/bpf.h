@@ -5,6 +5,7 @@
 #include "getset.h"
 
 #define MP_OPAQUE_ID 0x00
+#define MP_DUPLICATE_ID 0x01
 #define MAX_PATHS 8
 #define MAX_ADDRS 8
 
@@ -74,6 +75,12 @@ typedef struct {
     // uint8_t pkt_seen_non_ack;
 } bpf_data;
 
+typedef struct {
+    uint8_t requires_duplication;
+    uint16_t data_length;
+    uint8_t data[1250];
+} bpf_duplicate_data;
+
 typedef struct add_address_frame {
     uint8_t has_port;
     uint8_t ip_vers;
@@ -109,6 +116,25 @@ static bpf_data *get_bpf_data(picoquic_cnx_t *cnx)
         *bpfd_ptr = initialize_bpf_data(cnx);
     }
     return *bpfd_ptr;
+}
+
+static bpf_duplicate_data *initialize_bpf_duplicate_data(picoquic_cnx_t *cnx)
+{
+    bpf_duplicate_data *bpfdd = (bpf_duplicate_data *) my_malloc(cnx, sizeof(bpf_duplicate_data));
+    if (!bpfdd) return NULL;
+    my_memset(bpfdd, 0, sizeof(bpf_duplicate_data));
+    return bpfdd;
+}
+
+static bpf_duplicate_data *get_bpf_duplicate_data(picoquic_cnx_t *cnx)
+{
+    int allocated = 0;
+    bpf_duplicate_data **bpfdd_ptr = (bpf_duplicate_data **) get_opaque_data(cnx, MP_DUPLICATE_ID, sizeof(bpf_duplicate_data), &allocated);
+    if (!bpfdd_ptr) return NULL;
+    if (allocated) {
+        *bpfdd_ptr = initialize_bpf_duplicate_data(cnx);
+    }
+    return *bpfdd_ptr;
 }
 
 static int mp_get_path_index(bpf_data *bpfd, uint64_t path_id, int *new_path_index) {
