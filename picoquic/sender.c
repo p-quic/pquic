@@ -1091,6 +1091,12 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
         picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
+            if (!p->is_pure_ack && !p->is_mtu_probe && p->send_length > send_buffer_max) {
+                // if the packet is too big to be retransmitted, then give up
+                //TODO: retransmit parts of the packet
+                length = 0;
+                break;
+            }
             int should_retransmit = 0;
             int timer_based_retransmit = 0;
             uint64_t lost_packet_number = p->sequence_number;
@@ -1176,12 +1182,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         do_not_detect_spurious = 0;
                     } else {
                         checksum_length = picoquic_get_checksum_length(cnx, is_cleartext_mode);
-                        if (p->send_length > send_buffer_max) {
-                            // if the packet is too big to be retransmitted, then give up
-                            //TODO: retransmit parts of the packet
-                            length = 0;
-                            break;
-                        }
                         /* Copy the relevant bytes from one packet to the next */
                         byte_index = p->offset;
 
@@ -1219,6 +1219,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                         length++;
                                     }
                                 }
+                                DBG_PRINTF("%lu <= %lu", length + frame_length + checksum_length, send_buffer_max);
                                 if (length + frame_length + checksum_length <= send_buffer_max) {
                                     memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
                                     length += (uint32_t)frame_length;
@@ -1263,7 +1264,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         uint64_t retrans_cc_notification_timer = orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time + orig_path->smoothed_rtt;
                         if (timer_based_retransmit != 0 && current_time >= retrans_timer) {
                             is_timer_based = true;
-                            if (orig_path->pkt_ctx[pc].nb_retransmit > 4) {
+                            if (orig_path->pkt_ctx[pc].nb_retransmit > 5) {
                                 /*
                                 * Max retransmission count was exceeded. Disconnect.
                                 */
