@@ -26,7 +26,7 @@ protoop_arg_t packet_payload_to_source_symbol(picoquic_cnx_t *cnx)
 
     while(offset_in_packet_payload < payload_length) {
         my_memcpy(&first_byte, bytes_protected + offset_in_packet_payload, 1);
-        bool to_ignore = first_byte == picoquic_frame_type_ack || first_byte == picoquic_frame_type_padding;
+        bool to_ignore = first_byte == picoquic_frame_type_ack || first_byte == picoquic_frame_type_padding || first_byte == picoquic_frame_type_crypto_hs;
         helper_skip_frame(cnx, bytes_protected + offset_in_packet_payload, payload_length - offset_in_packet_payload, &consumed, &pure_ack);
         if (!to_ignore) {
             my_memcpy(buffer + 1 + sizeof(uint64_t) + offset_in_symbol, bytes_protected + offset_in_packet_payload, consumed);
