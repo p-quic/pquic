@@ -86,7 +86,7 @@ static __attribute__((always_inline)) void remove_and_free_fec_block_at(picoquic
     state->fec_blocks[where % MAX_FEC_BLOCKS] = NULL;
 }
 
-static __attribute__((always_inline)) void peer_has_recovered_packets(picoquic_cnx_t *cnx, recovered_packets_t *rp) {
+static __attribute__((always_inline)) void peer_has_recovered_packets(picoquic_cnx_t *cnx, recovered_packets_t *rp, uint64_t current_time) {
     // TODO: handle multipath
     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
@@ -98,6 +98,7 @@ static __attribute__((always_inline)) void peer_has_recovered_packets(picoquic_c
         if (current_pn64 == rp->packets[removed_from_retransmit]) {
             //we need to remove this packet from the retransmit queue
             helper_dequeue_retransmit_packet(cnx, current_packet, 1);
+            helper_congestion_algorithm_notify(cnx, path, picoquic_congestion_notification_repeat, 0, 0, current_pn64, current_time);
             removed_from_retransmit++;
         } else if (current_pn64 > rp->packets[removed_from_retransmit]) {
             // the packet to remove is already gone from the retransmit queue

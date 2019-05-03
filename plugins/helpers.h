@@ -94,7 +94,7 @@ static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_pack
     return ret;
 }
 
-static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
+static __attribute__((always_inline)) void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
     picoquic_congestion_notification_t notification, uint64_t rtt_measurement, uint64_t nb_bytes_acknowledged,
     uint64_t lost_packet_number, uint64_t current_time)
 {
