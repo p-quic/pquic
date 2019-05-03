@@ -2645,7 +2645,6 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
         while ((block = queue_peek(p->block_queue_cc)) != NULL &&
                 queued_bytes < frame_mss &&
                 !(stream != NULL && plugin_use >= max_plugin_cwin) &&
-                !(stream != NULL && p->bytes_in_flight >= max_plugin_cwin / num_plugins) &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
@@ -2660,8 +2659,9 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             /* Free the block */
             free(block);
         }
-    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
-
+        total_plugin_bytes_in_flight += p->bytes_in_flight;
+    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr && total_plugin_bytes_in_flight < max_plugin_cwin);
+    cnx->first_drr = get_next_plugin(cnx, p);
     /* Second pass: consider all plugins with non CC */
     do {
         while ((block = queue_peek(p->block_queue_non_cc)) != NULL &&
@@ -2687,7 +2687,6 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
 
     /* Finally, put the first pointer to the next one */
     if (should_wake_now) {
-        cnx->first_drr = get_next_plugin(cnx, p);
         /* If we scheduled a frame but no app data and we have congestion allowance, let's wake again */
         if (stream == NULL || total_plugin_bytes_in_flight < max_plugin_cwin) {
             cnx->wake_now = 1;
