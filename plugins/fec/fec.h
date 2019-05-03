@@ -17,6 +17,7 @@
 
 #define SOURCE_FPID_TYPE 0x29
 #define FEC_TYPE 0x2a
+#define RECOVERED_TYPE 0x2b
 
 protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repair_symbols" };
 
@@ -53,6 +54,11 @@ typedef union {
 typedef struct __attribute__((__packed__)) {
     source_fpid_t source_fpid;
 } source_fpid_frame_t;
+
+typedef struct {
+    uint64_t *packets;
+    uint8_t number_of_packets;
+} recovered_packets_t;
 
 // TODO: maybe a bit complex structure but quite handy, think if we can/should simplify it
 typedef union {

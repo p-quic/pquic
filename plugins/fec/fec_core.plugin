@@ -1,5 +1,7 @@
 parse_frame param 0x2a replace protoops/parse_fec_frame.o
 process_frame param 0x2a replace protoops/process_fec_frame.o
+parse_frame param 0x2b replace protoops/parse_simple_recovered_frame.o
+process_frame param 0x2b replace protoops/process_simple_recovered_frame.o
 parse_frame param 0x29 replace protoops/parse_source_fpid_frame.o
 process_frame param 0x29 replace protoops/process_source_fpid_frame.o
 incoming_encrypted pre protoops/incoming_encrypted.o
@@ -7,6 +9,8 @@ incoming_encrypted post protoops/incoming_encrypted_post.o
 stream_bytes_max replace protoops/stream_bytes_max.o
 write_frame param 0x2a replace protoops/write_fec_frame.o
 notify_frame param 0x2a replace protoops/notify_fec_frame.o
+write_frame param 0x2b replace protoops/write_simple_recovered_frame.o
+notify_frame param 0x2b replace protoops/notify_recovered_frame.o
 write_frame param 0x29 replace protoops/write_fpid_frame.o
 notify_frame param 0x29 replace protoops/notify_fpid_frame.o
 is_frame_congestion_controlled param 0x29 replace protoops/is_sfpid_frame_congestion_controlled.o

@@ -86,6 +86,27 @@ static __attribute__((always_inline)) void remove_and_free_fec_block_at(picoquic
     state->fec_blocks[where % MAX_FEC_BLOCKS] = NULL;
 }
 
+static __attribute__((always_inline)) void peer_has_recovered_packets(picoquic_cnx_t *cnx, recovered_packets_t *rp) {
+    // TODO: handle multipath
+    picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
+    picoquic_packet_t *current_packet = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
+    int removed_from_retransmit = 0;
+    while(removed_from_retransmit < rp->number_of_packets && current_packet) {
+        picoquic_packet_t *pnext = (picoquic_packet_t *) get_pkt(current_packet, AK_PKT_NEXT_PACKET);
+        uint64_t current_pn64 = get_pkt(current_packet, AK_PKT_SEQUENCE_NUMBER);
+        if (current_pn64 == rp->packets[removed_from_retransmit]) {
+            //we need to remove this packet from the retransmit queue
+            helper_dequeue_retransmit_packet(cnx, current_packet, 1);
+            removed_from_retransmit++;
+        } else if (current_pn64 > rp->packets[removed_from_retransmit]) {
+            // the packet to remove is already gone from the retransmit queue
+            removed_from_retransmit++;
+        } // else, do nothing, try the next packet
+        current_packet = pnext;
+    }
+}
+
 // protects the packet and writes the source_fpid
 static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, source_fpid_t *source_fpid, uint8_t *data, uint16_t length){
     bpf_state *state = get_bpf_state(cnx);
@@ -132,6 +153,15 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
 
     int ret = 0;
     if (n_to_recover > 0) {
+        recovered_packets_t *rp = my_malloc(cnx, sizeof(recovered_packets_t));
+        if(rp) {    // if rp is null, this is not a big deal, just don't send the recovered frame
+            rp->packets = my_malloc(cnx, n_to_recover*sizeof(uint64_t));
+            rp->number_of_packets = 0;
+            if (!rp->packets) {
+                my_free(cnx, rp);
+                rp = NULL;
+            }
+        }
         ret = (int) run_noparam(cnx, "fec_recover", 2, args, outs);
         int idx = 0;
         int i = 0;
@@ -143,9 +173,6 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
                 int payload_length = fb->source_symbols[i]->data_length - 1 - sizeof(uint64_t);
                 if (!ret) {
                     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
-//                picoquic_record_pn_received(cnx, path,
-//                                            ph.pc, ph.pn64,
-//                                            picoquic_current_time());
                     PROTOOP_PRINTF(cnx,
                                    "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %llx, len_frames = %u, start = 0x%x\n",
                                    (protoop_arg_t) i, pn,
@@ -166,9 +193,11 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
                     free_source_symbol(cnx, fb->source_symbols[i]);
                     fb->source_symbols[i] = NULL;
 
-//                ret = (int) run_noparam(cnx, "decode_frames", 5, args, outs);
                     if (!ret) {
                         PROTOOP_PRINTF(cnx, "DECODED ! \n");
+                        if (rp) {
+                            rp->packets[rp->number_of_packets++] = pn;
+                        }
                     } else {
                         PROTOOP_PRINTF(cnx, "ERROR WHILE DECODING: %u ! \n", (uint32_t) ret);
                     }
@@ -177,6 +206,26 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
         }
         my_free(cnx, to_recover);
         my_free(cnx, fb);
+
+        if (rp) {
+            reserve_frame_slot_t *slot = my_malloc(cnx, sizeof(reserve_frame_slot_t));
+            if (slot) {
+                my_memset(slot, 0, sizeof(reserve_frame_slot_t));
+                slot->frame_ctx = rp;
+                slot->frame_type = RECOVERED_TYPE;
+                slot->nb_bytes = 200; /* FIXME dynamic count */
+                size_t reserved_size = reserve_frames(cnx, 1, slot);
+                if (reserved_size < slot->nb_bytes) {
+                    PROTOOP_PRINTF(cnx, "Unable to reserve frame slot\n");
+                    my_free(cnx, rp->packets);
+                    my_free(cnx, rp);
+                    my_free(cnx, slot);
+                }
+            } else {
+                my_free(cnx, rp->packets);
+                my_free(cnx, rp);
+            }
+        }
     }
 
 
