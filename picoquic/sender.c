@@ -2661,7 +2661,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
         }
         total_plugin_bytes_in_flight += p->bytes_in_flight;
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr && total_plugin_bytes_in_flight < max_plugin_cwin);
-    cnx->first_drr = get_next_plugin(cnx, p);
+    p = cnx->first_drr;
     /* Second pass: consider all plugins with non CC */
     do {
         while ((block = queue_peek(p->block_queue_non_cc)) != NULL &&
@@ -2683,6 +2683,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
         total_plugin_bytes_in_flight += p->bytes_in_flight;
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
     /* Now we put all we could */
+    cnx->first_drr = get_next_plugin(cnx, p);
     cnx->wake_now = 0;
 
     /* Finally, put the first pointer to the next one */
