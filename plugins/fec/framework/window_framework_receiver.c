@@ -5,9 +5,6 @@
 #include "memory.h"
 #include "memcpy.h"
 
-#define INITIAL_SYMBOL_ID 1
-#define DEFAULT_N 30
-#define DEFAULT_K 25
 #define RECEIVE_BUFFER_MAX_LENGTH 30
 
 #define MIN(a, b) ((a < b) ? a : b)
