@@ -1,6 +1,7 @@
 be.michelfra.fecrlc
 stream_always_encode_length replace protoops/stream_always_encode_length.o
 should_send_repair_symbols replace protoops/always_send_repair_symbols.o
+should_send_recovered_frames replace protoops/always_send_recovered_frames.o
 window_select_symbols_to_protect replace framework_protoops/window_protect_all_unprotected_source_symbols.o
 fec_core.plugin include
 fec_framework_window.plugin include

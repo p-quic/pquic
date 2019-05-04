@@ -132,6 +132,10 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
     return 0;
 }
 
+static __attribute__((always_inline)) bool should_send_recovered_frames(picoquic_cnx_t *cnx, recovered_packets_t *rp) {
+    return (bool) run_noparam(cnx, "should_send_recovered_frames", 1, (protoop_arg_t *) &rp, NULL);
+}
+
 #define MAX_RECOVERED_IN_ONE_ROW 5
 #define MIN_DECODED_SYMBOL_TO_PARSE 20
 
@@ -209,7 +213,10 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
         my_free(cnx, fb);
 
         if (rp) {
-            reserve_frame_slot_t *slot = my_malloc(cnx, sizeof(reserve_frame_slot_t));
+            reserve_frame_slot_t *slot = NULL;
+            if (should_send_recovered_frames(cnx, rp)) {
+                slot = my_malloc(cnx, sizeof(reserve_frame_slot_t));
+            }
             if (slot) {
                 my_memset(slot, 0, sizeof(reserve_frame_slot_t));
                 slot->frame_ctx = rp;
