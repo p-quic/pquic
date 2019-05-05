@@ -5,8 +5,15 @@
 #include "fec.h"
 #include "memory.h"
 #include "memcpy.h"
+#define MAX_RECOVERED_PACKETS_IN_BUFFER 50
 
 typedef void * fec_framework_t;
+
+typedef struct {
+    uint32_t start;
+    uint32_t size;
+    uint64_t packet_numbers[MAX_RECOVERED_PACKETS_IN_BUFFER];
+} recovered_packets_buffer_t;
 
 typedef struct {
     bool has_sent_stream_data;
@@ -29,6 +36,7 @@ typedef struct {
     bool has_ready_stream;                   // set to true when there is a ready stream in the current packet loop
     uint8_t *written_sfpid_frame;            // set by write_sfpid_frame to the address of the sfpid frame written in the packet, used to undo a packet protection
     fec_block_t *fec_blocks[MAX_FEC_BLOCKS]; // ring buffer
+    recovered_packets_buffer_t recovered_packets;
 } bpf_state;
 
 static __attribute__((always_inline)) bpf_state *initialize_bpf_state(picoquic_cnx_t *cnx)
@@ -86,23 +94,64 @@ static __attribute__((always_inline)) void remove_and_free_fec_block_at(picoquic
     state->fec_blocks[where % MAX_FEC_BLOCKS] = NULL;
 }
 
-static __attribute__((always_inline)) void peer_has_recovered_packets(picoquic_cnx_t *cnx, recovered_packets_t *rp, uint64_t current_time) {
+
+static __attribute__((always_inline)) void enqueue_recovered_packet_to_buffer(recovered_packets_buffer_t *b, uint64_t packet) {
+    b->packet_numbers[(b->start + b->size) % MAX_RECOVERED_PACKETS_IN_BUFFER] = packet;
+    if (b->size < MAX_RECOVERED_PACKETS_IN_BUFFER) b->size++;
+    else {
+        // we just removed the first enqueued packet, so shift the start
+        b->start = (b->start + 1) % MAX_RECOVERED_PACKETS_IN_BUFFER;
+    }
+}
+
+// pre: size > 0
+static __attribute__((always_inline)) uint64_t peek_first_recovered_packet_in_buffer(recovered_packets_buffer_t *b) {
+    return b->packet_numbers[b->start];
+}
+
+// pre: size > 0
+static __attribute__((always_inline)) uint64_t dequeue_recovered_packet_from_buffer(recovered_packets_buffer_t *b) {
+    if (b->size == 0) return -1;
+    uint64_t packet = peek_first_recovered_packet_in_buffer(b);
+    b->size--;
+    b->start = (b->start + 1) % MAX_RECOVERED_PACKETS_IN_BUFFER;
+    return packet;
+}
+
+static __attribute__((always_inline)) void enqueue_recovered_packets(recovered_packets_buffer_t *b, recovered_packets_t *rp) {
+    for(int i = 0 ; i < rp->number_of_packets ; i++) {
+        enqueue_recovered_packet_to_buffer(b, rp->packets[i]);
+    }
+}
+
+static __attribute__((always_inline)) void maybe_notify_recovered_packets_to_cc(picoquic_cnx_t *cnx, recovered_packets_buffer_t *b, uint64_t current_time) {
     // TODO: handle multipath
     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
     picoquic_packet_t *current_packet = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
-    int removed_from_retransmit = 0;
-    while(removed_from_retransmit < rp->number_of_packets && current_packet) {
+    while(b->size > 0 && current_packet) {
         picoquic_packet_t *pnext = (picoquic_packet_t *) get_pkt(current_packet, AK_PKT_NEXT_PACKET);
         uint64_t current_pn64 = get_pkt(current_packet, AK_PKT_SEQUENCE_NUMBER);
-        if (current_pn64 == rp->packets[removed_from_retransmit]) {
+        if (current_pn64 == peek_first_recovered_packet_in_buffer(b)) {
+            int timer_based = 0;
+            if (!helper_retransmit_needed_by_packet(cnx, current_packet, current_time, &timer_based, NULL)) {
+                // we don't need to notify it now: the packet is not considered as lost
+                // don't try any subsequenc packets as they have been sent later
+                break;
+            }
             //we need to remove this packet from the retransmit queue
+            uint64_t retrans_cc_notification_timer = get_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME) + get_path(path, AK_PATH_SMOOTHED_RTT, 0);
+            bool packet_is_pure_ack = get_pkt(current_packet, AK_PKT_IS_PURE_ACK);
             helper_dequeue_retransmit_packet(cnx, current_packet, 1);
-            helper_congestion_algorithm_notify(cnx, path, picoquic_congestion_notification_repeat, 0, 0, current_pn64, current_time);
-            removed_from_retransmit++;
-        } else if (current_pn64 > rp->packets[removed_from_retransmit]) {
+            if (current_time >= retrans_cc_notification_timer && !packet_is_pure_ack) {    // do as in core: if is pure_ack or recently notified, do not notify cc
+                set_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME, current_time);
+                helper_congestion_algorithm_notify(cnx, path, picoquic_congestion_notification_repeat, 0, 0,
+                                                   current_pn64, current_time);
+            }
+            dequeue_recovered_packet_from_buffer(b);
+        } else if (current_pn64 > peek_first_recovered_packet_in_buffer(b)) {
             // the packet to remove is already gone from the retransmit queue
-            removed_from_retransmit++;
+            dequeue_recovered_packet_from_buffer(b);
         } // else, do nothing, try the next packet
         current_packet = pnext;
     }

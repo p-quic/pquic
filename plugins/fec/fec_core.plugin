@@ -20,3 +20,4 @@ skip_frame pre protoops/skip_frame_pre.o
 skip_frame post protoops/skip_frame_post.o
 packet_payload_to_source_symbol replace protoops/packet_payload_to_source_symbol.o
 connection_state_changed pre protoops/connection_state_changed.o
+prepare_packet_ready pre protoops/maybe_notify_recovered_packets_to_cc.o
