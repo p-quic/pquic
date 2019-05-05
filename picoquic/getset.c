@@ -625,6 +625,8 @@ protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
         return pkt_ctx->nb_retransmit;
     case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         return pkt_ctx->latest_retransmit_time;
+    case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
+        return pkt_ctx->latest_retransmit_cc_notification_time;
     case AK_PKTCTX_HIGHEST_ACKNOWLEDGED:
         return pkt_ctx->highest_acknowledged;
     case AK_PKTCTX_LATEST_TIME_ACKNOWLEDGED:
@@ -671,6 +673,8 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         break;
     case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         pkt_ctx->latest_retransmit_time = val;
+    case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
+        pkt_ctx->latest_retransmit_cc_notification_time = val;
         break;
     case AK_PKTCTX_HIGHEST_ACKNOWLEDGED:
         pkt_ctx->highest_acknowledged = val;

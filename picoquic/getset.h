@@ -456,6 +456,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_PKTCTX_RETRANSMITTED_OLDEST 0x0d
 /** Indicate if a ack is needed */
 #define AK_PKTCTX_ACK_NEEDED 0x0e
+/** The latest congestion notification time */
+#define AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME 0x0f
 
 /**
  * @}
