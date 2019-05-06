@@ -7,8 +7,6 @@
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
 #define MAX_QUEUED_REPAIR_SYMBOLS 6
-#define DEFAULT_N 30
-#define DEFAULT_K 25
 
 typedef uint32_t fec_block_number;
 
@@ -20,10 +18,9 @@ typedef struct {
 
 typedef struct {
     fec_scheme_t fec_scheme;
+    fec_redundancy_controller_t controller;
     fec_block_number current_block_number: 24;
     fec_block_t *current_block;
-    uint8_t n;
-    uint8_t k;
     queue_item repair_symbols_queue[MAX_QUEUED_REPAIR_SYMBOLS];
     int repair_symbols_queue_head;
     int repair_symbols_queue_length;
@@ -32,7 +29,7 @@ typedef struct {
 } block_fec_framework_t;
 
 
-static __attribute__((always_inline)) block_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx, fec_scheme_t fs) {
+static __attribute__((always_inline)) block_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx, fec_redundancy_controller_t controller, fec_scheme_t fs) {
     block_fec_framework_t *bff = my_malloc(cnx, sizeof(block_fec_framework_t));
     if (!bff)
         return NULL;
@@ -42,16 +39,20 @@ static __attribute__((always_inline)) block_fec_framework_t *create_framework_se
         my_free(cnx, bff);
         return NULL;
     }
-    bff->n = DEFAULT_N;
-    bff->k = DEFAULT_K;
-    bff->current_block->total_source_symbols = bff->k;
-    bff->current_block->total_repair_symbols = bff->n - bff->k;
+    uint8_t n = 0;
+    uint8_t k = 0;
+    get_redundancy_parameters(cnx, bff->controller, &n, &k);
+    bff->current_block->total_source_symbols = k;
+    bff->current_block->total_repair_symbols = n - k;
+    bff->controller = controller;
     bff->fec_scheme = fs;
     return bff;
 }
 
-static __attribute__((always_inline)) bool ready_to_send(block_fec_framework_t *bff) {
-    return (bff->current_block->current_source_symbols == bff->k);
+static __attribute__((always_inline)) bool ready_to_send(picoquic_cnx_t *cnx, block_fec_framework_t *bff) {
+    uint8_t k = 0;
+    get_redundancy_parameters(cnx, bff->controller, NULL, &k);
+    return (bff->current_block->current_source_symbols == k);
 }
 
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(block_fec_framework_t *bff, int idx) {
@@ -180,6 +181,12 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     args[0] = (protoop_arg_t) bff->current_block;
     args[1] = (protoop_arg_t) bff->fec_scheme;
 
+    uint8_t n = 0;
+    uint8_t k = 0;
+    get_redundancy_parameters(cnx, bff->controller, &n, &k);
+    bff->current_block->total_source_symbols = k;
+    bff->current_block->total_repair_symbols = n - k;
+
     int ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 2, args, outs);
     if (!ret) {
         PROTOOP_PRINTF(cnx, "SUCCESSFULLY GENERATED\n");
@@ -206,8 +213,11 @@ static __attribute__((always_inline)) int sent_block(picoquic_cnx_t *cnx, block_
         ff->current_block = malloc_fec_block(cnx, ff->current_block_number);
         if (!ff->current_block)
             return -1;
-        ff->current_block->total_source_symbols = ff->k;
-        ff->current_block->total_repair_symbols = ff->n - ff->k;
+        uint8_t n = 0;
+        uint8_t k = 0;
+        get_redundancy_parameters(cnx, ff->controller, &n, &k);
+        ff->current_block->total_source_symbols = k;
+        ff->current_block->total_repair_symbols = n - k;
     }
     return 0;
 }
@@ -225,7 +235,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
     ss->source_fec_payload_id.symbol_number = bff->current_block->current_source_symbols;
     if (!add_source_symbol_to_fec_block(ss, bff->current_block))
         return -1;
-    if (ready_to_send(bff)) {
+    if (ready_to_send(cnx, bff)) {
         generate_and_queue_repair_symbols(cnx, bff);
         sent_block(cnx, bff,bff->current_block);
     }

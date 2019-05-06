@@ -26,6 +26,7 @@ typedef struct {
     fec_framework_t framework_receiver;
     fec_scheme_t scheme_sender;
     fec_scheme_t scheme_receiver;
+    fec_redundancy_controller_t controller;
     source_fpid_frame_t *current_sfpid_frame;    // this variable is not-null only between prepare_packet_ready and finalize_and_protect_packet
     bool is_in_skip_frame;    // set to true if we are currently in skip_frame
     bool current_packet_contains_fec_frame;    // set to true if the current packet contains a FEC Frame (FEC and FPID frames are mutually exclusive)
@@ -53,10 +54,21 @@ static __attribute__((always_inline)) bpf_state *initialize_bpf_state(picoquic_c
         my_free(cnx, state);
         return NULL;
     }
+    // create_redundancy_controller creates the redundancy controller
+    ret = (int) run_noparam(cnx, "create_redundancy_controller", 0, NULL, (protoop_arg_t *) &state->controller);
+    if (ret) {
+        PROTOOP_PRINTF(cnx, "ERROR WHEN CREATING REDUNDANCY CONTROLLER\n");
+        my_free(cnx, state);
+        return NULL;
+    }
     state->scheme_receiver = (fec_scheme_t) schemes[0];
     state->scheme_sender = (fec_scheme_t) schemes[1];
+    protoop_arg_t args[3];
+    args[0] = schemes[0];
+    args[1] = schemes[1];
+    args[2] = (protoop_arg_t) state->controller;
     // create_fec_framework creates the receiver (0) and sender (1) FEC Frameworks. If an error happens, ret != 0 and both frameworks are freed by the protoop
-    ret = (int) run_noparam(cnx, "create_fec_framework", 2, schemes, frameworks);
+    ret = (int) run_noparam(cnx, "create_fec_framework", 3, args, frameworks);
     if (ret) {
         my_free(cnx, state);
         PROTOOP_PRINTF(cnx, "ERROR WHEN CREATING FRAMEWORKS\n");
@@ -92,6 +104,18 @@ static __attribute__((always_inline)) int helper_write_source_fpid_frame(picoqui
 static __attribute__((always_inline)) void remove_and_free_fec_block_at(picoquic_cnx_t *cnx, bpf_state *state, uint32_t where){
     free_fec_block(cnx, state->fec_blocks[where % MAX_FEC_BLOCKS], false);
     state->fec_blocks[where % MAX_FEC_BLOCKS] = NULL;
+}
+
+static __attribute__((always_inline)) int get_redundancy_parameters(picoquic_cnx_t *cnx, fec_redundancy_controller_t controller, uint8_t *n, uint8_t *k){
+    protoop_arg_t out[2];
+    int ret = (int) run_noparam(cnx, "get_redundancy_parameters", 1, (protoop_arg_t *) &controller, out);
+    if (ret) {
+        PROTOOP_PRINTF(cnx, "ERROR WHEN GETTING REDUNDANCY PARAMETERS\n");
+        return -1;
+    }
+    if (n) *n = (uint8_t) out[0];
+    if (k) *k = (uint8_t) out[1];
+    return 0;
 }
 
 
@@ -142,6 +166,8 @@ static __attribute__((always_inline)) void maybe_notify_recovered_packets_to_cc(
             //we need to remove this packet from the retransmit queue
             uint64_t retrans_cc_notification_timer = get_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME) + get_path(path, AK_PATH_SMOOTHED_RTT, 0);
             bool packet_is_pure_ack = get_pkt(current_packet, AK_PKT_IS_PURE_ACK);
+            // notify to everybody that this packet is lost
+            helper_packet_was_lost(cnx, current_packet, path);
             helper_dequeue_retransmit_packet(cnx, current_packet, 1);
             if (current_time >= retrans_cc_notification_timer && !packet_is_pure_ack) {    // do as in core: if is pure_ack or recently notified, do not notify cc
                 set_pkt_ctx(pkt_ctx, AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME, current_time);

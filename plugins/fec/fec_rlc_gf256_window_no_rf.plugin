@@ -6,3 +6,4 @@ window_select_symbols_to_protect replace framework_protoops/window_protect_all_u
 fec_core.plugin include
 fec_framework_window.plugin include
 fec_scheme_rlc_gf256.plugin include
+fec_constant_redundancy_controller.plugin include

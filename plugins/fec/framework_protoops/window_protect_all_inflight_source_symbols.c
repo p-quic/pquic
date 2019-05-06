@@ -15,7 +15,11 @@ protoop_arg_t window_select_symbols_to_protect(picoquic_cnx_t *cnx)
         }
     }
     fb->total_source_symbols = fb->current_source_symbols;
-    fb->total_repair_symbols = MIN(wff->n-wff->k, fb->total_source_symbols);
+
+    uint8_t n = 0;
+    uint8_t k = 0;
+    get_redundancy_parameters(cnx, wff->controller, &n, &k);
+    fb->total_repair_symbols = MIN(n-k, fb->total_source_symbols);
 
     return 0;
 }

@@ -41,6 +41,7 @@ protoop_id_t PROTOOP_ID_FEC_GENERATE_REPAIR_SYMBOLS = { .id = "fec_generate_repa
         if (____ss = fb->repair_symbols[____i] || 1)
 
 typedef void * fec_scheme_t;
+typedef void * fec_redundancy_controller_t;
 
 typedef union {
     uint32_t raw;

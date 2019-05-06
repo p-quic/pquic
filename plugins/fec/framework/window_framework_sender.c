@@ -2,11 +2,10 @@
 #include "../../helpers.h"
 #include "memory.h"
 #include "memcpy.h"
+#include "../bpf.h"
 
 #define INITIAL_SYMBOL_ID 1
 #define MAX_QUEUED_REPAIR_SYMBOLS 6
-#define DEFAULT_N 30
-#define DEFAULT_K 25
 #define RECEIVE_BUFFER_MAX_LENGTH 30
 
 #define MIN(a, b) ((a < b) ? a : b)
@@ -21,9 +20,8 @@ typedef struct {
 
 typedef struct {
     fec_scheme_t fec_scheme;
+    fec_redundancy_controller_t controller;
     source_symbol_t *fec_window[RECEIVE_BUFFER_MAX_LENGTH];
-    uint8_t n;
-    uint8_t k;
     queue_item repair_symbols_queue[MAX_QUEUED_REPAIR_SYMBOLS];
     uint32_t max_id;
     uint32_t min_id;
@@ -38,14 +36,13 @@ typedef struct {
 } window_fec_framework_t;
 
 
-static __attribute__((always_inline)) window_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx, fec_scheme_t fs) {
+static __attribute__((always_inline)) window_fec_framework_t *create_framework_sender(picoquic_cnx_t *cnx, fec_redundancy_controller_t controller, fec_scheme_t fs) {
     window_fec_framework_t *wff = (window_fec_framework_t *) my_malloc(cnx, sizeof(window_fec_framework_t));
     if (!wff)
         return NULL;
     my_memset(wff, 0, sizeof(window_fec_framework_t));
     wff->highest_sent_id = INITIAL_SYMBOL_ID-1;
-    wff->n = DEFAULT_N;
-    wff->k = DEFAULT_K;
+    wff->controller = controller;
     wff->fec_scheme = fs;
     return wff;
 }
@@ -60,8 +57,10 @@ static __attribute__((always_inline)) void sfpid_takes_off(window_fec_framework_
     wff->smallest_in_transit = MIN(wff->smallest_in_transit, sfpid.raw);
 }
 
-static __attribute__((always_inline)) bool ready_to_send(window_fec_framework_t *wff) {
-    return (wff->max_id-wff->highest_sent_id == wff->k);
+static __attribute__((always_inline)) bool ready_to_send(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
+    uint8_t k = 0;
+    get_redundancy_parameters(cnx, wff->controller, NULL, &k);
+    return (wff->max_id-wff->highest_sent_id == k);
 }
 
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(window_fec_framework_t *wff, int idx) {
@@ -210,7 +209,7 @@ static __attribute__((always_inline)) void remove_source_symbols_from_block_and_
 }
 
 static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, window_fec_framework_t *wff){
-    protoop_arg_t args[2];
+    protoop_arg_t args[3];
     protoop_arg_t outs[1];
 
     // build the block to generate the symbols
@@ -280,7 +279,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
     wff->window_length++;
 
 
-    if (ready_to_send(wff)) {
+    if (ready_to_send(cnx, wff)) {
         generate_and_queue_repair_symbols(cnx, wff);
     }
     return 0;

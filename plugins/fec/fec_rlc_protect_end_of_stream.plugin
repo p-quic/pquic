@@ -5,3 +5,4 @@ should_send_recovered_frames replace protoops/always_send_recovered_frames.o
 fec_core.plugin include
 fec_framework_block.plugin include
 fec_scheme_rlc.plugin include
+fec_constant_redundancy_controller.plugin include
