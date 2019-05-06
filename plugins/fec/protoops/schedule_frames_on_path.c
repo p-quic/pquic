@@ -50,6 +50,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         if (symbol_length <= 1 + sizeof(uint64_t) + 1 + sizeof(source_fpid_frame_t)) {
             // this symbol does not need to be protected: undo
             my_memset(state->written_sfpid_frame, 0, 1 + sizeof(source_fpid_frame_t));
+            my_free(cnx, state->current_sfpid_frame);
+            state->current_sfpid_frame = NULL;
         } else {
             int err = protect_packet(cnx, &state->current_sfpid_frame->source_fpid, payload_with_pn, symbol_length);
             if (err){
