@@ -1542,7 +1542,7 @@ protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->congestion_alg != NULL ) {
-                    cnx->congestion_alg->alg_notify(old_path, picoquic_congestion_notification_spurious_repeat,
+                    picoquic_congestion_algorithm_notify_func(cnx, old_path, picoquic_congestion_notification_spurious_repeat,
                         0, 0, p->sequence_number, current_time);
                 }
             }
@@ -1673,7 +1673,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                     }
 
                     if (cnx->congestion_alg != NULL) {
-                        cnx->congestion_alg->alg_notify(old_path,
+                        picoquic_congestion_algorithm_notify_func(cnx, old_path,
                             picoquic_congestion_notification_rtt_measurement,
                             rtt_estimate, 0, 0, current_time);
                     }
@@ -2000,7 +2000,7 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 picoquic_path_t * old_path = p->send_path;
 
                 if (cnx->congestion_alg != NULL) {
-                    cnx->congestion_alg->alg_notify(old_path,
+                    picoquic_congestion_algorithm_notify_func(cnx, old_path,
                         picoquic_congestion_notification_acknowledgement,
                         0, p->length, 0, current_time);
                 }

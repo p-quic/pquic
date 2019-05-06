@@ -1699,6 +1699,13 @@ protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
     return 0;
 }
 
+
+void picoquic_congestion_algorithm_notify_func(picoquic_cnx_t *cnx, picoquic_path_t* path_x, picoquic_congestion_notification_t notification, uint64_t rtt_measurement,
+                                 uint64_t nb_bytes_acknowledged, uint64_t lost_packet_number, uint64_t current_time) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, NULL, path_x, notification, rtt_measurement, nb_bytes_acknowledged,
+            lost_packet_number, current_time);
+}
+
 /**
  * See PROTOOP_NOPARAM_CALLBACK_FUNCTION
  */
