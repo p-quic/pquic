@@ -2145,8 +2145,8 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
 
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
-        for (int i = 0; i < nb_frames; i++) {
-            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
+        for (int i = 0; i < *nb_frames; i++) {
+            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < *nb_frames - 1 ? ", " : "");
         }
         ftypes_str[ftypes_ofs] = 0;
 
@@ -2184,6 +2184,8 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     /** \todo document these */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_LOG_EVENT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, &protoop_noop);
 }
