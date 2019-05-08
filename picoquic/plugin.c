@@ -6,6 +6,27 @@
 #include "memory.h"
 #include "picoquic_internal.h"
 
+const char *pluglet_type_name(pluglet_type_enum te) {
+    char const *text = "unknown";
+    switch (te) {
+        case pluglet_replace:
+            text = "replace";
+            break;
+        case pluglet_post:
+            text = "post";
+            break;
+        case pluglet_pre:
+            text = "pre";
+            break;
+        case pluglet_extern:
+            text = "extern";
+            break;
+        default:
+            break;
+    }
+    return text;
+}
+
 int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_plugin_t *p, pluglet_type_enum pte, char *elf_fname) {
     /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
     if ((pte == pluglet_replace || pte == pluglet_extern) && popst->replace) {
@@ -538,6 +559,8 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
+    int nodes = 0;
+    pid_node_t *inserted_nodes[1024];
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
         if (read <= 1) {
@@ -565,11 +588,17 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         }
     }
 
+    if (ok) {
+        init_memory_management(p);
+        HASH_ADD_STR(cnx->plugins, name, p);
+    }
+
     while (pid_stack_top != NULL) {
         if (!ok) {
             /* Unplug previously plugged code */
             plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
         }
+        LOG_EVENT(cnx, "PLUGINS", "PLUGLET_INSERTED", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
         tmp = pid_stack_top->next;
         free(pid_stack_top);
         pid_stack_top = tmp;
@@ -577,10 +606,9 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     if (!ok) {
         free(p);
-    } else {
-        init_memory_management(p);
-        HASH_ADD_STR(cnx->plugins, name, p);
     }
+
+    LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
 
     free(preprocessed);
 
@@ -640,6 +668,8 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
      * they will remain unchanged at caller side.
      */
     protoop_plugin_t *old_plugin = cnx->current_plugin;
+    protocol_operation_struct_t *old_protoop = cnx->current_protoop;
+    pluglet_type_enum old_anchor = cnx->current_anchor;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
     uint64_t caller_inputv[caller_inputc];
@@ -705,12 +735,14 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     /* Record the protocol operation on the call stack */
     popst->running = true;
+    cnx->current_protoop = post;
 
     /* First, is there any pre to run? */
     observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
+        cnx->current_anchor = pluglet_pre;
         exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
@@ -719,6 +751,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     if (popst->replace) {
         DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pp->pid->id);
         cnx->current_plugin = popst->replace->p;
+        cnx->current_anchor = pluglet_replace;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         if (error_msg) {
             /* TODO fixme str_pid */
@@ -744,6 +777,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
+        cnx->current_anchor = pluglet_post;
         exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
@@ -781,6 +815,9 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     /* Also restore the plugin context */
     cnx->current_plugin = old_plugin;
+    cnx->current_protoop = old_protoop;
+    cnx->current_anchor = old_anchor;
+    cnx->previous_plugin_had_anchor_replace = popst->replace != NULL;
 
     return status;
 }

@@ -26,6 +26,7 @@
 #include <string.h>
 #include "plugin.h"
 #include "memory.h"
+#include "logger.h"
 
 /*
  * Sending logic.
@@ -121,6 +122,8 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
             }
         }
 
+        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %lu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
+
         picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
     }
 
@@ -144,6 +147,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_reset_requested) == 0) {
         stream->local_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_requested);
+        LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %lu, \"error\": %d}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -168,6 +172,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) == 0) {
         stream->local_stop_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_requested);
+        LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %lu, \"error\": %d}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -459,6 +464,23 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     /* Using encryption, the "payload" length also includes the encrypted packet length */
     picoquic_update_payload_length(send_buffer, pn_offset, h_length - pn_length, length + aead_checksum_length);
 
+    {
+        picoquic_connection_id_t dest_cnx_id = *(picoquic_get_destination_connection_id(cnx, ptype, path_x));
+        char dest_id_str[(dest_cnx_id.id_len) + 1];
+        snprintf_bytes(dest_id_str, (dest_cnx_id.id_len * 2) + 1, dest_cnx_id.id, dest_cnx_id.id_len);
+
+        uint32_t payload_length = (length + aead_checksum_length) - (h_length - pn_length);
+
+        if (ptype == picoquic_packet_1rtt_protected_phi0 || ptype == picoquic_packet_1rtt_protected_phi1) {
+            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_CREATED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ptype), dest_id_str, sequence_number, payload_length);
+        } else {
+            char srce_id_str[(path_x->local_cnxid.id_len) + 1];
+            snprintf_bytes(srce_id_str, (path_x->local_cnxid.id_len * 2) + 1, path_x->local_cnxid.id, path_x->local_cnxid.id_len);
+
+            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_CREATED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ptype), dest_id_str, srce_id_str, sequence_number, payload_length);
+        }
+    }
+
     /* If fuzzing is required, apply it*/
     if (cnx->quic->fuzz_fn != NULL) {
         if (h_length == header_length) {
@@ -548,6 +570,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     if (packet->is_congestion_controlled) {
         packet->send_length = length;
         path_x->bytes_in_transit += packet->send_length;
+        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "QUEUE_FOR_RETRANSMIT", "{\"path\": \"%p\", \"bytes_in_transit\": %lu}", path_x, path_x->bytes_in_transit);
     }
 
     /* Manage the double linked packet list for retransmissions */
@@ -574,8 +597,8 @@ void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int received, picoquic
         tmp = pppf;
         tmp->plugin->bytes_in_flight -= tmp->bytes;
         pppf = tmp->next;
-        protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL,
-                                      tmp->rfs, received);
+        LOG_EVENT(cnx, "PLUGINS", "BYTES_IN_FLIGHT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"plugin\": \"%s\", \"bytes_in_flight\": %lu}", tmp->plugin->name, tmp->plugin->bytes_in_flight);
+        protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL, tmp->rfs, received);
         free(tmp);
     }
     p->plugin_frames = NULL;
@@ -623,6 +646,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         } else {
             p->send_path->bytes_in_transit = 0;
         }
+        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"bytes_in_transit\": %lu}", p->send_path, p->send_path->bytes_in_transit);
     }
 
     remove_registered_plugin_frames(cnx, should_free, p);
@@ -630,6 +654,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         free(p);
     }
     else {
+        LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": \"%d\", \"pn\": %lu}", p->send_path, p->pc, p->sequence_number);
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
 
         p->next_packet = NULL;
@@ -2656,6 +2681,14 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             }
             /* Update queued bytes counter */
             queued_bytes += block->total_bytes;
+            {
+                char ftypes_str[250];
+                size_t ftypes_ofs = 0;
+                for (int i = 0; i < block->nb_frames; i++) {
+                    ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                }
+                LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE_UNDER_RATED", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+            }
             /* Free the block */
             free(block);
         }
@@ -2677,6 +2710,14 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             }
             /* Update queued bytes counter */
             queued_bytes += block->total_bytes;
+            {
+                char ftypes_str[250];
+                size_t ftypes_ofs = 0;
+                for (int i = 0; i < block->nb_frames; i++) {
+                    ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                }
+                LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+            }
             /* Free the block */
             free(block);
         }
@@ -3233,6 +3274,8 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                         packet = NULL;
                     }
                     break;
+                } else {
+                    LOG_EVENT(cnx, "TRANSPORT", "PACKET_PREPARED", "", "{\"type\": \"%s\", \"pn\": %lu, \"path\": \"%p\"}", picoquic_log_ptype_name(packet->ptype), packet->sequence_number, packet->send_path);
                 }
             } else {
                 free(packet);

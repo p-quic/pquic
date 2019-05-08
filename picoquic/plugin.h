@@ -18,6 +18,8 @@ typedef enum {
     pluglet_post
 } pluglet_type_enum;
 
+const char *pluglet_type_name(pluglet_type_enum te);
+
 /* Function to insert plugins */
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */

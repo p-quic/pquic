@@ -38,6 +38,8 @@
 #define PRIst "zu"
 #endif
 
+int snprintf_bytes(char *str, size_t size, const uint8_t *buf, size_t buf_len);
+
 void debug_printf(const char* fmt, ...);
 void debug_printf_push_stream(FILE* f);
 void debug_printf_pop_stream(void);

@@ -196,7 +196,7 @@ picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t strea
             previous_stream->next_stream = stream;
         }
 
-        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, NULL, stream_id);
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, NULL, stream, stream_id);
     }
 
     return stream;
@@ -272,9 +272,13 @@ picoquic_stream_head* picoquic_find_or_create_stream(picoquic_cnx_t* cnx, uint64
 
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags) {
     bool stream_closed = STREAM_CLOSED(stream);
+    uint32_t old_flags = stream->stream_flags;
     stream->stream_flags |= flags;
+    if ((old_flags & flags) != flags) {
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_FLAGS_CHANGED, NULL, stream, stream->stream_id, stream->stream_flags);
+    }
     if (!stream_closed && STREAM_CLOSED(stream)) {
-        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, NULL, stream->stream_id);
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, NULL, stream, stream->stream_id);
     }
 }
 
@@ -356,6 +360,10 @@ int picoquic_prepare_stream_reset_frame(picoquic_cnx_t *cnx, picoquic_stream_hea
         }
     }
 
+    if (!ret) {
+        LOG_EVENT(cnx, "FRAMES", "RST_STREAM_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_ptr\": \"%p\", \"stream_id\": %lu, \"error\": %d, \"offset\": %lu}", bytes, stream, stream->stream_id, stream->local_error, stream->sent_offset);
+    }
+
     return ret;
 }
 
@@ -421,71 +429,6 @@ protoop_arg_t process_stream_reset_frame(picoquic_cnx_t* cnx)
 }
 
 /**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_stream_reset_frame(picoquic_cnx_t* cnx)
-{
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    uint64_t stream_id = 0;
-    uint16_t error_code = 0;
-    uint64_t final_offset = 0;
-    picoquic_stream_head* stream;
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &stream_id))    == NULL ||
-        (bytes = picoquic_frames_uint16_decode(bytes,   bytes_max, &error_code))   == NULL ||
-        (bytes = picoquic_frames_varint_decode(bytes,   bytes_max, &final_offset)) == NULL)
-    {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
-            picoquic_frame_type_reset_stream);
-
-    } else if ((stream = picoquic_find_or_create_stream(cnx, stream_id, 1)) == NULL) {
-        bytes = NULL;  // error already signaled
-
-    } else if ((stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_reset_received)) != 0 && final_offset != stream->fin_offset) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FINAL_OFFSET_ERROR,
-            picoquic_frame_type_reset_stream);
-        bytes = NULL;
-
-    } else if (picoquic_flow_control_check_stream_offset(cnx, stream, final_offset) != 0) {
-        bytes = NULL;  // error already signaled
-
-    } else if ((stream->stream_flags & picoquic_stream_flag_reset_received) == 0) {
-        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_received);
-        stream->remote_error  = error_code;
-
-        if (cnx->callback_fn != NULL && (stream->stream_flags & picoquic_stream_flag_reset_signalled) == 0) {
-            cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_reset, cnx->callback_ctx);
-            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_signalled);
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-/*
- * New Connection ID frame
- */
-
-uint8_t* picoquic_skip_connection_id_frame(uint8_t* bytes, const uint8_t* bytes_max)
-{
-    uint8_t cid_length;
-
-    if ((bytes = picoquic_frames_varint_skip(bytes+1, bytes_max))              != NULL &&
-        (bytes = picoquic_frames_uint8_decode(bytes,  bytes_max, &cid_length)) != NULL)
-    {
-        bytes = picoquic_frames_fixed_skip(bytes, bytes_max, cid_length + 16);
-    }
-
-    return bytes;
-}
-
-/**
  * See PROTOOP_PARAM_PARSE_FRAME
  */
 protoop_arg_t parse_new_connection_id_frame(picoquic_cnx_t* cnx)
@@ -523,27 +466,6 @@ protoop_arg_t parse_new_connection_id_frame(picoquic_cnx_t* cnx)
     }
 
     protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
-    return (protoop_arg_t) bytes;
-}
-
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_new_connection_id_frame(picoquic_cnx_t* cnx)
-{
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    ack_needed = 1;
-
-    /* TODO: store the connection ID in order to support migration. */
-    if ((bytes = picoquic_skip_connection_id_frame(bytes, bytes_max)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
-            picoquic_frame_type_new_connection_id);
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
     return (protoop_arg_t) bytes;
 }
 
@@ -594,27 +516,6 @@ protoop_arg_t parse_new_token_frame(picoquic_cnx_t* cnx)
     return (protoop_arg_t) bytes;
 }
 
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_new_token_frame(picoquic_cnx_t* cnx)
-{
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    ack_needed = 1;
-
-    /* TODO: store the new token in order to support immediate connection on some servers. */
-    if ((bytes = picoquic_skip_new_token_frame(bytes, bytes_max)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
-            picoquic_frame_type_new_token);
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
 /*
  * STOP SENDING Frame
  */
@@ -638,6 +539,8 @@ int picoquic_prepare_stop_sending_frame(picoquic_cnx_t* cnx, picoquic_stream_hea
         byte_index += 2;
         *consumed = byte_index;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_sent);
+
+        LOG_EVENT(cnx, "FRAMES", "STOP_SENDING_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %lu, \"error\": %d}", bytes, stream->stream_id, stream->local_stop_error);
     }
 
     return ret;
@@ -696,53 +599,6 @@ protoop_arg_t process_stop_sending_frame(picoquic_cnx_t* cnx)
 
     return 0;
 }
-
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_stop_sending_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    uint64_t stream_id = 0;
-    uint16_t error_code = 0;
-    picoquic_stream_head* stream;
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &stream_id))  == NULL ||
-        (bytes = picoquic_frames_uint16_decode(bytes,   bytes_max, &error_code)) == NULL)
-    {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
-            picoquic_frame_type_stop_sending);
-
-    } else if ((stream = picoquic_find_or_create_stream(cnx, stream_id, 1)) == NULL) {
-        bytes = NULL;  // Error already signaled
-
-    } else if ((stream->stream_flags & (picoquic_stream_flag_stop_sending_received | picoquic_stream_flag_reset_requested)) == 0) {
-        picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_received);
-        stream->remote_stop_error = error_code;
-
-        if (cnx->callback_fn != NULL && (stream->stream_flags & picoquic_stream_flag_stop_sending_signalled) == 0) {
-            cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stop_sending, cnx->callback_ctx);
-            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_signalled);
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-uint8_t* picoquic_skip_stop_sending_frame(uint8_t* bytes, const uint8_t* bytes_max)
-{
-    if ((bytes = picoquic_frames_varint_skip(bytes+1, bytes_max)) != NULL) {
-        bytes = picoquic_frames_fixed_skip(bytes, bytes_max, sizeof(uint16_t));
-    }
-    return bytes;
-}
-
 
 /*
  * Stream frame.
@@ -831,6 +687,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
             picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
         }
 
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"stream_id\": %lu, \"data_length\": %lu}", stream->stream_id, data_length);
         cnx->callback_fn(cnx, stream->stream_id, data->bytes + start, data_length, fin_now,
             cnx->callback_ctx);
 
@@ -844,6 +701,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
 
     if (stream->consumed_offset >= stream->fin_offset && (stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"stream_id\": %lu, \"data_length\": 0}", stream->stream_id);
         cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_fin,
             cnx->callback_ctx);
     }
@@ -983,6 +841,7 @@ protoop_arg_t decode_stream_frame(picoquic_cnx_t *cnx)
         bytes = NULL;
     } else {
         bytes += data_length;
+        LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_PARSED", "", "{\"stream_id\": %lu, \"offset\": %lu, \"length\": %lu, \"fin\": %d}", stream_id, offset, data_length, fin);
     }
 
     return (protoop_arg_t) bytes;
@@ -1171,6 +1030,8 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                     free(stream->send_queue);
                     stream->send_queue = next;
                 }
+
+                LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %lu, \"offset\": %lu, \"length\": %lu, \"fin\": %d}", bytes, stream->stream_id, stream->sent_offset, length, STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0);
 
                 stream->sent_offset += length;
                 /* The client does not handle this correctly, so fix this at client side... */
@@ -1416,6 +1277,7 @@ protoop_arg_t prepare_crypto_hs_frame(picoquic_cnx_t *cnx)
                     stream->send_queue = next;
                 }
 
+                LOG_EVENT(cnx, "FRAMES", "CRYPTO_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"offset\": %lu, \"length\": %lu}", bytes, stream->sent_offset, length);
                 stream->sent_offset += length;
                 consumed = byte_index;
             } else if (ret == 0 && length == 0) {
@@ -1542,6 +1404,7 @@ protoop_arg_t check_spurious_retransmission(picoquic_cnx_t *cnx)
                 }
 
                 if (cnx->congestion_alg != NULL ) {
+                    LOG_EVENT(cnx, "RECOVERY", "SPURIOUS_RETRANSMIT_DETECTED", "", "{\"pc\": %d, \"pn\": %lu}", pc, p->sequence_number);
                     cnx->congestion_alg->alg_notify(old_path, picoquic_congestion_notification_spurious_repeat,
                         0, 0, p->sequence_number, current_time);
                 }
@@ -1673,6 +1536,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                     }
 
                     if (cnx->congestion_alg != NULL) {
+                        LOG_EVENT(cnx, "RECOVERY", "RTT_ESTIMATE", "", "{\"path\": \"%p\", \"pc\": %d, \"rtt\": %lu}", path_x, pc, rtt_estimate);
                         cnx->congestion_alg->alg_notify(old_path,
                             picoquic_congestion_notification_rtt_measurement,
                             rtt_estimate, 0, 0, current_time);
@@ -2369,6 +2233,8 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
     size_t num_block_index = 0;
     uint8_t ack_type_byte = (is_ecn)?picoquic_frame_type_ack_ecn: picoquic_frame_type_ack;
 
+    ack_frame_t frame;
+
     /* Check that there is enough room in the packet, and something to acknowledge */
     if (pkt_ctx->first_sack_item.start_of_sack_range == (uint64_t)((int64_t)-1)) {
         *consumed = 0;
@@ -2383,6 +2249,7 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
         bytes[byte_index++] = ack_type_byte;
         /* Encode the largest seen */
         if (byte_index < bytes_max) {
+            frame.largest_acknowledged = pkt_ctx->first_sack_item.end_of_sack_range;
             l_largest = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
                 pkt_ctx->first_sack_item.end_of_sack_range);
             byte_index += l_largest;
@@ -2428,6 +2295,7 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
             /* Encode the size of the first ack range */
             if (byte_index < bytes_max) {
                 ack_range = pkt_ctx->first_sack_item.end_of_sack_range - pkt_ctx->first_sack_item.start_of_sack_range;
+                frame.first_ack_block = ack_range;
                 l_first_range = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
                     ack_range);
                 byte_index += l_first_range;
@@ -2448,12 +2316,14 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
 
                 if (byte_index < bytes_max) {
                     ack_gap = lowest_acknowledged - next_sack->end_of_sack_range - 2; /* per spec */
+                    frame.ack_blocks[num_block].gap = ack_gap;
                     l_gap = picoquic_varint_encode(bytes + byte_index,
                         bytes_max - byte_index, ack_gap);
                 }
 
                 if (byte_index + l_gap < bytes_max) {
                     ack_range = next_sack->end_of_sack_range - next_sack->start_of_sack_range;
+                    frame.ack_blocks[num_block].additional_ack_block = ack_range;
                     l_range = picoquic_varint_encode(bytes + byte_index + l_gap,
                         bytes_max - byte_index - l_gap, ack_range);
                 }
@@ -2468,6 +2338,40 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                     num_block++;
                 }
             }
+
+            frame.ack_block_count = num_block;
+
+            {
+                char ack_str[800];
+                size_t ack_ofs = 0;
+                uint64_t largest = frame.largest_acknowledged;
+                int ack_block_count = frame.ack_block_count;
+                for (int num_block = -1; num_block < ack_block_count; num_block++) {
+                    uint64_t block_to_block;
+                    uint64_t range;
+                    if (num_block == -1) {
+                        range = frame.first_ack_block + 1;
+                    } else {
+                        range = frame.ack_blocks[num_block].additional_ack_block + 1;
+                    }
+
+                    if (range <= 1)
+                        ack_ofs += sprintf(ack_str + ack_ofs, "[%lu]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
+                    else
+                        ack_ofs += sprintf(ack_str + ack_ofs, "[%lu, %lu]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
+
+                    if (num_block == ack_block_count - 1)
+                        break;
+
+                    block_to_block = frame.ack_blocks[num_block].gap + 1;
+                    block_to_block += range;
+
+                    largest -= block_to_block;
+                }
+                ack_str[ack_ofs] = 0;
+                LOG_EVENT(cnx, "FRAMES", "ACK_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"largest\": %lu, \"blocks\": [%s]}", bytes, frame.largest_acknowledged, ack_str);
+            }
+
             /* When numbers are lower than 64, varint encoding fits on one byte */
             bytes[num_block_index] = (uint8_t)num_block;
 
@@ -2609,6 +2513,8 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
         if (l1 == 0 || l2 == 0) {
             *consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+        } else {
+            LOG_EVENT(cnx, "FRAMES", "CONNECTION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"frame_type\": %lu, \"reason\": \"\"}", bytes, cnx->local_error, cnx->offending_frame_type);
         }
     }
     else {
@@ -2674,34 +2580,6 @@ protoop_arg_t process_connection_close_frame(picoquic_cnx_t* cnx)
     return 0;
 }
 
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_connection_close_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_uint16_decode(bytes+1,  bytes_max, &cnx->remote_error)) == NULL ||
-        (bytes = picoquic_frames_varint_skip(  bytes,    bytes_max))             == NULL ||
-        (bytes = picoquic_frames_length_data_skip(bytes, bytes_max))             == NULL)
-    {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
-            picoquic_frame_type_connection_close);
-    } else {
-        picoquic_set_cnx_state(cnx, (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received);
-        if (cnx->callback_fn) {
-            (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
 /*
  * Application close frame
  */
@@ -2729,6 +2607,8 @@ int picoquic_prepare_application_close_frame(picoquic_cnx_t* cnx,
         if (l1 == 0) {
             *consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+        } else {
+            LOG_EVENT(cnx, "FRAMES", "APPLICATION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"reason\": \"\"}", bytes, cnx->application_error);
         }
     }
     else {
@@ -2793,38 +2673,6 @@ protoop_arg_t process_application_close_frame(picoquic_cnx_t* cnx)
     return 0;
 }
 
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_application_close_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_uint16_decode(bytes + 1, bytes_max, &cnx->remote_application_error)) == NULL ||
-        /* TODO, maybe: skip frame type for compatibility with draft-13 */
-        (bytes = picoquic_frames_length_data_skip(bytes, bytes_max)) == NULL)
-    {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
-            picoquic_frame_type_application_close);
-    }
-    else {
-        picoquic_set_cnx_state(cnx, (cnx->cnx_state < picoquic_state_client_ready) ? picoquic_state_disconnected : picoquic_state_closing_received);
-        if (cnx->callback_fn) {
-            (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_application_close, cnx->callback_ctx);
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-
-
-
 /*
  * Max data frame
  */
@@ -2860,6 +2708,7 @@ protoop_arg_t prepare_max_data_frame(picoquic_cnx_t *cnx)
         }
 
         consumed = 1 + l1;
+        LOG_EVENT(cnx, "FRAMES", "MAX_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"maximum_data\": %lu}", bytes, cnx->maxdata_local);
     }
 
     protoop_save_outputs(cnx, consumed);
@@ -2919,28 +2768,6 @@ protoop_arg_t process_max_data_frame(picoquic_cnx_t* cnx)
     }
 
     return 0;
-}
-
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_max_data_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-    uint64_t maxdata;
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &maxdata)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_max_data);
-    } else if (maxdata > cnx->maxdata_remote) {
-        cnx->maxdata_remote = maxdata;
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
 }
 
 /*
@@ -3018,39 +2845,6 @@ protoop_arg_t process_max_stream_data_frame(picoquic_cnx_t *cnx)
 }
 
 /**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_max_stream_data_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    uint64_t stream_id;
-    uint64_t maxdata;
-    picoquic_stream_head* stream;
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &stream_id)) == NULL ||
-        (bytes = picoquic_frames_varint_decode(bytes,   bytes_max, &maxdata))   == NULL)
-    {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_max_stream_data);
-
-    } else if ((stream = picoquic_find_stream(cnx, stream_id, 1)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_ERROR_MEMORY, picoquic_frame_type_max_stream_data);
-        bytes = NULL;
-
-    } else if (maxdata > stream->maxdata_remote) {
-        /* TODO: call back if the stream was blocked? */
-        stream->maxdata_remote = maxdata;
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-/**
  * See PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME
  */
 protoop_arg_t prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx)
@@ -3074,6 +2868,7 @@ protoop_arg_t prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx)
                 &bytes_in_frame);
             if (ret == 0) {
                 byte_index += bytes_in_frame;
+                LOG_EVENT(cnx, "FRAMES", "MAX_STREAM_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %lu, \"maximum_data\": %lu}", bytes, stream->stream_id, stream->maxdata_local);
             } else {
                 break;
             }
@@ -3103,26 +2898,6 @@ int picoquic_prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx,
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, outs,
         bytes, bytes_max);
     *consumed = (size_t)outs[0];
-    return ret;
-}
-
-/*
- * Max stream ID frame
- */
-int picoquic_prepare_max_stream_ID_frame(picoquic_cnx_t* cnx, uint32_t increment,
-    uint8_t* bytes, size_t bytes_max, size_t* consumed)
-{
-    int ret = 0;
-    size_t l1 = picoquic_varint_encode(bytes + 1, bytes_max - 1, cnx->max_stream_id_bidir_local + increment);
-
-    if (l1 == 0) {
-        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-    } else {
-        bytes[0] = picoquic_frame_type_max_stream_id;
-        cnx->max_stream_id_bidir_local += increment;
-        *consumed = 1 + l1;
-    }
-
     return ret;
 }
 
@@ -3174,37 +2949,6 @@ protoop_arg_t process_max_stream_id_frame(picoquic_cnx_t* cnx)
     }
 
     return 0;
-}
-
-/**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_max_stream_id_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    uint64_t max_stream_id;
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &max_stream_id)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, picoquic_frame_type_max_stream_id);
-
-    } else if (cnx->client_mode != IS_CLIENT_STREAM_ID(max_stream_id)) {    // Only accept my stream IDs
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_STREAM_ID_ERROR, picoquic_frame_type_max_stream_id);
-        bytes = NULL;
-
-    } else {
-        uint64_t *max_id = IS_BIDIR_STREAM_ID(max_stream_id) ? &cnx->max_stream_id_bidir_remote : &cnx->max_stream_id_unidir_remote;
-        if (max_stream_id > *max_id) {
-            *max_id = max_stream_id;
-        }
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
 }
 
 /*
@@ -3310,6 +3054,8 @@ protoop_arg_t prepare_path_challenge_frame(picoquic_cnx_t *cnx)
         bytes[0] = picoquic_frame_type_path_challenge;
         picoformat_64(bytes + 1, path->challenge);
         consumed = 1 + 8;
+
+        LOG_EVENT(cnx, "FRAMES", "PATH_CHALLENGE_CREATED", "", "{\"data_ptr\": \"%p\", \"data\": \"%lx\"}", bytes, path->challenge);
     }
 
     protoop_save_outputs(cnx, consumed);
@@ -3503,26 +3249,6 @@ protoop_arg_t parse_blocked_frame(picoquic_cnx_t* cnx)
 }
 
 /**
- * See PROTOOP_PARAM_DECODE_FRAME
- */
-protoop_arg_t decode_blocked_frame(picoquic_cnx_t *cnx)
-{
-    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t *bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
-    int ack_needed = (int) cnx->protoop_inputv[4];
-
-    ack_needed = 1;
-
-    if ((bytes = picoquic_frames_varint_skip(bytes+1, bytes_max)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
-            picoquic_frame_type_blocked);
-    }
-
-    protoop_save_outputs(cnx, ack_needed);
-    return (protoop_arg_t) bytes;
-}
-
-/**
  * See PROTOOP_PARAM_PARSE_FRAME
  */
 protoop_arg_t parse_stream_blocked_frame(picoquic_cnx_t* cnx)
@@ -3706,6 +3432,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
     void *frame = (void *) outs[0];
     *ack_needed |= (int) outs[1];
     protoop_plugin_t *previous_plugin = cnx->previous_plugin;
+    bool previous_plugin_had_anchor_replace = cnx->previous_plugin_had_anchor_replace;
     if (bytes && frame) {
         int err = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PROCESS_FRAME, first_byte, outs,
             frame, current_time, epoch, path_x);
@@ -3714,7 +3441,8 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
         }
 
         /* It is the responsibility of the caller to free frame */
-        if (previous_plugin) {
+        if (previous_plugin && previous_plugin_had_anchor_replace) {
+            printf("decode frame free\n");
             my_free_in_core(previous_plugin, frame);
         } else {
             free(frame);
@@ -3865,7 +3593,8 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
         is_retransmittable = (int) outs[2];
         if (frame) {
             /* We don't need the frame data, so free it */
-            if (cnx->previous_plugin) {
+            if (cnx->previous_plugin && cnx->previous_plugin_had_anchor_replace) {
+                printf("skip frame free\n");
                 my_free_in_core(cnx->previous_plugin, frame);
             } else {
                 free(frame);

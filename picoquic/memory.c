@@ -57,7 +57,7 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 void my_free_in_core(protoop_plugin_t *p, void *ptr) {
 	ptr -= 8;
 	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
-		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx\n", *((uint64_t *) ptr));
+		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx, ORIGINAL PTR: %p\n", *((uint64_t *) ptr), ptr + 8);
 	}
 	memory_pool_t *mp = &p->memory_pool;
 	if (mp->next != NULL) {

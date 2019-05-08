@@ -35,6 +35,7 @@
 #include <string.h>
 #include "plugin.h"
 #include "memory.h"
+#include "logger.h"
 
 /*
  * The new packet header parsing is version dependent
@@ -427,6 +428,19 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     ph->pn64 = picoquic_get_packet_number64(
         (already_received==NULL)?path_from->pkt_ctx[ph->pc].send_sequence:
         path_from->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
+
+    char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
+    snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
+    if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
+        LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
+    } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
+        char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
+        snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
+        LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
+    } else {
+        // TODO: vneg
+    }
+
 
     /* verify that the packet is new */
     if (already_received != NULL && picoquic_is_pn_already_received(path_from, ph->pc, ph->pn64) != 0) {

@@ -313,7 +313,7 @@ typedef struct {
 } protoop_params_t;
 
 #define NO_PARAM (param_id_t) -1
-#define PROTOOPARGS_MAX 10 /* Minimum required value... */
+#define PROTOOPARGS_MAX 16 /* Minimum required value... */
 
 /** 
  * Frame structures 
