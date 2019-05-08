@@ -60,7 +60,7 @@ static __attribute__((always_inline)) void sfpid_takes_off(window_fec_framework_
 static __attribute__((always_inline)) bool ready_to_send(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
     uint8_t k = 0;
     get_redundancy_parameters(cnx, wff->controller, NULL, &k);
-    return (wff->max_id-wff->highest_sent_id == k);
+    return (wff->max_id-wff->highest_sent_id >= k);
 }
 
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(window_fec_framework_t *wff, int idx) {

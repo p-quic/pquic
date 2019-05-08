@@ -6,6 +6,7 @@
 #include "memory.h"
 #include "memcpy.h"
 #define MAX_RECOVERED_PACKETS_IN_BUFFER 50
+#define MIN(a, b) ((a < b) ? a : b)
 
 typedef void * fec_framework_t;
 

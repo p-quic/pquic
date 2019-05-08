@@ -52,7 +52,7 @@ static __attribute__((always_inline)) block_fec_framework_t *create_framework_se
 static __attribute__((always_inline)) bool ready_to_send(picoquic_cnx_t *cnx, block_fec_framework_t *bff) {
     uint8_t k = 0;
     get_redundancy_parameters(cnx, bff->controller, NULL, &k);
-    return (bff->current_block->current_source_symbols == k);
+    return (bff->current_block->current_source_symbols >= k);
 }
 
 static __attribute__((always_inline)) bool has_repair_symbol_at_index(block_fec_framework_t *bff, int idx) {
@@ -184,7 +184,7 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
     uint8_t n = 0;
     uint8_t k = 0;
     get_redundancy_parameters(cnx, bff->controller, &n, &k);
-    bff->current_block->total_source_symbols = k;
+    bff->current_block->total_source_symbols = bff->current_block->current_source_symbols;
     bff->current_block->total_repair_symbols = n - k;
 
     int ret = (int) run_noparam(cnx, "fec_generate_repair_symbols", 2, args, outs);
