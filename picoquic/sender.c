@@ -1327,7 +1327,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
                             if (current_time >= retrans_cc_notification_timer && cnx->congestion_alg != NULL) {
                                 orig_path->pkt_ctx[pc].latest_retransmit_cc_notification_time = current_time;
-                                cnx->congestion_alg->alg_notify(old_path,
+                                picoquic_congestion_algorithm_notify_func(cnx, old_path,
                                     (is_timer_based) ? picoquic_congestion_notification_timeout : picoquic_congestion_notification_repeat,
                                     0, 0, lost_packet_number, current_time);
                             }
