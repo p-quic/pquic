@@ -16,9 +16,13 @@ protoop_arg_t log_event(picoquic_cnx_t *cnx) {
         qlog_event_t *e = my_malloc(cnx, sizeof(qlog_event_t));
         e->reference_time = now;
         for (int i = 0; i < QLOG_N_EVENT_FIELDS - 1; i++) {
-            size_t str_len = strlen(fields[i]) + 1;
-            e->fields[i] = my_malloc(cnx, str_len);
-            my_memcpy(e->fields[i], fields[i], str_len);
+            if (fields[i]) {
+                size_t str_len = strlen(fields[i]) + 1;
+                e->fields[i] = my_malloc(cnx, str_len);
+                my_memcpy(e->fields[i], fields[i], str_len);
+            } else if (i == 3) {
+                e->fields[i] = format_ctx(cnx, qlog);
+            }
         }
         if (!qlog->head) {
             qlog->head = e;
@@ -28,7 +32,14 @@ protoop_arg_t log_event(picoquic_cnx_t *cnx) {
         }
         qlog->tail = e;
     } else {
+        bool generate_context = !fields[3];
+        if (generate_context) {
+            fields[3] = format_ctx(cnx, qlog);
+        }
         append_event(qlog, now, fields);
+        if (generate_context) {
+            my_free(cnx, fields[3]);
+        }
     }
     return 0;
 }

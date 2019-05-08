@@ -2023,6 +2023,8 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
     }
 
     packet_type = picoquic_packet_type_from_epoch(epoch);
+    LOG_EVENT(cnx, "TRANSPORT", "PREPARE_PACKET", "", "{\"type\": \"%s\"}", picoquic_log_ptype_name(packet_type));
+    PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\"", picoquic_log_ptype_name(packet_type));
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
@@ -2221,6 +2223,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             picoquic_cnx_set_next_wake_time(cnx, current_time, length);
         }
     }
+    POP_LOG_CTX(cnx);
 
     return ret;
 }
@@ -2251,6 +2254,9 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         pc = picoquic_packet_context_handshake;
         packet_type = picoquic_packet_handshake;
     }
+
+    LOG_EVENT(cnx, "TRANSPORT", "PREPARE_PACKET", "", "{\"type\": \"%s\"}", picoquic_log_ptype_name(packet_type));
+    PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\"", picoquic_log_ptype_name(packet_type));
 
     send_buffer_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : send_buffer_max;
 
@@ -2391,6 +2397,8 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
 
     picoquic_cnx_set_next_wake_time(cnx, current_time, length);
+
+    POP_LOG_CTX(cnx);
 
     return ret;
 }
@@ -2755,6 +2763,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
     /* FIXME cope with different path MTUs */
     picoquic_path_t *path_x = cnx->path[0];
+    PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path_x);
 
     uint32_t send_buffer_min_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : (uint32_t)send_buffer_max;
     int retransmit_possible = 1;
@@ -2986,6 +2995,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         }
     }
 
+    POP_LOG_CTX(cnx);
     protoop_save_outputs(cnx, path_x, length, header_length);
     return (protoop_arg_t) ret;
 }
@@ -3033,6 +3043,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     picoquic_packet_context_enum pc = picoquic_packet_context_application;
     int timer_based_retransmit = 0;
     char* reason = NULL;
+
+    LOG_EVENT(cnx, "TRANSPORT", "PREPARE_PACKET", "", "{\"type\": \"%s\"}", picoquic_log_ptype_name(packet_type));
+    PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\"", picoquic_log_ptype_name(packet_type));
 
     /* We should be able to get the retransmission, no matter the path we look at */
     picoquic_packet_t* retransmit_p = NULL;
@@ -3141,6 +3154,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         picoquic_cnx_set_next_wake_time(cnx, current_time, length);
     }
 
+    POP_LOG_CTX(cnx);
     protoop_save_outputs(cnx, send_length, path_x);
 
     return (protoop_arg_t) ret;

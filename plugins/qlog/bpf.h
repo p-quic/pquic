@@ -8,10 +8,15 @@
 #define QLOG_VANTAGE_POINT_CLIENT "CLIENT"
 #define QLOG_VANTAGE_POINT_SERVER "SERVER"
 #define QLOG_VERSION "draft-00"
-#define QLOG_N_EVENT_FIELDS 5
-#define QLOG_EVENT_FIELDS {"relative_time", "CATEGORY", "EVENT_TYPE", "TRIGGER", "DATA"}
+#define QLOG_N_EVENT_FIELDS 6
+#define QLOG_EVENT_FIELDS {"relative_time", "CATEGORY", "EVENT_TYPE", "TRIGGER", "CONTEXT", "DATA"}
 #define QLOG_N_END_CHARS 4
 #define QLOG_END_CHARS "]}]}"
+
+typedef struct st_qlog_ctx_t {
+    char *ctx;
+    struct st_qlog_ctx_t *next;
+} qlog_ctx_t;
 
 typedef struct st_qlog_event_t {
     uint64_t reference_time;
@@ -33,11 +38,12 @@ typedef struct st_qlog_t {
     qlog_hdr_t hdr;
     qlog_event_t *head;
     qlog_event_t *tail;
+    qlog_ctx_t *top;
     bool wrote_hdr;
     bool wrote_event;
 } qlog_t;
 
-static qlog_t* get_qlog_t(picoquic_cnx_t *cnx) {
+static __attribute__((always_inline)) qlog_t* get_qlog_t(picoquic_cnx_t *cnx) {
     int allocated = 0;
     qlog_t *bpfd_ptr = (qlog_t *) get_opaque_data(cnx, QLOG_OPAQUE_ID, sizeof(qlog_t), &allocated);
     if (!bpfd_ptr) return NULL;
@@ -50,7 +56,44 @@ static qlog_t* get_qlog_t(picoquic_cnx_t *cnx) {
     return bpfd_ptr;
 }
 
-static void free_event(picoquic_cnx_t *cnx, qlog_event_t *e) {
+static __attribute__((always_inline)) void push_ctx(picoquic_cnx_t *cnx, qlog_t *q, char *ctx) {
+    qlog_ctx_t *e = (qlog_ctx_t *) my_malloc(cnx, sizeof(qlog_ctx_t));
+    if (e) {
+        e->next = q->top;
+        e->ctx = ctx;
+        q->top = e;
+    }
+}
+
+static __attribute__((always_inline)) char * pop_ctx(picoquic_cnx_t *cnx, qlog_t *q) {
+    char *ctx = NULL;
+    qlog_ctx_t *e = q->top;
+    if (e) {
+        q->top = e->next;
+        ctx = e->ctx;
+        my_free(cnx, e);
+    }
+    return ctx;
+}
+
+static __attribute__((always_inline)) char * format_ctx(picoquic_cnx_t *cnx, qlog_t *q) {
+    size_t ctx_size = 256;
+    char *ctx = (char *) my_malloc(cnx, ctx_size);
+    size_t ofs = snprintf(ctx, ctx_size, "{");
+    qlog_ctx_t *c = q->top;
+    while (c && ofs < ctx_size) {
+        ofs += snprintf(ctx + ofs, ctx_size - ofs, "%s", c->ctx);
+        if ((c = c->next)) {
+            ofs += snprintf(ctx + ofs, ctx_size - ofs, ", ");
+        }
+    }
+    if (ofs < ctx_size) {
+        snprintf(ctx + ofs, ctx_size - ofs, "}");
+    }
+    return ctx;
+}
+
+static __attribute__((always_inline)) void free_event(picoquic_cnx_t *cnx, qlog_event_t *e) {
     for (int i = 0; i < QLOG_N_EVENT_FIELDS - 1; i++) {
         if (e->fields[i]) {
             my_free(cnx, e->fields[i]);
@@ -59,16 +102,16 @@ static void free_event(picoquic_cnx_t *cnx, qlog_event_t *e) {
     my_free(cnx, e);
 }
 
-static void append_event(qlog_t *q, uint64_t absolute_time, char **fields) {
+static __attribute__((always_inline)) void append_event(qlog_t *q, uint64_t absolute_time, char **fields) {
     if (q->wrote_hdr || q->wrote_event) {
         lseek(q->fd, -QLOG_N_END_CHARS, SEEK_END);
     }
     uint64_t relative_time = absolute_time - q->hdr.reference_time;
     dprintf(q->fd, "[%lu, ", relative_time);
-    for (int i = 0; i < QLOG_N_EVENT_FIELDS - 2; i++) {
+    for (int i = 0; i < QLOG_N_EVENT_FIELDS - 3; i++) {
         dprintf(q->fd, "\"%s\", ", fields[i]);
     }
-    dprintf(q->fd, "%s],", fields[QLOG_N_EVENT_FIELDS - 2]);
+    dprintf(q->fd, "%s, %s],", fields[QLOG_N_EVENT_FIELDS - 3], fields[QLOG_N_EVENT_FIELDS - 2]);
     dprintf(q->fd, QLOG_END_CHARS);
     q->wrote_event = true;
 }
@@ -91,7 +134,7 @@ static void write_trailer(picoquic_cnx_t *cnx, qlog_t *q) {
     lseek(q->fd, -(QLOG_N_END_CHARS + q->wrote_event), SEEK_END);
     char *id_str = my_malloc(cnx, (sizeof(char) * (q->hdr.odcid.id_len * 2)) + sizeof(char));
     for (int i = 0; i < q->hdr.odcid.id_len; i ++) {
-        sprintf(id_str + (i * 2), "%02x", q->hdr.odcid.id[i]);
+        snprintf(id_str + (i * 2), 2, "%02x", q->hdr.odcid.id[i]);
     }
     id_str[(q->hdr.odcid.id_len * 2)] = 0;
     dprintf(q->fd, "], \"configuration\": {\"time_offset\": 0, \"time_units\": \"us\"}, \"common_fields\": {\"group_id\": \"%s\", \"ODCID\": \"%s\", ", id_str, id_str);

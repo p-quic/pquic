@@ -682,8 +682,17 @@ typedef struct st_picoquic_cnx_t {
     do {                                                                                                                                                                     \
         char ___data[1024];                                                                                                                                                  \
         snprintf(___data, 1024, data_fmt, __VA_ARGS__);                                                                                                                      \
-        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_LOG_EVENT, NULL, (protoop_arg_t) cat, (protoop_arg_t) ev_type, (protoop_arg_t) trig, (protoop_arg_t) ___data); \
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_LOG_EVENT, NULL, (protoop_arg_t) cat, (protoop_arg_t) ev_type, (protoop_arg_t) trig, (protoop_arg_t) NULL, (protoop_arg_t) ___data); \
     } while (0)
+
+#define PUSH_LOG_CTX(cnx, ctx_fmt, ...) \
+    do {                                                                                                                                                                     \
+        char ___data[1024];                                                                                                                                                  \
+        snprintf(___data, 1024, ctx_fmt, __VA_ARGS__);                                                                                                                      \
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, NULL, (protoop_arg_t) ___data); \
+    } while (0)
+
+#define POP_LOG_CTX(cnx)    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, NULL, NULL)
 
 #elif defined(__GNUC__)
 

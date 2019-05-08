@@ -1,5 +1,9 @@
 be.mpiraux.qlog
 set_qlog_file extern set_output_file.o
+push_app_log_context extern push_log_context.o
+pop_app_log_context extern pop_log_context.o
+push_log_context replace push_log_context.o
+pop_log_context replace pop_log_context.o
 connection_state_changed post cnx_state_changed.o
 log_event replace log_event.o
 stream_opened post frames/stream_opened.o

@@ -746,6 +746,19 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_ACK_DELAY;
 #define PROTOOPID_NOPARAM_LOG_EVENT "log_event"
 extern protoop_id_t PROTOOP_NOPARAM_LOG_EVENT;
 
+/**
+ * Push context information to qlog
+ * \param[in] data \b char* Context data
+ */
+#define PROTOOPID_NOPARAM_PUSH_LOG_CONTEXT "push_log_context"
+extern protoop_id_t PROTOOP_NOPARAM_PUSH_LOG_CONTEXT;
+
+/**
+ * Pop context information to qlog
+ */
+#define PROTOOPID_NOPARAM_POP_LOG_CONTEXT "pop_log_context"
+extern protoop_id_t PROTOOP_NOPARAM_POP_LOG_CONTEXT;
+
 /* @} */
 
 #endif

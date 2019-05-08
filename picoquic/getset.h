@@ -582,6 +582,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_PH_SEQUENCE_NUMBER 0x03
 /** The corresponding epoch */
 #define AK_PH_EPOCH 0x04
+/** The packet type */
+#define AK_PH_PTYPE 0x05
 
 /**
  * @}

@@ -143,6 +143,8 @@ SET(PLUGINS_QLOG
     plugins/qlog/sender/retransmit_needed_by_packet.c
     plugins/qlog/sender/retransmit_needed.c
     plugins/qlog/sender/congestion_algorithm_notified.c
+    plugins/qlog/push_log_context.c
+    plugins/qlog/pop_log_context.c
 )
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)

@@ -113,11 +113,12 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x41, "picoquic_frame_fair_reserve", picoquic_frame_fair_reserve);
 
     ubpf_register(vm, 0x60, "dprintf", dprintf);
-    ubpf_register(vm, 0x61, "sprintf", sprintf);
+    ubpf_register(vm, 0x61, "snprintf", snprintf);
     ubpf_register(vm, 0x62, "lseek", lseek);
     ubpf_register(vm, 0x63, "ftruncate", ftruncate);
     ubpf_register(vm, 0x64, "strlen", strlen);
     ubpf_register(vm, 0x65, "snprintf_bytes", snprintf_bytes);
+    ubpf_register(vm, 0x66, "strncpy", strncpy);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

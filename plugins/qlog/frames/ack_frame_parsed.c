@@ -17,9 +17,11 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
                 }
 
                 if (range <= 1)
-                    ack_ofs += sprintf(ack_str + ack_ofs, "[%lu]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
+                    ack_ofs += snprintf(ack_str + ack_ofs, 800 - ack_ofs, "[%lu]", largest);
                 else
-                    ack_ofs += sprintf(ack_str + ack_ofs, "[%lu, %lu]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
+                    ack_ofs += snprintf(ack_str + ack_ofs, 800 - ack_ofs, "[%lu, %lu]", largest - range + 1, largest);
+
+                ack_ofs += snprintf(ack_str + ack_ofs, 800 - ack_ofs, num_block == ack_block_count - 1 ? "" : ", ");
 
                 if (num_block == ack_block_count - 1)
                     break;

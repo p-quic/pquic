@@ -96,13 +96,13 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
 static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
     char *data = my_malloc(cnx, 1024);
     helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
-    protoop_arg_t pargs[4];
+    protoop_arg_t pargs[5];
     pargs[0] = (protoop_arg_t) args[0];
     pargs[1] = (protoop_arg_t) args[1];
     pargs[2] = (protoop_arg_t) args[2];
-    pargs[3] = (protoop_arg_t) data;
-    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 4, pargs, NULL);
-    //PROTOOP_PRINTF(cnx, ""); //TODO: Find out why this print prevents the memory corruption
+    pargs[3] = (protoop_arg_t) NULL;
+    pargs[4] = (protoop_arg_t) data;
+    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 5, pargs, NULL);
     my_free(cnx, (void *) data);
 }
 

@@ -1981,6 +1981,7 @@ int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_op
         return 1;
     }
     strncpy(post->pid.id, pid->id, p_strlen);
+    strncpy(post->name, pid->id, sizeof(post->name) > p_strlen ? p_strlen : sizeof(post->name));
     post->is_parametrable = false;
     post->params = create_protocol_operation_param(NO_PARAM, op);
     if (!post->params) {
@@ -2036,6 +2037,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t pa
             return 1;
         }
         strncpy(post->pid.id, pid->id, p_strlen);
+        strncpy(post->name, pid->id, sizeof(post->name) > p_strlen ? p_strlen : sizeof(post->name));
         post->is_parametrable = true;
         /* Ensure the value is NULL */
         post->params = NULL;
