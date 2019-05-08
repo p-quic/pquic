@@ -668,6 +668,13 @@ static int helper_packet_was_retransmitted(picoquic_cnx_t* cnx, char* reason, pi
     return ret;
 }
 
+static int helper_packet_was_lost(picoquic_cnx_t *cnx, picoquic_packet_t *packet, picoquic_path_t *path) {
+    protoop_arg_t args[2];
+    args[0] = (protoop_arg_t) packet;
+    args[1] = (protoop_arg_t) path;
+    return run_noparam(cnx, PROTOOPID_NOPARAM_PACKET_WAS_LOST, 2, args, NULL);
+}
+
 static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoquic_cnx_t *cnx, picoquic_sack_item_t *first_sack,
     uint64_t start_range, uint64_t end_range)
 {
