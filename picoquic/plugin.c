@@ -419,8 +419,8 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
     const size_t max_filename_length = 150;
     char included_file[max_filename_length];
     while ((read = getline(&line, &len, file)) != -1) {
-        /* Skip blank lines */
-        if (len <= 1) {
+        /* Skip blank and comment lines */
+        if (len <= 1 || line[0] == '#') {
             continue;
         }
         char *line_tmp = line;
