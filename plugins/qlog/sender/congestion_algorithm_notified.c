@@ -25,7 +25,5 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
         default:
             break;
     }
-
-    PROTOOP_PRINTF(cnx, "CC NOTIF: %p, %d, %lu, %lu, %lu, %lu\n", (protoop_arg_t) path_x, notification, rtt_measurement, nb_bytes_acknowledged, lost_packet_number, current_time);
     return 0;
 }

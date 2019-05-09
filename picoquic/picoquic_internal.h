@@ -678,21 +678,27 @@ typedef struct st_picoquic_cnx_t {
 # define protoop_prepare_and_run_extern_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
+#ifndef LOG_EVENT
 #define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)                                                                                                                    \
     do {                                                                                                                                                                     \
         char ___data[1024];                                                                                                                                                  \
         snprintf(___data, 1024, data_fmt, __VA_ARGS__);                                                                                                                      \
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_LOG_EVENT, NULL, (protoop_arg_t) cat, (protoop_arg_t) ev_type, (protoop_arg_t) trig, (protoop_arg_t) NULL, (protoop_arg_t) ___data); \
     } while (0)
+#endif
 
+#ifndef PUSH_LOG_CTX
 #define PUSH_LOG_CTX(cnx, ctx_fmt, ...) \
     do {                                                                                                                                                                     \
         char ___data[1024];                                                                                                                                                  \
         snprintf(___data, 1024, ctx_fmt, __VA_ARGS__);                                                                                                                      \
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, NULL, (protoop_arg_t) ___data); \
     } while (0)
+#endif
 
+#ifndef POP_LOG_CTX
 #define POP_LOG_CTX(cnx)    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, NULL, NULL)
+#endif
 
 #elif defined(__GNUC__)
 

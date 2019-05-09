@@ -4,6 +4,7 @@
 #include "picoquic.h"
 #include "plugin.h"
 #include "memcpy.h"
+#include "memory.h"
 #include "getset.h"
 
 #define PICOQUIC_MAX_PACKET_SIZE 1536

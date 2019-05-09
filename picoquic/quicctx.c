@@ -2083,6 +2083,8 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         printf("ERROR: reserve_frames can only be called by pluglets with plugins!\n");
         return 0;
     }
+    PUSH_LOG_CTX(cnx, "\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"",  cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
+
     /* Well, or we could use queues instead ? */
     reserve_frames_block_t *block = malloc(sizeof(reserve_frames_block_t));
     if (!block) {
@@ -2106,21 +2108,19 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     }
     if (err) {
         free(block);
+        POP_LOG_CTX(cnx);
         return 0;
     }
     {
-        char trigger_str[250];
-        snprintf(trigger_str, 250, "{\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"}", cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
-        trigger_str[sizeof(trigger_str) - 1] = 0;
-
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < nb_frames; i++) {
             ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
         }
         ftypes_str[ftypes_ofs] = 0;
-        LOG_EVENT(cnx, "PLUGINS", "RESERVE_FRAMES", trigger_str, "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+        LOG_EVENT(cnx, "PLUGINS", "RESERVE_FRAMES", "", "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
     }
+    POP_LOG_CTX(cnx);
     cnx->wake_now = 1;
     return block->total_bytes;
 }
@@ -2130,19 +2130,18 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
         printf("ERROR: cancel_head_reservation can only be called by pluglets with plugins!\n");
         return 0;
     }
+    PUSH_LOG_CTX(cnx, "\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"",  cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
+
     queue_t *block_queue = congestion_controlled ? cnx->current_plugin->block_queue_cc : cnx->current_plugin->block_queue_non_cc;
     reserve_frames_block_t *block = queue_dequeue(block_queue);
     if (block == NULL) {
         *nb_frames = 0;
+        POP_LOG_CTX(cnx);
         return NULL;
     }
     *nb_frames = block->nb_frames;
     reserve_frame_slot_t *slots = block->frames;
     {
-        char trigger_str[250];
-        snprintf(trigger_str, 250, "{\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"}", cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
-        trigger_str[sizeof(trigger_str) - 1] = 0;
-
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < *nb_frames; i++) {
@@ -2150,9 +2149,10 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
         }
         ftypes_str[ftypes_ofs] = 0;
 
-        LOG_EVENT(cnx, "PLUGINS", "CANCEL_HEAD_RESERVATION", trigger_str, "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+        LOG_EVENT(cnx, "PLUGINS", "CANCEL_HEAD_RESERVATION", "", "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
     }
     free(block);
+    POP_LOG_CTX(cnx);
     return slots;
 }
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)

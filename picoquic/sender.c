@@ -654,7 +654,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         free(p);
     }
     else {
-        LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": \"%d\", \"pn\": %lu}", p->send_path, p->pc, p->sequence_number);
+        LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": %d, \"pn\": %lu}", p->send_path, p->pc, p->sequence_number);
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
 
         p->next_packet = NULL;

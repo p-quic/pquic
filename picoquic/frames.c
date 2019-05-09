@@ -3440,7 +3440,6 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
 
         /* It is the responsibility of the caller to free frame */
         if (previous_plugin && previous_plugin_had_anchor_replace) {
-            printf("decode frame free\n");
             my_free_in_core(previous_plugin, frame);
         } else {
             free(frame);
@@ -3592,7 +3591,6 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
         if (frame) {
             /* We don't need the frame data, so free it */
             if (cnx->previous_plugin && cnx->previous_plugin_had_anchor_replace) {
-                printf("skip frame free\n");
                 my_free_in_core(cnx->previous_plugin, frame);
             } else {
                 free(frame);
