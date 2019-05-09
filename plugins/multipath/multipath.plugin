@@ -18,7 +18,6 @@ get_destination_connection_id replace get_destination_connection_id.o
 predict_packet_header_length replace predict_packet_header_length.o
 connection_state_changed post connection_state_changed.o
 schedule_frames_on_path replace schedule_frames_on_path_rtt.o
-after_decoding_frames replace after_decoding_frames.o
 write_frame param 0x42 replace write_rtt_probe.o
 notify_frame param 0x42 replace notify_rtt_probe.o
 is_frame_congestion_controlled param 0x27 replace is_mp_ack_frame_congestion_controlled.o

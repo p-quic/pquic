@@ -113,8 +113,6 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/write_add_address_frame.c
     plugins/multipath/write_mp_ack_frame.c
     plugins/multipath/write_rtt_probe.c
-    plugins/multipath/select_sending_path_rtt.c
-    plugins/multipath/select_sending_path_rr.c
 )
 
 SET(PLUGINS_QLOG
