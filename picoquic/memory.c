@@ -62,9 +62,15 @@ void my_free_in_core(protoop_plugin_t *p, void *ptr) {
 	memory_pool_t *mp = &p->memory_pool;
 	if (mp->next != NULL) {
 		(*(uint64_t *) ptr) = index_from_addr(mp, mp->next);
+		if (!(mp->mem_start <= (uint8_t *) ptr && (uint8_t *) ptr < (mp->mem_start + (mp->num_of_blocks * mp->size_of_each_block)))) {
+            printf("MEMORY CORRUPTION: FREEING MEMORY (%p) NOT BELONGING TO THE PLUGIN\n", ptr + 8);
+		}
 		mp->next = (uint8_t *) ptr;
 	} else {
 		(*(uint64_t *) ptr) = mp->num_of_blocks;
+        if (!(mp->mem_start <= (uint8_t *) ptr && (uint8_t *) ptr < (mp->mem_start + (mp->num_of_blocks * mp->size_of_each_block)))) {
+            printf("MEMORY CORRUPTION: FREEING MEMORY (%p) NOT BELONGING TO THE PLUGIN\n", ptr + 8);
+        }
 		mp->next = (uint8_t *) ptr;
 	}
 	mp->num_free_blocks++;

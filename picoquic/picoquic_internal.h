@@ -657,8 +657,7 @@ typedef struct st_picoquic_cnx_t {
     protocol_operation_struct_t *current_protoop; /* This should not be modified by the plugins... */
     pluglet_type_enum current_anchor;
     protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
-    protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */;
-    bool previous_plugin_had_anchor_replace;
+    protoop_plugin_t *previous_plugin_in_replace; /* To free memory, we might be interested to know if it is in plugin or core memory */;
 } picoquic_cnx_t;
 
 /* Moved here before we don't want plugins to use it */

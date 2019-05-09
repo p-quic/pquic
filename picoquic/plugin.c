@@ -668,6 +668,8 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
      * they will remain unchanged at caller side.
      */
     protoop_plugin_t *old_plugin = cnx->current_plugin;
+    protoop_plugin_t *replace_plugin = NULL;
+    bool suppress_replace_plugin = false;
     protocol_operation_struct_t *old_protoop = cnx->current_protoop;
     pluglet_type_enum old_anchor = cnx->current_anchor;
     int caller_inputc = cnx->protoop_inputc;
@@ -757,17 +759,16 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
             /* TODO fixme str_pid */
             fprintf(stderr, "Error when running %s: %s\n", pp->pid->id, error_msg);
         }
+        cnx->previous_plugin_in_replace = replace_plugin = cnx->current_plugin;
     } else if (popst->core) {
         cnx->current_plugin = NULL;
+        suppress_replace_plugin = true;
         status = popst->core(cnx);
     } else {
         /* TODO fixme str_pid */
         printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid->id);
         exit(-1);
     }
-
-    /* The previous plugin look at the last replace one */
-    cnx->previous_plugin = cnx->current_plugin;
 
     /* Finally, is there any post to run? */
     tmp = popst->post;
@@ -814,10 +815,12 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     cnx->protoop_outputc_callee = caller_outputc;
 
     /* Also restore the plugin context */
+    if (replace_plugin || suppress_replace_plugin) {
+        cnx->previous_plugin_in_replace = replace_plugin;
+    }
     cnx->current_plugin = old_plugin;
     cnx->current_protoop = old_protoop;
     cnx->current_anchor = old_anchor;
-    cnx->previous_plugin_had_anchor_replace = popst->replace != NULL;
 
     return status;
 }

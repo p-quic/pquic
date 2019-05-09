@@ -1085,8 +1085,7 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
     cnx->ops = NULL;
     cnx->plugins = NULL;
     cnx->current_plugin = NULL;
-    cnx->previous_plugin = NULL;
-    cnx->previous_plugin_had_anchor_replace = false;
+    cnx->previous_plugin_in_replace = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);

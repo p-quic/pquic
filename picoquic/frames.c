@@ -3429,8 +3429,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
         bytes, bytes_max);
     void *frame = (void *) outs[0];
     *ack_needed |= (int) outs[1];
-    protoop_plugin_t *previous_plugin = cnx->previous_plugin;
-    bool previous_plugin_had_anchor_replace = cnx->previous_plugin_had_anchor_replace;
+    protoop_plugin_t *previous_plugin = cnx->previous_plugin_in_replace;
     if (bytes && frame) {
         int err = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PROCESS_FRAME, first_byte, outs,
             frame, current_time, epoch, path_x);
@@ -3439,8 +3438,8 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
         }
 
         /* It is the responsibility of the caller to free frame */
-        if (previous_plugin && previous_plugin_had_anchor_replace) {
-            my_free_in_core(previous_plugin, frame);
+        if (previous_plugin) {
+            my_free_in_core(cnx->previous_plugin_in_replace, frame);
         } else {
             free(frame);
         }
@@ -3590,8 +3589,8 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
         is_retransmittable = (int) outs[2];
         if (frame) {
             /* We don't need the frame data, so free it */
-            if (cnx->previous_plugin && cnx->previous_plugin_had_anchor_replace) {
-                my_free_in_core(cnx->previous_plugin, frame);
+            if (cnx->previous_plugin_in_replace) {
+                my_free_in_core(cnx->previous_plugin_in_replace, frame);
             } else {
                 free(frame);
             }
