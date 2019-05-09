@@ -3,6 +3,7 @@
 #include "memcpy.h"
 #include "../helpers.h"
 #include "getset.h"
+#include "util.h"
 
 #define MP_OPAQUE_ID 0x00
 #define MP_DUPLICATE_ID 0x01

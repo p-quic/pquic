@@ -712,4 +712,24 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
 }
 
+#define TMP_FRAME_BEGIN(cnx, parsed_frame, local_frame, frame_type)                                                     \
+    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
+    if (parsed_frame) {                                                                                                 \
+        frame_type local_frame;                                                                                         \
+        my_memcpy(&local_frame, parsed_frame, sizeof(frame_type));                                                      \
+
+
+#define TMP_FRAME_END }
+
+#define TMP_FRAME_BEGIN_MALLOC(cnx, parsed_frame, local_frame, frame_type)                                                     \
+    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
+    if (parsed_frame) {                                                                                                 \
+        frame_type *local_frame = (frame_type *) my_malloc(cnx, sizeof(frame_type));                                    \
+        my_memcpy(local_frame, parsed_frame, sizeof(frame_type));                                                       \
+
+
+#define TMP_FRAME_END_MALLOC(cnx, local_frame) \
+        my_free(cnx, local_frame); \
+    }
+
 #endif

@@ -119,6 +119,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x64, "strlen", strlen);
     ubpf_register(vm, 0x65, "snprintf_bytes", snprintf_bytes);
     ubpf_register(vm, 0x66, "strncpy", strncpy);
+    ubpf_register(vm, 0x67, "inet_ntop", inet_ntop);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

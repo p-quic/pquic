@@ -834,10 +834,10 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
             if (cnx->nb_paths > 1) {
                 char local_id_str[(path_x->local_cnxid.id_len * 2) + 1];
-                snprintf_bytes(local_id_str, (path_x->local_cnxid.id_len * 2) + 1, path_x->local_cnxid.id, path_x->local_cnxid.id_len);
+                snprintf_bytes(local_id_str, sizeof(local_id_str), path_x->local_cnxid.id, path_x->local_cnxid.id_len);
 
                 char peer_addr_str[250];
-                inet_ntop(path_x->peer_addr.ss_family, &path_x->peer_addr, peer_addr_str, sizeof(peer_addr_str));
+                inet_ntop(path_x->peer_addr_len == sizeof(struct sockaddr_in) ? AF_INET : AF_INET6, path_x->peer_addr_len == sizeof(struct sockaddr_in) ? (void *) &((struct sockaddr_in *)&path_x->peer_addr)->sin_addr : (void *) &((struct sockaddr_in6 *)&path_x->peer_addr)->sin6_addr, peer_addr_str, sizeof(peer_addr_str));
                 LOG_EVENT(cnx, "CONNECTION", "PATH_CREATED", "", "{\"path\": \"%p\", \"peer_addr\": \"%s\", \"scid\": \"%s\"}", path_x, peer_addr_str, local_id_str);
             }
         }

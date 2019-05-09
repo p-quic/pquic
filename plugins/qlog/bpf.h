@@ -79,6 +79,9 @@ static __attribute__((always_inline)) char * pop_ctx(picoquic_cnx_t *cnx, qlog_t
 static __attribute__((always_inline)) char * format_ctx(picoquic_cnx_t *cnx, qlog_t *q) {
     size_t ctx_size = 256;
     char *ctx = (char *) my_malloc(cnx, ctx_size);
+    if (!ctx) {
+        return NULL;
+    }
     size_t ofs = snprintf(ctx, ctx_size, "{");
     qlog_ctx_t *c = q->top;
     while (c && ofs < ctx_size) {
@@ -88,8 +91,9 @@ static __attribute__((always_inline)) char * format_ctx(picoquic_cnx_t *cnx, qlo
         }
     }
     if (ofs < ctx_size) {
-        snprintf(ctx + ofs, ctx_size - ofs, "}");
+        ofs += snprintf(ctx + ofs, ctx_size - ofs, "}");
     }
+    ctx[ofs] = 0;
     return ctx;
 }
 
@@ -147,23 +151,3 @@ static void write_trailer(picoquic_cnx_t *cnx, qlog_t *q) {
     off_t cur = lseek(q->fd, 0, SEEK_CUR);
     ftruncate(q->fd, cur);
 }
-
-#define TMP_FRAME_BEGIN(cnx, parsed_frame, local_frame, frame_type)                                                     \
-    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
-    if (parsed_frame) {                                                                                                 \
-        frame_type local_frame;                                                                                         \
-        my_memcpy(&local_frame, parsed_frame, sizeof(frame_type));                                                      \
-
-
-#define TMP_FRAME_END }
-
-#define TMP_FRAME_BEGIN_MALLOC(cnx, parsed_frame, local_frame, frame_type)                                                     \
-    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
-    if (parsed_frame) {                                                                                                 \
-        frame_type *local_frame = (frame_type *) my_malloc(cnx, sizeof(frame_type));                                    \
-        my_memcpy(local_frame, parsed_frame, sizeof(frame_type));                                                       \
-
-
-#define TMP_FRAME_END_MALLOC(cnx, local_frame) \
-        my_free(cnx, local_frame); \
-    }
