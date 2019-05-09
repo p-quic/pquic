@@ -35,6 +35,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+int snprintf_bytes(char *str, size_t size, const uint8_t *buf, size_t buf_len) {
+    int i = 0;
+    for (i = 0; i < buf_len && (i * 2) + 1 < size; i++) {
+        sprintf(str + (i * 2), "%02x", *(buf + i));
+    }
+    str[(buf_len * 2)] = 0;
+    return 0;
+}
+
 char* picoquic_string_create(const char* original, size_t len)
 {
     size_t allocated = len + 1;

@@ -935,6 +935,8 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
         return (protoop_arg_t) ph->pn64;
     case AK_PH_EPOCH:
         return (protoop_arg_t) ph->epoch;
+    case AK_PH_PTYPE:
+        return ph->ptype;
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
         return 0;

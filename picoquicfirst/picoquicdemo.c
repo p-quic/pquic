@@ -79,6 +79,7 @@ static const char* default_server_key_file = "..\\certs\\key.pem";
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/select.h>
+#include <fcntl.h>
 
 #ifndef SOCKET_TYPE
 #define SOCKET_TYPE int
@@ -148,6 +149,8 @@ static char* strip_endofline(char* buf, size_t bufmax, char const* line)
 #define PICOQUIC_FIRST_COMMAND_MAX 128
 #define PICOQUIC_FIRST_RESPONSE_MAX (1 << 25)
 #define PICOQUIC_DEMO_MAX_PLUGIN_FILES 64
+
+static protoop_id_t set_qlog_file = { .id = "set_qlog_file" };
 
 typedef enum {
     picoquic_first_server_stream_status_none = 0,
@@ -367,7 +370,7 @@ int quic_server(const char* server_name, int server_port,
     const char* pem_cert, const char* pem_key,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
-    int mtu_max, const char** plugin_fnames, int plugins, FILE *F_log)
+    int mtu_max, const char** plugin_fnames, int plugins, FILE *F_log, char *qlog_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -467,6 +470,16 @@ int quic_server(const char* server_name, int server_port,
                             printf("Failed to insert plugin %s\n", plugin_fnames[i]);
                         }
                     }
+
+                    if (qlog_filename) {
+                        int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                        if (qlog_fd != -1) {
+                            protoop_prepare_and_run_extern_noparam(cnx_server, &set_qlog_file, NULL, qlog_fd);
+                        } else {
+                            perror("qlog_fd");
+                        }
+                    }
+
                     printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
                     picoquic_log_time(stdout, cnx_server, picoquic_current_time(), "", " : ");
                     printf("Connection established, state = %d, from length: %u\n",
@@ -814,7 +827,8 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, const char** plugin_fnames, int plugins, int get_size, int only_stream_4)
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
+    const char** plugin_fnames, int plugins, int get_size, int only_stream_4, char *qlog_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -941,6 +955,15 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     printf("Failed to insert plugin %s\n", plugin_fnames[i]);
                 }
             }            
+
+            if (qlog_filename) {
+                int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                if (qlog_fd != -1) {
+                    protoop_prepare_and_run_extern_noparam(cnx_client, &set_qlog_file, NULL, qlog_fd);
+                } else {
+                    perror("qlog_fd");
+                }
+            }
 
             picoquic_set_callback(cnx_client, first_client_callback, &callback_ctx);
 
@@ -1257,6 +1280,7 @@ void usage()
     fprintf(stderr, "  -z                    Set TLS zero share behavior on client, to force HRR.\n");
     fprintf(stderr, "  -l file               Log file\n");
     fprintf(stderr, "  -m mtu_max            Largest mtu value that can be tried for discovery\n");
+    fprintf(stderr, "  -q output.qlog        qlog output file\n");
     fprintf(stderr, "  -h                    This help message\n");
     exit(1);
 }
@@ -1322,9 +1346,11 @@ int main(int argc, char** argv)
     int get_size = -1;
     int only_stream_4 = 0;
 
+    char *qlog_filename = NULL;
+
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:v:14rhzi:s:l:m:n:t:P:G:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:v:14rhzi:s:l:m:n:t:P:G:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1407,6 +1433,9 @@ int main(int argc, char** argv)
         case 'z':
             force_zero_share = 1;
             break;
+        case 'q':
+            qlog_filename = optarg;
+            break;
         case 'h':
             usage();
             break;
@@ -1466,7 +1495,7 @@ int main(int argc, char** argv)
             /* TODO: find an alternative to using 64 bit mask. */
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
-            (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins, F_log);
+            (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins, F_log, qlog_filename);
         printf("Server exit with code = %d\n", ret);
     } else {
         FILE* F_log = NULL;
@@ -1497,7 +1526,7 @@ int main(int argc, char** argv)
         for(int i = 0; i < plugins; i++) {
             printf("\tplugin %s\n", plugin_fnames[i]);
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4, qlog_filename);
 
         printf("Client exit with code = %d\n", ret);
 

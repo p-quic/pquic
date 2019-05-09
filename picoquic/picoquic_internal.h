@@ -654,8 +654,11 @@ typedef struct st_picoquic_cnx_t {
     int protoop_outputc_callee; /* Modified by the callee */
     protoop_arg_t protoop_output; /* Only available for post calls */
 
+    protocol_operation_struct_t *current_protoop; /* This should not be modified by the plugins... */
+    pluglet_type_enum current_anchor;
     protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
-    protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */
+    protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */;
+    bool previous_plugin_had_anchor_replace;
 } picoquic_cnx_t;
 
 /* Moved here before we don't want plugins to use it */
@@ -674,6 +677,28 @@ typedef struct st_picoquic_cnx_t {
 # define protoop_prepare_and_run_extern_noparam(cnx, pid, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, NO_PARAM, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_prepare_and_run_extern_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+
+#ifndef LOG_EVENT
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)                                                                                                                    \
+    do {                                                                                                                                                                     \
+        char ___data[1024];                                                                                                                                                  \
+        snprintf(___data, 1024, data_fmt, __VA_ARGS__);                                                                                                                      \
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_LOG_EVENT, NULL, (protoop_arg_t) cat, (protoop_arg_t) ev_type, (protoop_arg_t) trig, (protoop_arg_t) NULL, (protoop_arg_t) ___data); \
+    } while (0)
+#endif
+
+#ifndef PUSH_LOG_CTX
+#define PUSH_LOG_CTX(cnx, ctx_fmt, ...) \
+    do {                                                                                                                                                                     \
+        char ___data[1024];                                                                                                                                                  \
+        snprintf(___data, 1024, ctx_fmt, __VA_ARGS__);                                                                                                                      \
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, NULL, (protoop_arg_t) ___data); \
+    } while (0)
+#endif
+
+#ifndef POP_LOG_CTX
+#define POP_LOG_CTX(cnx)    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, NULL, NULL)
+#endif
 
 #elif defined(__GNUC__)
 
@@ -1042,7 +1067,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
-#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream)) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0)
+#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
 
 #ifdef __cplusplus
 }

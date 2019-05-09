@@ -22,7 +22,7 @@
 #include "getset.h"
 #include "picoquic_logger.h"
 
-#define JIT true /* putting to false show out of memory access */
+#define JIT false /* putting to false show out of memory access */
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
     printf("Out of bound access with val 0x%lx, start of mem is 0x%lx, top of stack is 0x%lx\n", val, mem_ptr, stack_ptr);
@@ -111,6 +111,14 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x40, "queue_peek", queue_peek);
     /* FIXME remove this function */
     ubpf_register(vm, 0x41, "picoquic_frame_fair_reserve", picoquic_frame_fair_reserve);
+
+    ubpf_register(vm, 0x60, "dprintf", dprintf);
+    ubpf_register(vm, 0x61, "snprintf", snprintf);
+    ubpf_register(vm, 0x62, "lseek", lseek);
+    ubpf_register(vm, 0x63, "ftruncate", ftruncate);
+    ubpf_register(vm, 0x64, "strlen", strlen);
+    ubpf_register(vm, 0x65, "snprintf_bytes", snprintf_bytes);
+    ubpf_register(vm, 0x66, "strncpy", strncpy);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

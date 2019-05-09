@@ -4,6 +4,7 @@
 #include "picoquic.h"
 #include "plugin.h"
 #include "memcpy.h"
+#include "memory.h"
 #include "getset.h"
 
 #define PICOQUIC_MAX_PACKET_SIZE 1536
@@ -44,6 +45,9 @@
 #define PROTOOP_PRINTF(cnx, fmt, ...)
 #endif
 
+#define PROTOOP_SNPRINTF(cnx, buf, buf_len, fmt, ...)   helper_protoop_snprintf(cnx, buf, buf_len, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)   helper_log_event(cnx, (char *[]){cat, ev_type, trig, data_fmt}, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+
 static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;
     pp.param = NO_PARAM;
@@ -64,6 +68,16 @@ static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_
     return plugin_run_protoop(cnx, &pp, pid_str);
 }
 
+static __attribute__((always_inline)) void helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {
+    protoop_arg_t args[5];
+    args[0] = (protoop_arg_t) buf;
+    args[1] = buf_len;
+    args[2] = (protoop_arg_t) fmt;
+    args[3] = (protoop_arg_t) fmt_args;
+    args[4] = args_len;
+    run_noparam(cnx, PROTOOPID_NOPARAM_SNPRINTF, 5, args, NULL);
+}
+
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
     protoop_arg_t args[1];
@@ -78,6 +92,19 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
     args[1] = (protoop_arg_t) fmt_args;
     args[2] = (protoop_arg_t) args_len;
     run_noparam(cnx, PROTOOPID_NOPARAM_PRINTF, 3, args, NULL);
+}
+
+static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
+    char *data = my_malloc(cnx, 1024);
+    helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
+    protoop_arg_t pargs[5];
+    pargs[0] = (protoop_arg_t) args[0];
+    pargs[1] = (protoop_arg_t) args[1];
+    pargs[2] = (protoop_arg_t) args[2];
+    pargs[3] = (protoop_arg_t) NULL;
+    pargs[4] = (protoop_arg_t) data;
+    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 5, pargs, NULL);
+    my_free(cnx, (void *) data);
 }
 
 static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason)

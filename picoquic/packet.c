@@ -35,6 +35,7 @@
 #include <string.h>
 #include "plugin.h"
 #include "memory.h"
+#include "logger.h"
 
 /*
  * The new packet header parsing is version dependent
@@ -427,6 +428,19 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     ph->pn64 = picoquic_get_packet_number64(
         (already_received==NULL)?path_from->pkt_ctx[ph->pc].send_sequence:
         path_from->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
+
+    char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
+    snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
+    if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
+        LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
+    } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
+        char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
+        snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
+        LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
+    } else {
+        // TODO: vneg
+    }
+
 
     /* verify that the packet is new */
     if (already_received != NULL && picoquic_is_pn_already_received(path_from, ph->pc, ph->pn64) != 0) {
@@ -1247,6 +1261,7 @@ int picoquic_incoming_segment(
     /* Parse the header and decrypt the packet */
     ret = picoquic_parse_header_and_decrypt(quic, bytes, length, packet_length, addr_from,
         current_time, &ph, &cnx, consumed, &new_context_created);
+    PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
 
     /* Verify that the segment coalescing is for the same destination ID */
     if (ret == 0) {
@@ -1281,7 +1296,9 @@ int picoquic_incoming_segment(
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
-            picoquic_received_segment(cnx, &ph, (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph), *consumed);
+            picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
+            picoquic_received_segment(cnx, &ph, path, *consumed);
+            PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
 
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
@@ -1356,6 +1373,7 @@ int picoquic_incoming_segment(
                 ret = PICOQUIC_ERROR_DETECTED;
                 break;
             }
+            POP_LOG_CTX(cnx);
         }
     } else if (ret == PICOQUIC_ERROR_STATELESS_RESET) {
         ret = picoquic_incoming_stateless_reset(cnx);
@@ -1403,6 +1421,7 @@ int picoquic_incoming_segment(
         ret = -1;
     }
 
+    POP_LOG_CTX(cnx);
     return ret;
 }
 
