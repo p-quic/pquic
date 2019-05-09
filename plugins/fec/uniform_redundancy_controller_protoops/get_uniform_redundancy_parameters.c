@@ -9,8 +9,8 @@
 protoop_arg_t get_constant_redundancy_parameters(picoquic_cnx_t *cnx)
 {
     uniform_redundancy_controller_t *urc = (uniform_redundancy_controller_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
-    uint8_t n = 0;
-    uint8_t k = 0;
+    uint8_t n = DEFAULT_N;
+    uint8_t k = DEFAULT_K;
     if (urc->total_acknowledged_packets * urc->total_lost_packets > 0) {
         n = MAX(3, MIN(0xFF, (urc->total_acknowledged_packets + urc->total_lost_packets)/urc->total_lost_packets));
         k = n-1;
