@@ -1,6 +1,6 @@
 
 #include "../bpf.h"
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "../../helpers.h"
 #include "memory.h"
 #include "memcpy.h"

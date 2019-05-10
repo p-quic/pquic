@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 
 
 protoop_arg_t should_send_recovered_frame(picoquic_cnx_t *cnx)

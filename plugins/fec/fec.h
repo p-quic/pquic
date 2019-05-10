@@ -281,6 +281,7 @@ static __attribute__((always_inline)) void free_fec_block(picoquic_cnx_t *cnx, f
         for (i = 0 ; i < MAX_SYMBOLS_PER_FEC_BLOCK && b->current_repair_symbols > 0; i++) {
             if (b->repair_symbols[i]) {
                 free_repair_symbol(cnx, b->repair_symbols[i]);
+                b->repair_symbols[i] = NULL;
                 if (!(--b->current_repair_symbols)) // we freed everything
                     break;
             }

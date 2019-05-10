@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "uniform_redundancy_controller.h"
 #include "../bpf.h"
 

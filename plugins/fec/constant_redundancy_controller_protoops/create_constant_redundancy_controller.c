@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "../bpf.h"
 
 // sets as output the pointer towards the controller's state

@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 
 #define DEFAULT_N 30
 #define DEFAULT_K 25

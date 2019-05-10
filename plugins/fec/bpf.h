@@ -202,6 +202,7 @@ static __attribute__((always_inline)) int protect_packet(picoquic_cnx_t *cnx, so
     // write the source fpid
     source_fpid->raw = ss->source_fec_payload_id.raw;
     if (ret) {
+        PROTOOP_PRINTF(cnx, "ERROR WHEN PROTECTING\n");
         free_source_symbol(cnx, ss);
         return ret;
     }

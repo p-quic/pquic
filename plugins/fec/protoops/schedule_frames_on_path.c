@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "../bpf.h"
 #define MIN_BYTES_TO_RETRANSMIT_PROTECT 20
 

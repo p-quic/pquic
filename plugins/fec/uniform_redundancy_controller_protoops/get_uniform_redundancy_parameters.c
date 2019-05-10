@@ -1,4 +1,4 @@
-#include "picoquic_internal.h"
+#include "picoquic.h"
 #include "../bpf.h"
 #include "uniform_redundancy_controller.h"
 
@@ -12,7 +12,7 @@ protoop_arg_t get_constant_redundancy_parameters(picoquic_cnx_t *cnx)
     uint8_t n = DEFAULT_N;
     uint8_t k = DEFAULT_K;
     if (urc->total_acknowledged_packets * urc->total_lost_packets > 0) {
-        n = MAX(3, MIN(0xFF, (urc->total_acknowledged_packets + urc->total_lost_packets)/urc->total_lost_packets));
+        n = MAX(3, MIN(MAX_SYMBOLS_PER_FEC_BLOCK, (urc->total_acknowledged_packets + urc->total_lost_packets)/urc->total_lost_packets));
         k = n-1;
     }
     set_cnx(cnx, AK_CNX_OUTPUT, 0, n);
