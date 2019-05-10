@@ -46,7 +46,9 @@
 #endif
 
 #define PROTOOP_SNPRINTF(cnx, buf, buf_len, fmt, ...)   helper_protoop_snprintf(cnx, buf, buf_len, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#ifndef LOG_EVENT
 #define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)   helper_log_event(cnx, (char *[]){cat, ev_type, trig, data_fmt}, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#endif
 
 static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
     protoop_params_t pp;
