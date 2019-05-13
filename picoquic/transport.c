@@ -180,6 +180,17 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     if (cnx->local_parameters.initial_max_stream_data_uni > 0) {
         param_size += (2 + 2 + 4);
     }
+    /* TODO */
+    char *supported_plugins = "be.mpiraux.cop2,be.qdeconinck.multipath";
+    size_t supported_plugins_len = strlen(supported_plugins) + 1; // put space for \0
+    if (true) {
+        param_size += (2 + 2 + supported_plugins_len);
+    }
+    char *plugins_to_insert = "be.michelfra.fecrlc";
+    size_t plugins_to_insert_len = strlen(plugins_to_insert) + 1; // put space for \0
+    if (true) {
+        param_size += (2 + 2 + plugins_to_insert_len);
+    }
     /* TODO: add more tests here if adding new parameters */
 
     min_size += param_size + 2;
@@ -323,6 +334,27 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
             byte_index += 2;
             picoformat_32(bytes + byte_index, cnx->local_parameters.initial_max_stream_data_uni);
             /* TODO: restore this line if adding new parameters: byte_index += 4; */
+            byte_index += 4;
+        }
+
+        /* TODO */
+        if (true) {
+            picoformat_16(bytes + byte_index, picoquic_tp_supported_plugins);
+            byte_index += 2;
+            picoformat_16(bytes + byte_index, supported_plugins_len);
+            byte_index += 2;
+            memcpy(bytes + byte_index, supported_plugins, supported_plugins_len);
+            byte_index += supported_plugins_len;
+        }
+
+        /* TODO */
+        if (true) {
+            picoformat_16(bytes + byte_index, picoquic_tp_plugins_to_inject);
+            byte_index += 2;
+            picoformat_16(bytes + byte_index, plugins_to_insert_len);
+            byte_index += 2;
+            memcpy(bytes + byte_index, plugins_to_insert, plugins_to_insert_len);
+            byte_index += plugins_to_insert_len;
         }
     }
 
@@ -334,7 +366,8 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 {
     int ret = 0;
     size_t byte_index = 0;
-    uint32_t present_flag = 0;
+    /* Provide support up to TP 63 */
+    uint64_t present_flag = 0;
 
     cnx->remote_parameters_received = 1;
 
@@ -417,7 +450,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
         if (extensions_end > bytes_max) {
             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
-        } else
+        } else {
             while (ret == 0 && byte_index < extensions_end) {
                 if (byte_index + 4 > extensions_end) {
                     ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
@@ -430,11 +463,11 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                     } else {
                         if (extension_type < 64) {
-                            if ((present_flag & (1 << extension_type)) != 0) {
+                            if ((present_flag & (1UL << extension_type)) != 0) {
                                 /* Malformed, already present */
                                 ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                             } else {
-                                present_flag |= (1 << extension_type);
+                                present_flag |= (1UL << extension_type);
                             }
                         }
 
@@ -557,6 +590,14 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                                 cnx->remote_parameters.migration_disabled = 1;
                             }
                             break;
+                        case picoquic_tp_supported_plugins:
+                            /* TODO */
+                            printf("I received a supported_plugins TP\n");
+                            break;
+                        case picoquic_tp_plugins_to_inject:
+                            /* TODO */
+                            printf("I received a plugins_to_inject TP\n");
+                            break;
                         default:
                             /* ignore unknown extensions */
                             protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, NULL, extension_type, extension_length, bytes + byte_index);
@@ -569,6 +610,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                     }
                 }
             }
+        }
     }
 
     /* TODO: remove this kludge once we remove support for draft 13 */

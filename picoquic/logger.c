@@ -1632,8 +1632,12 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
                                 ret = -1;
                             }
                             else {
+                                char *format_str = "%02x";
+                                if (extension_type == picoquic_tp_supported_plugins || extension_type == picoquic_tp_plugins_to_inject) {
+                                    format_str = "%c";
+                                }
                                 for (uint16_t i = 0; i < extension_length; i++) {
-                                    fprintf(F, "%02x", bytes[byte_index++]);
+                                    fprintf(F, format_str, bytes[byte_index++]);
                                 }
                                 fprintf(F, "\n");
                             }

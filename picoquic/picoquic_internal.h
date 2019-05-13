@@ -221,7 +221,9 @@ typedef enum {
     picoquic_tp_initial_max_uni_streams = 8,
     picoquic_tp_disable_migration = 9,
     picoquic_tp_initial_max_stream_data_bidi_remote = 10,
-    picoquic_tp_initial_max_stream_data_uni = 11
+    picoquic_tp_initial_max_stream_data_uni = 11,
+    picoquic_tp_supported_plugins = 32,
+    picoquic_tp_plugins_to_inject = 33
 } picoquic_tp_enum;
 
 typedef struct st_picoquic_tp_preferred_address_t {

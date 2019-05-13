@@ -53,8 +53,8 @@ typedef struct st_picoquic_tls_ctx_t {
     ptls_raw_extension_t ext[2];
     ptls_handshake_properties_t handshake_properties;
     ptls_iovec_t alpn_vec;
-    uint8_t ext_data[128];
-    uint8_t ext_received[128];
+    uint8_t ext_data[256];
+    uint8_t ext_received[256];
     size_t ext_received_length;
     int ext_received_return;
 } picoquic_tls_ctx_t;
