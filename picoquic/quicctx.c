@@ -1582,7 +1582,8 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         /* If we are the server, keep the protocol operations in the cache */
-        if (!picoquic_is_client(cnx)) {
+        /* First condition is needed for tests */
+        if (cnx->quic && !picoquic_is_client(cnx)) {
             /* TODO */
             cached_plugins_t* cached = malloc(sizeof(cached_plugins_t));
             if (!cached) {

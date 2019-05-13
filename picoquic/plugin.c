@@ -508,7 +508,8 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     /* XXX: Assume that it is always the same (combination of) plugins that are set */
     /* Fast track: do we have cached plugins? */
-    if (cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
+    /* First condition is required for tests */
+    if (cnx->quic && cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
         cached_plugins_t* cache = queue_dequeue(cnx->quic->cached_plugins_queue);
         cnx->ops = cache->ops;
         cnx->plugins = cache->plugins;

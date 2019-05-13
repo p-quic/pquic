@@ -1261,7 +1261,9 @@ int picoquic_incoming_segment(
     /* Parse the header and decrypt the packet */
     ret = picoquic_parse_header_and_decrypt(quic, bytes, length, packet_length, addr_from,
         current_time, &ph, &cnx, consumed, &new_context_created);
-    PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
+    if (cnx != NULL) {
+        PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
+    }
 
     /* Verify that the segment coalescing is for the same destination ID */
     if (ret == 0) {
@@ -1298,7 +1300,9 @@ int picoquic_incoming_segment(
             picoquic_received_packet(cnx, quic->rcv_socket);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
             picoquic_received_segment(cnx, &ph, path, *consumed);
-            PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
+            if (cnx != NULL) {
+                PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
+            }
 
             switch (ph.ptype) {
             case picoquic_packet_version_negotiation:
@@ -1373,7 +1377,9 @@ int picoquic_incoming_segment(
                 ret = PICOQUIC_ERROR_DETECTED;
                 break;
             }
-            POP_LOG_CTX(cnx);
+            if (cnx != NULL) {
+                POP_LOG_CTX(cnx);
+            }
         }
     } else if (ret == PICOQUIC_ERROR_STATELESS_RESET) {
         ret = picoquic_incoming_stateless_reset(cnx);
@@ -1421,7 +1427,9 @@ int picoquic_incoming_segment(
         ret = -1;
     }
 
-    POP_LOG_CTX(cnx);
+    if (cnx != NULL) {
+        POP_LOG_CTX(cnx);
+    }
     return ret;
 }
 
