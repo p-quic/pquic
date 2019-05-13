@@ -208,7 +208,7 @@ static __attribute__((always_inline)) void remove_source_symbols_from_block_and_
     fb->current_source_symbols = 0;
 }
 
-static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, window_fec_framework_t *wff){
+static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, window_fec_framework_t *wff, bool flush){
     protoop_arg_t args[3];
     protoop_arg_t outs[1];
 
@@ -220,11 +220,12 @@ static __attribute__((always_inline)) int generate_and_queue_repair_symbols(pico
 
     args[0] = (protoop_arg_t) fb;
     args[1] = (protoop_arg_t) wff;
+    args[2] = flush;
 
     int ret = 0;
     bool should_send_rs = (bool) run_noparam(cnx, "should_send_repair_symbols", 0, NULL, NULL);
     if (should_send_rs) {
-        ret = (int) run_noparam(cnx, "window_select_symbols_to_protect", 2, args, outs);
+        ret = (int) run_noparam(cnx, "window_select_symbols_to_protect", 3, args, outs);
         if (ret) {
             my_free(cnx, fb);
             PROTOOP_PRINTF(cnx, "ERROR WHEN SELECTING THE SYMBOLS TO PROTECT\n");
@@ -280,7 +281,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
 
 
     if (ready_to_send(cnx, wff)) {
-        generate_and_queue_repair_symbols(cnx, wff);
+        generate_and_queue_repair_symbols(cnx, wff, false);
     }
     return 0;
 }
@@ -288,7 +289,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
 static __attribute__((always_inline)) int flush_fec_window(picoquic_cnx_t *cnx, window_fec_framework_t *wff) {
     if (wff->max_id - wff->highest_sent_id >= 1) {
         PROTOOP_PRINTF(cnx, "FLUSH FEC WINDOW\n");
-        generate_and_queue_repair_symbols(cnx, wff);
+        generate_and_queue_repair_symbols(cnx, wff, true);
     }
     return 0;
 }
