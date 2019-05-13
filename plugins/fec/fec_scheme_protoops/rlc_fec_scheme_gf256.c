@@ -9,7 +9,7 @@
 
 
 
-static __attribute__((always_inline)) void swap(uint8_t **a, int i, int j) {  // THIS
+static __attribute__((always_inline)) void swap(uint8_t **a, int i, int j) {
     uint8_t *tmp = a[i];
     a[i] = a[j];
     a[j] = tmp;
@@ -18,7 +18,7 @@ static __attribute__((always_inline)) void swap(uint8_t **a, int i, int j) {  //
 // returns 1 if a has its first non-zero term before b
 // returns -1 if a has its first non-zero term after b
 // returns 0 otherwise
-static __attribute__((always_inline)) int cmp_eq(uint8_t *a, uint8_t *b, int idx, int n_unknowns) {    // THIS
+static __attribute__((always_inline)) int cmp_eq(uint8_t *a, uint8_t *b, int idx, int n_unknowns) {
     if (a[idx] < b[idx]) return -1;
     else if (a[idx] > b[idx]) return 1;
     else if (a[idx] != 0) return 0;
@@ -26,7 +26,7 @@ static __attribute__((always_inline)) int cmp_eq(uint8_t *a, uint8_t *b, int idx
 }
 
 // pre: there is no column full of zeroes
-static __attribute__((always_inline)) void sort_system(picoquic_cnx_t *cnx, uint8_t **a, uint8_t **constant_terms, int n_eq, int n_unknowns) { // THIS
+static __attribute__((always_inline)) void sort_system(picoquic_cnx_t *cnx, uint8_t **a, uint8_t **constant_terms, int n_eq, int n_unknowns) {
     // simple selection sort, because there should not be that much equations
     for (int i = 0 ; i < n_eq ; i++) {
         int max = i;
@@ -69,44 +69,44 @@ static __attribute__((always_inline)) void gaussElimination(picoquic_cnx_t *cnx,
             }
         }
     }
-    int candidate = n_unknowns - 1; // THIS
+    int candidate = n_unknowns - 1;
     //Begin Back-substitution
     for(i=n_eq-1;i>=0;i--){
-        while(a[i][candidate] == 0 && candidate >= 0) {  // THIS
-            undetermined[candidate--] = true;   // THIS
+        while(a[i][candidate] == 0 && candidate >= 0) {
+            undetermined[candidate--] = true;
         }
-        my_memcpy(x[candidate], constant_terms[i], symbol_size);// THIS
-        for (int j = 0 ; j < candidate ; j++) { // THIS
-            if (a[i][j] != 0) { // THIS
+        my_memcpy(x[candidate], constant_terms[i], symbol_size);
+        for (int j = 0 ; j < candidate ; j++) {
+            if (a[i][j] != 0) {
                 // if this variable depends on another one with a smaller index, it is undefined, as we don't know the value of the one with a smaller index
-                undetermined[candidate] = true;   // THIS
-                break;  // THIS
+                undetermined[candidate] = true;
+                break;
             }
         }
-        for(j=candidate+1;j<n_unknowns;j++){    // THIS
+        for(j=candidate+1;j<n_unknowns;j++){
 //             x[i]=x[i]-a[i][j]*x[j];
-            if (a[i][j] != 0) { // THIS
-                if (undetermined[j]) {  // THIS
+            if (a[i][j] != 0) {
+                if (undetermined[j]) {
                     // if the unknown depends on an undetermined unknown, this unknown is undetermined
-                    undetermined[candidate] = true; // THIS
+                    undetermined[candidate] = true;
                 } else {
                     symbol_sub_scaled(x[candidate], a[i][j], x[j], symbol_size, mul);
-                    a[i][j] = 0;    // THIS
+                    a[i][j] = 0;
                 }
             }
         }
         // i < n_eq <= n_unknowns, so a[i][i] is small
-        if (symbol_is_zero(x[candidate], symbol_size) || a[i][candidate] == 0) {    // THIS
+        if (symbol_is_zero(x[candidate], symbol_size) || a[i][candidate] == 0) {
             // this solution is undetermined
-            undetermined[candidate] = true; // THIS
+            undetermined[candidate] = true;
             PROTOOP_PRINTF(cnx, "UNDETERMINED SOL\n");
             // TODO
-        } else if (!undetermined[candidate]) {  // THIS
+        } else if (!undetermined[candidate]) {
             // x[i] = x[i]/a[i][i]
-            symbol_mul(x[candidate], inv[a[i][candidate]], symbol_size, mul);    // THIS
-            a[i][candidate] = gf256_mul(a[i][candidate], inv[a[i][candidate]], mul);     //THIS
+            symbol_mul(x[candidate], inv[a[i][candidate]], symbol_size, mul);
+            a[i][candidate] = gf256_mul(a[i][candidate], inv[a[i][candidate]], mul);
         }
-        candidate--;    // THIS
+        candidate--;
     }
     // it marks all the variables with an index <= candidate as undetermined
     // we use a my_memset although it is harder to understand because with a for loop, the compiler will translate it into a call to memset
