@@ -832,7 +832,7 @@ static int stress_create_client_context(int client_index, picoquic_stress_ctx_t 
         /* Create the quic context for this client*/
         ctx->qclient = picoquic_create(8, NULL, NULL, PICOQUIC_TEST_CERT_STORE, NULL, NULL,
             NULL, NULL, NULL, NULL, stress_ctx->simulated_time, &stress_ctx->simulated_time,
-            ctx->ticket_file_name, NULL, 0);
+            ctx->ticket_file_name, NULL, 0, NULL);
         if (ctx->qclient == NULL) {
             DBG_PRINTF("Cannot create the quic client #%d.\n", (int)client_index);
             ret = -1;
@@ -902,7 +902,7 @@ static int stress_or_fuzz_test(picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx)
             PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             PICOQUIC_TEST_ALPN, stress_server_callback, NULL, NULL, NULL, NULL,
             stress_ctx.simulated_time, &stress_ctx.simulated_time, NULL,
-            stress_ticket_encrypt_key, sizeof(stress_ticket_encrypt_key));
+            stress_ticket_encrypt_key, sizeof(stress_ticket_encrypt_key), NULL);
 
         if (stress_ctx.qserver == NULL) {
             DBG_PRINTF("%s", "Cannot create the test server.\n");

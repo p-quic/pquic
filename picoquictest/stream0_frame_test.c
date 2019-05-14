@@ -134,7 +134,7 @@ static int StreamZeroFrameOneTest(struct test_case_st* test)
     int ret = 0;
 
     struct sockaddr_in test_addr;
-    picoquic_quic_t* quic = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+    picoquic_quic_t* quic = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
 
     picoquic_cnx_t* cnx;
     uint64_t current_time = 0;

@@ -201,6 +201,12 @@ typedef struct st_picoquic_quic_t {
 
     /* Queue of cached plugins */
     queue_t* cached_plugins_queue;
+    /* Path to the plugin cache store */
+    char* plugin_store_path;
+    /* List of supported plugins in plugin cache store */
+    uint16_t num_bytes_supported_plugins; // This one is to count the number of characters in plugin names
+    uint16_t num_supported_plugins;
+    char** supported_plugins;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -246,6 +252,8 @@ typedef struct st_picoquic_tp_t {
     uint8_t ack_delay_exponent;
     unsigned int migration_disabled; 
     picoquic_tp_preferred_address_t preferred_address;
+    char* supported_plugins;
+    char* plugins_to_inject;
 } picoquic_tp_t;
 
 /*

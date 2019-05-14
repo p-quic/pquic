@@ -522,7 +522,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     uint64_t* p_simulated_time,
     char const* ticket_file_name,
     const uint8_t* ticket_encryption_key,
-    size_t ticket_encryption_key_length);
+    size_t ticket_encryption_key_length,
+    char* plugin_store_path);
 
 void picoquic_free(picoquic_quic_t* quic);
 

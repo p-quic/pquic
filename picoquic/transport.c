@@ -133,6 +133,35 @@ size_t picoquic_decode_transport_param_preferred_address(uint8_t * bytes, size_t
 }
 
 
+uint16_t picoquic_get_supported_plugins_transport_parameter(picoquic_cnx_t* cnx) {
+    uint16_t length = 0;
+
+    if (cnx->quic == NULL || cnx->quic->num_supported_plugins == 0) {
+        /* No supported plugins transport parameter */
+        return 0;
+    }
+
+    cnx->local_parameters.supported_plugins = malloc(sizeof(char) * (
+            cnx->quic->num_bytes_supported_plugins + cnx->quic->num_supported_plugins));
+    if (cnx->local_parameters.supported_plugins == NULL) {
+        DBG_PRINTF("Failed to allocate memory for local supported plugins transport param\n");
+        return 0;
+    }
+
+    for (int i = 0; i < cnx->quic->num_supported_plugins; i++) {
+        if (i > 0) {
+            cnx->local_parameters.supported_plugins[length++] = ',';
+        }
+        strcpy(&cnx->local_parameters.supported_plugins[length], cnx->quic->supported_plugins[i]);
+        length += strlen(cnx->quic->supported_plugins[i]);
+    }
+    if (length > 0) {
+        cnx->local_parameters.supported_plugins[length++] = '\0';
+    }
+    return length;
+}
+
+
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
@@ -180,10 +209,10 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     if (cnx->local_parameters.initial_max_stream_data_uni > 0) {
         param_size += (2 + 2 + 4);
     }
+
     /* TODO */
-    char *supported_plugins = "be.mpiraux.cop2,be.qdeconinck.multipath";
-    size_t supported_plugins_len = strlen(supported_plugins) + 1; // put space for \0
-    if (true) {
+    size_t supported_plugins_len = picoquic_get_supported_plugins_transport_parameter(cnx);
+    if (supported_plugins_len > 0) {
         param_size += (2 + 2 + supported_plugins_len);
     }
     char *plugins_to_insert = "be.michelfra.fecrlc";
@@ -337,13 +366,12 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
             byte_index += 4;
         }
 
-        /* TODO */
-        if (true) {
+        if (supported_plugins_len > 0) {
             picoformat_16(bytes + byte_index, picoquic_tp_supported_plugins);
             byte_index += 2;
             picoformat_16(bytes + byte_index, supported_plugins_len);
             byte_index += 2;
-            memcpy(bytes + byte_index, supported_plugins, supported_plugins_len);
+            memcpy(bytes + byte_index, cnx->local_parameters.supported_plugins, supported_plugins_len);
             byte_index += supported_plugins_len;
         }
 

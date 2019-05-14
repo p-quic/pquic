@@ -377,7 +377,7 @@ int parse_frame_test()
     picoquic_packet_context_enum pc = 0;
     picoquic_quic_t * qclient = picoquic_create(8, NULL, NULL, NULL, NULL, NULL,
         NULL, NULL, NULL, NULL, simulated_time,
-        &simulated_time, NULL, NULL, 0);
+        &simulated_time, NULL, NULL, 0, NULL);
 
 
     memset(&saddr, 0, sizeof(struct sockaddr_in));

@@ -30,6 +30,8 @@
 #include <net/if.h>
 #ifndef _WINDOWS
 #include <sys/time.h>
+#include <dirent.h>
+#include <stdio.h>
 #endif
 
 
@@ -250,6 +252,73 @@ void picoquic_free_cached_plugins(cached_plugins_t* cplugins)
     free(cplugins);
 }
 
+int picoquic_get_supported_plugins(picoquic_quic_t* quic)
+{
+    quic->num_supported_plugins = 0;
+    quic->num_bytes_supported_plugins = 0;
+    quic->supported_plugins = NULL;
+
+    if (quic->plugin_store_path == NULL) {
+        /* No store path, so no supported plugins */
+        return 0;
+    }
+
+#ifdef _WINDOWS
+    DBG_PRINTF("File listing in Windows is not supported yet.\n");
+    return 0;
+#endif
+
+    /* Two passes, first to get the number of plugins, then a second to store them */
+    DIR *d;
+    struct dirent *dir;
+    uint16_t num_supported_plugins = 0;
+    d = opendir(quic->plugin_store_path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            /* The first character cannot be a '.' */
+            if (dir->d_name[0] != '.') {
+                num_supported_plugins++;
+            }
+        }
+        closedir(d);
+    }
+
+    if (num_supported_plugins > 0) {
+        quic->supported_plugins = malloc(sizeof(char *) * num_supported_plugins);
+        if (quic->supported_plugins == NULL) {
+            DBG_PRINTF("Error when malloc'ing supported plugins\n");
+            return 1;
+        }
+        d = opendir(quic->plugin_store_path);
+        if (d == NULL) {
+            free(quic->supported_plugins);
+            quic->supported_plugins = NULL;
+            DBG_PRINTF("Error when opening %s for the second time\n", quic->plugin_store_path);
+            return 1;
+        }
+        char *plugin_name;
+        size_t plugin_name_len;
+        while ((dir = readdir(d)) != NULL) {
+            /* The first character cannot be a '.' */
+            if (dir->d_name[0] == '.') {
+                continue;
+            }
+            plugin_name_len = strlen(dir->d_name);
+            plugin_name = malloc(sizeof(char) * (plugin_name_len + 1));
+            if (!plugin_name) {
+                DBG_PRINTF("Failed to allocate memory for plugin name %s\n", dir->d_name);
+                continue;
+            }
+            strcpy(plugin_name, dir->d_name);
+            quic->num_bytes_supported_plugins += plugin_name_len;
+            quic->supported_plugins[quic->num_supported_plugins++] = plugin_name;
+        }
+        closedir(d);
+    }
+
+    return 0;
+}
+
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     char const* cert_file_name,
@@ -265,7 +334,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     uint64_t* p_simulated_time,
     char const* ticket_file_name,
     const uint8_t* ticket_encryption_key,
-    size_t ticket_encryption_key_length)
+    size_t ticket_encryption_key_length,
+    char* plugin_store_path)
 {
     picoquic_quic_t* quic = (picoquic_quic_t*)malloc(sizeof(picoquic_quic_t));
     int ret = 0;
@@ -332,6 +402,15 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 ret = -1;
                 DBG_PRINTF("%s", "Cannot create cached plugins queue \n");
             }
+            quic->plugin_store_path = NULL;
+            if (plugin_store_path != NULL) {
+                if (picoquic_check_or_create_directory(plugin_store_path)) {
+                    fprintf(stderr, "Cannot use plugin cache %s; continue without it.\n", plugin_store_path);
+                } else {
+                    quic->plugin_store_path = plugin_store_path;
+                }
+            }
+            picoquic_get_supported_plugins(quic);
         }
     }
 
@@ -578,6 +657,8 @@ void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode)
     tp->idle_timeout = PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000000;
     tp->max_packet_size = PICOQUIC_PRACTICAL_MAX_MTU;
     tp->ack_delay_exponent = 3;
+    tp->supported_plugins = NULL;
+    tp->plugins_to_inject = NULL;
 }
 
 

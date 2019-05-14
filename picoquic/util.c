@@ -34,6 +34,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 int snprintf_bytes(char *str, size_t size, const uint8_t *buf, size_t buf_len) {
     int i = 0;
@@ -289,4 +291,33 @@ int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual)
     }
 
     return ret;
+}
+
+/* Returns 0 if ok */
+int picoquic_check_or_create_directory(char* path) {
+    struct stat sb;
+
+    int err = stat(path, &sb);
+    if (err == 0 && S_ISDIR(sb.st_mode)) {
+        /* File exists and it is a directory, so it's fine! */
+        return 0;
+    }
+    if (err == 0 && S_ISREG(sb.st_mode)) {
+        /* It's a regular file, we cannot make it a directory! */
+        fprintf(stderr, "Cannot use path %s for directory; it is a regular file.\n", path);
+        return 1;
+    }
+    if (err != 0 && errno == ENOENT) {
+        /* Directory does not exist yet, so create it */
+        err = mkdir(path, 0755);
+        if (err != 0) {
+            perror("Error when creating directory");
+            return 1;
+        }
+        /* That's it. */
+        return 0;
+    }
+
+    perror("Error when checking directory");
+    return 1;
 }

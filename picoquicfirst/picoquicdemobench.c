@@ -376,7 +376,7 @@ int quic_server(const char* server_name, int server_port,
         current_time = picoquic_current_time();
         /* Create QUIC context */
         qserver = picoquic_create(8, pem_cert, pem_key, NULL, NULL, first_server_callback, NULL,
-            cnx_id_callback, cnx_id_callback_ctx, reset_seed, current_time, NULL, NULL, NULL, 0);
+            cnx_id_callback, cnx_id_callback_ctx, reset_seed, current_time, NULL, NULL, NULL, 0, NULL);
 
         if (qserver == NULL) {
             printf("Could not create server context\n");
@@ -865,7 +865,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     callback_ctx.last_interaction_time = current_time;
 
     if (ret == 0) {
-        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0);
+        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0, NULL);
 
         if (qclient == NULL) {
             ret = -1;

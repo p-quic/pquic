@@ -398,7 +398,7 @@ int quic_server(const char* server_name, int server_port,
     if (ret == 0) {
         /* Create QUIC context */
         qserver = picoquic_create(8, pem_cert, pem_key, NULL, NULL, first_server_callback, NULL,
-            cnx_id_callback, cnx_id_callback_ctx, reset_seed, picoquic_current_time(), NULL, NULL, NULL, 0);
+            cnx_id_callback, cnx_id_callback_ctx, reset_seed, picoquic_current_time(), NULL, NULL, NULL, 0, NULL);
 
         if (qserver == NULL) {
             printf("Could not create server context\n");
@@ -828,7 +828,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
     uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
-    const char** plugin_fnames, int plugins, int get_size, int only_stream_4, char *qlog_filename)
+    const char** plugin_fnames, int plugins, int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -901,7 +901,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     callback_ctx.last_interaction_time = current_time;
 
     if (ret == 0) {
-        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0);
+        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0, plugin_store_path);
 
         if (qclient == NULL) {
             ret = -1;
@@ -1336,6 +1336,7 @@ int main(int argc, char** argv)
     uint64_t* reset_seed = NULL;
     uint64_t reset_seed_x[2];
     int mtu_max = 0;
+    char *plugin_store_path = NULL;
 
 #ifdef _WINDOWS
     WSADATA wsaData;
@@ -1350,7 +1351,7 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:v:14rhzi:s:l:m:n:t:P:G:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:C:v:14rhzi:s:l:m:n:t:P:G:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1361,6 +1362,9 @@ int main(int argc, char** argv)
         case 'P':
             plugin_fnames[plugins] = optarg;
             plugins++;
+            break;
+        case 'C':
+            plugin_store_path = optarg;
             break;
         case 'G':
             if ((get_size = atoi(optarg)) <= 0) {
@@ -1468,6 +1472,10 @@ int main(int argc, char** argv)
     if (is_client == 0) {
         FILE* F_log = NULL;
 
+        if (plugin_store_path != NULL) {
+            fprintf(stderr, "Do not support plugin cache at server side for now\n");
+        }
+
         if (log_file != NULL) {
 #ifdef _WINDOWS
             if (fopen_s(&F_log, log_file, "w") != 0) {
@@ -1526,7 +1534,7 @@ int main(int argc, char** argv)
         for(int i = 0; i < plugins; i++) {
             printf("\tplugin %s\n", plugin_fnames[i]);
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4, qlog_filename);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
 
         printf("Client exit with code = %d\n", ret);
 
