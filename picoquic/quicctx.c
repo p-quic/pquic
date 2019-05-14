@@ -490,6 +490,13 @@ void picoquic_free(picoquic_quic_t* quic)
             queue_free(quic->cached_plugins_queue);
         }
 
+        if (quic->num_supported_plugins > 0) {
+            for (int i = 0; i < quic->num_supported_plugins; i++) {
+                free(quic->supported_plugins[i]);
+            }
+            free(quic->supported_plugins);
+        }
+
         free(quic);
     }
 }
@@ -1693,6 +1700,20 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         } else {
             /* Free protocol operations and plugins */
             picoquic_free_protoops_and_plugins(cnx);
+        }
+
+        /* Free the plugin name pointers */
+        if (cnx->local_parameters.supported_plugins != NULL) {
+            free(cnx->local_parameters.supported_plugins);
+        }
+        if (cnx->remote_parameters.supported_plugins != NULL) {
+            free(cnx->local_parameters.supported_plugins);
+        }
+        if (cnx->local_parameters.plugins_to_inject != NULL) {
+            free(cnx->local_parameters.plugins_to_inject);
+        }
+        if (cnx->remote_parameters.plugins_to_inject != NULL) {
+            free(cnx->local_parameters.plugins_to_inject);
         }
 
         /* Delete pending reserved frames, if any */
