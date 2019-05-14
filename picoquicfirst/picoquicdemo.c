@@ -390,6 +390,7 @@ int quic_server(const char* server_name, int server_port,
     size_t send_length = 0;
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
+    int new_context_created = 0;
 
     /* Open a UDP socket */
     ret = picoquic_open_server_sockets(&server_sockets, server_port);
@@ -453,13 +454,13 @@ int quic_server(const char* server_name, int server_port,
                 ret = picoquic_incoming_packet(qserver, buffer,
                     (size_t)bytes_recv, (struct sockaddr*)&addr_from,
                     (struct sockaddr*)&addr_to, if_index_to,
-                    current_time);
+                    current_time, &new_context_created);
 
                 if (ret != 0) {
                     ret = 0;
                 }
 
-                if (cnx_server != picoquic_get_first_cnx(qserver) && picoquic_get_first_cnx(qserver) != NULL) {
+                if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
                     for (int i = 0; i < plugins; i++) {
                         int plugged = plugin_insert_plugin(cnx_server, plugin_fnames[i]);
@@ -519,7 +520,7 @@ int quic_server(const char* server_name, int server_port,
                         ret = 0;
 
                         printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_next)));
-                        picoquic_log_time(stdout, cnx_server, picoquic_current_time(), "", " : ");
+                        picoquic_log_time(stdout, cnx_next, picoquic_current_time(), "", " : ");
                         printf("Closed. Retrans= %d, spurious= %d, max sp gap = %d, max sp delay = %d\n",
                             (int)cnx_next->nb_retransmission_total, (int)cnx_next->nb_spurious,
                             (int)cnx_next->path[0]->max_reorder_gap, (int)cnx_next->path[0]->max_spurious_rtt);
@@ -858,6 +859,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int notified_ready = 0;
     const char* alpn = (proposed_version == 0xFF00000D)?"hq-13":"hq-14";
     int zero_rtt_available = 0;
+    int new_context_created = 0;
     char buf[25];
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
@@ -1063,7 +1065,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 ret = picoquic_incoming_packet(qclient, buffer,
                     (size_t)bytes_recv, (struct sockaddr*)&packet_from,
                     (struct sockaddr*)&packet_to, if_index_to,
-                    picoquic_current_time());
+                    picoquic_current_time(), &new_context_created);
                 client_receive_loop++;
 
                 picoquic_log_processing(F_log, cnx_client, bytes_recv, ret);

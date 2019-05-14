@@ -679,6 +679,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
     uint64_t* simulated_time, int* was_active)
 {
     int ret = 0;
+    int new_context_created = 0;
     picoquictest_sim_link_t* target_link = NULL;
     picoquic_path_t *path;
 
@@ -785,7 +786,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                     ret = picoquic_incoming_packet(test_ctx->qclient, packet->bytes, (uint32_t)packet->length,
                         (struct sockaddr*)&packet->addr_from,
                         (struct sockaddr*)&packet->addr_to, 0,
-                        *simulated_time);
+                        *simulated_time, &new_context_created);
                     *was_active |= 1;
                 }
 
@@ -808,7 +809,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                     ret = picoquic_incoming_packet(test_ctx->qserver, packet->bytes, (uint32_t)packet->length,
                         (struct sockaddr*)&packet->addr_from,
                         (struct sockaddr*)&packet->addr_to, 0,
-                        *simulated_time);
+                        *simulated_time, &new_context_created);
                 }
 
                 if (ret != 0)
@@ -1376,6 +1377,7 @@ int tls_api_bad_server_reset_test()
     uint64_t loss_mask = 0;
     picoquic_test_tls_api_ctx_t* test_ctx = NULL;
     int ret = tls_api_init_ctx(&test_ctx, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time, NULL, 0, 0, 0);
+    int new_context_created = 0;
     uint8_t buffer[256];
 
     if (ret == 0) {
@@ -1395,7 +1397,7 @@ int tls_api_bad_server_reset_test()
         ret = picoquic_incoming_packet(test_ctx->qclient, buffer, sizeof(buffer),
             (struct sockaddr*)(&test_ctx->server_addr),
             (struct sockaddr*)(&test_ctx->client_addr), 0,
-            simulated_time);
+            simulated_time, &new_context_created);
     }
 
     /* check that the client is still up */

@@ -617,7 +617,8 @@ int picoquic_incoming_packet(
     struct sockaddr* addr_from,
     struct sockaddr* addr_to,
     int if_index_to,
-    uint64_t current_time);
+    uint64_t current_time,
+    int* new_context_created);
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
 

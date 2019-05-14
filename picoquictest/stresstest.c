@@ -504,6 +504,7 @@ static int stress_submit_sp_packets(picoquic_stress_ctx_t * ctx, picoquic_quic_t
 static int stress_handle_packet_arrival(picoquic_stress_ctx_t * ctx, picoquic_quic_t * q, picoquictest_sim_link_t* link)
 {
     int ret = 0;
+    int new_context_created = 0;
     /* dequeue packet from server to client and submit */
     picoquictest_sim_packet_t* packet = picoquictest_sim_link_dequeue(link, ctx->simulated_time);
 
@@ -511,7 +512,7 @@ static int stress_handle_packet_arrival(picoquic_stress_ctx_t * ctx, picoquic_qu
         ret = picoquic_incoming_packet(q, packet->bytes, (uint32_t)packet->length,
             (struct sockaddr*)&packet->addr_from,
             (struct sockaddr*)&packet->addr_to, 0,
-            ctx->simulated_time);
+            ctx->simulated_time, &new_context_created);
         if (ret != 0){
             stress_debug_break();
         }
