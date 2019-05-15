@@ -527,6 +527,9 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
 
 void picoquic_free(picoquic_quic_t* quic);
 
+/* Set the plugins we want to inject */
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
+
 /* Set cookie mode on QUIC context when under stress */
 void picoquic_set_cookie_mode(picoquic_quic_t* quic, int cookie_mode);
 

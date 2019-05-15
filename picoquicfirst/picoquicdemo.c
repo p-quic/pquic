@@ -411,6 +411,12 @@ int quic_server(const char* server_name, int server_port,
             qserver->mtu_max = mtu_max;
             /* TODO: add log level, to reduce size in "normal" cases */
             PICOQUIC_SET_LOG(qserver, F_log);
+
+            /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
+            ret = picoquic_set_plugins_to_inject(qserver, plugin_fnames, plugins);
+            if (ret != 0) {
+                printf("Error when setting plugins to inject\n");
+            }
         }
     }
 
@@ -948,16 +954,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
-            for (int i = 0; i < plugins; i++) {
-                ret = plugin_insert_plugin(cnx_client, plugin_fnames[i]);
-                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
-                if (ret == 0) {
-                    printf("Successfully inserted plugin %s\n", plugin_fnames[i]);
-                } else {
-                    printf("Failed to insert plugin %s\n", plugin_fnames[i]);
-                }
-            }            
-
             if (qlog_filename) {
                 int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                 if (qlog_fd != -1) {
@@ -1353,7 +1349,7 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:p:C:v:14rhzi:s:l:m:n:t:P:G:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:G:p:v:14rhzi:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1535,6 +1531,7 @@ int main(int argc, char** argv)
         printf("Starting PicoQUIC connection to server IP = %s, port = %d and %d plugins\n", server_name, server_port, plugins);
         for(int i = 0; i < plugins; i++) {
             printf("\tplugin %s\n", plugin_fnames[i]);
+            fprintf(stderr, "WARNING: direct plugin insertion at client is not functional now! Use -C instead.\n");
         }
         ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
 

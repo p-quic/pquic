@@ -161,6 +161,34 @@ uint16_t picoquic_get_supported_plugins_transport_parameter(picoquic_cnx_t* cnx)
     return length;
 }
 
+uint16_t picoquic_get_plugins_to_inject_transport_parameter(picoquic_cnx_t* cnx) {
+    uint16_t length = 0;
+
+    if (cnx->quic == NULL || cnx->quic->num_plugins_to_inject == 0) {
+        /* No plugins to inject transport parameter */
+        return 0;
+    }
+
+    cnx->local_parameters.plugins_to_inject = malloc(sizeof(char) * (
+            cnx->quic->num_bytes_plugins_to_inject + cnx->quic->num_plugins_to_inject));
+    if (cnx->local_parameters.plugins_to_inject == NULL) {
+        DBG_PRINTF("Failed to allocate memory for local plugins to inject transport param\n");
+        return 0;
+    }
+
+    for (int i = 0; i < cnx->quic->num_plugins_to_inject; i++) {
+        if (i > 0) {
+            cnx->local_parameters.plugins_to_inject[length++] = ',';
+        }
+        strcpy(&cnx->local_parameters.plugins_to_inject[length], cnx->quic->plugins_to_inject[i].plugin_name);
+        length += strlen(cnx->quic->plugins_to_inject[i].plugin_name);
+    }
+    if (length > 0) {
+        cnx->local_parameters.plugins_to_inject[length++] = '\0';
+    }
+    return length;
+}
+
 
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
@@ -210,14 +238,12 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
         param_size += (2 + 2 + 4);
     }
 
-    /* TODO */
     size_t supported_plugins_len = picoquic_get_supported_plugins_transport_parameter(cnx);
     if (supported_plugins_len > 0) {
         param_size += (2 + 2 + supported_plugins_len);
     }
-    char *plugins_to_insert = "be.michelfra.fecrlc";
-    size_t plugins_to_insert_len = strlen(plugins_to_insert) + 1; // put space for \0
-    if (true) {
+    size_t plugins_to_insert_len = picoquic_get_plugins_to_inject_transport_parameter(cnx);
+    if (plugins_to_insert_len > 0) {
         param_size += (2 + 2 + plugins_to_insert_len);
     }
     /* TODO: add more tests here if adding new parameters */
@@ -375,13 +401,12 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
             byte_index += supported_plugins_len;
         }
 
-        /* TODO */
-        if (true) {
+        if (plugins_to_insert_len > 0) {
             picoformat_16(bytes + byte_index, picoquic_tp_plugins_to_inject);
             byte_index += 2;
             picoformat_16(bytes + byte_index, plugins_to_insert_len);
             byte_index += 2;
-            memcpy(bytes + byte_index, plugins_to_insert, plugins_to_insert_len);
+            memcpy(bytes + byte_index, cnx->local_parameters.plugins_to_inject, plugins_to_insert_len);
             byte_index += plugins_to_insert_len;
         }
     }

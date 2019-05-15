@@ -150,6 +150,11 @@ typedef struct st_cached_plugins_t {
     protoop_plugin_t *plugins; /* A hash map to the plugins referenced by ops */
 } cached_plugins_t;
 
+typedef struct st_plugin_fname_t {
+    char* plugin_name;
+    char* plugin_path;
+} plugin_fname_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -207,6 +212,10 @@ typedef struct st_picoquic_quic_t {
     uint16_t num_bytes_supported_plugins; // This one is to count the number of characters in plugin names
     uint16_t num_supported_plugins;
     char** supported_plugins;
+    /* List of plugins we want to inject locally */
+    uint16_t num_bytes_plugins_to_inject; // This one is to count the number of characters in plugin names
+    uint16_t num_plugins_to_inject;
+    plugin_fname_t* plugins_to_inject;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);

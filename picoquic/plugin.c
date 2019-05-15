@@ -336,9 +336,8 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
     return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
-protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line) {
-    /* Part one: extract plugin id */
-    char *token = strsep(&line, " ");
+char* plugin_parse_first_plugin_line(char *first_line) {
+    char *token = strsep(&first_line, " ");
     if (token == NULL) {
         printf("No token for protocol operation id extracted!\n");
         return false;
@@ -353,13 +352,20 @@ protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line
         return NULL;
     }
 
+    return token;
+}
+
+protoop_plugin_t* plugin_initialize(char *first_line) {
+    /* Part one: extract plugin id */
+    char *plugin_id = plugin_parse_first_plugin_line(first_line);
+
     protoop_plugin_t *p = calloc(1, sizeof(protoop_plugin_t));
     if (!p) {
         printf("Cannot allocate memory for plugin!\n");
         return NULL;
     }
 
-    strncpy(p->name, token, PROTOOPPLUGINNAME_MAX);
+    strncpy(p->name, plugin_id, PROTOOPPLUGINNAME_MAX);
     p->block_queue_cc = queue_init();
     if (!p->block_queue_cc) {
         printf("Cannot allocate memory for sending queue congestion control!\n");
@@ -551,12 +557,14 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     read = getline(&line, &len, file);
     if (read == -1) {
         printf("Error in the file %s\n", plugin_fname);
+        fclose(file);
         return 1;
     }
 
-    protoop_plugin_t *p = plugin_parse_first_plugin_line(cnx, line);
+    protoop_plugin_t *p = plugin_initialize(line);
     if (!p) {
         printf("Cannot extract plugin line in file %s\n", plugin_fname);
+        fclose(file);
         return 1;
     }
 
@@ -620,6 +628,37 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     fclose(file);
 
     return ok ? 0 : 1;
+}
+
+int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
+    FILE *file = fopen(plugin_fname, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+    char *first_line = NULL;
+    size_t len = 0;
+    ssize_t read = getline(&first_line, &len, file);
+    if (read == -1) {
+        printf("Error in the file %s\n", plugin_fname);
+        fclose(file);
+        return 1;
+    }
+
+    char* pid_tmp = plugin_parse_first_plugin_line(first_line);
+    if (pid_tmp == NULL) {
+        printf("Cannot extract plugin id\n");
+        fclose(file);
+        return 1;
+    }
+    fclose(file);
+
+    /* FIXME It's bad, I know... */
+    strcpy(plugin_id, pid_tmp);
+
+    return 0;
 }
 
 void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {

@@ -319,6 +319,53 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
     return 0;
 }
 
+
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    quic->plugins_to_inject = malloc(sizeof(plugin_fname_t) * plugins);
+    if (quic->plugins_to_inject == NULL) {
+        return 1;
+    }
+    int err = 0;
+    char buf[256];
+    size_t buf_len;
+    int i;
+    for (i = 0; err == 0 && i < plugins; i++) {
+        err = plugin_parse_plugin_id(plugin_fnames[i], buf);
+        if (err != 0) {
+            break;
+        }
+        buf_len = strlen(buf);
+        quic->plugins_to_inject[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
+        if (quic->plugins_to_inject[i].plugin_name == NULL) {
+            break;
+        }
+        quic->plugins_to_inject[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
+        if (quic->plugins_to_inject[i].plugin_path == NULL) {
+            free(quic->plugins_to_inject[i].plugin_name);
+            break;
+        }
+        strcpy(quic->plugins_to_inject[i].plugin_name, buf);
+        strcpy(quic->plugins_to_inject[i].plugin_path, plugin_fnames[i]);
+        quic->num_plugins_to_inject++;
+        quic->num_bytes_plugins_to_inject += buf_len;
+    }
+
+    if (err != 0) {
+        /* Free everything! */
+        for (int j = 0; j < i; j++) {
+            free(quic->plugins_to_inject[i].plugin_name);
+            free(quic->plugins_to_inject[i].plugin_path);
+        }
+        quic->num_plugins_to_inject = 0;
+        quic->num_bytes_plugins_to_inject = 0;
+        return 1;
+    }
+
+    return 0;
+}
+
+
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     char const* cert_file_name,
@@ -411,6 +458,10 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 }
             }
             picoquic_get_supported_plugins(quic);
+            /* If plugins should be inserted, a dedicated call will occur */
+            quic->num_plugins_to_inject = 0;
+            quic->num_bytes_plugins_to_inject = 0;
+            quic->plugins_to_inject = NULL;
         }
     }
 
