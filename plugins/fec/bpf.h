@@ -107,9 +107,10 @@ static __attribute__((always_inline)) void remove_and_free_fec_block_at(picoquic
     state->fec_blocks[where % MAX_FEC_BLOCKS] = NULL;
 }
 
-static __attribute__((always_inline)) int get_redundancy_parameters(picoquic_cnx_t *cnx, fec_redundancy_controller_t controller, uint8_t *n, uint8_t *k){
+static __attribute__((always_inline)) int get_redundancy_parameters(picoquic_cnx_t *cnx, fec_redundancy_controller_t controller, bool flush, uint8_t *n, uint8_t *k){
     protoop_arg_t out[2];
-    int ret = (int) run_noparam(cnx, "get_redundancy_parameters", 1, (protoop_arg_t *) &controller, out);
+    protoop_arg_t args[2] = {(protoop_arg_t) controller, flush};
+    int ret = (int) run_noparam(cnx, "get_redundancy_parameters", 2, args, out);
     if (ret) {
         PROTOOP_PRINTF(cnx, "ERROR WHEN GETTING REDUNDANCY PARAMETERS\n");
         return -1;
@@ -286,8 +287,6 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
                 }
             }
         }
-        my_free(cnx, to_recover);
-        my_free(cnx, fb);
 
         if (rp) {
             reserve_frame_slot_t *slot = NULL;
@@ -312,6 +311,8 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
             }
         }
     }
+    my_free(cnx, to_recover);
+    my_free(cnx, fb);
 
 
     return ret;

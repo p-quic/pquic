@@ -41,7 +41,7 @@ static __attribute__((always_inline)) block_fec_framework_t *create_framework_se
     }
     uint8_t n = 0;
     uint8_t k = 0;
-    get_redundancy_parameters(cnx, bff->controller, &n, &k);
+    get_redundancy_parameters(cnx, bff->controller, false, &n, &k);
     bff->current_block->total_source_symbols = k;
     bff->current_block->total_repair_symbols = n - k;
     bff->controller = controller;
@@ -51,7 +51,7 @@ static __attribute__((always_inline)) block_fec_framework_t *create_framework_se
 
 static __attribute__((always_inline)) bool ready_to_send(picoquic_cnx_t *cnx, block_fec_framework_t *bff) {
     uint8_t k = 0;
-    get_redundancy_parameters(cnx, bff->controller, NULL, &k);
+    get_redundancy_parameters(cnx, bff->controller, false, NULL, &k);
     return (bff->current_block->current_source_symbols >= k);
 }
 
@@ -175,15 +175,15 @@ static __attribute__((always_inline)) int reserve_fec_frames(picoquic_cnx_t *cnx
     return 0;
 }
 
-static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff){
-    protoop_arg_t args[2];
+static __attribute__((always_inline)) int generate_and_queue_repair_symbols(picoquic_cnx_t *cnx, block_fec_framework_t *bff, bool flush){
+    protoop_arg_t args[3];
     protoop_arg_t outs[1];
     args[0] = (protoop_arg_t) bff->current_block;
     args[1] = (protoop_arg_t) bff->fec_scheme;
 
     uint8_t n = 0;
     uint8_t k = 0;
-    get_redundancy_parameters(cnx, bff->controller, &n, &k);
+    get_redundancy_parameters(cnx, bff->controller, flush, &n, &k);
     bff->current_block->total_source_symbols = bff->current_block->current_source_symbols;
     bff->current_block->total_repair_symbols = n - k;
 
@@ -215,7 +215,7 @@ static __attribute__((always_inline)) int sent_block(picoquic_cnx_t *cnx, block_
             return -1;
         uint8_t n = 0;
         uint8_t k = 0;
-        get_redundancy_parameters(cnx, ff->controller, &n, &k);
+        get_redundancy_parameters(cnx, ff->controller, false, &n, &k);
         ff->current_block->total_source_symbols = k;
         ff->current_block->total_repair_symbols = n - k;
     }
@@ -236,7 +236,7 @@ static __attribute__((always_inline)) int protect_source_symbol(picoquic_cnx_t *
     if (!add_source_symbol_to_fec_block(ss, bff->current_block))
         return -1;
     if (ready_to_send(cnx, bff)) {
-        generate_and_queue_repair_symbols(cnx, bff);
+        generate_and_queue_repair_symbols(cnx, bff, false);
         sent_block(cnx, bff,bff->current_block);
     }
     PROTOOP_PRINTF(cnx, "SYMBOL PROTECTED\n");
@@ -249,7 +249,7 @@ static __attribute__((always_inline)) int flush_fec_block(picoquic_cnx_t *cnx, b
         fb->total_source_symbols = fb->current_source_symbols;
         fb->total_repair_symbols = fb->current_source_symbols < fb->total_repair_symbols ? fb->current_source_symbols : fb->total_repair_symbols;
         PROTOOP_PRINTF(cnx, "FLUSH FEC BLOCK: %u source symbols, %u repair symbols\n", fb->total_source_symbols, fb->total_repair_symbols);
-        generate_and_queue_repair_symbols(cnx, bff);
+        generate_and_queue_repair_symbols(cnx, bff, true);
         sent_block(cnx, bff, fb);
     }
     return 0;
