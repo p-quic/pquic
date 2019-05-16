@@ -133,60 +133,53 @@ size_t picoquic_decode_transport_param_preferred_address(uint8_t * bytes, size_t
 }
 
 
-uint16_t picoquic_get_supported_plugins_transport_parameter(picoquic_cnx_t* cnx) {
+uint16_t picoquic_get_list_transport_parameter(char* plugin_tp_list, plugin_list_t* list) {
     uint16_t length = 0;
+    for (int i = 0; i < list->size; i++) {
+        if (i > 0) {
+            plugin_tp_list[length++] = ',';
+        }
+        strcpy(&plugin_tp_list[length], list->elems[i].plugin_name);
+        length += strlen(list->elems[i].plugin_name);
+    }
+    if (length > 0) {
+        plugin_tp_list[length++] = '\0';
+    }
+    return length;
+}
 
-    if (cnx->quic == NULL || cnx->quic->num_supported_plugins == 0) {
+
+uint16_t picoquic_get_supported_plugins_transport_parameter(picoquic_cnx_t* cnx) {
+    if (cnx->quic == NULL || cnx->quic->supported_plugins.size == 0) {
         /* No supported plugins transport parameter */
         return 0;
     }
 
     cnx->local_parameters.supported_plugins = malloc(sizeof(char) * (
-            cnx->quic->num_bytes_supported_plugins + cnx->quic->num_supported_plugins));
+            cnx->quic->supported_plugins.name_num_bytes + cnx->quic->supported_plugins.size));
     if (cnx->local_parameters.supported_plugins == NULL) {
         DBG_PRINTF("Failed to allocate memory for local supported plugins transport param\n");
         return 0;
     }
 
-    for (int i = 0; i < cnx->quic->num_supported_plugins; i++) {
-        if (i > 0) {
-            cnx->local_parameters.supported_plugins[length++] = ',';
-        }
-        strcpy(&cnx->local_parameters.supported_plugins[length], cnx->quic->supported_plugins[i]);
-        length += strlen(cnx->quic->supported_plugins[i]);
-    }
-    if (length > 0) {
-        cnx->local_parameters.supported_plugins[length++] = '\0';
-    }
-    return length;
+    return picoquic_get_list_transport_parameter(cnx->local_parameters.supported_plugins, &cnx->quic->supported_plugins);
 }
 
-uint16_t picoquic_get_plugins_to_inject_transport_parameter(picoquic_cnx_t* cnx) {
-    uint16_t length = 0;
 
-    if (cnx->quic == NULL || cnx->quic->num_plugins_to_inject == 0) {
+uint16_t picoquic_get_plugins_to_inject_transport_parameter(picoquic_cnx_t* cnx) {
+    if (cnx->quic == NULL || cnx->quic->plugins_to_inject.size == 0) {
         /* No plugins to inject transport parameter */
         return 0;
     }
 
     cnx->local_parameters.plugins_to_inject = malloc(sizeof(char) * (
-            cnx->quic->num_bytes_plugins_to_inject + cnx->quic->num_plugins_to_inject));
+            cnx->quic->plugins_to_inject.name_num_bytes + cnx->quic->plugins_to_inject.size));
     if (cnx->local_parameters.plugins_to_inject == NULL) {
         DBG_PRINTF("Failed to allocate memory for local plugins to inject transport param\n");
         return 0;
     }
 
-    for (int i = 0; i < cnx->quic->num_plugins_to_inject; i++) {
-        if (i > 0) {
-            cnx->local_parameters.plugins_to_inject[length++] = ',';
-        }
-        strcpy(&cnx->local_parameters.plugins_to_inject[length], cnx->quic->plugins_to_inject[i].plugin_name);
-        length += strlen(cnx->quic->plugins_to_inject[i].plugin_name);
-    }
-    if (length > 0) {
-        cnx->local_parameters.plugins_to_inject[length++] = '\0';
-    }
-    return length;
+    return picoquic_get_list_transport_parameter(cnx->local_parameters.plugins_to_inject, &cnx->quic->plugins_to_inject);
 }
 
 

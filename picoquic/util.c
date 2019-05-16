@@ -321,3 +321,23 @@ int picoquic_check_or_create_directory(char* path) {
     perror("Error when checking directory");
     return 1;
 }
+
+char *picoquic_string_join_path_and_fname(char* dir_path, const char* fname)
+{
+    /* TODO be multi platform */
+    char *directory_separator = "/";
+    strcat(dir_path, directory_separator);
+    strncat(dir_path, fname, 256);
+    return dir_path;
+}
+
+/* From https://stackoverflow.com/a/744822 */
+int picoquic_string_ends_with(const char *str, const char *suffix) {
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}

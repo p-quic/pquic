@@ -155,6 +155,14 @@ typedef struct st_plugin_fname_t {
     char* plugin_path;
 } plugin_fname_t;
 
+#define MAX_PLUGIN 64
+
+typedef struct st_plugin_list_t {
+    uint16_t size;
+    uint16_t name_num_bytes; // Count the number of bytes in the plugin names
+    plugin_fname_t elems[MAX_PLUGIN];
+} plugin_list_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -209,13 +217,9 @@ typedef struct st_picoquic_quic_t {
     /* Path to the plugin cache store */
     char* plugin_store_path;
     /* List of supported plugins in plugin cache store */
-    uint16_t num_bytes_supported_plugins; // This one is to count the number of characters in plugin names
-    uint16_t num_supported_plugins;
-    char** supported_plugins;
+    plugin_list_t supported_plugins;
     /* List of plugins we want to inject locally */
-    uint16_t num_bytes_plugins_to_inject; // This one is to count the number of characters in plugin names
-    uint16_t num_plugins_to_inject;
-    plugin_fname_t* plugins_to_inject;
+    plugin_list_t plugins_to_inject;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);

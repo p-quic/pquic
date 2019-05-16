@@ -254,9 +254,8 @@ void picoquic_free_cached_plugins(cached_plugins_t* cplugins)
 
 int picoquic_get_supported_plugins(picoquic_quic_t* quic)
 {
-    quic->num_supported_plugins = 0;
-    quic->num_bytes_supported_plugins = 0;
-    quic->supported_plugins = NULL;
+    quic->supported_plugins.size = 0;
+    quic->supported_plugins.name_num_bytes = 0;
 
     if (quic->plugin_store_path == NULL) {
         /* No store path, so no supported plugins */
@@ -268,50 +267,58 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
     return 0;
 #endif
 
-    /* Two passes, first to get the number of plugins, then a second to store them */
-    DIR *d;
-    struct dirent *dir;
-    uint16_t num_supported_plugins = 0;
+    /* Single pass */
+    DIR *d, *sub_d;
+    struct dirent *dir, *sub_dir;
+    const int max_plugin_fname_len = strlen(quic->plugin_store_path) + 514; /* From d_name max length, plus the separator and null char*/
+    char tmp_buf[max_plugin_fname_len];
+    char pid_buf[250]; /* Required plugin name size */
+    size_t pid_size, path_size;
     d = opendir(quic->plugin_store_path);
     if (d) {
         while ((dir = readdir(d)) != NULL) {
             /* The first character cannot be a '.' */
             if (dir->d_name[0] != '.') {
-                num_supported_plugins++;
-            }
-        }
-        closedir(d);
-    }
+                /* Don't forget to reinit tmp_buf... */
+                memset(tmp_buf, 0, max_plugin_fname_len);
+                strcpy(tmp_buf, quic->plugin_store_path);
+                picoquic_string_join_path_and_fname(tmp_buf, dir->d_name);
+                sub_d = opendir(tmp_buf);
+                if (sub_d) {
+                    while ((sub_dir = readdir(sub_d)) != NULL) {
+                        if (picoquic_string_ends_with(sub_dir->d_name, ".plugin")) {
+                            picoquic_string_join_path_and_fname(tmp_buf, sub_dir->d_name);
+                            if (plugin_parse_plugin_id(tmp_buf, pid_buf)) {
+                                fprintf(stderr, "Error when parsing PID of path %s\n", tmp_buf);
+                                continue;
+                            }
+                            pid_size = strlen(pid_buf);
+                            path_size = strlen(tmp_buf);
+                            quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path = malloc(sizeof(char) * (path_size + 1));
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path) {
+                                fprintf(stderr, "Error when malloc'ing memory for path %s\n", tmp_buf);
+                                continue;
+                            }
+                            quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name = malloc(sizeof(char) * (pid_size + 1));
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name) {
+                                fprintf(stderr, "Error when malloc'ing memory for name %s\n", pid_buf);
+                                free(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path);
+                                continue;
+                            }
+                            strcpy(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path, tmp_buf);
+                            strcpy(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name, pid_buf);
+                            quic->supported_plugins.name_num_bytes += pid_size;
+                            quic->supported_plugins.size++;
 
-    if (num_supported_plugins > 0) {
-        quic->supported_plugins = malloc(sizeof(char *) * num_supported_plugins);
-        if (quic->supported_plugins == NULL) {
-            DBG_PRINTF("Error when malloc'ing supported plugins\n");
-            return 1;
-        }
-        d = opendir(quic->plugin_store_path);
-        if (d == NULL) {
-            free(quic->supported_plugins);
-            quic->supported_plugins = NULL;
-            DBG_PRINTF("Error when opening %s for the second time\n", quic->plugin_store_path);
-            return 1;
-        }
-        char *plugin_name;
-        size_t plugin_name_len;
-        while ((dir = readdir(d)) != NULL) {
-            /* The first character cannot be a '.' */
-            if (dir->d_name[0] == '.') {
-                continue;
+                            if (quic->supported_plugins.size >= MAX_PLUGIN) {
+                                fprintf(stderr, "WARNING: limit of supported plugins reached!\n");
+                                break;
+                            }
+                        }
+                    }
+                    closedir(sub_d);
+                }
             }
-            plugin_name_len = strlen(dir->d_name);
-            plugin_name = malloc(sizeof(char) * (plugin_name_len + 1));
-            if (!plugin_name) {
-                DBG_PRINTF("Failed to allocate memory for plugin name %s\n", dir->d_name);
-                continue;
-            }
-            strcpy(plugin_name, dir->d_name);
-            quic->num_bytes_supported_plugins += plugin_name_len;
-            quic->supported_plugins[quic->num_supported_plugins++] = plugin_name;
         }
         closedir(d);
     }
@@ -322,10 +329,6 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
 
 int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
 {
-    quic->plugins_to_inject = malloc(sizeof(plugin_fname_t) * plugins);
-    if (quic->plugins_to_inject == NULL) {
-        return 1;
-    }
     int err = 0;
     char buf[256];
     size_t buf_len;
@@ -336,29 +339,30 @@ int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fn
             break;
         }
         buf_len = strlen(buf);
-        quic->plugins_to_inject[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
-        if (quic->plugins_to_inject[i].plugin_name == NULL) {
+        quic->plugins_to_inject.elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
+        if (quic->plugins_to_inject.elems[i].plugin_name == NULL) {
             break;
         }
-        quic->plugins_to_inject[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
-        if (quic->plugins_to_inject[i].plugin_path == NULL) {
-            free(quic->plugins_to_inject[i].plugin_name);
+        quic->plugins_to_inject.elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
+        if (quic->plugins_to_inject.elems[i].plugin_path == NULL) {
+            free(quic->plugins_to_inject.elems[i].plugin_name);
             break;
         }
-        strcpy(quic->plugins_to_inject[i].plugin_name, buf);
-        strcpy(quic->plugins_to_inject[i].plugin_path, plugin_fnames[i]);
-        quic->num_plugins_to_inject++;
-        quic->num_bytes_plugins_to_inject += buf_len;
+        strcpy(quic->plugins_to_inject.elems[i].plugin_name, buf);
+        strcpy(quic->plugins_to_inject.elems[i].plugin_path, plugin_fnames[i]);
+        printf("Plugin with path %s and name %s\n", quic->plugins_to_inject.elems[i].plugin_path, quic->plugins_to_inject.elems[i].plugin_name);
+        quic->plugins_to_inject.name_num_bytes += buf_len;
+        quic->plugins_to_inject.size++;
     }
 
     if (err != 0) {
         /* Free everything! */
         for (int j = 0; j < i; j++) {
-            free(quic->plugins_to_inject[i].plugin_name);
-            free(quic->plugins_to_inject[i].plugin_path);
+            free(quic->plugins_to_inject.elems[i].plugin_name);
+            free(quic->plugins_to_inject.elems[i].plugin_path);
         }
-        quic->num_plugins_to_inject = 0;
-        quic->num_bytes_plugins_to_inject = 0;
+        quic->plugins_to_inject.size = 0;
+        quic->plugins_to_inject.name_num_bytes = 0;
         return 1;
     }
 
@@ -459,9 +463,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
             }
             picoquic_get_supported_plugins(quic);
             /* If plugins should be inserted, a dedicated call will occur */
-            quic->num_plugins_to_inject = 0;
-            quic->num_bytes_plugins_to_inject = 0;
-            quic->plugins_to_inject = NULL;
+            quic->plugins_to_inject.size = 0;
+            quic->plugins_to_inject.name_num_bytes = 0;
         }
     }
 
@@ -541,11 +544,18 @@ void picoquic_free(picoquic_quic_t* quic)
             queue_free(quic->cached_plugins_queue);
         }
 
-        if (quic->num_supported_plugins > 0) {
-            for (int i = 0; i < quic->num_supported_plugins; i++) {
-                free(quic->supported_plugins[i]);
+        if (quic->supported_plugins.size > 0) {
+            for (int i = 0; i < quic->supported_plugins.size; i++) {
+                free(quic->supported_plugins.elems[i].plugin_name);
+                free(quic->supported_plugins.elems[i].plugin_path);
             }
-            free(quic->supported_plugins);
+        }
+
+        if (quic->plugins_to_inject.size > 0) {
+            for (int i = 0; i < quic->plugins_to_inject.size; i++) {
+                free(quic->plugins_to_inject.elems[i].plugin_name);
+                free(quic->plugins_to_inject.elems[i].plugin_path);
+            }
         }
 
         free(quic);
