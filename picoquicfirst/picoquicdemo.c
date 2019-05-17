@@ -468,15 +468,7 @@ int quic_server(const char* server_name, int server_port,
 
                 if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
-                    for (int i = 0; i < plugins; i++) {
-                        int plugged = plugin_insert_plugin(cnx_server, plugin_fnames[i]);
-                        printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
-                        if (plugged == 0) {
-                            printf("Successfully inserted plugin %s\n", plugin_fnames[i]);
-                        } else {
-                            printf("Failed to insert plugin %s\n", plugin_fnames[i]);
-                        }
-                    }
+                    picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
                         int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
@@ -867,6 +859,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int zero_rtt_available = 0;
     int new_context_created = 0;
     char buf[25];
+    int waiting_transport_parameters = 1;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
 
@@ -1075,6 +1068,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     }
                     fprintf(stdout, "Almost ready!\n\n");
                     notified_ready = 1;
+                }
+
+                if (waiting_transport_parameters && cnx_client->remote_parameters_received) {
+                    picoquic_handle_plugin_negotiation(cnx_client);
+                    waiting_transport_parameters = 0;
                 }
 
                 if (ret != 0) {

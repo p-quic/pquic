@@ -637,12 +637,24 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                             }
                             break;
                         case picoquic_tp_supported_plugins:
-                            /* TODO */
-                            printf("I received a supported_plugins TP\n");
+                            if (extension_length > 0) {
+                                cnx->remote_parameters.supported_plugins = malloc(sizeof(char) * extension_length);
+                                if (cnx->remote_parameters.supported_plugins == NULL) {
+                                    fprintf(stderr, "Cannot allocate memory for remote supported plugins\n");
+                                } else {
+                                    memcpy(cnx->remote_parameters.supported_plugins, bytes + byte_index, extension_length);
+                                }
+                            }
                             break;
                         case picoquic_tp_plugins_to_inject:
-                            /* TODO */
-                            printf("I received a plugins_to_inject TP\n");
+                            if (extension_length > 0) {
+                                cnx->remote_parameters.plugins_to_inject = malloc(sizeof(char) * extension_length);
+                                if (cnx->remote_parameters.plugins_to_inject == NULL) {
+                                    fprintf(stderr, "Cannot allocate memory for remote plugins to inject\n");
+                                } else {
+                                    memcpy(cnx->remote_parameters.plugins_to_inject, bytes + byte_index, extension_length);
+                                }
+                            }
                             break;
                         default:
                             /* ignore unknown extensions */

@@ -1339,6 +1339,99 @@ uint64_t picoquic_is_0rtt_available(picoquic_cnx_t* cnx)
     return (cnx->crypto_context[1].aead_encrypt == NULL) ? 0 : 1;
 }
 
+/* Return the index in the list of pid, or the size of the list otherwise */
+int picoquic_pid_index(plugin_list_t* list, char* pid)
+{
+    for (int j = 0; j < list->size; j++) {
+        if (strcmp(list->elems[j].plugin_name, pid) == 0) {
+            return j;
+        }
+    }
+    return list->size;
+}
+
+int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
+{
+    /* The client can inject all plugins required that it already supports. */
+    char **pids_to_inject = picoquic_string_split(cnx->remote_parameters.plugins_to_inject, ',');
+    char *pid_to_inject;
+    int index;
+    plugin_list_t* supported_plugins = &cnx->quic->supported_plugins;
+    if (pids_to_inject) {
+        for (int i = 0; (pid_to_inject = pids_to_inject[i]) != NULL; i++) {
+            /* Search in the supported plugins */
+            index = picoquic_pid_index(supported_plugins, pid_to_inject);
+
+            if (index < supported_plugins->size) {
+                /* FIXME plugin loading optimization */
+                /* FIXME what if plugin load fails? */
+                /* Plugin is supported, insert it */
+                int plugged = plugin_insert_plugin(cnx, supported_plugins->elems[index].plugin_path);
+                if (plugged == 0) {
+                    fprintf(stderr, "Client successfully inserted plugin %s\n", supported_plugins->elems[index].plugin_path);
+                } else {
+                    fprintf(stderr, "Client failed to insert plugin %s\n", supported_plugins->elems[index].plugin_path);
+                }
+            } else {
+                fprintf(stderr, "Client does not support plugin %s, it should request it.\n", pid_to_inject);
+            }
+        }
+        free(pids_to_inject);
+    }
+
+    return 0;
+}
+
+int picoquic_handle_plugin_negotiation_server(picoquic_cnx_t* cnx)
+{
+    char **supported_pids = picoquic_string_split(cnx->remote_parameters.supported_plugins, ',');
+    char *supported_pid;
+    int index;
+    plugin_list_t* plugins_to_inject = &cnx->quic->plugins_to_inject;
+    if (supported_pids) {
+        for (int i = 0; (supported_pid = supported_pids[i]) != NULL; i++) {
+            /* Search in the plugins to inject */
+            index = picoquic_pid_index(plugins_to_inject, supported_pid);
+
+            if (index < plugins_to_inject->size) {
+                /* FIXME plugin loading optimization */
+                /* FIXME what if plugin load fails? */
+                /* Plugin is supported, insert it */
+                int plugged = plugin_insert_plugin(cnx, plugins_to_inject->elems[index].plugin_path);
+                if (plugged == 0) {
+                    fprintf(stderr, "Server successfully inserted plugin %s\n", plugins_to_inject->elems[index].plugin_path);
+                } else {
+                    fprintf(stderr, "Server failed to insert plugin %s\n", plugins_to_inject->elems[index].plugin_path);
+                }
+            }
+        }
+        free(supported_pids);
+    }
+
+    return 0;
+}
+
+/* Handle plugin negotiation */
+int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx)
+{
+    /* This function should be called once transport parameters have been exchanged */
+    if (!cnx->remote_parameters_received) {
+        DBG_PRINTF("Trying to handle plugin negotiation before having received remote transport parameters!\n");
+        return 1;
+    }
+
+    int err;
+
+    /* XXX So far, we only allow remote injection from server to client */
+    if (picoquic_is_client(cnx)) {
+        err = picoquic_handle_plugin_negotiation_client(cnx);
+    } else {
+        err = picoquic_handle_plugin_negotiation_server(cnx);
+    }
+
+    return err;
+}
+
 /*
  * Provide clock time
  */
