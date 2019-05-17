@@ -295,12 +295,12 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
                             pid_size = strlen(pid_buf);
                             path_size = strlen(tmp_buf);
                             quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path = malloc(sizeof(char) * (path_size + 1));
-                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path) {
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path == NULL) {
                                 fprintf(stderr, "Error when malloc'ing memory for path %s\n", tmp_buf);
                                 continue;
                             }
                             quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name = malloc(sizeof(char) * (pid_size + 1));
-                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name) {
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name == NULL) {
                                 fprintf(stderr, "Error when malloc'ing memory for name %s\n", pid_buf);
                                 free(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path);
                                 continue;
