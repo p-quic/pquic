@@ -1352,6 +1352,10 @@ int picoquic_pid_index(plugin_list_t* list, char* pid)
 
 int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
 {
+    /* If there is no plugins_to_inject remote parameter, stop now */
+    if (!cnx->remote_parameters.plugins_to_inject) {
+        return 0;
+    }
     /* The client can inject all plugins required that it already supports. */
     char **pids_to_inject = picoquic_string_split(cnx->remote_parameters.plugins_to_inject, ',');
     char *pid_to_inject;
@@ -1384,6 +1388,10 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
 
 int picoquic_handle_plugin_negotiation_server(picoquic_cnx_t* cnx)
 {
+    /* If there is no supported_plugins remote parameter, stop now */
+    if (!cnx->remote_parameters.supported_plugins) {
+        return 0;
+    }
     char **supported_pids = picoquic_string_split(cnx->remote_parameters.supported_plugins, ',');
     char *supported_pid;
     int index;
