@@ -161,6 +161,15 @@ static uint8_t test_frame_type_crypto_hs[] = {
     0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
 };
 
+static uint8_t test_frame_type_plugin_validate[] = {
+    picoquic_frame_type_plugin_validate,
+    0,
+    0x18,
+    0x62, 0x65, 0x2E, 0x71, 0x64, 0x65, 0x63, 0x6F,
+    0x6E, 0x69, 0x6E, 0x63, 0x6B, 0x2E, 0x6D, 0x75,
+    0x6C, 0x74, 0x69, 0x70, 0x61, 0x74, 0x68, 0x00
+};
+
 typedef struct st_test_skip_frames_t {
     char const* name;
     uint8_t* val;
@@ -197,7 +206,8 @@ static test_skip_frames_t test_skip_list[] = {
     TEST_SKIP_ITEM("ack_ecn", test_frame_type_ack_ecn, 1, 0, 3),
     TEST_SKIP_ITEM("stream_min", test_frame_type_stream_range_min, 0, 1, 3),
     TEST_SKIP_ITEM("stream_max", test_frame_type_stream_range_max, 0, 0, 3),
-    TEST_SKIP_ITEM("crypto_hs", test_frame_type_crypto_hs, 0, 0, 2)
+    TEST_SKIP_ITEM("crypto_hs", test_frame_type_crypto_hs, 0, 0, 2),
+    TEST_SKIP_ITEM("plugin_validate", test_frame_type_plugin_validate, 0, 0, 3)
 };
 
 static size_t nb_test_skip_list = sizeof(test_skip_list) / sizeof(test_skip_frames_t);

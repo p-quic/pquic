@@ -310,6 +310,9 @@ char const* picoquic_log_frame_names(uint8_t frame_type)
     case picoquic_frame_type_ack_ecn:
         frame_name = "ack_ecn";
         break;
+    case picoquic_frame_type_plugin_validate:
+        frame_name = "plugin_validate";
+        break;
     default:
         if (PICOQUIC_IN_RANGE(frame_type, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
             frame_name = "stream";
@@ -934,6 +937,42 @@ size_t picoquic_log_crypto_hs_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
     return byte_index;
 }
 
+size_t picoquic_log_plugin_validate_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    size_t byte_index = 1;
+    uint64_t pid_id;
+    uint64_t pid_len;
+
+    size_t l1 = picoquic_varint_decode(bytes + 1, bytes_max - 1, &pid_id);
+
+    if (1 + l1 > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(1 + l1), (int)bytes_max);
+        return bytes_max;
+    }
+
+    byte_index = 1 + l1;
+
+    size_t l2 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &pid_len);
+    if (byte_index + l1 > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(byte_index + l1), (int)bytes_max);
+        return bytes_max;
+    }
+    byte_index += l2;
+
+    if (byte_index + pid_len > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(byte_index + pid_len), (int)bytes_max);
+        return bytes_max;
+    }
+
+    char pid[pid_len];
+    memcpy(pid, bytes + byte_index, pid_len);
+    byte_index += pid_len;
+
+    fprintf(F, "    PLUGIN VALIDATE: ID %lx for %s.\n", pid_id, pid);
+
+    return byte_index;
+}
+
 size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
@@ -1334,6 +1373,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
         case 0x1c: /* DATAGRAM */
         case 0x1d:
             byte_index += picoquic_log_datagram_frame(F, cnx_id64, bytes + byte_index, length - byte_index);
+            break;
+        case picoquic_frame_type_plugin_validate:
+            byte_index += picoquic_log_plugin_validate_frame(F, bytes + byte_index,
+                length - byte_index);
             break;
         case 0x22: /* ADD_ADDRESS */
             byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,

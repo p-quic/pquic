@@ -136,7 +136,8 @@ typedef enum {
     picoquic_frame_type_stream_range_max = 0x17,
     picoquic_frame_type_crypto_hs = 0x18,
     picoquic_frame_type_new_token = 0x19,
-    picoquic_frame_type_ack_ecn = 0x1a
+    picoquic_frame_type_ack_ecn = 0x1a,
+    picoquic_frame_type_plugin_validate = 0x1e
 } picoquic_frame_type_enum_t;
 
 /*
@@ -417,6 +418,12 @@ typedef struct new_token_frame {
     uint64_t token_length;
     uint8_t* token_ptr; /* Start of the data, not contained in the structure */
 } new_token_frame_t;
+
+typedef struct plugin_validate_frame {
+    uint64_t pid_id;
+    uint64_t pid_len;
+    char *pid;
+} plugin_validate_frame_t;
 
 
 typedef enum {

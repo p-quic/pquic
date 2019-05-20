@@ -3350,6 +3350,124 @@ protoop_arg_t decode_stream_id_blocked_frame(picoquic_cnx_t* cnx)
     return (protoop_arg_t) bytes;
 }
 
+protoop_arg_t write_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t*) cnx->protoop_inputv[1];
+    plugin_validate_frame_t* frame_ctx = (plugin_validate_frame_t*) cnx->protoop_inputv[2];
+
+    int ret = 0;
+    int consumed = 0;
+    int is_retransmittable = 1;
+    size_t max_bytes = (size_t) (bytes_max - bytes);
+
+    size_t l1 = picoquic_varint_encode(bytes + 1, max_bytes - 1, frame_ctx->pid_id);
+    size_t l2 = picoquic_varint_encode(bytes + 1 + l1, max_bytes - 1 - l1, frame_ctx->pid_len);
+
+    if (l1 == 0 || l2 == 0 || (bytes + 1 + l1 + l2 + frame_ctx->pid_len) > bytes_max) {
+        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+    } else {
+        bytes[0] = picoquic_frame_type_plugin_validate;
+        memcpy(bytes + 1 + l1 + l2, frame_ctx->pid, frame_ctx->pid_len);
+        consumed = 1 + l1 + l2 + frame_ctx->pid_len;
+    }
+
+    protoop_save_outputs(cnx, consumed, is_retransmittable);
+    return ret;
+}
+
+int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    plugin_validate_frame_t frame_ctx;
+    frame_ctx.pid_id = pid_id;
+    frame_ctx.pid_len = strlen(pid) + 1; // To have '\0'
+    frame_ctx.pid = pid;
+    int ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, picoquic_frame_type_plugin_validate, outs,
+        bytes, bytes_max, &frame_ctx);
+    *consumed = (size_t) outs[0];
+    *is_retransmittable = (int) outs[1];
+    return ret;
+}
+
+/**
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+protoop_arg_t parse_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
+
+    int ack_needed = 1;
+    int is_retransmittable = 1;
+    plugin_validate_frame_t* frame = malloc(sizeof(plugin_validate_frame_t));
+
+    if (!frame) {
+        printf("Failed to allocate memory for plugin_validate_frame_t\n");
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->pid_id)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    /* Currently, the length includes the '\0' */
+    if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->pid_len)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if (frame->pid_len > 250) {
+        /* Probably the length is not correctly formatted */
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    frame->pid = malloc(sizeof(char) * frame->pid_len);
+    if (!frame->pid) {
+        printf("Failed to allocate memory for pid in plugin_validate_frame_t\n");
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+    memcpy(frame->pid, bytes, frame->pid_len);
+    bytes += frame->pid_len;
+
+    protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+    return (protoop_arg_t) bytes;
+}
+
+/**
+ * See PROTOOP_PARAM_PROCESS_FRAME
+ */
+protoop_arg_t process_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    plugin_validate_frame_t* frame = (plugin_validate_frame_t *) cnx->protoop_inputv[0];
+
+    /* TODO */
+    printf("I should process plugin validate for PID %s with PID_ID %lx\n", frame->pid, frame->pid_id);
+
+    return 0;
+}
+
 /**
  * See PROTOOP_PARAM_PARSE_FRAME
  * Default behaviour for unknown parameter
@@ -3672,6 +3790,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_crypto_hs, &parse_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_new_token, &parse_new_token_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_ack_ecn, &parse_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_plugin_validate, &parse_plugin_validate_frame);
 
     register_param_protoop_default(cnx, &PROTOOP_PARAM_PROCESS_FRAME, &process_unknown_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_padding, &process_ignore_frame);
@@ -3693,6 +3812,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_crypto_hs, &process_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_new_token, &process_ignore_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ack_ecn, &process_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_plugin_validate, &process_plugin_validate_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);
@@ -3714,6 +3834,8 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME, &prepare_first_misc_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, &prepare_required_max_stream_data_frames);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, &prepare_stream_frame);
+
+    register_param_protoop(cnx, &PROTOOP_PARAM_WRITE_FRAME, picoquic_frame_type_plugin_validate, &write_plugin_validate_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FIND_READY_STREAM, &find_ready_stream);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_ACK_NEEDED, &is_ack_needed);

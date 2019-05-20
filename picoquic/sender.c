@@ -2952,6 +2952,27 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 }
                             }
                         }
+                        /* If required, request for plugins */
+                        if (ret == 0 && !cnx->plugin_requested) {
+                            int is_retransmittable = 1;
+                            for (int i = 0; ret == 0 && i < cnx->pids_to_request.size; i++) {
+                                ret = picoquic_write_plugin_validate_frame(cnx, &bytes[length], &bytes[send_buffer_min_max - checksum_overhead],
+                                    i, cnx->pids_to_request.elems[i].plugin_name, &data_bytes, &is_retransmittable);
+                                if (ret == 0) {
+                                    length += (uint32_t)data_bytes;
+                                    if (data_bytes > 0)
+                                    {
+                                        packet->is_pure_ack = 0;
+                                        packet->is_congestion_controlled = 1;
+                                        cnx->pids_to_request.elems[i].requested = 1;
+                                    }
+                                }
+                                else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                                    ret = 0;
+                                }
+                            }
+                            cnx->plugin_requested = 1;
+                        }
 
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {

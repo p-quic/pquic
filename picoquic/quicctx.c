@@ -1377,7 +1377,15 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
                     fprintf(stderr, "Client failed to insert plugin %s\n", supported_plugins->elems[index].plugin_path);
                 }
             } else {
-                fprintf(stderr, "Client does not support plugin %s, it should request it.\n", pid_to_inject);
+                fprintf(stderr, "Client does not support plugin %s, request it.\n", pid_to_inject);
+                size_t pid_len = strlen(pid_to_inject) + 1;
+                cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name = malloc(sizeof(char) * (pid_len));
+                if (cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name == NULL) {
+                    fprintf(stderr, "Client cannot allocate memory to request %s!\n", pid_to_inject);
+                } else {
+                    memcpy(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name, pid_to_inject, pid_len);
+                    cnx->pids_to_request.size++;
+                }
             }
         }
         free(pids_to_inject);

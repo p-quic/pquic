@@ -163,6 +163,16 @@ typedef struct st_plugin_list_t {
     plugin_fname_t elems[MAX_PLUGIN];
 } plugin_list_t;
 
+typedef struct st_plugin_req_pid_t {
+    char* plugin_name;
+    int requested:1;
+} plugin_req_pid_t;
+
+typedef struct st_plugin_request_t {
+    uint16_t size;
+    plugin_req_pid_t elems[MAX_PLUGIN];
+} plugin_request_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -660,6 +670,10 @@ typedef struct st_picoquic_cnx_t {
     uint16_t core_rate;
     /* Should we wake directly the stack due to a reserved frame? */
     uint8_t wake_now:1;
+    uint8_t plugin_requested:1;
+
+    /* List of plugins that should be requested on this connection */
+    plugin_request_t pids_to_request;
 
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
@@ -1039,6 +1053,9 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed);
 int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
                                 size_t bytes_max, size_t* consumed);
+
+int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+                                         uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable);
 
 
 /* send/receive */
