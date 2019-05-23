@@ -167,6 +167,13 @@ MESSAGE("OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 MESSAGE("OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
+FIND_PACKAGE(LibArchive)
+MESSAGE("root: ${LibArchive_FOUND}")
+MESSAGE("libarchive_version: ${LibArchive_VERSION}")
+MESSAGE("libarchive include dirs: ${LibArchive_INCLUDE_DIRS}")
+MESSAGE("libarchive_LIBRARIES: ${LibArchive_LIBRARIES}")
+INCLUDE_DIRECTORIES(${LibArchive_INCLUDE_DIRS})
+
 ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
@@ -197,6 +204,7 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${OPENSSL_LIBRARIES}
     ${UBPF}
     ${CMAKE_DL_LIBS}
+    ${LibArchive_LIBRARIES}
 )
 
 ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
@@ -208,6 +216,7 @@ TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
     ${OPENSSL_LIBRARIES}
     ${UBPF}
     ${CMAKE_DL_LIBS}
+    ${LibArchive_LIBRARIES}
 )
 
 ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
@@ -219,6 +228,7 @@ TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
     ${OPENSSL_LIBRARIES}
     ${UBPF}
     ${CMAKE_DL_LIBS}
+    ${LibArchive_LIBRARIES}
 )
 
 ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
@@ -232,6 +242,7 @@ TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
     ${OPENSSL_LIBRARIES}
     ${UBPF}
     ${CMAKE_DL_LIBS}
+    ${LibArchive_LIBRARIES}
 )
 
 SET(TEST_EXES picoquic_ct)

@@ -41,6 +41,11 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname);
  */
 int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id);
 
+/**
+ * This function prepares an archive containing the plugin to exchange.
+ * Returns 0 on success.
+ */
+int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname);
 
 /**
  * Function allowing a plugin to access its opaque data space.
