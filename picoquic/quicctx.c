@@ -1818,6 +1818,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             free(stream);
         }
 
+        while ((stream = cnx->first_plugin_stream) != NULL) {
+            cnx->first_plugin_stream = stream->next_stream;
+            picoquic_clear_stream(stream);
+            free(stream);
+        }
+
         if (cnx->tls_ctx != NULL) {
             picoquic_tlscontext_free(cnx, cnx->tls_ctx);
             cnx->tls_ctx = NULL;
@@ -2442,6 +2448,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PLUGIN_STREAM_OPENED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_FLAGS_CHANGED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);

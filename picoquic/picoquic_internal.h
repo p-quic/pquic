@@ -548,6 +548,8 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
 
+#define MAX_PLUGIN_DATA_LEN (1024 * 1000) /* In bytes */
+
 /* 
  * Per connection context.
  * This is the structure that will be passed to pluglets.
@@ -674,6 +676,9 @@ typedef struct st_picoquic_cnx_t {
 
     /* List of plugins that should be requested on this connection */
     plugin_request_t pids_to_request;
+
+    /* Management of plugin streams */
+    picoquic_stream_head * first_plugin_stream;
 
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
@@ -1056,6 +1061,12 @@ int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_
 
 int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
                                          uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable);
+
+/* plugin stream management */
+picoquic_stream_head* picoquic_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id);
+picoquic_stream_head* picoquic_find_ready_plugin_stream(picoquic_cnx_t* cnx);
+int picoquic_prepare_plugin_frame(picoquic_cnx_t* cnx, picoquic_stream_head* plugin_stream,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed);
 
 
 /* send/receive */

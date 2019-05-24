@@ -43,9 +43,11 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id);
 
 /**
  * This function prepares an archive containing the plugin to exchange.
+ * Caution: it allocates memory for plugin_data if no error occurs.
  * Returns 0 on success.
  */
-int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname);
+int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname,
+    uint8_t* plugin_data, size_t max_plugin_data, size_t* plugin_data_len);
 
 /**
  * Function allowing a plugin to access its opaque data space.

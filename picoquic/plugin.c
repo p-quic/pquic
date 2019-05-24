@@ -683,7 +683,10 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
     return 0;
 }
 
-int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname) {
+/* Caution: it allocates memory in data! */
+int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname,
+    uint8_t* plugin_data, size_t max_plugin_data, size_t* plugin_data_len)
+{
     size_t max_filename_size = 250;
     char buf[max_filename_size];
     if (strlen(plugin_fname) >= max_filename_size){
@@ -723,7 +726,7 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
     if (!a) return 1;
     //archive_write_add_filter_gzip(a);
     archive_write_set_format_zip(a);
-    archive_write_open_filename(a, "/tmp/test.zip");
+    archive_write_open_memory(a, plugin_data, max_plugin_data, plugin_data_len);
 
     char plugin_fname_buf[strlen(plugin_fname) + 1];
     strcpy(plugin_fname_buf, plugin_fname);

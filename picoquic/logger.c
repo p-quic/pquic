@@ -973,6 +973,52 @@ size_t picoquic_log_plugin_validate_frame(FILE* F, uint8_t* bytes, size_t bytes_
     return byte_index;
 }
 
+size_t picoquic_log_plugin_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    uint8_t fin = 0;
+    uint64_t pid_id = 0;
+    uint64_t offset = 0;
+    uint64_t data_length = 0;
+    size_t byte_index = 2;
+    size_t l_pid = 0;
+    size_t l_off = 0;
+    size_t l_len = 0;
+
+    if (bytes_max > byte_index) {
+        fin = bytes[1];
+        l_pid = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &pid_id);
+        byte_index += l_pid;
+    }
+
+    if (bytes_max > byte_index) {
+        l_off = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offset);
+        byte_index += l_off;
+    }
+
+    if (bytes_max > byte_index) {
+        l_len = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &data_length);
+        byte_index += l_len;
+    }
+
+    if (l_off == 0 || l_len == 0 || byte_index + data_length > bytes_max) {
+        fprintf(F, "    Malformed Plugin frame.\n");
+        byte_index = bytes_max;
+    } else {
+
+        fprintf(F, "    PLUGIN frame, PID_ID %" PRIu64 ", FIN %d, offset %" PRIu64 ", length %d", pid_id, fin, offset, (int)data_length);
+
+        fprintf(F, ": ");
+        for (size_t i = 0; i < 8 && i < data_length; i++) {
+            fprintf(F, "%02x", bytes[byte_index + i]);
+        }
+        fprintf(F, "%s\n", (data_length > 8) ? "..." : "");
+
+        byte_index += (size_t)data_length;
+    }
+
+    return byte_index;
+}
+
 size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
@@ -1376,6 +1422,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             break;
         case picoquic_frame_type_plugin_validate:
             byte_index += picoquic_log_plugin_validate_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case picoquic_frame_type_plugin:
+            byte_index += picoquic_log_plugin_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
         case 0x22: /* ADD_ADDRESS */
