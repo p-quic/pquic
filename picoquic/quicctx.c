@@ -1886,6 +1886,18 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             picoquic_free_protoops_and_plugins(cnx);
         }
 
+        /* Free possibly allocated memory in pids to request */
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            if (cnx->pids_to_request.elems[i].plugin_name != NULL) {
+                free(cnx->pids_to_request.elems[i].plugin_name);
+                cnx->pids_to_request.elems[i].plugin_name = NULL;
+            }
+            if (cnx->pids_to_request.elems[i].data != NULL) {
+                free(cnx->pids_to_request.elems[i].data);
+                cnx->pids_to_request.elems[i].data = NULL;
+            }
+        }
+
         /* Free the plugin name pointers */
         if (cnx->local_parameters.supported_plugins != NULL) {
             free(cnx->local_parameters.supported_plugins);

@@ -3837,11 +3837,12 @@ void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* pl
 
     if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && (plugin_stream->stream_flags & picoquic_stream_flag_fin_received) == picoquic_stream_flag_fin_received) {
         picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
-        printf("TODO: I should extract plugin for PID %ld\n", plugin_stream->stream_id);
         for (int i = 0; i < cnx->pids_to_request.size; i++) {
             preq = &cnx->pids_to_request.elems[i];
             if (preq->pid_id == plugin_stream->stream_id) {
-                printf("The PID iD received in total %ld bytes!\n", preq->received_length);
+                plugin_process_plugin_data_exchange(cnx, preq->plugin_name, preq->data, preq->received_length);
+                free(preq->data);
+                preq->data = NULL;
                 break;
             }
         }
