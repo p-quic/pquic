@@ -281,8 +281,13 @@ picoquic_stream_head* picoquic_create_plugin_stream(picoquic_cnx_t* cnx, uint64_
         stream->stream_id = pid_id;
 
         /* FIXME currently, only server is allowed to send plugin frames */
-        stream->maxdata_local = 0;
-        stream->maxdata_remote = MAX_PLUGIN_DATA_LEN; /* Limit to MAX_PLUGIN_DATA_LEN */
+        if (cnx->client_mode) {
+            stream->maxdata_local = MAX_PLUGIN_DATA_LEN; /* Limit to MAX_PLUGIN_DATA_LEN */
+            stream->maxdata_remote = 0;
+        } else {
+            stream->maxdata_local = 0;
+            stream->maxdata_remote = MAX_PLUGIN_DATA_LEN; /* Limit to MAX_PLUGIN_DATA_LEN */
+        }
 
         /*
          * Make sure that the streams are open in order.
@@ -324,6 +329,23 @@ picoquic_stream_head* picoquic_find_plugin_stream(picoquic_cnx_t* cnx, uint64_t 
 
     return stream;
 }
+
+picoquic_stream_head* picoquic_find_or_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int is_remote)
+{
+    picoquic_stream_head* stream = picoquic_find_plugin_stream(cnx, pid_id, 0);
+
+    if (stream == NULL) {
+        /* We expect being remote and being the client */
+        if (!is_remote || !cnx->client_mode) {
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_STREAM_ID_ERROR, 0);
+        } else if ((stream = picoquic_create_plugin_stream(cnx, pid_id)) == NULL) {
+            picoquic_connection_error(cnx, PICOQUIC_ERROR_MEMORY, 0);
+        }
+    }
+
+    return stream;
+}
+
 
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags) {
     bool stream_closed = STREAM_CLOSED(stream);
@@ -3777,16 +3799,105 @@ protoop_arg_t parse_plugin_frame(picoquic_cnx_t* cnx)
     return (protoop_arg_t) bytes;
 }
 
+void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* plugin_stream)
+{
+    picoquic_stream_data* data = plugin_stream->stream_data;
+    plugin_req_pid_t *preq = NULL;
+
+    while (data != NULL && data->offset <= plugin_stream->consumed_offset) {
+        size_t start = (size_t)(plugin_stream->consumed_offset - data->offset);
+        size_t data_length = data->length - start;
+        picoquic_call_back_event_t fin_now = picoquic_callback_no_event;
+
+        plugin_stream->consumed_offset += data_length;
+
+        if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && (plugin_stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
+            fin_now = picoquic_callback_stream_fin;
+            picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
+        }
+
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"plugin_id\": %lu, \"data_length\": %lu}", plugin_stream->stream_id, data_length);
+        /* FIXME not efficient */
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            preq = &cnx->pids_to_request.elems[i];
+            if (preq->pid_id == plugin_stream->stream_id) {
+                memcpy(preq->data + preq->received_length, data->bytes, data_length);
+                preq->received_length += data_length;
+                break;
+            }
+        }
+
+        free(data->bytes);
+        plugin_stream->stream_data = data->next_stream_data;
+        free(data);
+        data = plugin_stream->stream_data;
+    }
+
+    /* Once all data have been received, process it! */
+
+    if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && (plugin_stream->stream_flags & picoquic_stream_flag_fin_received) == picoquic_stream_flag_fin_received) {
+        picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
+        printf("TODO: I should extract plugin for PID %ld\n", plugin_stream->stream_id);
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            preq = &cnx->pids_to_request.elems[i];
+            if (preq->pid_id == plugin_stream->stream_id) {
+                printf("The PID iD received in total %ld bytes!\n", preq->received_length);
+                break;
+            }
+        }
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"plugin_id\": %lu, \"data_length\": 0}", plugin_stream->stream_id);
+    }
+}
+
 /**
  * See PROTOOP_PARAM_PROCESS_FRAME
  */
 protoop_arg_t process_plugin_frame(picoquic_cnx_t* cnx)
 {
     plugin_frame_t* frame = (plugin_frame_t *) cnx->protoop_inputv[0];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
 
-    /* TODO */
-    printf("I should process plugin with PID ID %lx, FIN %d, offset %ld and length %ld\n\n", frame->pid_id, frame->fin, frame->offset, frame->length);
-    return 0;
+    int ret = 0;
+    uint64_t should_notify = 0;
+    /* Is there such a stream, is it still open? */
+    picoquic_stream_head* plugin_stream;
+    uint64_t new_fin_offset = frame->offset + frame->length;
+
+    if ((plugin_stream = picoquic_find_or_create_plugin_stream(cnx, frame->pid_id, 1)) == NULL) {
+        ret = 1;  // Error already signaled
+    } else if ((plugin_stream->stream_flags & picoquic_stream_flag_fin_received) != 0) {
+        if (frame->fin != 0 ? plugin_stream->fin_offset != new_fin_offset : new_fin_offset > plugin_stream->fin_offset) {
+            ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FINAL_OFFSET_ERROR, 0);
+        }
+    } else {
+        if (frame->fin) {
+            picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_received);
+            should_notify = 1;
+            cnx->latest_progress_time = current_time;
+        }
+
+        if (new_fin_offset > plugin_stream->fin_offset) {
+            ret = picoquic_flow_control_check_stream_offset(cnx, plugin_stream, new_fin_offset);
+        }
+    }
+
+    if (ret == 0) {
+        int new_data_available = 0;
+
+        ret = picoquic_queue_network_input(cnx, plugin_stream, (size_t)frame->offset, frame->data, frame->length, &new_data_available);
+
+        if (new_data_available) {
+            should_notify = 1;
+            cnx->latest_progress_time = current_time;
+        }
+    }
+
+    if (ret == 0 && should_notify != 0) {
+        /* check how much data there is to send */
+        picoquic_plugin_data_callback(cnx, plugin_stream);
+    }
+
+    return ret;
 }
 
 /**

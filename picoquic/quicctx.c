@@ -1383,8 +1383,16 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
                 if (cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name == NULL) {
                     fprintf(stderr, "Client cannot allocate memory to request %s!\n", pid_to_inject);
                 } else {
-                    memcpy(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name, pid_to_inject, pid_len);
-                    cnx->pids_to_request.size++;
+                    cnx->pids_to_request.elems[cnx->pids_to_request.size].data = malloc(sizeof(uint8_t) * MAX_PLUGIN_DATA_LEN);
+                    if (cnx->pids_to_request.elems[cnx->pids_to_request.size].data == NULL) {
+                        fprintf(stderr, "Client cannot allocate memory to request %s!\n", pid_to_inject);
+                        free(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name);
+                        cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name = NULL;
+                    } else {
+                        memcpy(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name, pid_to_inject, pid_len);
+                        cnx->pids_to_request.elems[cnx->pids_to_request.size].pid_id = cnx->pids_to_request.size;
+                        cnx->pids_to_request.size++;
+                    }
                 }
             }
         }

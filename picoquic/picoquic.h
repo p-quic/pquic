@@ -432,7 +432,7 @@ typedef struct plugin_frame {
     uint64_t pid_id;
     uint64_t offset;
     uint64_t length;
-    char data[1500];
+    uint8_t data[1500];
 } plugin_frame_t;
 
 
@@ -752,6 +752,7 @@ picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_
 
 /* Plugin stream management */
 picoquic_stream_head* picoquic_find_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int create);
+picoquic_stream_head* picoquic_find_or_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int is_remote);
 
 /* Utilities */
 int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);

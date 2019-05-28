@@ -166,6 +166,9 @@ typedef struct st_plugin_list_t {
 typedef struct st_plugin_req_pid_t {
     char* plugin_name;
     int requested:1;
+    uint64_t pid_id;
+    uint64_t received_length;
+    uint8_t *data;
 } plugin_req_pid_t;
 
 typedef struct st_plugin_request_t {

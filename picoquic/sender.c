@@ -3045,7 +3045,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             int is_retransmittable = 1;
                             for (int i = 0; ret == 0 && i < cnx->pids_to_request.size; i++) {
                                 ret = picoquic_write_plugin_validate_frame(cnx, &bytes[length], &bytes[send_buffer_min_max - checksum_overhead],
-                                    i, cnx->pids_to_request.elems[i].plugin_name, &data_bytes, &is_retransmittable);
+                                    cnx->pids_to_request.elems[i].pid_id, cnx->pids_to_request.elems[i].plugin_name, &data_bytes, &is_retransmittable);
                                 if (ret == 0) {
                                     length += (uint32_t)data_bytes;
                                     if (data_bytes > 0)
