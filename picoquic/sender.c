@@ -1388,27 +1388,9 @@ int picoquic_is_cnx_backlog_empty(picoquic_cnx_t* cnx)
 
             while (p != NULL && backlog_empty == 1) {
                 /* check if this is an ACK only packet */
-                int ret = 0;
-                int frame_is_pure_ack = 0;
-                size_t frame_length = 0;
-                size_t byte_index = 0; /* Used when parsing the old packet */
-
-
-                /* Copy the relevant bytes from one packet to the next */
-                byte_index = p->offset;
-
-
-                while (ret == 0 && byte_index < p->length) {
-                    ret = picoquic_skip_frame(cnx, &p->bytes[byte_index],
-                        p->length - p->offset, &frame_length, &frame_is_pure_ack);
-
-                    if (!frame_is_pure_ack) {
-                        backlog_empty = 0;
-                        break;
-                    }
-                    byte_index += frame_length;
+                if (!p->is_pure_ack) {
+                    backlog_empty = 0;
                 }
-
                 p = p->previous_packet;
             }
         }
