@@ -1174,7 +1174,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
             /* Compare the packet address to the current path value */
             if (picoquic_compare_addr((struct sockaddr *)&path_x->peer_addr,
                 (struct sockaddr *)addr_from) != 0 &&
-                ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
+                (((addr_from->sa_family != AF_INET) || ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0))) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
             {
                 uint8_t buffer[16];
                 size_t challenge_length;
@@ -1370,7 +1370,7 @@ int picoquic_incoming_segment(
             ret = picoquic_record_pn_received(cnx, path_x, ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
-            picoquic_cnx_set_next_wake_time(cnx, current_time);
+            picoquic_cnx_set_next_wake_time(cnx, current_time, 1);
         }
     } else if (ret == PICOQUIC_ERROR_DUPLICATE) {
         /* Bad packets are dropped silently, but duplicates should be acknowledged */

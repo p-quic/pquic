@@ -54,17 +54,29 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 	return ret + 8;
 }
 
+void *my_malloc_dbg(picoquic_cnx_t *cnx, unsigned int size, char *file, int line) {
+    void *p = my_malloc(cnx, size);
+    printf("MY MALLOC %s:%d = %p\n", file, line, p);
+    return p;
+}
+
 void my_free_in_core(protoop_plugin_t *p, void *ptr) {
 	ptr -= 8;
 	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
-		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx\n", *((uint64_t *) ptr));
+		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx, ORIGINAL PTR: %p\n", *((uint64_t *) ptr), ptr + 8);
 	}
 	memory_pool_t *mp = &p->memory_pool;
 	if (mp->next != NULL) {
 		(*(uint64_t *) ptr) = index_from_addr(mp, mp->next);
+		if (!(mp->mem_start <= (uint8_t *) ptr && (uint8_t *) ptr < (mp->mem_start + (mp->num_of_blocks * mp->size_of_each_block)))) {
+            printf("MEMORY CORRUPTION: FREEING MEMORY (%p) NOT BELONGING TO THE PLUGIN\n", ptr + 8);
+		}
 		mp->next = (uint8_t *) ptr;
 	} else {
 		(*(uint64_t *) ptr) = mp->num_of_blocks;
+        if (!(mp->mem_start <= (uint8_t *) ptr && (uint8_t *) ptr < (mp->mem_start + (mp->num_of_blocks * mp->size_of_each_block)))) {
+            printf("MEMORY CORRUPTION: FREEING MEMORY (%p) NOT BELONGING TO THE PLUGIN\n", ptr + 8);
+        }
 		mp->next = (uint8_t *) ptr;
 	}
 	mp->num_free_blocks++;
@@ -85,7 +97,10 @@ void my_free(picoquic_cnx_t *cnx, void *ptr) {
 	}
 	my_free_in_core(p, ptr);
 }
-
+void my_free_dbg(picoquic_cnx_t *cnx, void *ptr, char *file, int line) {
+    printf("MY FREE %s:%d = %p\n", file, line, ptr);
+    my_free(cnx, ptr);
+}
 /**
  * Reallocate the allocated memory to change its size. Three cases are possible.
  * 1) Asking for lower or equal size, or larger size without any block after.
@@ -114,8 +129,8 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
 void init_memory_management(protoop_plugin_t *p)
 {
 	p->memory_pool.mem_start = (uint8_t *) p->memory;
-	p->memory_pool.size_of_each_block = 1700; /* TEST */
-	p->memory_pool.num_of_blocks = PLUGIN_MEMORY / 1700;
+	p->memory_pool.size_of_each_block = 2100; /* TEST */
+	p->memory_pool.num_of_blocks = PLUGIN_MEMORY / 2100;
 	p->memory_pool.num_initialized = 0;
 	p->memory_pool.num_free_blocks = p->memory_pool.num_of_blocks;
 	p->memory_pool.next = p->memory_pool.mem_start;

@@ -6,9 +6,9 @@
 
 protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
 {
-    uint8_t* bytes = (uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, CNX_AK_INPUT, 1);
-    datagram_frame_t *frame = (datagram_frame_t*) get_cnx(cnx, CNX_AK_INPUT, 2);
+    uint8_t* bytes = (uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    const uint8_t* bytes_max = (const uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    datagram_frame_t *frame = (datagram_frame_t*) get_cnx(cnx, AK_CNX_INPUT, 2);
     size_t consumed = 0;
 
     if (frame != NULL) {
@@ -74,8 +74,8 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
         my_free(cnx, frame);
     }
 
-    set_cnx(cnx, CNX_AK_OUTPUT, 0, (protoop_arg_t) consumed);
-    set_cnx(cnx, CNX_AK_OUTPUT, 1, (protoop_arg_t) 0);
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
+    set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 0);
 
     return 0;
 }

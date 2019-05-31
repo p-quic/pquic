@@ -31,7 +31,6 @@
 #include "ubpf.h"
 #include "picosocks.h"
 #include "uthash.h"
-#include "queue.h"
 #include "plugin.h"
 
 #ifdef __cplusplus
@@ -140,6 +139,17 @@ int picoquic_load_tickets(picoquic_stored_ticket_t** pp_first_ticket,
     uint64_t current_time, char const* ticket_file_name);
 void picoquic_free_tickets(picoquic_stored_ticket_t** pp_first_ticket);
 
+/**
+ * XXX: For now, we assume we always request the same plugin.
+ * If not, we would require an hash map with linked list, but the current behaviour
+ * of the client and the server does not require it now. Currently, a queue does
+ * well the job.
+ */
+typedef struct st_cached_plugins_t {
+    protocol_operation_struct_t* ops; /* A hash map to the protocol operations */
+    protoop_plugin_t *plugins; /* A hash map to the plugins referenced by ops */
+} cached_plugins_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -188,6 +198,9 @@ typedef struct st_picoquic_quic_t {
 
     picoquic_fuzz_fn fuzz_fn;
     void* fuzz_ctx;
+
+    /* Queue of cached plugins */
+    queue_t* cached_plugins_queue;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -286,6 +299,7 @@ typedef struct _picoquic_stream_head {
     uint32_t remote_stop_error;
     picoquic_stream_data* stream_data;
     uint64_t sent_offset;
+    uint64_t sending_offset;
     picoquic_stream_data* send_queue;
     picoquic_sack_item_t first_sack_item;
 } picoquic_stream_head;
@@ -424,7 +438,7 @@ typedef struct st_picoquic_opaque_meta_t {
 
 #define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
-#define PLUGIN_MEMORY (8 * 1024 * 1024) /* In bytes, at least needed by tests */
+#define PLUGIN_MEMORY (16 * 1024 * 1024) /* In bytes, at least needed by tests */
 
 typedef struct memory_pool {
     uint64_t num_of_blocks;
@@ -438,7 +452,8 @@ typedef struct memory_pool {
 typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */
     char name[PROTOOPPLUGINNAME_MAX];
-    queue_t *block_queue; /* Send reservation queue */
+    queue_t *block_queue_cc; /* Send reservation queue for congestion controlled frames */
+    queue_t *block_queue_non_cc; /* Send reservation queue for non-congestion controlled frames */
     uint64_t bytes_in_flight; /* Number of bytes in flight due to generated frames */
     uint64_t bytes_total; /* Number of total bytes by generated frames, for monitoring */
     uint64_t frames_total; /* Number of total generated frames, for monitoring */
@@ -476,7 +491,7 @@ typedef struct {
 
 protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op);
 
-typedef struct {
+typedef struct st_protocol_operation_struct_t {
     protoop_id_t pid; /* Key, the hash is the primary one */
     char name[PROTOOPNAME_MAX];
     bool is_parametrable;
@@ -500,7 +515,6 @@ void sender_register_noparam_protoops(picoquic_cnx_t *cnx);
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
-
 
 /* 
  * Per connection context.
@@ -641,8 +655,10 @@ typedef struct st_picoquic_cnx_t {
     int protoop_outputc_callee; /* Modified by the callee */
     protoop_arg_t protoop_output; /* Only available for post calls */
 
+    protocol_operation_struct_t *current_protoop; /* This should not be modified by the plugins... */
+    pluglet_type_enum current_anchor;
     protoop_plugin_t *current_plugin; /* This should not be modified by the plugins... */
-    protoop_plugin_t *previous_plugin; /* To free memory, we might be interested to know if it is in plugin or core memory */
+    protoop_plugin_t *previous_plugin_in_replace; /* To free memory, we might be interested to know if it is in plugin or core memory */;
 } picoquic_cnx_t;
 
 /* Moved here before we don't want plugins to use it */
@@ -691,7 +707,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
     args[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", arg);
+    DBG_PLUGIN_PRINTF("  %lu", args[i]);
   }
   va_end(ap);
   protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
@@ -707,7 +723,7 @@ static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int
   DBG_PLUGIN_PRINTF("%u saved:", n_args);
   for (i = 0; i < n_args; i++) {
     cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", arg);
+    DBG_PLUGIN_PRINTF("  %lu", cnx->protoop_outputv[i]);
   }
   cnx->protoop_outputc_callee = n_args;
   va_end(ap);
@@ -757,7 +773,7 @@ void picoquic_update_pacing_data(picoquic_path_t * path_x);
      * so ready connections are polled first */
 void picoquic_reinsert_by_wake_time(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint64_t next_time);
 
-void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time);
+void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time, uint32_t last_pkt_length);
 
 void picoquic_create_random_cnx_id(picoquic_quic_t* quic, picoquic_connection_id_t * cnx_id, uint8_t id_length);
 void picoquic_create_random_cnx_id_for_cnx(picoquic_cnx_t* cnx, picoquic_connection_id_t *cnx_id, uint8_t id_length);
@@ -1021,6 +1037,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 
 #define STREAM_RESET_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_reset_sent) != 0)
 #define STREAM_RESET_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_reset_requested) != 0)
+#define STREAM_RESET_RCVD(stream) ((stream->stream_flags & picoquic_stream_flag_reset_received) != 0)
 #define STREAM_SEND_RESET(stream) (STREAM_RESET_REQUESTED(stream) && !STREAM_RESET_SENT(stream))
 #define STREAM_STOP_SENDING_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) != 0)
 #define STREAM_STOP_SENDING_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_sent) != 0)
@@ -1028,8 +1045,9 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 #define STREAM_SEND_STOP_SENDING(stream) (STREAM_STOP_SENDING_REQUESTED(stream) && !STREAM_STOP_SENDING_SENT(stream))
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
+#define STREAM_FIN_RCVD(stream) ((stream->stream_flags & picoquic_stream_flag_fin_received) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
-#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream)) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0)
+#define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
 
 #ifdef __cplusplus
 }

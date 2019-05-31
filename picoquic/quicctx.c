@@ -30,6 +30,8 @@
 #include <net/if.h>
 #ifndef _WINDOWS
 #include <sys/time.h>
+#include <netinet/in.h>
+
 #endif
 
 
@@ -157,6 +159,98 @@ const picoquic_version_parameters_t picoquic_supported_versions[] = {
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
 
+void picoquic_free_protoops(protocol_operation_struct_t * ops)
+{
+    protocol_operation_struct_t *current_post, *tmp_protoop;
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    observer_node_t *cur_del, *tmp;
+
+    HASH_ITER(hh, ops, current_post, tmp_protoop) {
+        HASH_DEL(ops, current_post);
+
+        if (current_post->is_parametrable) {
+            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                HASH_DEL(current_post->params, current_popst);
+                if (current_popst->replace) {
+                    release_elf(current_popst->replace);
+                }
+
+                if (current_popst->pre) {
+                    cur_del = current_popst->pre;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                if (current_popst->post) {
+                    cur_del = current_popst->post;
+                    while (cur_del) {
+                        tmp = cur_del->next;
+                        release_elf(cur_del->observer);
+                        free(cur_del);
+                        cur_del = tmp;
+                    }
+                }
+                free(current_popst);
+            }
+        } else {
+            current_popst = current_post->params;
+            if (current_popst->replace) {
+                release_elf(current_popst->replace);
+            }
+
+            if (current_popst->pre) {
+                cur_del = current_popst->pre;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            if (current_popst->post) {
+                cur_del = current_popst->post;
+                while (cur_del) {
+                    tmp = cur_del->next;
+                    release_elf(cur_del->observer);
+                    free(cur_del);
+                    cur_del = tmp;
+                }
+            }
+            free(current_popst);
+        }
+
+        free(current_post->pid.id);
+        free(current_post);
+    }
+}
+
+void picoquic_free_plugins(protoop_plugin_t *plugins)
+{
+    protoop_plugin_t *current_p, *tmp_p;
+    HASH_ITER(hh, plugins, current_p, tmp_p) {
+        HASH_DEL(plugins, current_p);
+        /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+        queue_free(current_p->block_queue_cc);
+        queue_free(current_p->block_queue_non_cc);
+        free(current_p);
+    }
+}
+
+void picoquic_free_protoops_and_plugins(picoquic_cnx_t* cnx)
+{
+    picoquic_free_protoops(cnx->ops);
+    picoquic_free_plugins(cnx->plugins);
+}
+
+void picoquic_free_cached_plugins(cached_plugins_t* cplugins)
+{
+    picoquic_free_protoops(cplugins->ops);
+    picoquic_free_plugins(cplugins->plugins);
+    free(cplugins);
+}
 
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
@@ -234,6 +328,12 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 picoquic_crypto_random(quic, quic->reset_seed, sizeof(quic->reset_seed));
             else
                 memcpy(quic->reset_seed, reset_seed, sizeof(quic->reset_seed));
+
+            quic->cached_plugins_queue = queue_init();
+            if (!quic->cached_plugins_queue) {
+                ret = -1;
+                DBG_PRINTF("%s", "Cannot create cached plugins queue \n");
+            }
         }
     }
 
@@ -302,6 +402,15 @@ void picoquic_free(picoquic_quic_t* quic)
 
             free(quic->tls_master_ctx);
             quic->tls_master_ctx = NULL;
+        }
+
+        if (quic->cached_plugins_queue != NULL) {
+            cached_plugins_t* tmp;
+            while(queue_peek(quic->cached_plugins_queue) != NULL) {
+                tmp = queue_dequeue(quic->cached_plugins_queue);
+                picoquic_free_cached_plugins(tmp);
+            }
+            queue_free(quic->cached_plugins_queue);
         }
 
         free(quic);
@@ -969,7 +1078,7 @@ void register_protocol_operations(picoquic_cnx_t *cnx)
     cnx->ops = NULL;
     cnx->plugins = NULL;
     cnx->current_plugin = NULL;
-    cnx->previous_plugin = NULL;
+    cnx->previous_plugin_in_replace = NULL;
     packet_register_noparam_protoops(cnx);
     frames_register_noparam_protoops(cnx);
     sender_register_noparam_protoops(cnx);
@@ -980,7 +1089,7 @@ int picoquic_start_client_cnx(picoquic_cnx_t * cnx)
 {
     int ret = picoquic_initialize_tls_stream(cnx);
 
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
+    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
 
     return ret;
 }
@@ -1174,7 +1283,7 @@ int picoquic_queue_misc_frame(picoquic_cnx_t* cnx, const uint8_t* bytes, size_t 
         cnx->first_misc_frame = misc_frame;
     }
 
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
+    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
 
     return ret;
 }
@@ -1462,84 +1571,42 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             cnx->path = NULL;
         }
 
-        /* Free protocol operations and plugins */
-        protocol_operation_struct_t *current_post, *tmp_protoop;
-        protocol_operation_param_struct_t *current_popst, *tmp_popst;
-        observer_node_t *cur_del, *tmp;
-
-        HASH_ITER(hh, cnx->ops, current_post, tmp_protoop) {
-            HASH_DEL(cnx->ops, current_post);
-
-            if (current_post->is_parametrable) {
-                HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
-                    HASH_DEL(current_post->params, current_popst);
-                    if (current_popst->replace) {
-                        release_elf(current_popst->replace);
-                    }
-
-                    if (current_popst->pre) {
-                        cur_del = current_popst->pre;
-                        while (cur_del) {
-                            tmp = cur_del->next;
-                            release_elf(cur_del->observer);
-                            free(cur_del);
-                            cur_del = tmp;
-                        }
-                    }
-                    if (current_popst->post) {
-                        cur_del = current_popst->post;
-                        while (cur_del) {
-                            tmp = cur_del->next;
-                            release_elf(cur_del->observer);
-                            free(cur_del);
-                            cur_del = tmp;
-                        }
-                    }
-                    free(current_popst);
-                }
+        /* If we are the server, keep the protocol operations in the cache */
+        if (!picoquic_is_client(cnx)) {
+            /* TODO */
+            cached_plugins_t* cached = malloc(sizeof(cached_plugins_t));
+            if (!cached) {
+                DBG_PRINTF("%s", "Cannot allocate memory to cache plugins; free them.\n");
+                picoquic_free_protoops_and_plugins(cnx);
             } else {
-                current_popst = current_post->params;
-                if (current_popst->replace) {
-                    release_elf(current_popst->replace);
+                cached->ops = cnx->ops;
+                cached->plugins = cnx->plugins;
+                protoop_plugin_t *current_p, *tmp_p;
+                HASH_ITER(hh, cached->plugins, current_p, tmp_p) {
+                    /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
+                    while(queue_peek(current_p->block_queue_cc) != NULL) {queue_dequeue(current_p->block_queue_cc);}
+                    while(queue_peek(current_p->block_queue_non_cc) != NULL) {queue_dequeue(current_p->block_queue_non_cc);}
+                    /* The additional critical data that should be reset is the opaque data in plugins */
+                    memset(current_p->opaque_metas, 0, sizeof(current_p->opaque_metas));
+                    /* And reinit the memory */
+                    init_memory_management(current_p);
                 }
-
-                if (current_popst->pre) {
-                    cur_del = current_popst->pre;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
+                int err = queue_enqueue(cnx->quic->cached_plugins_queue, cached);
+                if (err) {
+                    DBG_PRINTF("%s", "Cannot insert cached plugins; free them.\n");
+                    picoquic_free_protoops_and_plugins(cnx);
+                    free(cached);
                 }
-                if (current_popst->post) {
-                    cur_del = current_popst->post;
-                    while (cur_del) {
-                        tmp = cur_del->next;
-                        release_elf(cur_del->observer);
-                        free(cur_del);
-                        cur_del = tmp;
-                    }
-                }
-                free(current_popst);
             }
-
-            free(current_post->pid.id);
-            free(current_post);
+        } else {
+            /* Free protocol operations and plugins */
+            picoquic_free_protoops_and_plugins(cnx);
         }
 
         /* Delete pending reserved frames, if any */
         queue_free(cnx->reserved_frames);
         /* And also the retry frames */
         queue_free(cnx->retry_frames);
-
-        protoop_plugin_t *current_p, *tmp_p;
-        HASH_ITER(hh, cnx->plugins, current_p, tmp_p) {
-            HASH_DEL(cnx->plugins, current_p);
-            /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
-            queue_free(current_p->block_queue);
-            free(current_p);
-        }
 
         free(cnx);
     }
@@ -1736,12 +1803,12 @@ bool is_private(in_addr_t t) {
 }
 */
 
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length)
+int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sas_length)
 {
     int family;
     struct ifaddrs *ifaddr, *ifa;
     int count = 0;
-    struct sockaddr_in *start_ptr = sas;
+    struct sockaddr_storage *start_ptr = sas;
     unsigned int if_index;
 
     if (getifaddrs(&ifaddr) == -1) {
@@ -1764,19 +1831,28 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
         /* What if an interface has no IP address? */
         if (ifa->ifa_addr) {
             family = ifa->ifa_addr->sa_family;
-            if (family == AF_INET) {
-                struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
-                if (remove_10) {
-                    in_addr_t a = sai->sin_addr.s_addr & (in_addr_t) 0xff;
-                    if (a == (in_addr_t) 0x0a) {
+            if (family == AF_INET || family == AF_INET6) {
+                struct sockaddr_storage *sai = (struct sockaddr_storage *) ifa->ifa_addr;
+                if (family == AF_INET) {
+                    struct sockaddr_in *sai4 = (struct sockaddr_in *) ifa->ifa_addr;
+                    in_addr_t a = sai4->sin_addr.s_addr & (in_addr_t) 0xff;
+                    if ((remove_10 && a == (in_addr_t) 0x0a) || a == (in_addr_t) 0x2a) {
                         /* Don't consider this address */
                         continue;
                     }
+                } else if (family == AF_INET6) {
+                    struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) ifa->ifa_addr;
+                    if (sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x80fe ||
+                        sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x42fd) {
+                        continue;
+                    }
                 }
+
                 if (count < sas_length) {
                     if_index = if_nametoindex(ifa->ifa_name);
                     memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));
-                    memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
+                    size_t sockaddr_size = family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+                    memcpy(&start_ptr[count++], sai, sockaddr_size);
                 }
             }
         }   
@@ -1792,7 +1868,6 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
  */
 protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
 {
-    printf("Calling printf protoop with %d values to print\n", cnx->protoop_inputc);
     protoop_arg_t *fmt_args = (protoop_arg_t *) cnx->protoop_inputv[1];
     switch (cnx->protoop_inputv[2]) {
         case 0: printf("%s", (const char *) cnx->protoop_inputv[0]); break;
@@ -1879,6 +1954,7 @@ int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_op
         return 1;
     }
     strncpy(post->pid.id, pid->id, p_strlen);
+    strncpy(post->name, pid->id, sizeof(post->name) > p_strlen ? p_strlen : sizeof(post->name));
     post->is_parametrable = false;
     post->params = create_protocol_operation_param(NO_PARAM, op);
     if (!post->params) {
@@ -1934,6 +2010,7 @@ int register_param_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, param_id_t pa
             return 1;
         }
         strncpy(post->pid.id, pid->id, p_strlen);
+        strncpy(post->name, pid->id, sizeof(post->name) > p_strlen ? p_strlen : sizeof(post->name));
         post->is_parametrable = true;
         /* Ensure the value is NULL */
         post->params = NULL;
@@ -1977,14 +2054,22 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     if (!block) {
         return 0;
     }
+    memset(block, 0, sizeof(reserve_frames_block_t));
     block->nb_frames = nb_frames;
     block->total_bytes = 0;
+    block->low_priority = true;
     for (int i = 0; i < nb_frames; i++) {
         block->total_bytes += slots[i].nb_bytes;
         block->is_congestion_controlled |= slots[i].is_congestion_controlled;
+        block->low_priority &= slots[i].low_priority;   // it is higher priority as soon as a higher priority slot is present
     }
     block->frames = slots;
-    int err = queue_enqueue(cnx->current_plugin->block_queue, block);
+    int err = 0;
+    if (block->is_congestion_controlled) {
+        err = queue_enqueue(cnx->current_plugin->block_queue_cc, block);
+    } else {
+        err = queue_enqueue(cnx->current_plugin->block_queue_non_cc, block);
+    }
     if (err) {
         free(block);
         return 0;
@@ -1993,12 +2078,13 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     return block->total_bytes;
 }
 
-reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames) {
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames, int congestion_controlled) {
     if (!cnx->current_plugin) {
         printf("ERROR: cancel_head_reservation can only be called by pluglets with plugins!\n");
         return 0;
     }
-    reserve_frames_block_t *block = queue_dequeue(cnx->current_plugin->block_queue);
+    queue_t *block_queue = congestion_controlled ? cnx->current_plugin->block_queue_cc : cnx->current_plugin->block_queue_non_cc;
+    reserve_frames_block_t *block = queue_dequeue(block_queue);
     if (block == NULL) {
         *nb_frames = 0;
         return NULL;
@@ -2022,6 +2108,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_FLAGS_CHANGED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RETRANSMISSION_TIMEOUT, &protoop_noop);
@@ -2036,4 +2123,5 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     /** \todo document these */
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, &protoop_noop);
 }

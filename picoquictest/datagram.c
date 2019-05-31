@@ -38,7 +38,7 @@ static int datagram_parse_test()
         free(bytes);
         return -1;
     }
-    my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+    my_free_in_core(cnx.previous_plugin_in_replace, (void *) out[0]);
     free(bytes);
 
     bytes = copy_to_cnx(&cnx, (char[]){0x2d, 0x40, 0x4, 0xa, 0xb, 0xc, 0xd}, 7);
@@ -52,7 +52,7 @@ static int datagram_parse_test()
         free(bytes);
         return -1;
     }
-    my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+    my_free_in_core(cnx.previous_plugin_in_replace, (void *) out[0]);
     free(bytes);
 
     bytes = copy_to_cnx(&cnx, (char[]){0x2d, 0x40, 0x12, 0xa, 0xb, 0xc, 0xd}, 7);
@@ -63,7 +63,7 @@ static int datagram_parse_test()
     pret = (uint8_t *) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PARSE_FRAME, FT_DATAGRAM | FT_DATAGRAM_LEN, out, bytes, bytes + 7);
     if (pret != NULL) {
         DBG_PRINTF("A truncated frame was successfully parsed\n");
-        my_free_in_core(cnx.previous_plugin, (void *) out[0]);
+        my_free_in_core(cnx.previous_plugin_in_replace, (void *) out[0]);
         free(bytes);
         return -1;
     }
@@ -109,6 +109,7 @@ static int datagram_write_test() {
         DBG_PRINTF("Unable to allocate memory in cnx\n");
         return -1;
     }
+    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
 
     slot->frame_type = FT_DATAGRAM | FT_DATAGRAM_LEN;
     slot->nb_bytes = 1 + varint_len(frame->length) + frame->length;

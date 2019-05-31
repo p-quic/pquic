@@ -38,132 +38,140 @@ static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16
 protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
 {
     switch(ak) {
-    case CNX_AK_PROPOSED_VERSION:
+    case AK_CNX_PROPOSED_VERSION:
         return cnx->proposed_version;
-    case CNX_AK_IS_0RTT_ACCEPTED:
+    case AK_CNX_IS_0RTT_ACCEPTED:
         return cnx->is_0RTT_accepted;
-    case CNX_AK_REMOTE_PARMETERS_RECEIVED:
+    case AK_CNX_REMOTE_PARMETERS_RECEIVED:
         return cnx->remote_parameters_received;
-    case CNX_AK_CURRENT_SPIN:
+    case AK_CNX_CURRENT_SPIN:
         return cnx->current_spin;
-    case CNX_AK_CLIENT_MODE:
+    case AK_CNX_CLIENT_MODE:
         return cnx->client_mode;
-    case CNX_AK_PREV_SPIN:
+    case AK_CNX_PREV_SPIN:
         return cnx->prev_spin;
-    case CNX_AK_SPIN_VEC:
+    case AK_CNX_SPIN_VEC:
         return cnx->spin_vec;
-    case CNX_AK_SPIN_EDGE:
+    case AK_CNX_SPIN_EDGE:
         return cnx->spin_edge;
-    case CNX_AK_SPIN_LAST_TRIGGER:
+    case AK_CNX_SPIN_LAST_TRIGGER:
         return cnx->spin_last_trigger;
-    case CNX_AK_LOCAL_PARAMETER:
+    case AK_CNX_LOCAL_PARAMETER:
         return get_cnx_transport_parameter(&cnx->local_parameters, param);
-    case CNX_AK_REMOTE_PARAMETER:
+    case AK_CNX_REMOTE_PARAMETER:
         return get_cnx_transport_parameter(&cnx->remote_parameters, param);
-    case CNX_AK_MAX_EARLY_DATA_SIZE:
+    case AK_CNX_MAX_EARLY_DATA_SIZE:
         return cnx->max_early_data_size;
-    case CNX_AK_STATE:
+    case AK_CNX_STATE:
         return cnx->cnx_state;
-    case CNX_AK_INITIAL_CID:
+    case AK_CNX_INITIAL_CID:
         return (protoop_arg_t) &cnx->initial_cnxid;
-    case CNX_AK_START_TIME:
+    case AK_CNX_START_TIME:
         return cnx->start_time;
-    case CNX_AK_APPLICATION_ERROR:
+    case AK_CNX_APPLICATION_ERROR:
         return cnx->application_error;
-    case CNX_AK_LOCAL_ERROR:
+    case AK_CNX_LOCAL_ERROR:
         return cnx->local_error;
-    case CNX_AK_REMOTE_APPLICATION_ERROR:
+    case AK_CNX_REMOTE_APPLICATION_ERROR:
         return cnx->remote_application_error;
-    case CNX_AK_REMOTE_ERROR:
+    case AK_CNX_REMOTE_ERROR:
         return cnx->remote_error;
-    case CNX_AK_OFFENDING_FRAME_TYPE:
+    case AK_CNX_OFFENDING_FRAME_TYPE:
         return cnx->offending_frame_type;
-    case CNX_AK_NEXT_WAKE_TIME:
+    case AK_CNX_NEXT_WAKE_TIME:
         return cnx->next_wake_time;
-    case CNX_AK_LATEST_PROGRESS_TIME:
+    case AK_CNX_LATEST_PROGRESS_TIME:
         return cnx->latest_progress_time;
-    case CNX_AK_NB_PATH_CHALLENGE_SENT:
+    case AK_CNX_NB_PATH_CHALLENGE_SENT:
         return cnx->nb_path_challenge_sent;
-    case CNX_AK_NB_PATH_RESPONSE_RECEIVED:
+    case AK_CNX_NB_PATH_RESPONSE_RECEIVED:
         return cnx->nb_path_response_received;
-    case CNX_AK_NB_ZERO_RTT_SENT:
+    case AK_CNX_NB_ZERO_RTT_SENT:
         return cnx->nb_zero_rtt_sent;
-    case CNX_AK_NB_ZERO_RTT_ACKED:
+    case AK_CNX_NB_ZERO_RTT_ACKED:
         return cnx->nb_zero_rtt_acked;
-    case CNX_AK_NB_RETRANSMISSION_TOTAL:
+    case AK_CNX_NB_RETRANSMISSION_TOTAL:
         return cnx->nb_retransmission_total;
-    case CNX_AK_NB_SPURIOUS:
+    case AK_CNX_NB_SPURIOUS:
         return cnx->nb_spurious;
-    case CNX_AK_ECN_ECT0_TOTAL_LOCAL:
+    case AK_CNX_ECN_ECT0_TOTAL_LOCAL:
         return cnx->ecn_ect0_total_local;
-    case CNX_AK_ECN_ECT1_TOTAL_LOCAL:
+    case AK_CNX_ECN_ECT1_TOTAL_LOCAL:
         return cnx->ecn_ect1_total_local;
-    case CNX_AK_ECN_CE_TOTAL_LOCAL:
+    case AK_CNX_ECN_CE_TOTAL_LOCAL:
         return cnx->ecn_ce_total_local;
-    case CNX_AK_ECN_ECT0_TOTAL_REMOTE:
+    case AK_CNX_ECN_ECT0_TOTAL_REMOTE:
         return cnx->ecn_ect0_total_remote;
-    case CNX_AK_ECN_ECT1_TOTAL_REMOTE:
+    case AK_CNX_ECN_ECT1_TOTAL_REMOTE:
         return cnx->ecn_ect1_total_remote;
-    case CNX_AK_ECN_CE_TOTAL_REMOTE:
+    case AK_CNX_ECN_CE_TOTAL_REMOTE:
         return cnx->ecn_ce_total_remote;
-    case CNX_AK_DATA_SENT:
+    case AK_CNX_DATA_SENT:
         return cnx->data_sent;
-    case CNX_AK_DATA_RECEIVED:
+    case AK_CNX_DATA_RECEIVED:
         return cnx->data_received;
-    case CNX_AK_MAXDATA_LOCAL:
+    case AK_CNX_MAXDATA_LOCAL:
         return cnx->maxdata_local;
-    case CNX_AK_MAXDATA_REMOTE:
+    case AK_CNX_MAXDATA_REMOTE:
         return cnx->maxdata_remote;
-    case CNX_AK_MAX_STREAM_ID_BIDIR_LOCAL:
+    case AK_CNX_MAX_STREAM_ID_BIDIR_LOCAL:
         return cnx->max_stream_id_bidir_local;
-    case CNX_AK_MAX_STREAM_ID_UNIDIR_LOCAL:
+    case AK_CNX_MAX_STREAM_ID_UNIDIR_LOCAL:
         return cnx->max_stream_id_unidir_local;
-    case CNX_AK_MAX_STREAM_ID_BIDIR_REMOTE:
+    case AK_CNX_MAX_STREAM_ID_BIDIR_REMOTE:
         return cnx->max_stream_id_bidir_remote;
-    case CNX_AK_MAX_STREAM_ID_UNIDIR_REMOTE:
+    case AK_CNX_MAX_STREAM_ID_UNIDIR_REMOTE:
         return cnx->max_stream_id_unidir_remote;
-    case CNX_AK_KEEP_ALIVE_INTERVAL:
+    case AK_CNX_KEEP_ALIVE_INTERVAL:
         return cnx->keep_alive_interval;
-    case CNX_AK_NB_PATHS:
+    case AK_CNX_NB_PATHS:
         return cnx->nb_paths;
-    case CNX_AK_PATH:
+    case AK_CNX_PATH:
         if (param >= cnx->nb_paths) {
             printf("ERROR: trying to get path with index %u, but only %d paths available\n", param, cnx->nb_paths);
             return 0;
         }
         return (protoop_arg_t) cnx->path[param];
-    case CNX_AK_CONGESTION_CONTROL_ALGORITHM:
+    case AK_CNX_CONGESTION_CONTROL_ALGORITHM:
         return (protoop_arg_t) cnx->congestion_alg;
-    case CNX_AK_TLS_STREAM:
+    case AK_CNX_TLS_STREAM:
         if (param >= PICOQUIC_NUMBER_OF_EPOCHS) {
             printf("ERROR: trying to get TLS stream with epoch %u, but only %d epoch available\n", param, PICOQUIC_NUMBER_OF_EPOCHS);
             return 0;
         }
         return (protoop_arg_t) &cnx->tls_stream[param];
-    case CNX_AK_CRYPTO_CONTEXT:
+    case AK_CNX_CRYPTO_CONTEXT:
         if (param >= PICOQUIC_NUMBER_OF_EPOCHS) {
             printf("ERROR: trying to get crypto context for epoch %u, but only %d epoch available\n", param, PICOQUIC_NUMBER_OF_EPOCHS);
             return 0;
         }
         return (protoop_arg_t) &cnx->crypto_context[param];
-    case CNX_AK_INPUT:
+    case AK_CNX_INPUT:
         if (param >= cnx->protoop_inputc) {
             printf("ERROR: trying to get input %u, but there are only %d inputs available\n", param, cnx->protoop_inputc);
             return 0;
         }
         return cnx->protoop_inputv[param];
-    case CNX_AK_OUTPUT:
+    case AK_CNX_OUTPUT:
         if (param >= cnx->protoop_outputc_callee) {
             printf("ERROR: trying to get output %u but only %d outputs so far...\n", param, cnx->protoop_outputc_callee);
             return 0;
         }
         return cnx->protoop_outputv[param];
-    case CNX_AK_RETRY_TOKEN_LENGTH:
+    case AK_CNX_RETRY_TOKEN_LENGTH:
         return cnx->retry_token_length;
-    case CNX_AK_WAKE_NOW:
+    case AK_CNX_WAKE_NOW:
         return cnx->wake_now;
-    case CNX_AK_RETURN_VALUE:
+    case AK_CNX_RETURN_VALUE:
         return cnx->protoop_output;
+    case AK_CNX_RESERVED_FRAMES:
+        return (protoop_arg_t) cnx->reserved_frames;
+    case AK_CNX_FIRST_MISC_FRAME:
+        return (protoop_arg_t) cnx->first_misc_frame;
+    case AK_CNX_RETRY_FRAMES:
+        return (protoop_arg_t) cnx->retry_frames;
+    case AK_CNX_FIRST_STREAM:
+        return (protoop_arg_t) cnx->first_stream;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -218,158 +226,158 @@ static inline void set_cnx_transport_parameter(picoquic_tp_t *t, uint16_t value,
 void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t val)
 {
     switch(ak) {
-    case CNX_AK_PROPOSED_VERSION:
+    case AK_CNX_PROPOSED_VERSION:
         cnx->proposed_version = (uint32_t) val;
         break;
-    case CNX_AK_IS_0RTT_ACCEPTED:
+    case AK_CNX_IS_0RTT_ACCEPTED:
         cnx->is_0RTT_accepted = (uint8_t) val;
         break;
-    case CNX_AK_REMOTE_PARMETERS_RECEIVED:
+    case AK_CNX_REMOTE_PARMETERS_RECEIVED:
         cnx->remote_parameters_received = (uint8_t) val;
         break;
-    case CNX_AK_CURRENT_SPIN:
+    case AK_CNX_CURRENT_SPIN:
         cnx->current_spin = (uint8_t) val;
         break;
-    case CNX_AK_CLIENT_MODE:
+    case AK_CNX_CLIENT_MODE:
         cnx->client_mode = (uint8_t) val;
         break;
-    case CNX_AK_PREV_SPIN:
+    case AK_CNX_PREV_SPIN:
         cnx->prev_spin = (uint8_t) val;
         break;
-    case CNX_AK_SPIN_VEC:
+    case AK_CNX_SPIN_VEC:
         cnx->spin_vec = (uint8_t) val;
         break;
-    case CNX_AK_SPIN_EDGE:
+    case AK_CNX_SPIN_EDGE:
         cnx->spin_edge = (uint8_t) val;
         break;
-    case CNX_AK_SPIN_LAST_TRIGGER:
+    case AK_CNX_SPIN_LAST_TRIGGER:
         cnx->spin_last_trigger = (uint64_t) val;
         break;
-    case CNX_AK_LOCAL_PARAMETER:
+    case AK_CNX_LOCAL_PARAMETER:
         set_cnx_transport_parameter(&cnx->local_parameters, param, val);
         break;
-    case CNX_AK_REMOTE_PARAMETER:
+    case AK_CNX_REMOTE_PARAMETER:
         set_cnx_transport_parameter(&cnx->remote_parameters, param, val);
         break;
-    case CNX_AK_MAX_EARLY_DATA_SIZE:
+    case AK_CNX_MAX_EARLY_DATA_SIZE:
         cnx->max_early_data_size = (size_t) val;
         break;
-    case CNX_AK_STATE:
+    case AK_CNX_STATE:
         cnx->cnx_state = (picoquic_state_enum) val;
         break;
-    case CNX_AK_INITIAL_CID:
+    case AK_CNX_INITIAL_CID:
         printf("ERROR: setting initial CID is not implemented!\n");
         break;
-    case CNX_AK_START_TIME:
+    case AK_CNX_START_TIME:
         cnx->start_time = (uint64_t) val;
         break;
-    case CNX_AK_APPLICATION_ERROR:
+    case AK_CNX_APPLICATION_ERROR:
         cnx->application_error = (uint16_t) val;
         break;
-    case CNX_AK_LOCAL_ERROR:
+    case AK_CNX_LOCAL_ERROR:
         cnx->local_error = (uint16_t) val;
         break;
-    case CNX_AK_REMOTE_APPLICATION_ERROR:
+    case AK_CNX_REMOTE_APPLICATION_ERROR:
         cnx->remote_application_error = (uint16_t) val;
         break;
-    case CNX_AK_REMOTE_ERROR:
+    case AK_CNX_REMOTE_ERROR:
         cnx->remote_error = (uint16_t) val;
         break;
-    case CNX_AK_OFFENDING_FRAME_TYPE:
+    case AK_CNX_OFFENDING_FRAME_TYPE:
         cnx->offending_frame_type = (uint64_t) val;
         break;
-    case CNX_AK_NEXT_WAKE_TIME:
+    case AK_CNX_NEXT_WAKE_TIME:
         cnx->next_wake_time = (uint64_t) val;
         break;
-    case CNX_AK_LATEST_PROGRESS_TIME:
+    case AK_CNX_LATEST_PROGRESS_TIME:
         cnx->latest_progress_time = (uint64_t) val;
         break;
-    case CNX_AK_NB_PATH_CHALLENGE_SENT:
+    case AK_CNX_NB_PATH_CHALLENGE_SENT:
         cnx->nb_path_challenge_sent = (uint32_t) val;
         break;
-    case CNX_AK_NB_PATH_RESPONSE_RECEIVED:
+    case AK_CNX_NB_PATH_RESPONSE_RECEIVED:
         cnx->nb_path_response_received = (uint32_t) val;
         break;
-    case CNX_AK_NB_ZERO_RTT_SENT:
+    case AK_CNX_NB_ZERO_RTT_SENT:
         cnx->nb_zero_rtt_sent = (uint32_t) val;
         break;
-    case CNX_AK_NB_ZERO_RTT_ACKED:
+    case AK_CNX_NB_ZERO_RTT_ACKED:
         cnx->nb_zero_rtt_acked = (uint32_t) val;
         break;
-    case CNX_AK_NB_RETRANSMISSION_TOTAL:
+    case AK_CNX_NB_RETRANSMISSION_TOTAL:
         cnx->nb_retransmission_total = (uint64_t) val;
         break;
-    case CNX_AK_NB_SPURIOUS:
+    case AK_CNX_NB_SPURIOUS:
         cnx->nb_spurious = (uint64_t) val;
         break;
-    case CNX_AK_ECN_ECT0_TOTAL_LOCAL:
+    case AK_CNX_ECN_ECT0_TOTAL_LOCAL:
         cnx->ecn_ect0_total_local = (uint64_t) val;
         break;
-    case CNX_AK_ECN_ECT1_TOTAL_LOCAL:
+    case AK_CNX_ECN_ECT1_TOTAL_LOCAL:
         cnx->ecn_ect1_total_local = (uint64_t) val;
         break;
-    case CNX_AK_ECN_CE_TOTAL_LOCAL:
+    case AK_CNX_ECN_CE_TOTAL_LOCAL:
         cnx->ecn_ce_total_local = (uint64_t) val;
         break;
-    case CNX_AK_ECN_ECT0_TOTAL_REMOTE:
+    case AK_CNX_ECN_ECT0_TOTAL_REMOTE:
         cnx->ecn_ect0_total_remote = (uint64_t) val;
         break;
-    case CNX_AK_ECN_ECT1_TOTAL_REMOTE:
+    case AK_CNX_ECN_ECT1_TOTAL_REMOTE:
         cnx->ecn_ect1_total_remote = (uint64_t) val;
         break;
-    case CNX_AK_ECN_CE_TOTAL_REMOTE:
+    case AK_CNX_ECN_CE_TOTAL_REMOTE:
         cnx->ecn_ce_total_remote = (uint64_t) val;
         break;
-    case CNX_AK_DATA_SENT:
+    case AK_CNX_DATA_SENT:
         cnx->data_sent = (uint64_t) val;
         break;
-    case CNX_AK_DATA_RECEIVED:
+    case AK_CNX_DATA_RECEIVED:
         cnx->data_received = (uint64_t) val;
         break;
-    case CNX_AK_MAXDATA_LOCAL:
+    case AK_CNX_MAXDATA_LOCAL:
         cnx->maxdata_local = (uint64_t) val;
         break;
-    case CNX_AK_MAXDATA_REMOTE:
+    case AK_CNX_MAXDATA_REMOTE:
         cnx->maxdata_remote = (uint64_t) val;
         break;
-    case CNX_AK_MAX_STREAM_ID_BIDIR_LOCAL:
+    case AK_CNX_MAX_STREAM_ID_BIDIR_LOCAL:
         cnx->max_stream_id_bidir_local = (uint64_t) val;
         break;
-    case CNX_AK_MAX_STREAM_ID_UNIDIR_LOCAL:
+    case AK_CNX_MAX_STREAM_ID_UNIDIR_LOCAL:
         cnx->max_stream_id_unidir_local = (uint64_t) val;
         break;
-    case CNX_AK_MAX_STREAM_ID_BIDIR_REMOTE:
+    case AK_CNX_MAX_STREAM_ID_BIDIR_REMOTE:
         cnx->max_stream_id_bidir_remote = (uint64_t) val;
         break;
-    case CNX_AK_MAX_STREAM_ID_UNIDIR_REMOTE:
+    case AK_CNX_MAX_STREAM_ID_UNIDIR_REMOTE:
         cnx->max_stream_id_unidir_remote = (uint64_t) val;
         break;
-    case CNX_AK_KEEP_ALIVE_INTERVAL:
+    case AK_CNX_KEEP_ALIVE_INTERVAL:
         cnx->keep_alive_interval = (uint64_t) val;
         break;
-    case CNX_AK_NB_PATHS:
+    case AK_CNX_NB_PATHS:
         cnx->nb_paths = (int) val;
         break;
-    case CNX_AK_PATH:
+    case AK_CNX_PATH:
         if (param >= cnx->nb_paths) {
             printf("ERROR: trying to set path with index %u, but only %d paths available\n", param, cnx->nb_paths);
             return;
         }
         cnx->path[param] = (picoquic_path_t *) val;
         break;
-    case CNX_AK_CONGESTION_CONTROL_ALGORITHM:
+    case AK_CNX_CONGESTION_CONTROL_ALGORITHM:
         printf("ERROR: setting the congestion control is not implemented!\n");
         break;
-    case CNX_AK_TLS_STREAM:
+    case AK_CNX_TLS_STREAM:
         printf("ERROR: setting the TLS stream is not implemented!\n");
         break;
-    case CNX_AK_CRYPTO_CONTEXT:
+    case AK_CNX_CRYPTO_CONTEXT:
         printf("ERROR: setting the crypto context is not implemented!\n");
         break;
-    case CNX_AK_INPUT:
+    case AK_CNX_INPUT:
         printf("ERROR: trying to set an input\n");
         break;
-    case CNX_AK_OUTPUT:
+    case AK_CNX_OUTPUT:
         if (param > cnx->protoop_outputc_callee) {
             printf("ERROR: trying to set output %u but only %d outputs so far... You need to insert them sequentially!\n", param, cnx->protoop_outputc_callee);
             return;
@@ -379,14 +387,23 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
             cnx->protoop_outputc_callee++;
         }
         break;
-    case CNX_AK_RETRY_TOKEN_LENGTH:
+    case AK_CNX_RETRY_TOKEN_LENGTH:
         cnx->retry_token_length = (uint32_t) val;
         break;
-    case CNX_AK_WAKE_NOW:
+    case AK_CNX_WAKE_NOW:
         cnx->wake_now = (uint8_t) val;
         break;
-    case CNX_AK_RETURN_VALUE:
+    case AK_CNX_RETURN_VALUE:
         printf("ERROR: trying to modify return value...\n");
+        break;
+    case AK_CNX_RESERVED_FRAMES:
+        printf("ERROR: trying to modify reserved frames...\n");
+        break;
+    case AK_CNX_RETRY_FRAMES:
+        printf("ERROR: trying to modify retry frames...\n");
+        break;
+    case AK_CNX_FIRST_MISC_FRAME:
+        printf("ERROR: trying to modify first misc frame...\n");
         break;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
@@ -397,79 +414,79 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
 protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
 {
     switch(ak) {
-    case PATH_AK_PEER_ADDR:
+    case AK_PATH_PEER_ADDR:
         return (protoop_arg_t) &path->peer_addr;
-    case PATH_AK_PEER_ADDR_LEN:
+    case AK_PATH_PEER_ADDR_LEN:
         return path->peer_addr_len;
-    case PATH_AK_LOCAL_ADDR:
+    case AK_PATH_LOCAL_ADDR:
         return (protoop_arg_t) &path->local_addr;
-    case PATH_AK_LOCAL_ADDR_LEN:
+    case AK_PATH_LOCAL_ADDR_LEN:
         return path->local_addr_len;
-    case PATH_AK_IF_INDEX_LOCAL:
+    case AK_PATH_IF_INDEX_LOCAL:
         return path->if_index_local;
-    case PATH_AK_CHALLENGE:
+    case AK_PATH_CHALLENGE:
         return path->challenge;
-    case PATH_AK_CHALLENGE_TIME:
+    case AK_PATH_CHALLENGE_TIME:
         return path->challenge_time;
-    case PATH_AK_CHALLENGE_RESPONSE:
+    case AK_PATH_CHALLENGE_RESPONSE:
         return (protoop_arg_t) path->challenge_response;
-    case PATH_AK_CHALLENGE_REPEAT_COUNT:
+    case AK_PATH_CHALLENGE_REPEAT_COUNT:
         return path->challenge_repeat_count;
-    case PATH_AK_MTU_PROBE_SENT:
+    case AK_PATH_MTU_PROBE_SENT:
         return path->mtu_probe_sent;
-    case PATH_AK_CHALLENGE_VERIFIED:
+    case AK_PATH_CHALLENGE_VERIFIED:
         return path->challenge_verified;
-    case PATH_AK_CHALLENGE_RESPONSE_TO_SEND:
+    case AK_PATH_CHALLENGE_RESPONSE_TO_SEND:
         return path->challenge_response_to_send;
-    case PATH_AK_PING_RECEIVED:
+    case AK_PATH_PING_RECEIVED:
         return path->ping_received;
-    case PATH_AK_MAX_ACK_DELAY:
+    case AK_PATH_MAX_ACK_DELAY:
         return path->max_ack_delay;
-    case PATH_AK_SMOOTHED_RTT:
+    case AK_PATH_SMOOTHED_RTT:
         return path->smoothed_rtt;
-    case PATH_AK_RTT_VARIANT:
+    case AK_PATH_RTT_VARIANT:
         return path->rtt_variant;
-    case PATH_AK_RETRANSMIT_TIMER:
+    case AK_PATH_RETRANSMIT_TIMER:
         return path->retransmit_timer;
-    case PATH_AK_RTT_MIN:
+    case AK_PATH_RTT_MIN:
         return path->rtt_min;
-    case PATH_AK_MAX_SPURIOUS_RTT:
+    case AK_PATH_MAX_SPURIOUS_RTT:
         return path->max_spurious_rtt;
-    case PATH_AK_MAX_REORDER_DELAY:
+    case AK_PATH_MAX_REORDER_DELAY:
         return path->max_reorder_delay;
-    case PATH_AK_MAX_REORDER_GAP:
+    case AK_PATH_MAX_REORDER_GAP:
         return path->max_reorder_gap;
-    case PATH_AK_SEND_MTU:
+    case AK_PATH_SEND_MTU:
         return path->send_mtu;
-    case PATH_AK_SEND_MTU_MAX_TRIED:
+    case AK_PATH_SEND_MTU_MAX_TRIED:
         return path->send_mtu_max_tried;
-    case PATH_AK_CWIN:
+    case AK_PATH_CWIN:
         return path->cwin;
-    case PATH_AK_BYTES_IN_TRANSIT:
+    case AK_PATH_BYTES_IN_TRANSIT:
         return path->bytes_in_transit;
-    case PATH_AK_CONGESTION_ALGORITHM_STATE:
+    case AK_PATH_CONGESTION_ALGORITHM_STATE:
         return (protoop_arg_t) path->congestion_alg_state;
-    case PATH_AK_PACKET_TIME_NANO_SEC:
+    case AK_PATH_PACKET_TIME_NANO_SEC:
         return path->packet_time_nano_sec;
-    case PATH_AK_PACING_REMINDER_NANO_SEC:
+    case AK_PATH_PACING_REMINDER_NANO_SEC:
         return path->pacing_reminder_nano_sec;
-    case PATH_AK_PACING_MARGIN_MICROS:
+    case AK_PATH_PACING_MARGIN_MICROS:
         return path->pacing_margin_micros;
-    case PATH_AK_NEXT_PACING_TIME:
+    case AK_PATH_NEXT_PACING_TIME:
         return path->next_pacing_time;
-    case PATH_AK_LOCAL_CID:
+    case AK_PATH_LOCAL_CID:
         return (protoop_arg_t) &path->local_cnxid;
-    case PATH_AK_REMOTE_CID:
+    case AK_PATH_REMOTE_CID:
         return (protoop_arg_t) &path->remote_cnxid;
-    case PATH_AK_RESET_SECRET:
+    case AK_PATH_RESET_SECRET:
         return (protoop_arg_t) &path->reset_secret;
-    case PATH_AK_PKT_CTX:
+    case AK_PATH_PKT_CTX:
         if (param >= picoquic_nb_packet_context) {
             printf("ERROR: accessing pc %u but max value is %u\n", param, picoquic_nb_packet_context);
             return 0;
         }
         return (protoop_arg_t) &path->pkt_ctx[param];
-    case PATH_AK_NB_PKT_SENT:
+    case AK_PATH_NB_PKT_SENT:
         return path->nb_pkt_sent;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
@@ -480,109 +497,109 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
 void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_arg_t val)
 {
     switch(ak) {
-    case PATH_AK_PEER_ADDR:
+    case AK_PATH_PEER_ADDR:
         printf("ERROR: setting the peer addr is not implemented!\n");
         break;
-    case PATH_AK_PEER_ADDR_LEN:
+    case AK_PATH_PEER_ADDR_LEN:
         path->peer_addr_len = (int) val;
         break;
-    case PATH_AK_LOCAL_ADDR:
+    case AK_PATH_LOCAL_ADDR:
         printf("ERROR: setting the local addr is not implemented!\n");
         break;
-    case PATH_AK_LOCAL_ADDR_LEN:
+    case AK_PATH_LOCAL_ADDR_LEN:
         path->local_addr_len = (int) val;
         break;
-    case PATH_AK_IF_INDEX_LOCAL:
+    case AK_PATH_IF_INDEX_LOCAL:
         path->if_index_local = (int) val;
         break;
-    case PATH_AK_CHALLENGE:
+    case AK_PATH_CHALLENGE:
         path->challenge = val;
         break;
-    case PATH_AK_CHALLENGE_TIME:
+    case AK_PATH_CHALLENGE_TIME:
         path->challenge_time =val;
         break;
-    case PATH_AK_CHALLENGE_RESPONSE:
+    case AK_PATH_CHALLENGE_RESPONSE:
         printf("ERROR: setting the challenge response is not implemented!\n");
         break;
-    case PATH_AK_CHALLENGE_REPEAT_COUNT:
+    case AK_PATH_CHALLENGE_REPEAT_COUNT:
         path->challenge_repeat_count = (uint8_t) val;
         break;
-    case PATH_AK_MTU_PROBE_SENT:
+    case AK_PATH_MTU_PROBE_SENT:
         path->mtu_probe_sent = val;
         break;
-    case PATH_AK_CHALLENGE_VERIFIED:
+    case AK_PATH_CHALLENGE_VERIFIED:
         path->challenge_verified = val;
         break;
-    case PATH_AK_CHALLENGE_RESPONSE_TO_SEND:
+    case AK_PATH_CHALLENGE_RESPONSE_TO_SEND:
         path->challenge_response_to_send = val;
         break;
-    case PATH_AK_PING_RECEIVED:
+    case AK_PATH_PING_RECEIVED:
         path->ping_received = val;
         break;
-    case PATH_AK_MAX_ACK_DELAY:
+    case AK_PATH_MAX_ACK_DELAY:
         path->max_ack_delay = val;
         break;
-    case PATH_AK_SMOOTHED_RTT:
+    case AK_PATH_SMOOTHED_RTT:
         path->smoothed_rtt = val;
         break;
-    case PATH_AK_RTT_VARIANT:
+    case AK_PATH_RTT_VARIANT:
         path->rtt_variant = val;
         break;
-    case PATH_AK_RETRANSMIT_TIMER:
+    case AK_PATH_RETRANSMIT_TIMER:
         path->retransmit_timer = val;
         break;
-    case PATH_AK_RTT_MIN:
+    case AK_PATH_RTT_MIN:
         path->rtt_min = val;
         break;
-    case PATH_AK_MAX_SPURIOUS_RTT:
+    case AK_PATH_MAX_SPURIOUS_RTT:
         path->max_spurious_rtt = val;
         break;
-    case PATH_AK_MAX_REORDER_DELAY:
+    case AK_PATH_MAX_REORDER_DELAY:
         path->max_reorder_delay = val;
         break;
-    case PATH_AK_MAX_REORDER_GAP:
+    case AK_PATH_MAX_REORDER_GAP:
         path->max_reorder_gap = val;
         break;
-    case PATH_AK_SEND_MTU:
+    case AK_PATH_SEND_MTU:
         path->send_mtu = val;
         break;
-    case PATH_AK_SEND_MTU_MAX_TRIED:
+    case AK_PATH_SEND_MTU_MAX_TRIED:
         path->send_mtu_max_tried = val;
         break;
-    case PATH_AK_CWIN:
+    case AK_PATH_CWIN:
         path->cwin = val;
         break;
-    case PATH_AK_BYTES_IN_TRANSIT:
+    case AK_PATH_BYTES_IN_TRANSIT:
         path->bytes_in_transit = val;
         break;
-    case PATH_AK_CONGESTION_ALGORITHM_STATE:
+    case AK_PATH_CONGESTION_ALGORITHM_STATE:
         printf("ERROR: setting the congestion algorithm state is not implemented!\n");
         break;
-    case PATH_AK_PACKET_TIME_NANO_SEC:
+    case AK_PATH_PACKET_TIME_NANO_SEC:
         path->packet_time_nano_sec = val;
         break;
-    case PATH_AK_PACING_REMINDER_NANO_SEC:
+    case AK_PATH_PACING_REMINDER_NANO_SEC:
         path->pacing_reminder_nano_sec = val;
         break;
-    case PATH_AK_PACING_MARGIN_MICROS:
+    case AK_PATH_PACING_MARGIN_MICROS:
         path->pacing_margin_micros = val;
         break;
-    case PATH_AK_NEXT_PACING_TIME:
+    case AK_PATH_NEXT_PACING_TIME:
         path->next_pacing_time = val;
         break;
-    case PATH_AK_LOCAL_CID:
+    case AK_PATH_LOCAL_CID:
         printf("ERROR: setting the local CID is not implemented!\n");
         break;
-    case PATH_AK_REMOTE_CID:
+    case AK_PATH_REMOTE_CID:
         printf("ERROR: setting the remote CID is not implemented!\n");
         break;
-    case PATH_AK_RESET_SECRET:
+    case AK_PATH_RESET_SECRET:
         printf("ERROR: setting the reset secret is not implemented!\n");
         break;
-    case PATH_AK_PKT_CTX:
+    case AK_PATH_PKT_CTX:
         printf("ERROR: setting the pkt ctx is not implemented!\n");
         break;
-    case PATH_AK_NB_PKT_SENT:
+    case AK_PATH_NB_PKT_SENT:
         path->nb_pkt_sent = val;
         break;
     default:
@@ -594,36 +611,40 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
 protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
 {
     switch(ak) {
-    case PKT_CTX_AK_SEND_SEQUENCE:
+    case AK_PKTCTX_SEND_SEQUENCE:
         return pkt_ctx->send_sequence;
-    case PKT_CTX_AK_FIRST_SACK_ITEM:
+    case AK_PKTCTX_FIRST_SACK_ITEM:
         return (protoop_arg_t) &pkt_ctx->first_sack_item;
-    case PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED:
+    case AK_PKTCTX_TIME_STAMP_LARGEST_RECEIVED:
         return pkt_ctx->time_stamp_largest_received;
-    case PKT_CTX_AK_HIGHEST_ACK_SENT:
+    case AK_PKTCTX_HIGHEST_ACK_SENT:
         return pkt_ctx->highest_ack_sent;
-    case PKT_CTX_AK_HIGHEST_ACK_TIME:
+    case AK_PKTCTX_HIGHEST_ACK_TIME:
         return pkt_ctx->highest_ack_time;
-    case PKT_CTX_AK_ACK_DELAY_LOCAL:
+    case AK_PKTCTX_ACK_DELAY_LOCAL:
         return pkt_ctx->ack_delay_local;
-    case PKT_CTX_AK_NB_RETRANSMIT:
+    case AK_PKTCTX_NB_RETRANSMIT:
         return pkt_ctx->nb_retransmit;
-    case PKT_CTX_AK_LATEST_RETRANSMIT_TIME:
+    case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         return pkt_ctx->latest_retransmit_time;
-    case PKT_CTX_AK_HIGHEST_ACKNOWLEDGED:
+    case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
+        return pkt_ctx->latest_retransmit_cc_notification_time;
+    case AK_PKTCTX_HIGHEST_ACKNOWLEDGED:
         return pkt_ctx->highest_acknowledged;
-    case PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED:
+    case AK_PKTCTX_LATEST_TIME_ACKNOWLEDGED:
         return pkt_ctx->latest_time_acknowledged;
-    case PKT_CTX_AK_RETRANSMIT_NEWEST:
+    case AK_PKTCTX_RETRANSMIT_NEWEST:
         return (protoop_arg_t) pkt_ctx->retransmit_newest;
-    case PKT_CTX_AK_RETRANSMIT_OLDEST:
+    case AK_PKTCTX_RETRANSMIT_OLDEST:
         return (protoop_arg_t) pkt_ctx->retransmit_oldest;
-    case PKT_CTX_AK_RETRANSMITTED_NEWEST:
+    case AK_PKTCTX_RETRANSMITTED_NEWEST:
         return (protoop_arg_t) pkt_ctx->retransmitted_newest;
-    case PKT_CTX_AK_RETRANSMITTED_OLDEST:
+    case AK_PKTCTX_RETRANSMITTED_OLDEST:
         return (protoop_arg_t) pkt_ctx->retransmitted_oldest;
-    case PKT_CTX_AK_ACK_NEEDED:
+    case AK_PKTCTX_ACK_NEEDED:
         return pkt_ctx->ack_needed;
+    case AK_PKTCTX_LATEST_PROGRESS_TIME:
+        return pkt_ctx->latest_progress_time;
     default:
         printf("ERROR: unknown pkt ctx access key %u\n", ak);
         return 0;
@@ -633,49 +654,51 @@ protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
 void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case PKT_CTX_AK_SEND_SEQUENCE:
+    case AK_PKTCTX_SEND_SEQUENCE:
         pkt_ctx->send_sequence = val;
         break;
-    case PKT_CTX_AK_FIRST_SACK_ITEM:
+    case AK_PKTCTX_FIRST_SACK_ITEM:
         printf("ERROR: setting the first sack item is not implemented!\n");
         break;
-    case PKT_CTX_AK_TIME_STAMP_LARGEST_RECEIVED:
+    case AK_PKTCTX_TIME_STAMP_LARGEST_RECEIVED:
         pkt_ctx->time_stamp_largest_received = val;
         break;
-    case PKT_CTX_AK_HIGHEST_ACK_SENT:
+    case AK_PKTCTX_HIGHEST_ACK_SENT:
         pkt_ctx->highest_ack_sent = val;
         break;
-    case PKT_CTX_AK_HIGHEST_ACK_TIME:
+    case AK_PKTCTX_HIGHEST_ACK_TIME:
         pkt_ctx->highest_ack_time = val;
         break;
-    case PKT_CTX_AK_ACK_DELAY_LOCAL:
+    case AK_PKTCTX_ACK_DELAY_LOCAL:
         pkt_ctx->ack_delay_local = val;
         break;
-    case PKT_CTX_AK_NB_RETRANSMIT:
+    case AK_PKTCTX_NB_RETRANSMIT:
         pkt_ctx->nb_retransmit = val;
         break;
-    case PKT_CTX_AK_LATEST_RETRANSMIT_TIME:
+    case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         pkt_ctx->latest_retransmit_time = val;
+    case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
+        pkt_ctx->latest_retransmit_cc_notification_time = val;
         break;
-    case PKT_CTX_AK_HIGHEST_ACKNOWLEDGED:
+    case AK_PKTCTX_HIGHEST_ACKNOWLEDGED:
         pkt_ctx->highest_acknowledged = val;
         break;
-    case PKT_CTX_AK_LATEST_TIME_ACKNOWLEDGED:
+    case AK_PKTCTX_LATEST_TIME_ACKNOWLEDGED:
         pkt_ctx->latest_time_acknowledged = val;
         break;
-    case PKT_CTX_AK_RETRANSMIT_NEWEST:
+    case AK_PKTCTX_RETRANSMIT_NEWEST:
         printf("ERROR: setting the retransmit newest is not implemented!\n");
         break;
-    case PKT_CTX_AK_RETRANSMIT_OLDEST:
+    case AK_PKTCTX_RETRANSMIT_OLDEST:
         printf("ERROR: setting the retransmit oldest is not implemented!\n");
         break;
-    case PKT_CTX_AK_RETRANSMITTED_NEWEST:
+    case AK_PKTCTX_RETRANSMITTED_NEWEST:
         printf("ERROR: setting the retransmitted newest is not implemented!\n");
         break;
-    case PKT_CTX_AK_RETRANSMITTED_OLDEST:
+    case AK_PKTCTX_RETRANSMITTED_OLDEST:
         printf("ERROR: setting the retransmitted oldest is not implemented!\n");
         break;
-    case PKT_CTX_AK_ACK_NEEDED:
+    case AK_PKTCTX_ACK_NEEDED:
         pkt_ctx->ack_needed = val;
         break;
     default:
@@ -687,34 +710,38 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
 protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
 {
     switch(ak) {
-    case PKT_AK_PREVIOUS_PACKET:
+    case AK_PKT_PREVIOUS_PACKET:
         return (protoop_arg_t) pkt->previous_packet;
-    case PKT_AK_NEXT_PACKET:
+    case AK_PKT_NEXT_PACKET:
         return (protoop_arg_t) pkt->next_packet;
-    case PKT_AK_SEND_PATH:
+    case AK_PKT_SEND_PATH:
         return (protoop_arg_t) pkt->send_path;
-    case PKT_AK_SEQUENCE_NUMBER:
+    case AK_PKT_SEQUENCE_NUMBER:
         return pkt->sequence_number;
-    case PKT_AK_SEND_TIME:
+    case AK_PKT_SEND_TIME:
         return pkt->send_time;
-    case PKT_AK_LENGTH:
+    case AK_PKT_LENGTH:
         return pkt->length;
-    case PKT_AK_CHECKSUM_OVERHEAD:
+    case AK_PKT_CHECKSUM_OVERHEAD:
         return pkt->checksum_overhead;
-    case PKT_AK_OFFSET:
+    case AK_PKT_OFFSET:
         return pkt->offset;
-    case PKT_AK_TYPE:
+    case AK_PKT_TYPE:
         return pkt->ptype;
-    case PKT_AK_CONTEXT:
+    case AK_PKT_CONTEXT:
         return pkt->pc;
-    case PKT_AK_IS_PURE_ACK:
+    case AK_PKT_IS_PURE_ACK:
         return pkt->is_pure_ack;
-    case PKT_AK_CONTAINS_CRYPTO:
+    case AK_PKT_CONTAINS_CRYPTO:
         return pkt->contains_crypto;
-    case PKT_AK_IS_CONGESTION_CONTROLLED:
+    case AK_PKT_IS_CONGESTION_CONTROLLED:
         return pkt->is_congestion_controlled;
-    case PKT_AK_BYTES:
+    case AK_PKT_BYTES:
         return (protoop_arg_t) pkt->bytes;
+    case AK_PKT_RTO_TIME:
+        return pkt->rto_time;
+    case AK_PKT_IS_MTU_PROBE:
+        return pkt->is_mtu_probe;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;
@@ -724,56 +751,62 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
 void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case PKT_AK_PREVIOUS_PACKET:
+    case AK_PKT_PREVIOUS_PACKET:
         printf("ERROR: setting the previous packet is not implemented!\n");
         break;
-    case PKT_AK_NEXT_PACKET:
+    case AK_PKT_NEXT_PACKET:
         printf("ERROR: setting the next packet is not implemented!\n");
         break;
-    case PKT_AK_SEND_PATH:
+    case AK_PKT_SEND_PATH:
         /* TODO check the path is valid pointer */
         pkt->send_path = (picoquic_path_t *) val;
         break;
-    case PKT_AK_SEQUENCE_NUMBER:
+    case AK_PKT_SEQUENCE_NUMBER:
         pkt->sequence_number = val;
         break;
-    case PKT_AK_SEND_TIME:
+    case AK_PKT_SEND_TIME:
         pkt->send_time = val;
         break;
-    case PKT_AK_LENGTH:
+    case AK_PKT_LENGTH:
         pkt->length = val;
         break;
-    case PKT_AK_CHECKSUM_OVERHEAD:
+    case AK_PKT_CHECKSUM_OVERHEAD:
         pkt->checksum_overhead = val;
         break;
-    case PKT_AK_OFFSET:
+    case AK_PKT_OFFSET:
         pkt->offset = val;
         break;
-    case PKT_AK_TYPE:
+    case AK_PKT_TYPE:
         if (val >= picoquic_packet_type_max) {
             printf("ERROR: setting type %lu but max value is %u\n", val, picoquic_packet_type_max);
             break;
         }
         pkt->ptype = (picoquic_packet_type_enum) val;
         break;
-    case PKT_AK_CONTEXT:
+    case AK_PKT_CONTEXT:
         if (val >= picoquic_nb_packet_context) {
             printf("ERROR: setting context %lu but max value is %u\n", val, picoquic_nb_packet_context);
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;
         break;
-    case PKT_AK_IS_PURE_ACK:
+    case AK_PKT_IS_PURE_ACK:
         pkt->is_pure_ack = val;
         break;
-    case PKT_AK_CONTAINS_CRYPTO:
+    case AK_PKT_CONTAINS_CRYPTO:
         pkt->contains_crypto = val;
         break;
-    case PKT_AK_IS_CONGESTION_CONTROLLED:
+    case AK_PKT_IS_CONGESTION_CONTROLLED:
         pkt->is_congestion_controlled = val;
         break;
-    case PKT_AK_BYTES:
+    case AK_PKT_BYTES:
         printf("ERROR: setting bytes is not implemented!\n");
+        break;
+    case AK_PKT_RTO_TIME:
+        pkt->rto_time = val;
+        break;
+    case AK_PKT_IS_MTU_PROBE:
+        pkt->is_mtu_probe = val;
         break;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
@@ -784,11 +817,11 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
 protoop_arg_t get_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak)
 {
     switch(ak) {
-    case SACK_ITEM_AK_NEXT_SACK:
+    case AK_SACKITEM_NEXT_SACK:
         return (protoop_arg_t) sack_item->next_sack;
-    case SACK_ITEM_AK_START_RANGE:
+    case AK_SACKITEM_START_RANGE:
         return sack_item->start_of_sack_range;
-    case SACK_ITEM_AK_END_RANGE:
+    case AK_SACKITEM_END_RANGE:
         return sack_item->end_of_sack_range;
     default:
         printf("ERROR: unknown sack item access key %u\n", ak);
@@ -799,13 +832,13 @@ protoop_arg_t get_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak)
 void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case SACK_ITEM_AK_NEXT_SACK:
+    case AK_SACKITEM_NEXT_SACK:
         printf("ERROR: setting next sack is not implemented!\n");
         break;
-    case SACK_ITEM_AK_START_RANGE:
+    case AK_SACKITEM_START_RANGE:
         sack_item->start_of_sack_range = val;
         break;
-    case SACK_ITEM_AK_END_RANGE:
+    case AK_SACKITEM_END_RANGE:
         sack_item->end_of_sack_range = val;
         break;
     default:
@@ -817,9 +850,9 @@ void set_sack_item(picoquic_sack_item_t *sack_item, access_key_t ak, protoop_arg
 protoop_arg_t get_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak)
 {
     switch(ak) {
-    case CNXID_AK_ID:
+    case AK_CNXID_ID:
         return (protoop_arg_t) cnxid->id;
-    case CNXID_AK_LEN:
+    case AK_CNXID_LEN:
         return cnxid->id_len;
     default:
         printf("ERROR: unknown connection id access key %u\n", ak);
@@ -830,10 +863,10 @@ protoop_arg_t get_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak)
 void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case CNXID_AK_ID:
+    case AK_CNXID_ID:
         printf("ERROR: setting cnxid id is not implemented!\n");
         break;
-    case CNXID_AK_LEN:
+    case AK_CNXID_LEN:
         cnxid->id_len = (uint8_t) val;
         break;
     default:
@@ -845,10 +878,22 @@ void set_cnxid(picoquic_connection_id_t *cnxid, access_key_t ak, protoop_arg_t v
 protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak)
 {
     switch(ak) {
-    case STREAM_HEAD_AK_SEND_QUEUE:
+    case AK_STREAMHEAD_SEND_QUEUE:
         return (protoop_arg_t) stream_head->send_queue;
-    case STREAM_HEAD_AK_CONSUMED_OFFSET:
-        return stream_head->consumed_offset; 
+    case AK_STREAMHEAD_CONSUMED_OFFSET:
+        return stream_head->consumed_offset;
+    case AK_STREAMHEAD_NEXT_STREAM:
+        return (protoop_arg_t) stream_head->next_stream;
+    case AK_STREAMHEAD_STREAM_ID:
+        return stream_head->stream_id;
+    case AK_STREAMHEAD_MAX_DATA_REMOTE:
+        return stream_head->maxdata_remote;
+    case AK_STREAMHEAD_SENT_OFFSET:
+        return stream_head->sent_offset;
+    case AK_STREAMHEAD_STREAM_FLAGS:
+        return stream_head->stream_flags;
+    case AK_STREAMHEAD_SENDING_OFFSET:
+        return stream_head->sending_offset;
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);
         return 0;
@@ -858,10 +903,10 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
 void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case STREAM_HEAD_AK_SEND_QUEUE:
+    case AK_STREAMHEAD_SEND_QUEUE:
         printf("ERROR: setting send queue is not implemented!\n");
         break;
-    case STREAM_HEAD_AK_CONSUMED_OFFSET:
+    case AK_STREAMHEAD_CONSUMED_OFFSET:
         stream_head->consumed_offset = val;
         break;
     default:
@@ -870,10 +915,23 @@ void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop
     }
 }
 
+protoop_arg_t get_stream_data(picoquic_stream_data *stream_data, access_key_t ak)
+{
+    switch(ak) {
+        case AK_STREAMDATA_LENGTH:
+            return stream_data->length;
+        case AK_STREAMDATA_OFFSET:
+            return stream_data->offset;
+        default:
+            printf("ERROR: unknown stream head access key %u\n", ak);
+            return 0;
+    }
+}
+
 protoop_arg_t get_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak)
 {
     switch(ak) {
-    case CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION:
+    case AK_CRYPTOCONTEXT_AEAD_ENCRYPTION:
         return (protoop_arg_t) crypto_context->aead_encrypt;
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);
@@ -884,7 +942,7 @@ protoop_arg_t get_crypto_context(picoquic_crypto_context_t *crypto_context, acce
 void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case CRYPTO_CONTEXT_AK_AEAD_ENCRYPTION:
+    case AK_CRYPTOCONTEXT_AEAD_ENCRYPTION:
         printf("ERROR: setting aead encryption is not implemented!\n");
         break;
     default:
@@ -896,16 +954,18 @@ void set_crypto_context(picoquic_crypto_context_t *crypto_context, access_key_t 
 protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
 {
     switch(ak) {
-    case PH_AK_DESTINATION_CNXID:
+    case AK_PH_DESTINATION_CNXID:
         return (protoop_arg_t) &ph->dest_cnx_id;
-    case PH_AK_OFFSET:
+    case AK_PH_OFFSET:
         return (protoop_arg_t) ph->offset;
-    case PH_AK_PAYLOAD_LENGTH:
+    case AK_PH_PAYLOAD_LENGTH:
         return (protoop_arg_t) ph->payload_length;
-    case PH_AK_SEQUENCE_NUMBER:
+    case AK_PH_SEQUENCE_NUMBER:
         return (protoop_arg_t) ph->pn64;
-    case PH_AK_EPOCH:
+    case AK_PH_EPOCH:
         return (protoop_arg_t) ph->epoch;
+    case AK_PH_PTYPE:
+        return ph->ptype;
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
         return 0;
@@ -915,7 +975,7 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
 void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val)
 {
     switch(ak) {
-    case PH_AK_DESTINATION_CNXID:
+    case AK_PH_DESTINATION_CNXID:
         printf("ERROR: setting destination connection id is not implemented\n");
         break;
     default:

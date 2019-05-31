@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include "protoop.h"
+#include "queue.h"
 #ifdef _WINDOWS
 #include <WS2tcpip.h>
 #include <Ws2def.h>
@@ -230,6 +231,7 @@ typedef struct protoop_plugin protoop_plugin_t;
 typedef struct reserve_frame_slot {
     size_t nb_bytes;
     uint8_t is_congestion_controlled:1;
+    bool low_priority:1;
     uint64_t frame_type;
     protoop_plugin_t *p; /* Whathever you place here, it will be overwritten */
     /* TODO FIXME position */
@@ -240,6 +242,7 @@ typedef struct reserve_frames_block {
     size_t total_bytes;
     uint8_t nb_frames;
     uint8_t is_congestion_controlled:1;
+    bool low_priority:1; // if false, picoquic will wake as soon as it is reserved
     /* The following pointer is an array! */
     reserve_frame_slot_t *frames;
 } reserve_frames_block_t;
@@ -264,7 +267,9 @@ typedef struct st_picoquic_packet_t {
     struct st_picoquic_path_t * send_path;
     uint64_t sequence_number;
     uint64_t send_time;
+    uint64_t rto_time;
     uint32_t length;
+    uint32_t send_length;
     uint32_t checksum_overhead;
     uint32_t offset;
     picoquic_packet_type_enum ptype;
@@ -273,6 +278,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int contains_crypto : 1;
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
     unsigned int has_plugin_frames : 1;
+    unsigned int is_mtu_probe : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 
@@ -290,6 +296,8 @@ typedef struct _picoquic_packet_header picoquic_packet_header;
 typedef struct st_picoquic_tp_t picoquic_tp_t;
 typedef struct _picoquic_stream_data picoquic_stream_data;
 
+typedef struct st_protocol_operation_struct_t protocol_operation_struct_t;
+
 typedef uint64_t protoop_arg_t;
 typedef struct protoop_plugin protoop_plugin_t;
 typedef uint16_t param_id_t;
@@ -305,7 +313,7 @@ typedef struct {
 } protoop_params_t;
 
 #define NO_PARAM (param_id_t) -1
-#define PROTOOPARGS_MAX 10 /* Minimum required value... */
+#define PROTOOPARGS_MAX 16 /* Minimum required value... */
 
 /** 
  * Frame structures 
@@ -675,9 +683,10 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
  *
  * \param[in] cnx The context of the connection
  * \param[in] nb_frames A pointer to return the number of slots
+ * \param[in] congestion_controlled \b iny Do we consider the congestion controlled queue or the non one?
  * \return The slots in the reservation
  */
-reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames);
+reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_frames, int congestion_controlled);
 
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,
@@ -710,13 +719,15 @@ size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 
 /* Utilities */
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
+int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sas_length);
 int picoquic_compare_connection_id(picoquic_connection_id_t * cnx_id1, picoquic_connection_id_t * cnx_id2);
 uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64);
 
 void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time);
 
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
+
+void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
 
 #ifdef __cplusplus
 }

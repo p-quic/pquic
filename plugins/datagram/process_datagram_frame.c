@@ -6,9 +6,9 @@
 
 protoop_arg_t process_datagram_frame(picoquic_cnx_t* cnx)
 {
-    datagram_frame_t *frame = (datagram_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
-    uint64_t current_time = (uint64_t) get_cnx(cnx, CNX_AK_INPUT, 1);
-    picoquic_path_t *path_x = (picoquic_path_t*) get_cnx(cnx, CNX_AK_INPUT, 3);
+    datagram_frame_t *frame = (datagram_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 1);
+    picoquic_path_t *path_x = (picoquic_path_t*) get_cnx(cnx, AK_CNX_INPUT, 3);
     datagram_memory_t *m = get_datagram_memory(cnx);
 
     if (m->socket_fds[PLUGIN_SOCKET] != -1) {

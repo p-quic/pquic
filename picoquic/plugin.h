@@ -18,6 +18,8 @@ typedef enum {
     pluglet_post
 } pluglet_type_enum;
 
+const char *pluglet_type_name(pluglet_type_enum te);
+
 /* Function to insert plugins */
 int plugin_plug_elf(picoquic_cnx_t *cnx, protoop_plugin_t *p, protoop_str_id_t pid, param_id_t param, pluglet_type_enum pte, char *elf_fname);
 /* Function that reset the protocol operation to its default behaviour */
@@ -63,6 +65,8 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
 protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp);
 
 protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str);
+
+int get_errno();
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

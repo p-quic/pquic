@@ -138,6 +138,36 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
 // I would rather be in favor of plugins to define a separate metrics accessible via the cnx.
 
 /**
+ * Schedule frames and provide a packet with the path it should be sent on when connection is ready
+ * \param[in] packet \b picoquic_packet_t* The packet to be sent
+ * \param[in] send_buffer_max \b size_t The maximum amount of bytes that can be written on the packet
+ * \param[in] current_time \b uint64_t Time of the scheduling
+ * \param[in] retransmit_p \b picoquic_packet_t* A candidate packet for retransmission
+ * \param[in] from_path \b picoquic_path_t* The path on which the candidate packet was sent
+ * \param[in] reason \b char* A description of the reason for which the candidate packet is proposed
+ * 
+ * \return \b int 0 if everything is ok
+ * \param[out] path_x \b picoquic_path_t* The path on which the packet should be sent
+ * \param[out] length \b uint32_t The length of the packet to be sent
+ * \param[out] header_length \b uint32_t The length of the header of the packet to be sent
+ */
+#define PROTOOPID_NOPARAM_SCHEDULE_FRAMES_ON_PATH "schedule_frames_on_path"
+extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH;
+
+/**
+ * Write frames that were previously scheduled in the packet
+ * \param[in] bytes \b uint8_t* The array of bytes forming the packet content
+ * \param[in] max_bytes \b size_t The maximum amount of bytes that can be written on the packet
+ * \param[in] packet \b picoquic_packet_t* The packet to be sent
+ * 
+ * \return \b int 0 if everything is ok
+ * \param[out] consumed \b size_t The number of bytes written
+ * \param[out] is_pure_ack <b> unsigned int </b> Is this packet non retransmittable?
+ */
+#define PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES "scheduler_write_new_frames"
+extern protoop_id_t PROTOOP_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES;
+
+/**
  * Process "ack_range" blocks contained in an ACK frame and release acknowledged packets in the retransmit queue.
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ack range
  * \param[in] highest \b uint64_t The highest packet number acknowledged in the range
@@ -311,6 +341,7 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_DESTINATION_CONNECTION_ID;
 /**
  * Set the timer for the select, i.e., specify the next wake time of the implementation
  * \param[in] current_time \b uint64_t The current time
+ * \param[in] last_pkt_length \b uint32_t Size of last packet sent
  */
 #define PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME "set_next_wake_time"
 extern protoop_id_t PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME;
@@ -579,6 +610,7 @@ extern protoop_id_t PROTOOP_NOPARAM_AFTER_DECODING_FRAMES;
 /**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
+ * \param[in] TODO: What is this param?
  * \param[in] length \b uint32_t The size of the packet
  * \param[in] header_length \b uint32_t The size of the header of the packet
  * \param[in] checksum_overhead \b uint32_t The length of the checksum
@@ -623,6 +655,11 @@ extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED;
 #define PROTOOPID_NOPARAM_STREAM_OPENED "stream_opened"
 extern protoop_id_t PROTOOP_NOPARAM_STREAM_OPENED;
 
+/**
+ * Observer-only anchor that must be triggered whenever the stream flags changed.
+ */
+#define PROTOOPID_NOPARAM_STREAM_FLAGS_CHANGED "stream_flags_changed"
+extern protoop_id_t PROTOOP_NOPARAM_STREAM_FLAGS_CHANGED;
 
 /**
  * Observer-only anchor that must be triggered whenever a stream is closed.

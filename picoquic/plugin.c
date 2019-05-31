@@ -6,6 +6,27 @@
 #include "memory.h"
 #include "picoquic_internal.h"
 
+const char *pluglet_type_name(pluglet_type_enum te) {
+    char const *text = "unknown";
+    switch (te) {
+        case pluglet_replace:
+            text = "replace";
+            break;
+        case pluglet_post:
+            text = "post";
+            break;
+        case pluglet_pre:
+            text = "pre";
+            break;
+        case pluglet_extern:
+            text = "extern";
+            break;
+        default:
+            break;
+    }
+    return text;
+}
+
 int plugin_plug_elf_param_struct(protocol_operation_param_struct_t *popst, protoop_plugin_t *p, pluglet_type_enum pte, char *elf_fname) {
     /* Fast track: if we want to insert a replace plugin while there is already one, it will never work! */
     if ((pte == pluglet_replace || pte == pluglet_extern) && popst->replace) {
@@ -339,9 +360,16 @@ protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line
     }
 
     strncpy(p->name, token, PROTOOPPLUGINNAME_MAX);
-    p->block_queue = queue_init();
-    if (!p->block_queue) {
-        printf("Cannot allocate memory for sending queue!\n");
+    p->block_queue_cc = queue_init();
+    if (!p->block_queue_cc) {
+        printf("Cannot allocate memory for sending queue congestion control!\n");
+        free(p);
+        return NULL;
+    }
+    p->block_queue_non_cc = queue_init();
+    if (!p->block_queue_non_cc) {
+        printf("Cannot allocate memory for sending queue non congestion control!\n");
+        free(p->block_queue_cc);
         free(p);
         return NULL;
     }
@@ -391,8 +419,8 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
     const size_t max_filename_length = 150;
     char included_file[max_filename_length];
     while ((read = getline(&line, &len, file)) != -1) {
-        /* Skip blank lines */
-        if (len <= 1) {
+        /* Skip blank and comment lines */
+        if (len <= 1 || line[0] == '#') {
             continue;
         }
         char *line_tmp = line;
@@ -478,6 +506,16 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
 
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
+    /* XXX: Assume that it is always the same (combination of) plugins that are set */
+    /* Fast track: do we have cached plugins? */
+    if (cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
+        cached_plugins_t* cache = queue_dequeue(cnx->quic->cached_plugins_queue);
+        cnx->ops = cache->ops;
+        cnx->plugins = cache->plugins;
+        free(cache);
+        return 0;
+    }
+
     size_t max_filename_size = 250;
     char buf[max_filename_size];
     if (strlen(plugin_fname) >= max_filename_size){
@@ -521,6 +559,8 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
+    int nodes = 0;
+    pid_node_t *inserted_nodes[1024];
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
         if (read <= 1) {
@@ -623,6 +663,10 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
      * they will remain unchanged at caller side.
      */
     protoop_plugin_t *old_plugin = cnx->current_plugin;
+    protoop_plugin_t *replace_plugin = NULL;
+    bool suppress_replace_plugin = false;
+    protocol_operation_struct_t *old_protoop = cnx->current_protoop;
+    pluglet_type_enum old_anchor = cnx->current_anchor;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
     uint64_t caller_inputv[caller_inputc];
@@ -634,7 +678,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
 #ifdef DBG_PLUGIN_PRINTF
     for (int i = 0; i < pp->inputc; i++) {
-        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, inputv[i]);
+        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, pp->inputv[i]);
     }
 #endif
 
@@ -643,7 +687,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     // memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
-    DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
+    DBG_PLUGIN_PRINTF("Running operation with id %s (param 0x%x) with %d inputs", pp->pid->id, pp->param, pp->inputc);
 
     /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
@@ -688,12 +732,14 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     /* Record the protocol operation on the call stack */
     popst->running = true;
+    cnx->current_protoop = post;
 
     /* First, is there any pre to run? */
     observer_node_t *tmp = popst->pre;
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
+        cnx->current_anchor = pluglet_pre;
         exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
@@ -702,22 +748,22 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     if (popst->replace) {
         DBG_PLUGIN_PRINTF("Running pluglet at proto op id %s", pp->pid->id);
         cnx->current_plugin = popst->replace->p;
+        cnx->current_anchor = pluglet_replace;
         status = (protoop_arg_t) exec_loaded_code(popst->replace, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         if (error_msg) {
             /* TODO fixme str_pid */
             fprintf(stderr, "Error when running %s: %s\n", pp->pid->id, error_msg);
         }
+        cnx->previous_plugin_in_replace = replace_plugin = cnx->current_plugin;
     } else if (popst->core) {
         cnx->current_plugin = NULL;
+        suppress_replace_plugin = true;
         status = popst->core(cnx);
     } else {
         /* TODO fixme str_pid */
         printf("FATAL ERROR: no replace nor core operation for protocol operation with id %s\n", pp->pid->id);
         exit(-1);
     }
-
-    /* The previous plugin look at the last replace one */
-    cnx->previous_plugin = cnx->current_plugin;
 
     /* Finally, is there any post to run? */
     tmp = popst->post;
@@ -727,6 +773,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     while (tmp) {
         /* TODO: restrict the memory accesible by the observers */
         cnx->current_plugin = tmp->observer->p;
+        cnx->current_anchor = pluglet_post;
         exec_loaded_code(tmp->observer, (void *)cnx, (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
         tmp = tmp->next;
     }
@@ -734,14 +781,14 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     int outputc = cnx->protoop_outputc_callee;
 
-    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
+    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pp->pid, status, outputc);
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
     if (pp->outputv) {
         memcpy(pp->outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
 #ifdef DBG_PLUGIN_PRINTF
         for (int i = 0; i < outputc; i++) {
-            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
+            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, pp->outputv[i]);
         }
 #endif
     } else if (outputc > 0) {
@@ -763,7 +810,12 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     cnx->protoop_outputc_callee = caller_outputc;
 
     /* Also restore the plugin context */
+    if (replace_plugin || suppress_replace_plugin) {
+        cnx->previous_plugin_in_replace = replace_plugin;
+    }
     cnx->current_plugin = old_plugin;
+    cnx->current_protoop = old_protoop;
+    cnx->current_anchor = old_anchor;
 
     return status;
 }
@@ -775,4 +827,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char
     pid.hash = hash_value_str(pid.id);
     pp->pid = &pid;
     return plugin_run_protoop_internal(cnx, pp);
+}
+
+int get_errno() {
+    return errno;
 }
