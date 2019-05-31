@@ -1472,25 +1472,26 @@ int main(int argc, char** argv)
     }
 #endif
 
-    if (is_client == 0) {
-        FILE* F_log = NULL;
+    FILE* F_log = NULL;
 
-        if (log_file != NULL) {
+    if (log_file != NULL && !strcmp(log_file, "/dev/null")) {
 #ifdef _WINDOWS
-            if (fopen_s(&F_log, log_file, "w") != 0) {
+        if (fopen_s(&F_log, log_file, "w") != 0) {
                 F_log = NULL;
             }
 #else
-            F_log = fopen(log_file, "w");
+        F_log = fopen(log_file, "w");
 #endif
-            if (F_log == NULL) {
-                fprintf(stderr, "Could not open the log file <%s>\n", log_file);
-            }
-        }
-
         if (F_log == NULL) {
-            F_log = stdout;
+            fprintf(stderr, "Could not open the log file <%s>\n", log_file);
         }
+    }
+
+    if (!F_log && (!log_file || !strcmp(log_file, "/dev/null"))) {
+        F_log = stdout;
+    }
+
+    if (is_client == 0) {
         /* Run as server */
         printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d, and %d plugins\n",
             server_port, server_name, just_once, do_hrr, plugins);
@@ -1505,25 +1506,6 @@ int main(int argc, char** argv)
             (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins, F_log, qlog_filename);
         printf("Server exit with code = %d\n", ret);
     } else {
-        FILE* F_log = NULL;
-
-        if (log_file != NULL) {
-#ifdef _WINDOWS
-            if (fopen_s(&F_log, log_file, "w") != 0) {
-                F_log = NULL;
-            }
-#else
-            F_log = fopen(log_file, "w");
-#endif
-            if (F_log == NULL) {
-                fprintf(stderr, "Could not open the log file <%s>\n", log_file);
-            }
-        }
-
-        if (F_log == NULL) {
-            F_log = stdout;
-        }
-
         if (F_log != NULL) {
             debug_printf_push_stream(F_log);
         }

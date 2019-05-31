@@ -102,6 +102,10 @@ void picoquic_log_packet_address(FILE* F, uint64_t log_cnxid64, picoquic_cnx_t* 
     uint64_t time_sec = 0;
     uint32_t time_usec = 0;
 
+    if (!F) {
+        return;
+    }
+
     if (log_cnxid64 != 0) {
         fprintf(F, "%" PRIx64 ": ", log_cnxid64);
     }
@@ -1469,6 +1473,9 @@ void picoquic_log_outgoing_segment(void* F_log, int log_cnxid, picoquic_cnx_t* c
 
 void picoquic_log_processing(FILE* F, picoquic_cnx_t* cnx, size_t length, int ret)
 {
+    if(!F) {
+        return;
+    }
     fprintf(F, "Processed %d bytes, state = %d (%s), return %d\n\n",
         (int)length, cnx->cnx_state,
         picoquic_log_state_name(cnx->cnx_state),
@@ -1678,6 +1685,9 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
 
 void picoquic_log_transport_extension(FILE* F, picoquic_cnx_t* cnx, int log_cnxid)
 {
+    if (!F)
+        return;
+
     uint8_t* bytes = NULL;
     size_t bytes_max = 0;
     int ext_received_return = 0;
