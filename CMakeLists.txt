@@ -120,6 +120,10 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/select_sending_path_rr.c
 )
 
+SET(PLUGINS_STREAM_SCHEDULER
+    plugins/stream_scheduling_rr/stream_scheduling_rr.c
+)
+
 SET(PLUGINS_QLOG
     plugins/qlog/cnx_state_changed.c
     plugins/qlog/set_output_file.c
@@ -186,6 +190,9 @@ if($ENV{COMPILE_CLION})
     )
     ADD_LIBRARY(plugins-datagram
         ${PLUGINS_DATAGRAM}
+    )
+    ADD_LIBRARY(plugins-stream-scheduler
+        ${PLUGINS_STREAM_SCHEDULER}
     )
     ADD_LIBRARY(plugins-qlog
         ${PLUGINS_QLOG}
