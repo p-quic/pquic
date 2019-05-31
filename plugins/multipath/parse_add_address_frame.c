@@ -1,8 +1,4 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
-#include "memory.h"
 
 
 /**

@@ -1,8 +1,4 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
-#include "memory.h"
 
 /**
  * See PROTOOP_PARAM_WRITE_FRAME
@@ -43,42 +39,46 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
         size_t byte_index = 0;
         int addr_index = 0;
         int addr_id = 0;
-        struct sockaddr_in *sa;
+        struct sockaddr_storage *sa;
 
         for (int i = 0; i < aac->nb_addrs; i++) {
             /* First record the address */
             addr_index = bpfd->nb_loc_addrs;
             addr_id = addr_index + 1;
-            sa = (struct sockaddr_in *) my_malloc(cnx, sizeof(struct sockaddr_in));
+            sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
             if (!sa) {
                 ret = PICOQUIC_ERROR_MEMORY;
                 break;
             }
-            my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_in));
+            my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_storage));
             /* Take the port from the current path 0 */
-            my_memcpy(&sa->sin_port, &port, 2);
+            if (sa->ss_family == AF_INET) {
+                my_memcpy(&((struct sockaddr_in*)sa)->sin_port, &port, 2);
+            } else if (sa->ss_family == AF_INET6) {
+                my_memcpy(&((struct sockaddr_in6*)sa)->sin6_port, &port, 2);
+            }
             bpfd->loc_addrs[addr_index].id = addr_id;
             bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
-            bpfd->loc_addrs[addr_index].is_v6 = false;
+            bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
             bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
 
             /* Encode the first byte */
             my_memset(&bytes[byte_index++], ADD_ADDRESS_TYPE, 1);
-            if (port != 0) {
-                /* Encode port flag with v4 */
-                my_memset(&bytes[byte_index++], 0x14, 1);
-            } else {
-                /* Otherwise only v4 value */
-                my_memset(&bytes[byte_index++], 0x04, 1);
-            }
+            my_memset(&bytes[byte_index++], (port ? 0x10 : 0x00) | ((sa->ss_family == AF_INET6) ? 0x06 : 0x04), 1);
             /* Encode address ID */
             my_memset(&bytes[byte_index++], addr_id, 1);
             /* Encode IP address */
-            my_memcpy(&bytes[byte_index], &sa->sin_addr.s_addr, 4);
-            byte_index += 4;
+            if (sa->ss_family == AF_INET) {
+                my_memcpy(&bytes[byte_index], &((struct sockaddr_in*)sa)->sin_addr.s_addr, sizeof(in_addr_t));
+                byte_index += sizeof(in_addr_t);
+            } else if (sa->ss_family == AF_INET6) {
+                my_memcpy(&bytes[byte_index], &((struct sockaddr_in6*)sa)->sin6_addr, sizeof(struct in6_addr));
+                byte_index += sizeof(struct in6_addr);
+            }
+
             if (port != 0) {
                 /* Encode port */
-                my_memcpy(&bytes[byte_index], &sa->sin_port, 2);
+                my_memcpy(&bytes[byte_index], &port, 2);
                 byte_index += 2;
             }
             

@@ -874,8 +874,15 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         fd = socket(/*server_address.ss_family*/AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         if (fd == INVALID_SOCKET) {
             ret = -1;
+        } else {
+            int val = 1;
+            ret = setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG, &val, sizeof(val));
+            if (ret != 0) {
+                perror("setsockopt IPV6_DONTFRAG");
+            }
         }
     }
+
     /* QDC: please fixme please */
 #ifdef _WINDOWS
     int option_value = 1;

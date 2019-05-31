@@ -299,6 +299,7 @@ typedef struct _picoquic_stream_head {
     uint32_t remote_stop_error;
     picoquic_stream_data* stream_data;
     uint64_t sent_offset;
+    uint64_t sending_offset;
     picoquic_stream_data* send_queue;
     picoquic_sack_item_t first_sack_item;
 } picoquic_stream_head;
@@ -677,26 +678,46 @@ typedef struct st_picoquic_cnx_t {
 # define protoop_prepare_and_run_extern_param(cnx, pid, param, outputv, ...) protoop_prepare_and_run_helper(cnx, pid, param, false, outputv, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 # define protoop_save_outputs(cnx, ...) protoop_save_outputs_helper(cnx, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 
+#ifndef LOG
+#ifndef DISABLE_QLOG
+#define LOG
+#else
+#define LOG if (0)
+#endif
+#endif
+
 #ifndef LOG_EVENT
+#ifndef DISABLE_QLOG
 #define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)                                                                                                                    \
     do {                                                                                                                                                                     \
         char ___data[1024];                                                                                                                                                  \
         snprintf(___data, 1024, data_fmt, __VA_ARGS__);                                                                                                                      \
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_LOG_EVENT, NULL, (protoop_arg_t) cat, (protoop_arg_t) ev_type, (protoop_arg_t) trig, (protoop_arg_t) NULL, (protoop_arg_t) ___data); \
     } while (0)
+#else
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)
+#endif
 #endif
 
 #ifndef PUSH_LOG_CTX
+#ifndef DISABLE_QLOG
 #define PUSH_LOG_CTX(cnx, ctx_fmt, ...) \
     do {                                                                                                                                                                     \
         char ___data[1024];                                                                                                                                                  \
         snprintf(___data, 1024, ctx_fmt, __VA_ARGS__);                                                                                                                      \
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, NULL, (protoop_arg_t) ___data); \
     } while (0)
+#else
+#define PUSH_LOG_CTX(cnx, ctx_fmt, ...)
+#endif
 #endif
 
 #ifndef POP_LOG_CTX
+#ifndef DISABLE_QLOG
 #define POP_LOG_CTX(cnx)    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, NULL, NULL)
+#else
+#define POP_LOG_CTX(cnx)
+#endif
 #endif
 
 #elif defined(__GNUC__)
@@ -728,7 +749,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
     args[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", arg);
+    DBG_PLUGIN_PRINTF("  %lu", args[i]);
   }
   va_end(ap);
   protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
@@ -744,7 +765,7 @@ static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int
   DBG_PLUGIN_PRINTF("%u saved:", n_args);
   for (i = 0; i < n_args; i++) {
     cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", arg);
+    DBG_PLUGIN_PRINTF("  %lu", cnx->protoop_outputv[i]);
   }
   cnx->protoop_outputc_callee = n_args;
   va_end(ap);
@@ -986,6 +1007,7 @@ int picoquic_process_ack_of_ack_frame(
 picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t stream_id);
 void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
+picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t max_size, picoquic_path_t *path);
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x);
@@ -1058,6 +1080,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 
 #define STREAM_RESET_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_reset_sent) != 0)
 #define STREAM_RESET_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_reset_requested) != 0)
+#define STREAM_RESET_RCVD(stream) ((stream->stream_flags & picoquic_stream_flag_reset_received) != 0)
 #define STREAM_SEND_RESET(stream) (STREAM_RESET_REQUESTED(stream) && !STREAM_RESET_SENT(stream))
 #define STREAM_STOP_SENDING_REQUESTED(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) != 0)
 #define STREAM_STOP_SENDING_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_stop_sending_sent) != 0)
@@ -1065,6 +1088,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 #define STREAM_SEND_STOP_SENDING(stream) (STREAM_STOP_SENDING_REQUESTED(stream) && !STREAM_STOP_SENDING_SENT(stream))
 #define STREAM_FIN_NOTIFIED(stream) ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0)
 #define STREAM_FIN_SENT(stream) ((stream->stream_flags & picoquic_stream_flag_fin_sent) != 0)
+#define STREAM_FIN_RCVD(stream) ((stream->stream_flags & picoquic_stream_flag_fin_received) != 0)
 #define STREAM_SEND_FIN(stream) (STREAM_FIN_NOTIFIED(stream) && !STREAM_FIN_SENT(stream))
 #define STREAM_CLOSED(stream) ((STREAM_FIN_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_reset_received) != 0) && (STREAM_RESET_SENT(stream) || (stream->stream_flags & picoquic_stream_flag_fin_received) != 0))
 

@@ -4,7 +4,9 @@
 #include "picoquic.h"
 
 void *my_malloc(picoquic_cnx_t *cnx, unsigned int size);
+void *my_malloc_dbg(picoquic_cnx_t *cnx, unsigned int size, char *file, int line);
 void my_free(picoquic_cnx_t *cnx, void *ptr);
+void my_free_dbg(picoquic_cnx_t *cnx, void *ptr, char *file, int line);
 void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size);
 
 void my_free_in_core(protoop_plugin_t *p, void *ptr);

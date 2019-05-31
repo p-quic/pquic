@@ -722,7 +722,7 @@ size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
 
 /* Utilities */
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length);
+int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sas_length);
 int picoquic_compare_connection_id(picoquic_connection_id_t * cnx_id1, picoquic_connection_id_t * cnx_id2);
 uint8_t* picoquic_frames_varint_decode(uint8_t* bytes, const uint8_t* bytes_max, uint64_t* n64);
 

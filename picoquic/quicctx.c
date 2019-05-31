@@ -30,6 +30,8 @@
 #include <net/if.h>
 #ifndef _WINDOWS
 #include <sys/time.h>
+#include <netinet/in.h>
+
 #endif
 
 
@@ -832,7 +834,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             cnx->path[cnx->nb_paths] = path_x;
             ret = cnx->nb_paths++;
 
-            if (cnx->nb_paths > 1) {
+            if (cnx->nb_paths > 1) LOG {
                 char local_id_str[(path_x->local_cnxid.id_len * 2) + 1];
                 snprintf_bytes(local_id_str, sizeof(local_id_str), path_x->local_cnxid.id, path_x->local_cnxid.id_len);
 
@@ -1821,12 +1823,12 @@ bool is_private(in_addr_t t) {
 }
 */
 
-int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_length)
+int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sas_length)
 {
     int family;
     struct ifaddrs *ifaddr, *ifa;
     int count = 0;
-    struct sockaddr_in *start_ptr = sas;
+    struct sockaddr_storage *start_ptr = sas;
     unsigned int if_index;
 
     if (getifaddrs(&ifaddr) == -1) {
@@ -1849,19 +1851,28 @@ int picoquic_getaddrs_v4(struct sockaddr_in *sas, uint32_t *if_indexes, int sas_
         /* What if an interface has no IP address? */
         if (ifa->ifa_addr) {
             family = ifa->ifa_addr->sa_family;
-            if (family == AF_INET) {
-                struct sockaddr_in *sai = (struct sockaddr_in *) ifa->ifa_addr;
-                if (remove_10) {
-                    in_addr_t a = sai->sin_addr.s_addr & (in_addr_t) 0xff;
-                    if (a == (in_addr_t) 0x0a) {
+            if (family == AF_INET || family == AF_INET6) {
+                struct sockaddr_storage *sai = (struct sockaddr_storage *) ifa->ifa_addr;
+                if (family == AF_INET) {
+                    struct sockaddr_in *sai4 = (struct sockaddr_in *) ifa->ifa_addr;
+                    in_addr_t a = sai4->sin_addr.s_addr & (in_addr_t) 0xff;
+                    if ((remove_10 && a == (in_addr_t) 0x0a) || a == (in_addr_t) 0x2a) {
                         /* Don't consider this address */
                         continue;
                     }
+                } else if (family == AF_INET6) {
+                    struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) ifa->ifa_addr;
+                    if (sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x80fe ||
+                        sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x42fd) {
+                        continue;
+                    }
                 }
+
                 if (count < sas_length) {
                     if_index = if_nametoindex(ifa->ifa_name);
                     memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));
-                    memcpy(&start_ptr[count++], sai, sizeof(struct sockaddr_in));
+                    size_t sockaddr_size = family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+                    memcpy(&start_ptr[count++], sai, sockaddr_size);
                 }
             }
         }   
@@ -2111,7 +2122,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         POP_LOG_CTX(cnx);
         return 0;
     }
-    {
+    LOG {
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < nb_frames; i++) {
@@ -2141,7 +2152,7 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
     }
     *nb_frames = block->nb_frames;
     reserve_frame_slot_t *slots = block->frames;
-    {
+    LOG {
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < *nb_frames; i++) {

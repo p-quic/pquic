@@ -119,10 +119,11 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
                 }
 
                 *pprevious = stream_data;
+                stream->sending_offset += length;
             }
         }
 
-        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %lu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
+        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %lu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d, \"queued_size\": %lu}", stream, stream->stream_id, data, length, set_fin, stream->sending_offset - stream->sent_offset);
 
         picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
     }
@@ -464,7 +465,7 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     /* Using encryption, the "payload" length also includes the encrypted packet length */
     picoquic_update_payload_length(send_buffer, pn_offset, h_length - pn_length, length + aead_checksum_length);
 
-    {
+    LOG {
         picoquic_connection_id_t dest_cnx_id = *(picoquic_get_destination_connection_id(cnx, ptype, path_x));
         char dest_id_str[(dest_cnx_id.id_len) + 1];
         snprintf_bytes(dest_id_str, (dest_cnx_id.id_len * 2) + 1, dest_cnx_id.id, dest_cnx_id.id_len);
@@ -473,7 +474,7 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
 
         if (ptype == picoquic_packet_1rtt_protected_phi0 || ptype == picoquic_packet_1rtt_protected_phi1) {
             LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_CREATED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ptype), dest_id_str, sequence_number, payload_length);
-        } else {
+        } else LOG {
             char srce_id_str[(path_x->local_cnxid.id_len) + 1];
             snprintf_bytes(srce_id_str, (path_x->local_cnxid.id_len * 2) + 1, path_x->local_cnxid.id, path_x->local_cnxid.id_len);
 
@@ -1838,7 +1839,7 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
             }
         }
         /* Encode the stream frame */
-        if (stream != NULL) {
+        while ((stream = picoquic_schedule_next_stream(cnx, send_buffer_max - checksum_overhead - length, path_x)) != NULL) {
             ret = picoquic_prepare_stream_frame(cnx, stream, &bytes[length],
                 send_buffer_max - checksum_overhead - length, &data_bytes);
             if (ret == 0) {
@@ -2671,7 +2672,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             }
             /* Update queued bytes counter */
             queued_bytes += block->total_bytes;
-            {
+            LOG {
                 char ftypes_str[250];
                 size_t ftypes_ofs = 0;
                 for (int i = 0; i < block->nb_frames; i++) {
@@ -2700,7 +2701,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             }
             /* Update queued bytes counter */
             queued_bytes += block->total_bytes;
-            {
+            LOG {
                 char ftypes_str[250];
                 size_t ftypes_ofs = 0;
                 for (int i = 0; i < block->nb_frames; i++) {
@@ -2764,6 +2765,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     /* First enqueue frames that can be fairly sent, if any */
     /* Only schedule new frames if there is no planned frames */
     if (queue_peek(cnx->reserved_frames) == NULL) {
+        stream = picoquic_schedule_next_stream(cnx, send_buffer_min_max - checksum_overhead - length, path_x);
         picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
     }
 
@@ -2935,9 +2937,11 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             }
                         }
 
+                        size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                        stream = picoquic_schedule_next_stream(cnx, stream_bytes_max, path_x);
+
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
-                            size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
                             ret = picoquic_prepare_stream_frame(cnx, stream, &bytes[length],
                                                                 stream_bytes_max, &data_bytes);
                             if (ret == 0) {
@@ -2949,13 +2953,12 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 }
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {
-                                    stream = picoquic_find_ready_stream(cnx);
-                                }
-                                else {
+                                    stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                                    stream = picoquic_schedule_next_stream(cnx, stream_bytes_max, path_x);
+                                } else {
                                     break;
                                 }
-                            }
-                            else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                            } else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
                                 ret = 0;
                                 break;
                             }

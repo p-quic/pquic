@@ -170,6 +170,8 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return (protoop_arg_t) cnx->first_misc_frame;
     case AK_CNX_RETRY_FRAMES:
         return (protoop_arg_t) cnx->retry_frames;
+    case AK_CNX_FIRST_STREAM:
+        return (protoop_arg_t) cnx->first_stream;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -641,6 +643,8 @@ protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
         return (protoop_arg_t) pkt_ctx->retransmitted_oldest;
     case AK_PKTCTX_ACK_NEEDED:
         return pkt_ctx->ack_needed;
+    case AK_PKTCTX_LATEST_PROGRESS_TIME:
+        return pkt_ctx->latest_progress_time;
     default:
         printf("ERROR: unknown pkt ctx access key %u\n", ak);
         return 0;
@@ -877,7 +881,19 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
     case AK_STREAMHEAD_SEND_QUEUE:
         return (protoop_arg_t) stream_head->send_queue;
     case AK_STREAMHEAD_CONSUMED_OFFSET:
-        return stream_head->consumed_offset; 
+        return stream_head->consumed_offset;
+    case AK_STREAMHEAD_NEXT_STREAM:
+        return (protoop_arg_t) stream_head->next_stream;
+    case AK_STREAMHEAD_STREAM_ID:
+        return stream_head->stream_id;
+    case AK_STREAMHEAD_MAX_DATA_REMOTE:
+        return stream_head->maxdata_remote;
+    case AK_STREAMHEAD_SENT_OFFSET:
+        return stream_head->sent_offset;
+    case AK_STREAMHEAD_STREAM_FLAGS:
+        return stream_head->stream_flags;
+    case AK_STREAMHEAD_SENDING_OFFSET:
+        return stream_head->sending_offset;
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);
         return 0;
@@ -896,6 +912,19 @@ void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);
         break;
+    }
+}
+
+protoop_arg_t get_stream_data(picoquic_stream_data *stream_data, access_key_t ak)
+{
+    switch(ak) {
+        case AK_STREAMDATA_LENGTH:
+            return stream_data->length;
+        case AK_STREAMDATA_OFFSET:
+            return stream_data->offset;
+        default:
+            printf("ERROR: unknown stream head access key %u\n", ak);
+            return 0;
     }
 }
 

@@ -45,9 +45,42 @@
 #define PROTOOP_PRINTF(cnx, fmt, ...)
 #endif
 
+#define PSTREAM_RESET_SENT(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_reset_sent) != 0)
+#define PSTREAM_RESET_REQUESTED(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_reset_requested) != 0)
+#define PSTREAM_RESET_RCVD(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_reset_received) != 0)
+#define PSTREAM_SEND_RESET(stream) (PSTREAM_RESET_REQUESTED(stream) && !PSTREAM_RESET_SENT(stream))
+#define PSTREAM_STOP_SENDING_REQUESTED(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_stop_sending_requested) != 0)
+#define PSTREAM_STOP_SENDING_SENT(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_stop_sending_sent) != 0)
+#define PSTREAM_STOP_SENDING_RECEIVED(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_stop_sending_received) != 0)
+#define PSTREAM_SEND_STOP_SENDING(stream) (PSTREAM_STOP_SENDING_REQUESTED(stream) && !PSTREAM_STOP_SENDING_SENT(stream))
+#define PSTREAM_FIN_NOTIFIED(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_fin_notified) != 0)
+#define PSTREAM_FIN_SENT(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_fin_sent) != 0)
+#define PSTREAM_FIN_RCVD(stream) ((get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_fin_received) != 0)
+#define PSTREAM_SEND_FIN(stream) (PSTREAM_FIN_NOTIFIED(stream) && !PSTREAM_FIN_SENT(stream))
+#define PSTREAM_CLOSED(stream) ((PSTREAM_FIN_SENT(stream) || (get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_reset_received) != 0) && (PSTREAM_RESET_SENT(stream)) || (get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_fin_received) != 0)
+
 #define PROTOOP_SNPRINTF(cnx, buf, buf_len, fmt, ...)   helper_protoop_snprintf(cnx, buf, buf_len, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
-#ifndef LOG_EVENT
+
+#ifndef DISABLE_QLOG
+#define LOG
 #define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)   helper_log_event(cnx, (char *[]){cat, ev_type, trig, data_fmt}, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#define PUSH_LOG_CTX(cnx, fmt, ...) helper_push_log_context(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#define POP_LOG_CTX(cnx)    run_noparam(cnx, PROTOOPID_NOPARAM_POP_LOG_CONTEXT, 0, NULL, NULL)
+#else
+#define LOG if (0)
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)
+#define PUSH_LOG_CTX(cnx, fmt, ...)
+#define POP_LOG_CTX(cnx)
+#endif
+
+void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
+
+#ifdef PLUGIN_MEMORY_DBG
+#define my_malloc(cnx,size) my_malloc_dbg(cnx,size,__FILE__,__LINE__)
+#define my_free(cnx,ptr) my_free_dbg(cnx,ptr,__FILE__,__LINE__)
+#else
+#define my_malloc(cnx,size) my_malloc(cnx,size)
+#define my_free(cnx,ptr) my_free(cnx,ptr)
 #endif
 
 static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
@@ -106,6 +139,15 @@ static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx,
     pargs[3] = (protoop_arg_t) NULL;
     pargs[4] = (protoop_arg_t) data;
     run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 5, pargs, NULL);
+    my_free(cnx, (void *) data);
+}
+
+static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_t *cnx, char *fmt, protoop_arg_t *fmt_args, size_t args_len) {
+    char *data = my_malloc(cnx, 256);
+    helper_protoop_snprintf(cnx, data, 256, fmt, fmt_args, args_len);
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) data;
+    run_noparam(cnx, PROTOOPID_NOPARAM_PUSH_LOG_CONTEXT, 1, args, NULL);
     my_free(cnx, (void *) data);
 }
 
@@ -242,6 +284,14 @@ static int helper_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes
 static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
 {
     return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
+}
+
+static picoquic_stream_head *helper_schedule_next_stream(picoquic_cnx_t *cnx, size_t max_size, picoquic_path_t *path)
+{
+    protoop_arg_t args[2];
+    args[0] = (protoop_arg_t) max_size;
+    args[1] = (protoop_arg_t) path;
+    return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULE_NEXT_STREAM, 2, args, NULL);
 }
 
 static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc,

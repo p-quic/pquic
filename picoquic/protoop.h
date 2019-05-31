@@ -230,6 +230,16 @@ extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ACK_OF_STREAM_FRAME;
 extern protoop_id_t PROTOOP_NOPARAM_FIND_READY_STREAM;
 
 /**
+ * Get the next stream to send given the buffer size left.
+ * The stream returned will effectively be used to fill a packet.
+ * \param[in] bytes_max \b size_t The buffer size made available to the stream
+ *
+ * \return \b picoquic_stream_head* Pointer to a stream to sent
+ */
+#define PROTOOPID_NOPARAM_SCHEDULE_NEXT_STREAM "schedule_next_stream"
+extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM;
+
+/**
  * Check if it is needed to send back an ACK frame for the given path \p path_x
  * \param[in] current_time \b uint64_t The current time
  * \param[in] pc \b picoquic_packet_context_enum The packet context that would be acked
@@ -623,6 +633,7 @@ extern protoop_id_t PROTOOP_NOPARAM_AFTER_DECODING_FRAMES;
 /**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
+ * \param[in] TODO: What is this param?
  * \param[in] length \b uint32_t The size of the packet
  * \param[in] header_length \b uint32_t The size of the header of the packet
  * \param[in] checksum_overhead \b uint32_t The length of the checksum

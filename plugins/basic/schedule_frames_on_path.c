@@ -42,6 +42,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
     queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
     if (queue_peek(reserved_frames) == NULL) {
+        stream = helper_schedule_next_stream_stream(cnx, send_buffer_min_max - checksum_overhead - length);
         picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
     }
 
@@ -229,11 +230,13 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                             }
                         }
+                        size_t stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                        stream = helper_schedule_next_stream(cnx, stream_bytes_max);
+
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
-                            size_t stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
                             ret = helper_prepare_stream_frame(cnx, stream, &bytes[length],
-                                                                stream_bytes_max, &data_bytes);
+                                                              stream_bytes_max, &data_bytes);
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
                                 if (data_bytes > 0)
@@ -243,13 +246,12 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 }
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {
-                                    stream = helper_find_ready_stream(cnx);
-                                }
-                                else {
+                                    stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                                    stream = helper_schedule_next_stream(cnx, stream_bytes_max);
+                                } else {
                                     break;
                                 }
-                            }
-                            else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                            } else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
                                 ret = 0;
                                 break;
                             }

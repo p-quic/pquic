@@ -50,11 +50,12 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x0e, "set_cnxid", set_cnxid);
     ubpf_register(vm, 0x0f, "get_stream_head", get_stream_head);
     ubpf_register(vm, 0x10, "set_stream_head", set_stream_head);
-    ubpf_register(vm, 0x11, "get_crypto_context", get_crypto_context);
-    ubpf_register(vm, 0x12, "set_crypto_context", set_crypto_context);
-    ubpf_register(vm, 0x13, "get_ph", get_ph);
-    ubpf_register(vm, 0x14, "set_ph", set_ph);
-    ubpf_register(vm, 0x15, "cancel_head_reservation", cancel_head_reservation);
+    ubpf_register(vm, 0x11, "get_stream_data", get_stream_data);
+    ubpf_register(vm, 0x12, "get_crypto_context", get_crypto_context);
+    ubpf_register(vm, 0x13, "set_crypto_context", set_crypto_context);
+    ubpf_register(vm, 0x14, "get_ph", get_ph);
+    ubpf_register(vm, 0x15, "set_ph", set_ph);
+    ubpf_register(vm, 0x16, "cancel_head_reservation", cancel_head_reservation);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
     ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);
@@ -77,12 +78,13 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x26, "socketpair", socketpair);
     ubpf_register(vm, 0x27, "write", write);
     ubpf_register(vm, 0x28, "close", close);
+    ubpf_register(vm, 0x29, "get_errno", get_errno);
 
     ubpf_register(vm, 0x2a, "my_htons", my_htons);
     ubpf_register(vm, 0x2b, "my_ntohs", my_ntohs);
 
     ubpf_register(vm, 0x2c, "strncmp", strncmp);
-    ubpf_register(vm, 0x2d, "strcmp", strcmp);
+    ubpf_register(vm, 0x2d, "strlen", strlen);
 
     // logging func
 
@@ -96,9 +98,9 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x33, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, 0x34, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
     ubpf_register(vm, 0x35, "picoquic_create_path", picoquic_create_path);
-    ubpf_register(vm, 0x36, "picoquic_getaddrs_v4", picoquic_getaddrs_v4);
+    ubpf_register(vm, 0x36, "picoquic_getaddrs", picoquic_getaddrs);
     ubpf_register(vm, 0x37, "picoquic_compare_connection_id", picoquic_compare_connection_id);
-    ubpf_register(vm, 0x38, "picoquic_create_path", picoquic_create_path);
+
     ubpf_register(vm, 0x39, "picoquic_compare_addr", picoquic_compare_addr);
     ubpf_register(vm, 0x3a, "picoquic_parse_stream_header", picoquic_parse_stream_header);
     ubpf_register(vm, 0x3b, "picoquic_find_stream", picoquic_find_stream);
@@ -112,6 +114,13 @@ register_functions(struct ubpf_vm *vm) {
     /* FIXME remove this function */
     ubpf_register(vm, 0x41, "picoquic_frame_fair_reserve", picoquic_frame_fair_reserve);
 
+    ubpf_register(vm, 0x50, "inet_ntop", inet_ntop);
+    ubpf_register(vm, 0x51, "strerror", strerror);
+    ubpf_register(vm, 0x52, "memcmp", memcmp);
+    ubpf_register(vm, 0x53, "my_malloc_dbg", my_malloc_dbg);
+    ubpf_register(vm, 0x54, "my_malloc_ex", my_malloc);
+    ubpf_register(vm, 0x55, "my_free_dbg", my_free_dbg);
+
     ubpf_register(vm, 0x60, "dprintf", dprintf);
     ubpf_register(vm, 0x61, "snprintf", snprintf);
     ubpf_register(vm, 0x62, "lseek", lseek);
@@ -120,6 +129,8 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x65, "snprintf_bytes", snprintf_bytes);
     ubpf_register(vm, 0x66, "strncpy", strncpy);
     ubpf_register(vm, 0x67, "inet_ntop", inet_ntop);
+
+    ubpf_register(vm, 0x70, "strcmp", strncmp);
 }
 
 static void *readfile(const char *path, size_t maxlen, size_t *len)

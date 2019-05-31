@@ -1,7 +1,3 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
-#include "memory.h"
 #include "bpf.h"
 
 static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context_enum pc,
@@ -31,13 +27,13 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
 
     int path_index = 0;
     if (ret == 0 && path_id != 0) {
-        path_index = mp_get_path_index(bpfd, path_id, NULL);
+        path_index = mp_get_path_index(cnx, bpfd, path_id, NULL);
     }
 
     if (path_index < 0) {
         ret = -1;
     } else if (path_id != 0) {
-        path_x = bpfd->paths[path_index].path;
+        path_x = bpfd->paths[path_index]->path;
     }
 
     /* Find the oldest ACK range, in order to calibrate the

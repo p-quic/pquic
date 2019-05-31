@@ -1,0 +1,2 @@
+be.mpiraux.stream_scheduling.rr
+schedule_next_stream replace stream_scheduling_rr.o

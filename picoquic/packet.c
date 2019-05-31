@@ -429,16 +429,18 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
         (already_received==NULL)?path_from->pkt_ctx[ph->pc].send_sequence:
         path_from->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
 
-    char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
-    snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
-    if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
-        LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
-    } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
-        char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
-        snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
-        LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
-    } else {
-        // TODO: vneg
+    LOG {
+        char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
+        snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
+        if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
+            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
+        } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
+            char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
+            snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
+            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
+        } else {
+            // TODO: vneg
+        }
     }
 
 
@@ -1188,7 +1190,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
             /* Compare the packet address to the current path value */
             if (picoquic_compare_addr((struct sockaddr *)&path_x->peer_addr,
                 (struct sockaddr *)addr_from) != 0 &&
-                ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
+                (((addr_from->sa_family != AF_INET) || ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0))) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
             {
                 uint8_t buffer[16];
                 size_t challenge_length;
@@ -1261,7 +1263,7 @@ int picoquic_incoming_segment(
     /* Parse the header and decrypt the packet */
     ret = picoquic_parse_header_and_decrypt(quic, bytes, length, packet_length, addr_from,
         current_time, &ph, &cnx, consumed, &new_context_created);
-    if (cnx != NULL) {
+    if (cnx != NULL) LOG {
         PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
     }
 
@@ -1300,7 +1302,7 @@ int picoquic_incoming_segment(
             picoquic_received_packet(cnx, quic->rcv_socket);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
             picoquic_received_segment(cnx, &ph, path, *consumed);
-            if (cnx != NULL) {
+            if (cnx != NULL) LOG {
                 PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
             }
 
@@ -1377,7 +1379,7 @@ int picoquic_incoming_segment(
                 ret = PICOQUIC_ERROR_DETECTED;
                 break;
             }
-            if (cnx != NULL) {
+            if (cnx != NULL) LOG {
                 POP_LOG_CTX(cnx);
             }
         }
@@ -1427,7 +1429,7 @@ int picoquic_incoming_segment(
         ret = -1;
     }
 
-    if (cnx != NULL) {
+    if (cnx != NULL) LOG {
         POP_LOG_CTX(cnx);
     }
     return ret;

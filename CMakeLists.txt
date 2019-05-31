@@ -2,7 +2,6 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 CMAKE_POLICY(SET CMP0003 NEW)
 
 PROJECT(picoquic)
-
 SET(CMAKE_C_STANDARD 11)
 
 # FIND_PACKAGE(PkgConfig REQUIRED)
@@ -12,8 +11,12 @@ SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}"
 SET(GCC_COVERAGE_LINK_FLAGS    "-Wl,--no-as-needed,-lprofiler,--as-needed")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
 
-if(${DISABLE_DEBUG_PRINTF})
+if($ENV{DISABLE_DEBUG_PRINTF})
     SET(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
+endif()
+
+if($ENV{DISABLE_QLOG})
+    SET(CMAKE_C_FLAGS "-DDISABLE_QLOG ${CMAKE_C_FLAGS}")
 endif()
 
 INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
@@ -100,6 +103,7 @@ SET(PLUGINS_COP2
 )
 
 SET(PLUGINS_MULTIPATH
+    plugins/multipath/connection_state_changed.c
     plugins/multipath/get_destination_connection_id.c
     plugins/multipath/get_incoming_path.c
     plugins/multipath/parse_add_address_frame.c
@@ -112,10 +116,24 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/set_next_wake_time.c
     plugins/multipath/write_add_address_frame.c
     plugins/multipath/write_mp_ack_frame.c
+    plugins/multipath/write_mp_new_connection_id_frame.c
     plugins/multipath/write_rtt_probe.c
+    plugins/multipath/path_schedulers/schedule_path_rr.c
+    plugins/multipath/path_schedulers/schedule_path_rtt.c
+    plugins/multipath/path_schedulers/schedule_frames.c
     plugins/multipath/qlog/mp_ack_frame_parsed.c
     plugins/multipath/qlog/mp_new_connection_id_frame_parsed.c
     plugins/multipath/qlog/add_address_parsed.c
+    plugins/multipath/qlog/path_update_parsed.c
+    plugins/multipath/path_manager.c
+    plugins/multipath/notify_path_update.c
+    plugins/multipath/parse_path_update.c
+    plugins/multipath/process_path_update.c
+    plugins/multipath/write_path_update.c
+)
+
+SET(PLUGINS_STREAM_SCHEDULER
+    plugins/stream_scheduling_rr/stream_scheduling_rr.c
 )
 
 SET(PLUGINS_QLOG
@@ -144,9 +162,11 @@ SET(PLUGINS_QLOG
     plugins/qlog/sender/retransmit_needed_by_packet.c
     plugins/qlog/sender/retransmit_needed.c
     plugins/qlog/sender/congestion_algorithm_notified.c
+    plugins/qlog/sender/ready_stream.c
+    plugins/qlog/sender/next_stream_scheduled.c
     plugins/qlog/push_log_context.c
     plugins/qlog/pop_log_context.c
-)
+        plugins/qlog/sender/next_wake_time.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
@@ -182,6 +202,9 @@ if($ENV{COMPILE_CLION})
     )
     ADD_LIBRARY(plugins-datagram
         ${PLUGINS_DATAGRAM}
+    )
+    ADD_LIBRARY(plugins-stream-scheduler
+        ${PLUGINS_STREAM_SCHEDULER}
     )
     ADD_LIBRARY(plugins-qlog
         ${PLUGINS_QLOG}

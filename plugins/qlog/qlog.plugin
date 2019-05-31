@@ -24,3 +24,6 @@ is_ack_needed post frames/is_ack_needed.o
 retransmit_needed_by_packet post sender/retransmit_needed_by_packet.o
 retransmit_needed post sender/retransmit_needed.o
 congestion_algorithm_notify post sender/congestion_algorithm_notified.o
+schedule_next_stream post sender/next_stream_scheduled.o
+find_ready_stream post sender/ready_stream.o
+set_next_wake_time post sender/next_wake_time.o

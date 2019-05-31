@@ -1,8 +1,4 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
-#include "memory.h"
 
 protoop_arg_t parse_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 {

@@ -1,8 +1,12 @@
 SRC=$(shell find -name "*.c")
 OBJ=$(SRC:.c=.o)
-CFLAGS=-I../../picoquic -DPACING -DDISABLE_PROTOOP_PRINTF
+CFLAGS=-I../../picoquic -DPACING -DDISABLE_PROTOOP_PRINTF -DDISABLE_QLOG
+SUBDIRS=path_schedulers
 
-all: $(SRC) $(OBJ)
+all: $(SRC) $(OBJ) $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -C $@
 
 $(OBJ): %.o
 
@@ -12,4 +16,4 @@ $(OBJ): %.o
 clean:
 	rm -rf *.o
 
-.PHONY: %.o
+.PHONY: %.o $(SUBDIRS)

@@ -856,32 +856,32 @@ uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const
 /**
  * See PROTOOP_NOPARAM_FIND_READY_STREAM
  */
-protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx)
-{
-    picoquic_stream_head* stream = cnx->first_stream;
+protoop_arg_t find_ready_stream(picoquic_cnx_t *cnx) {
+    picoquic_stream_head *stream = cnx->first_stream;
 
     if (cnx->maxdata_remote > cnx->data_sent) {
         while (stream) {
             if ((stream->send_queue != NULL && stream->send_queue->length > stream->send_queue->offset &&
-                  stream->sent_offset < stream->maxdata_remote) ||
-                 (STREAM_SEND_FIN(stream) && (stream->sent_offset < stream->maxdata_remote)) ||
-                STREAM_SEND_RESET(stream) || STREAM_SEND_STOP_SENDING(stream)) {
+                 stream->sent_offset < stream->maxdata_remote) ||
+                (STREAM_SEND_FIN(stream) && (stream->sent_offset < stream->maxdata_remote) && !STREAM_FIN_SENT(stream)) ||
+                (STREAM_SEND_RESET(stream) && !STREAM_RESET_SENT(stream)) ||
+                (STREAM_SEND_STOP_SENDING(stream) && !STREAM_STOP_SENDING_SENT(stream) && !STREAM_FIN_RCVD(stream) && !STREAM_RESET_RCVD(stream)))
+            {
                 /* if the stream is not active yet, verify that it fits under
                  * the max stream id limit */
-                 /* Check parity */
+                /* Check parity */
                 if (IS_CLIENT_STREAM_ID(stream->stream_id) == cnx->client_mode) {
                     if (stream->stream_id <= cnx->max_stream_id_bidir_remote) {
                         break;
                     }
-                }
-                else {
+                } else {
                     break;
                 }
             }
 
             stream = stream->next_stream;
 
-        } ;
+        }
     } else {
         if ((stream->send_queue == NULL ||
              stream->send_queue->length <= stream->send_queue->offset) &&
@@ -899,6 +899,11 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
 {
     protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_FIND_READY_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
     return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
+}
+
+picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t max_size, picoquic_path_t *path)
+{
+    return (picoquic_stream_head *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, NULL, max_size, path);
 }
 
 protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
@@ -973,10 +978,10 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
             /* Compute the length */
             size_t space = bytes_max - byte_index;
 
-            if (space < 2 || stream->send_queue == NULL) {
+            if (space < 2 || (stream->send_queue == NULL && !STREAM_SEND_FIN(stream))) {
                 length = 0;
             } else {
-                size_t available = (size_t)(stream->send_queue->length - stream->send_queue->offset);
+                size_t available = stream->send_queue ? (size_t)(stream->send_queue->length - stream->send_queue->offset) : 0;
 
                 length = available;
 
@@ -1031,7 +1036,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                     stream->send_queue = next;
                 }
 
-                LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %lu, \"offset\": %lu, \"length\": %lu, \"fin\": %d}", bytes, stream->stream_id, stream->sent_offset, length, STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0);
+                LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %lu, \"offset\": %lu, \"length\": %lu, \"fin\": %d, \"queued_size\": %lu}", bytes, stream->stream_id, stream->sent_offset, length, STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0, stream->sending_offset - stream->sent_offset);
 
                 stream->sent_offset += length;
                 /* The client does not handle this correctly, so fix this at client side... */
@@ -1045,6 +1050,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                 /* Set the fin bit */
                 picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_sent);
                 bytes[0] |= 1;
+                consumed = byte_index;
             } else if (ret == 0 && length == 0) {
                 /* No point in sending a silly packet */
                 consumed = 0;
@@ -2339,7 +2345,7 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
 
             frame.ack_block_count = num_block;
 
-            {
+            LOG {
                 char ack_str[800];
                 size_t ack_ofs = 0;
                 uint64_t largest = frame.largest_acknowledged;
@@ -3439,6 +3445,7 @@ uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t*
 
         /* It is the responsibility of the caller to free frame */
         if (previous_plugin) {
+            //printf("MY FREE decode_frame = %p\n", frame);
             my_free_in_core(cnx->previous_plugin_in_replace, frame);
         } else {
             free(frame);
@@ -3590,6 +3597,7 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
         if (frame) {
             /* We don't need the frame data, so free it */
             if (cnx->previous_plugin_in_replace) {
+                //printf("MY FREE skip_frame = %p\n", frame);
                 my_free_in_core(cnx->previous_plugin_in_replace, frame);
             } else {
                 free(frame);
@@ -3716,6 +3724,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, &prepare_stream_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FIND_READY_STREAM, &find_ready_stream);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, &find_ready_stream);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_ACK_NEEDED, &is_ack_needed);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_TLS_STREAM_READY, &is_tls_stream_ready);
 

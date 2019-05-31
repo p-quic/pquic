@@ -10,17 +10,17 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
 
     switch (notification) {
         case picoquic_congestion_notification_spurious_repeat:
-            LOG_EVENT(cnx, "RECOVERY", "SPURIOUS_RETRANSMIT_DETECTED", "", "{}");
+            LOG_EVENT(cnx, "RECOVERY", "SPURIOUS_RETRANSMIT_DETECTED", "", "{\"cc_path\": \"%p\"}", (protoop_arg_t) path_x);
             break;
         case picoquic_congestion_notification_rtt_measurement:
-            LOG_EVENT(cnx, "RECOVERY", "RTT_ESTIMATE", "", "{\"rtt_estimate\": %lu, \"smoothed_rtt\": %lu}", rtt_measurement, get_path(path_x, AK_PATH_SMOOTHED_RTT, 0));
+            LOG_EVENT(cnx, "RECOVERY", "RTT_ESTIMATE", "", "{\"cc_path\": \"%p\", \"rtt_estimate\": %lu, \"smoothed_rtt\": %lu}", (protoop_arg_t) path_x, rtt_measurement, get_path(path_x, AK_PATH_SMOOTHED_RTT, 0));
             break;
         case picoquic_congestion_notification_acknowledgement:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "ACKNOWLEDGMENT", "{\"cwin\": %lu, \"bytes_acknowledged\": %lu}", get_path(path_x, AK_PATH_CWIN, 0), nb_bytes_acknowledged);
+            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "ACKNOWLEDGMENT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"bytes_acknowledged\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), nb_bytes_acknowledged);
         case picoquic_congestion_notification_repeat:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "REPEAT", "{\"cwin\": %lu, \"pn\": %lu}", get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
+            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "REPEAT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
         case picoquic_congestion_notification_timeout:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "TIMEOUT", "{\"cwin\": %lu, \"pn\": %lu}", get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
+            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "TIMEOUT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
             break;
         default:
             break;

@@ -684,7 +684,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
 #ifdef DBG_PLUGIN_PRINTF
     for (int i = 0; i < pp->inputc; i++) {
-        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, inputv[i]);
+        DBG_PLUGIN_PRINTF("Arg %d: 0x%lx", i, pp->inputv[i]);
     }
 #endif
 
@@ -693,7 +693,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     // memset(cnx->protoop_outputv, 0, sizeof(uint64_t) * PROTOOPARGS_MAX);
     cnx->protoop_outputc_callee = 0;
 
-    DBG_PLUGIN_PRINTF("Running operation with id 0x%x with %d inputs", pid, inputc);
+    DBG_PLUGIN_PRINTF("Running operation with id %s (param 0x%x) with %d inputs", pp->pid->id, pp->param, pp->inputc);
 
     /* Either we have a pluglet, and we run it, or we stick to the default ops behaviour */
     protoop_arg_t status;
@@ -787,14 +787,14 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     int outputc = cnx->protoop_outputc_callee;
 
-    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pid, status, outputc);
+    DBG_PLUGIN_PRINTF("Protocol operation with id 0x%x returns 0x%lx with %d additional outputs", pp->pid, status, outputc);
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
     if (pp->outputv) {
         memcpy(pp->outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
 #ifdef DBG_PLUGIN_PRINTF
         for (int i = 0; i < outputc; i++) {
-            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, outputv[i]);
+            DBG_PLUGIN_PRINTF("Out %d: 0x%lx", i, pp->outputv[i]);
         }
 #endif
     } else if (outputc > 0) {
@@ -833,4 +833,8 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char
     pid.hash = hash_value_str(pid.id);
     pp->pid = &pid;
     return plugin_run_protoop_internal(cnx, pp);
+}
+
+int get_errno() {
+    return errno;
 }

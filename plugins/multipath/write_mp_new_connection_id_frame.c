@@ -1,6 +1,3 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
 #include "tls_api.h"
 
@@ -30,14 +27,14 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* First find the corresponding path_id in the bpfd
          * Create it if it is not present yet.
          */
-        int path_index = mp_get_path_index(bpfd, mncic->path_id, &new_path_index);
+        int path_index = mp_get_path_index(cnx, bpfd, mncic->path_id, &new_path_index);
         if (path_index < 0) {
             /* Stop sending NEW_CONNECTION_ID frames */
             set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
             return 0;
         }
 
-        path_data_t *p = &bpfd->paths[path_index];
+        path_data_t *p = bpfd->paths[path_index];
 
         if (p->state > 0) {
             /* Don't complicate stuff now... */

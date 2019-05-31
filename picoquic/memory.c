@@ -54,6 +54,12 @@ void *my_malloc(picoquic_cnx_t *cnx, unsigned int size) {
 	return ret + 8;
 }
 
+void *my_malloc_dbg(picoquic_cnx_t *cnx, unsigned int size, char *file, int line) {
+    void *p = my_malloc(cnx, size);
+    printf("MY MALLOC %s:%d = %p\n", file, line, p);
+    return p;
+}
+
 void my_free_in_core(protoop_plugin_t *p, void *ptr) {
 	ptr -= 8;
 	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
@@ -91,7 +97,10 @@ void my_free(picoquic_cnx_t *cnx, void *ptr) {
 	}
 	my_free_in_core(p, ptr);
 }
-
+void my_free_dbg(picoquic_cnx_t *cnx, void *ptr, char *file, int line) {
+    printf("MY FREE %s:%d = %p\n", file, line, ptr);
+    my_free(cnx, ptr);
+}
 /**
  * Reallocate the allocated memory to change its size. Three cases are possible.
  * 1) Asking for lower or equal size, or larger size without any block after.

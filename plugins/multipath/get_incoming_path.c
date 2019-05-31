@@ -1,8 +1,4 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
-#include "memory.h"
 
 /**
  * See PROTOOP_NOPARAM_GET_INCOMING_PATH
@@ -29,8 +25,34 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
             if (picoquic_compare_connection_id(destination_cnxid, local_cnxid_x) == 0) {
                 path_from = path_i;
                 path_data_t *pd = mp_get_path_data(bpfd, path_i);
-                if (pd && pd->state == 1) {
-                    pd->state = 2;
+                if (pd && pd->state == path_ready) {
+                    pd->state = path_active;
+                    struct sockaddr_storage *peer_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_PEER_ADDR, 0);
+                    struct sockaddr_storage *loc_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_LOCAL_ADDR, 0);
+
+                    struct sockaddr_storage *paddr = (struct sockaddr_storage *) my_malloc(cnx, get_path(path_from, AK_PATH_PEER_ADDR_LEN, 0));
+                    struct sockaddr_storage *laddr = (struct sockaddr_storage *) my_malloc(cnx, get_path(path_from, AK_PATH_LOCAL_ADDR_LEN, 0));
+                    my_memcpy(paddr, peer_addr, get_path(path_from, AK_PATH_PEER_ADDR_LEN, 0));
+                    my_memcpy(laddr, loc_addr, get_path(path_from, AK_PATH_LOCAL_ADDR_LEN, 0));
+
+                    LOG {
+                        char from[48], to[48];
+                        LOG_EVENT(cnx, "MULTIPATH", "PATH_ACTIVATED", "",
+                                  "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
+                                  pd->path_id, (protoop_arg_t) pd->path,
+                                  (protoop_arg_t) inet_ntop(laddr->ss_family, (laddr->ss_family == AF_INET)
+                                                                                ? (void *) &(((struct sockaddr_in *) &laddr)->sin_addr)
+                                                                                : (void *) &(((struct sockaddr_in6 *) &laddr)->sin6_addr),
+                                                            from, sizeof(from)),
+                                  (protoop_arg_t) inet_ntop(paddr->ss_family, (paddr->ss_family == AF_INET)
+                                                                                ? (void *) &(((struct sockaddr_in *) &paddr)->sin_addr)
+                                                                                : (void *) &(((struct sockaddr_in6 *) &paddr)->sin6_addr),
+                                                            to, sizeof(to))
+                        );
+                    }
+
+                    my_free(cnx, paddr);
+                    my_free(cnx, laddr);
                 }
                 
                 break;

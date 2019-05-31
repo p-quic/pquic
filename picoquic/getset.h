@@ -154,6 +154,16 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
 void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Get a specific field belonging to the stream_data \p stream_data
+ *
+ * \param stream_data The stream data pointer
+ * \param ak The key of the field to get
+ *
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_stream_data(picoquic_stream_data *stream_data, access_key_t ak);
+
+/**
  * Get a specific field belonging to the crypto context \p crypto_context
  * 
  * \param crypto_context The crypto context pointer
@@ -334,6 +344,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_RETRY_FRAMES 0x36
 /** The first misc frame to be sent */
 #define AK_CNX_FIRST_MISC_FRAME 0x37
+/** The first stream in the queue */
+#define AK_CNX_FIRST_STREAM 0x38
 
 /**
  * @}
@@ -458,6 +470,8 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_PKTCTX_ACK_NEEDED 0x0e
 /** The latest congestion notification time */
 #define AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME 0x0f
+/** The latest time at which progress was observed (e.g. an ack was received) */
+#define AK_PKTCTX_LATEST_PROGRESS_TIME 0x10
 
 /**
  * @}
@@ -548,6 +562,31 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_STREAMHEAD_SEND_QUEUE 0x00
 /** The offset of consumed data */
 #define AK_STREAMHEAD_CONSUMED_OFFSET 0x01
+/** The next stream */
+#define AK_STREAMHEAD_NEXT_STREAM 0x02
+/** The stream ID*/
+#define AK_STREAMHEAD_STREAM_ID 0x03
+/** The maximum offset allowed by the peer */
+#define AK_STREAMHEAD_MAX_DATA_REMOTE 0x04
+/** The maximum offset sent on the stream */
+#define AK_STREAMHEAD_SENT_OFFSET 0x05
+/** The stream flags */
+#define AK_STREAMHEAD_STREAM_FLAGS 0x06
+/** The offset at which new app data will be queued for sending */
+#define AK_STREAMHEAD_SENDING_OFFSET 0x07
+
+/**
+ * @}
+ *
+ * @defgroup GETSET_STREAM_DATA_AK Stream data Access Keys
+ *
+ * \brief Those access keys are dedicated to the \p get_stream_data call.
+ *
+ * @{
+ */
+
+#define AK_STREAMDATA_LENGTH 0x00
+#define AK_STREAMDATA_OFFSET 0x01
 
 /**
  * @}
