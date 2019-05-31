@@ -901,6 +901,11 @@ picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx)
     return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
 }
 
+picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t max_size, picoquic_path_t *path)
+{
+    return (picoquic_stream_head *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, NULL, max_size, path);
+}
+
 protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
     size_t bytes_max = (size_t) cnx->protoop_inputv[0];
     protoop_save_outputs(cnx, bytes_max);
@@ -3719,6 +3724,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, &prepare_stream_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FIND_READY_STREAM, &find_ready_stream);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, &find_ready_stream);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_ACK_NEEDED, &is_ack_needed);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_TLS_STREAM_READY, &is_tls_stream_ready);
 

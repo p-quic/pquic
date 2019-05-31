@@ -286,6 +286,14 @@ static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
     return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
+static picoquic_stream_head *helper_schedule_next_stream(picoquic_cnx_t *cnx, size_t max_size, picoquic_path_t *path)
+{
+    protoop_arg_t args[2];
+    args[0] = (protoop_arg_t) max_size;
+    args[1] = (protoop_arg_t) path;
+    return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULE_NEXT_STREAM, 2, args, NULL);
+}
+
 static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc,
     picoquic_path_t* path_x)
 {

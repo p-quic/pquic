@@ -1007,6 +1007,7 @@ int picoquic_process_ack_of_ack_frame(
 picoquic_stream_head* picoquic_create_stream(picoquic_cnx_t* cnx, uint64_t stream_id);
 void picoquic_update_stream_initial_remote(picoquic_cnx_t* cnx);
 picoquic_stream_head* picoquic_find_ready_stream(picoquic_cnx_t* cnx);
+picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t max_size, picoquic_path_t *path);
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags);
 int picoquic_is_tls_stream_ready(picoquic_cnx_t* cnx);
 uint8_t* picoquic_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time, picoquic_path_t* path_x);

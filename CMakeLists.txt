@@ -103,6 +103,7 @@ SET(PLUGINS_COP2
 )
 
 SET(PLUGINS_MULTIPATH
+    plugins/multipath/connection_state_changed.c
     plugins/multipath/get_destination_connection_id.c
     plugins/multipath/get_incoming_path.c
     plugins/multipath/parse_add_address_frame.c
@@ -115,9 +116,20 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/set_next_wake_time.c
     plugins/multipath/write_add_address_frame.c
     plugins/multipath/write_mp_ack_frame.c
+    plugins/multipath/write_mp_new_connection_id_frame.c
     plugins/multipath/write_rtt_probe.c
-    plugins/multipath/select_sending_path_rtt.c
-    plugins/multipath/select_sending_path_rr.c
+    plugins/multipath/path_schedulers/schedule_path_rr.c
+    plugins/multipath/path_schedulers/schedule_path_rtt.c
+    plugins/multipath/path_schedulers/schedule_frames.c
+    plugins/multipath/qlog/mp_ack_frame_parsed.c
+    plugins/multipath/qlog/mp_new_connection_id_frame_parsed.c
+    plugins/multipath/qlog/add_address_parsed.c
+    plugins/multipath/qlog/path_update_parsed.c
+    plugins/multipath/path_manager.c
+    plugins/multipath/notify_path_update.c
+    plugins/multipath/parse_path_update.c
+    plugins/multipath/process_path_update.c
+    plugins/multipath/write_path_update.c
 )
 
 SET(PLUGINS_STREAM_SCHEDULER

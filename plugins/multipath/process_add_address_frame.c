@@ -1,8 +1,4 @@
-#include "picoquic.h"
-#include "plugin.h"
-#include "../helpers.h"
 #include "bpf.h"
-#include "memory.h"
 
 
 /**
@@ -10,7 +6,7 @@
  */
 protoop_arg_t process_add_address_frame(picoquic_cnx_t *cnx)
 { 
-    add_address_frame_t *frame = (add_address_frame_t *) get_cnx(cnx, CNX_AK_INPUT, 0);
+    add_address_frame_t *frame = (add_address_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
 
     int addr_index = 0;
@@ -26,7 +22,7 @@ protoop_arg_t process_add_address_frame(picoquic_cnx_t *cnx)
     bpfd->rem_addrs[addr_index].id = frame->address_id;
     if (frame->ip_vers == 4) {
         bpfd->rem_addrs[addr_index].is_v6 = false;
-        struct sockaddr_in *sai = (struct sockaddr_in *) my_malloc(cnx, sizeof(struct sockaddr_in));
+        struct sockaddr_in *sai = (struct sockaddr_in *) my_malloc_ex(cnx, sizeof(struct sockaddr_in));
         if (!sai) {
             return 1;
         }
@@ -34,7 +30,7 @@ protoop_arg_t process_add_address_frame(picoquic_cnx_t *cnx)
         bpfd->rem_addrs[addr_index].sa = (struct sockaddr *) sai;
     } else { /* v6 */
         bpfd->rem_addrs[addr_index].is_v6 = true;
-        struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) my_malloc(cnx, sizeof(struct sockaddr_in6));
+        struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) my_malloc_ex(cnx, sizeof(struct sockaddr_in6));
         if (!sai6) {
             return 1;
         }
