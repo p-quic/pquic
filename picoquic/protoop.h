@@ -319,6 +319,19 @@ extern protoop_id_t PROTOOP_NOPARAM_CALLBACK_FUNCTION;
 extern protoop_id_t PROTOOP_NOPARAM_PRINTF;
 
 /**
+ * Print the formatted string \p fmt with the arguments \p fmt_args to the supplied buffer
+ * \param[in] buf <b> const char* </b> The output buffer
+ * \param[in] buf_len \b size_t The output buffer length
+ * \param[in] fmt <b> const char* </b> The formatting string
+ * \param[in] fmt_args <b> const protoop_arg_t* </b> Array of values to format
+ * \param[in] args_len \b size_t Number of values in \p fmt_args
+ *
+ * \warning Only up to 10 arguments can be printed in one single call
+ */
+#define PROTOOPID_NOPARAM_SNPRINTF "snprintf"
+extern protoop_id_t PROTOOP_NOPARAM_SNPRINTF;
+
+/**
  * Trigger a connection error.
  * \param[in] local_error \b uint16_t QUIC error code
  * \param[in] frame_type \b uint64_t Type of the offending frame
@@ -723,6 +736,29 @@ extern protoop_id_t PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED;
  */
 #define PROTOOPID_NOPARAM_UPDATE_ACK_DELAY "update_ack_delay"
 extern protoop_id_t PROTOOP_NOPARAM_UPDATE_ACK_DELAY;
+
+/**
+ * Log an event in the qlog format
+ * \param[in] category \b char* The high-level category grouping the event
+ * \param[in] event_type \b char* The low-level type of the event
+ * \param[in] trigger \b char* The type of event that triggered the this event
+ * \param[in] data \b char* Associated data with the event
+ */
+#define PROTOOPID_NOPARAM_LOG_EVENT "log_event"
+extern protoop_id_t PROTOOP_NOPARAM_LOG_EVENT;
+
+/**
+ * Push context information to qlog
+ * \param[in] data \b char* Context data
+ */
+#define PROTOOPID_NOPARAM_PUSH_LOG_CONTEXT "push_log_context"
+extern protoop_id_t PROTOOP_NOPARAM_PUSH_LOG_CONTEXT;
+
+/**
+ * Pop context information to qlog
+ */
+#define PROTOOPID_NOPARAM_POP_LOG_CONTEXT "pop_log_context"
+extern protoop_id_t PROTOOP_NOPARAM_POP_LOG_CONTEXT;
 
 /* @} */
 

@@ -833,6 +833,15 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             /* Record the path */
             cnx->path[cnx->nb_paths] = path_x;
             ret = cnx->nb_paths++;
+
+            if (cnx->nb_paths > 1) LOG {
+                char local_id_str[(path_x->local_cnxid.id_len * 2) + 1];
+                snprintf_bytes(local_id_str, sizeof(local_id_str), path_x->local_cnxid.id, path_x->local_cnxid.id_len);
+
+                char peer_addr_str[250];
+                inet_ntop(path_x->peer_addr_len == sizeof(struct sockaddr_in) ? AF_INET : AF_INET6, path_x->peer_addr_len == sizeof(struct sockaddr_in) ? (void *) &((struct sockaddr_in *)&path_x->peer_addr)->sin_addr : (void *) &((struct sockaddr_in6 *)&path_x->peer_addr)->sin6_addr, peer_addr_str, sizeof(peer_addr_str));
+                LOG_EVENT(cnx, "CONNECTION", "PATH_CREATED", "", "{\"path\": \"%p\", \"peer_addr\": \"%s\", \"scid\": \"%s\"}", path_x, peer_addr_str, local_id_str);
+            }
         }
     }
 
@@ -1172,6 +1181,7 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
+        LOG_EVENT(cnx, "CONNECTION", "NEW_STATE", "", "{\"state\": \"%s\"}", picoquic_log_state_name(cnx->cnx_state));
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
     }
@@ -1465,6 +1475,8 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
     cnx->offending_frame_type = frame_type;
 
+    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %d, \"frame_type\": %lu}", local_error, frame_type);
+
     return (protoop_arg_t) PICOQUIC_ERROR_DETECTED;
 }
 
@@ -1701,6 +1713,13 @@ protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
     return 0;
 }
 
+
+void picoquic_congestion_algorithm_notify_func(picoquic_cnx_t *cnx, picoquic_path_t* path_x, picoquic_congestion_notification_t notification, uint64_t rtt_measurement,
+                                 uint64_t nb_bytes_acknowledged, uint64_t lost_packet_number, uint64_t current_time) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, NULL, path_x, notification, rtt_measurement, nb_bytes_acknowledged,
+            lost_packet_number, current_time);
+}
+
 /**
  * See PROTOOP_NOPARAM_CALLBACK_FUNCTION
  */
@@ -1888,6 +1907,31 @@ protoop_arg_t protoop_printf(picoquic_cnx_t *cnx)
     return 0;
 }
 
+protoop_arg_t protoop_snprintf(picoquic_cnx_t *cnx)
+{
+    char *buf = (char *) cnx->protoop_inputv[0];
+    size_t buf_len = (size_t) cnx->protoop_inputv[1];
+    char *fmt = (char *) cnx->protoop_inputv[2];
+    protoop_arg_t *fmt_args = (protoop_arg_t *) cnx->protoop_inputv[3];
+    switch (cnx->protoop_inputv[4]) {
+        case 0: return snprintf(buf, buf_len, "%s", fmt);
+        case 1: return snprintf(buf, buf_len, fmt, fmt_args[0]);
+        case 2: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1]);
+        case 3: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2]);
+        case 4: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3]);
+        case 5: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4]);
+        case 6: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5]);
+        case 7: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6]);
+        case 8: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7]);
+        case 9: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8]);
+        case 10: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8], fmt_args[9]);
+        default:
+            printf("protoop snprintf cannot handle more than 10 arguments, %lu were given\n", cnx->protoop_inputv[4]);
+    }
+    fflush(stdout);
+    return 0;
+}
+
 /* A simple no-op */
 protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
 {
@@ -2049,6 +2093,8 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         printf("ERROR: reserve_frames can only be called by pluglets with plugins!\n");
         return 0;
     }
+    PUSH_LOG_CTX(cnx, "\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"",  cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
+
     /* Well, or we could use queues instead ? */
     reserve_frames_block_t *block = malloc(sizeof(reserve_frames_block_t));
     if (!block) {
@@ -2072,8 +2118,19 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
     }
     if (err) {
         free(block);
+        POP_LOG_CTX(cnx);
         return 0;
     }
+    LOG {
+        char ftypes_str[250];
+        size_t ftypes_ofs = 0;
+        for (int i = 0; i < nb_frames; i++) {
+            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
+        }
+        ftypes_str[ftypes_ofs] = 0;
+        LOG_EVENT(cnx, "PLUGINS", "RESERVE_FRAMES", "", "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+    }
+    POP_LOG_CTX(cnx);
     cnx->wake_now = 1;
     return block->total_bytes;
 }
@@ -2083,15 +2140,29 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
         printf("ERROR: cancel_head_reservation can only be called by pluglets with plugins!\n");
         return 0;
     }
+    PUSH_LOG_CTX(cnx, "\"plugin\": \"%s\", \"protoop\": \"%s\", \"anchor\": \"%s\"",  cnx->current_plugin->name, cnx->current_protoop->name, pluglet_type_name(cnx->current_anchor));
+
     queue_t *block_queue = congestion_controlled ? cnx->current_plugin->block_queue_cc : cnx->current_plugin->block_queue_non_cc;
     reserve_frames_block_t *block = queue_dequeue(block_queue);
     if (block == NULL) {
         *nb_frames = 0;
+        POP_LOG_CTX(cnx);
         return NULL;
     }
     *nb_frames = block->nb_frames;
     reserve_frame_slot_t *slots = block->frames;
+    LOG {
+        char ftypes_str[250];
+        size_t ftypes_ofs = 0;
+        for (int i = 0; i < *nb_frames; i++) {
+            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < *nb_frames - 1 ? ", " : "");
+        }
+        ftypes_str[ftypes_ofs] = 0;
+
+        LOG_EVENT(cnx, "PLUGINS", "CANCEL_HEAD_RESERVATION", "", "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+    }
     free(block);
+    POP_LOG_CTX(cnx);
     return slots;
 }
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)
@@ -2105,6 +2176,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, &congestion_algorithm_notify);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CALLBACK_FUNCTION, &callback_function);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PRINTF, &protoop_printf);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SNPRINTF, &protoop_snprintf);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
@@ -2121,7 +2193,9 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
 
     /** \todo document these */
-
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_LOG_EVENT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, &protoop_noop);
 }

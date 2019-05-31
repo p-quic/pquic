@@ -667,6 +667,9 @@ void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_c
 
 void picoquic_set_congestion_algorithm(picoquic_cnx_t* cnx, picoquic_congestion_algorithm_t const* alg);
 
+void picoquic_congestion_algorithm_notify_func(picoquic_cnx_t *cnx, picoquic_path_t* path_x, picoquic_congestion_notification_t notification, uint64_t rtt_measurement,
+                                                uint64_t nb_bytes_acknowledged, uint64_t lost_packet_number, uint64_t current_time);
+
 /**
  * Book an occasion to send the frame whose details are given in \p slot.
  * \param[in] cnx The context of the connection

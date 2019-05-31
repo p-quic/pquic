@@ -588,11 +588,17 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         }
     }
 
+    if (ok) {
+        init_memory_management(p);
+        HASH_ADD_STR(cnx->plugins, name, p);
+    }
+
     while (pid_stack_top != NULL) {
         if (!ok) {
             /* Unplug previously plugged code */
             plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
         }
+        LOG_EVENT(cnx, "PLUGINS", "PLUGLET_INSERTED", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
         tmp = pid_stack_top->next;
         free(pid_stack_top);
         pid_stack_top = tmp;
@@ -600,10 +606,9 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     if (!ok) {
         free(p);
-    } else {
-        init_memory_management(p);
-        HASH_ADD_STR(cnx->plugins, name, p);
     }
+
+    LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
 
     free(preprocessed);
 

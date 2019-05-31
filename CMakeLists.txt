@@ -15,6 +15,10 @@ if($ENV{DISABLE_DEBUG_PRINTF})
     SET(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
 endif()
 
+if($ENV{DISABLE_QLOG})
+    SET(CMAKE_C_FLAGS "-DDISABLE_QLOG ${CMAKE_C_FLAGS}")
+endif()
+
 INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
@@ -116,6 +120,38 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/select_sending_path_rr.c
 )
 
+SET(PLUGINS_QLOG
+    plugins/qlog/cnx_state_changed.c
+    plugins/qlog/set_output_file.c
+    plugins/qlog/log_event.c
+    plugins/qlog/frames/stream_opened.c
+    plugins/qlog/frames/stream_flags_changed.c
+    plugins/qlog/frames/reset_stream_frame_parsed.c
+    plugins/qlog/frames/new_connection_id_parsed.c
+    plugins/qlog/frames/new_token_frame_parsed.c
+    plugins/qlog/frames/stop_sending_parsed.c
+    plugins/qlog/frames/crypto_frame_parsed.c
+    plugins/qlog/frames/ack_frame_parsed.c
+    plugins/qlog/frames/is_ack_needed.c
+    plugins/qlog/frames/connection_close_parsed.c
+    plugins/qlog/frames/application_close_parsed.c
+    plugins/qlog/frames/max_data_parsed.c
+    plugins/qlog/frames/max_stream_data_parsed.c
+    plugins/qlog/frames/path_challenge_created.c
+    plugins/qlog/frames/path_response_parsed.c
+    plugins/qlog/frames/blocked_frame_parsed.c
+    plugins/qlog/frames/stream_blocked_frame_parsed.c
+    plugins/qlog/frames/stream_id_blocked_frame_parsed.c
+    plugins/qlog/frames/padding_or_ping_parsed.c
+    plugins/qlog/sender/retransmit_needed_by_packet.c
+    plugins/qlog/sender/retransmit_needed.c
+    plugins/qlog/sender/congestion_algorithm_notified.c
+    plugins/qlog/sender/ready_stream.c
+    plugins/qlog/sender/next_stream_scheduled.c
+    plugins/qlog/push_log_context.c
+    plugins/qlog/pop_log_context.c
+        plugins/qlog/sender/next_wake_time.c)
+
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
 
@@ -150,6 +186,9 @@ if($ENV{COMPILE_CLION})
     )
     ADD_LIBRARY(plugins-datagram
         ${PLUGINS_DATAGRAM}
+    )
+    ADD_LIBRARY(plugins-qlog
+        ${PLUGINS_QLOG}
     )
 endif()
 

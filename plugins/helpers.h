@@ -59,6 +59,20 @@
 #define PSTREAM_SEND_FIN(stream) (PSTREAM_FIN_NOTIFIED(stream) && !PSTREAM_FIN_SENT(stream))
 #define PSTREAM_CLOSED(stream) ((PSTREAM_FIN_SENT(stream) || (get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_reset_received) != 0) && (PSTREAM_RESET_SENT(stream)) || (get_stream_head(stream, AK_STREAMHEAD_STREAM_FLAGS) & picoquic_stream_flag_fin_received) != 0)
 
+#define PROTOOP_SNPRINTF(cnx, buf, buf_len, fmt, ...)   helper_protoop_snprintf(cnx, buf, buf_len, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+
+#ifndef DISABLE_QLOG
+#define LOG
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)   helper_log_event(cnx, (char *[]){cat, ev_type, trig, data_fmt}, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#define PUSH_LOG_CTX(cnx, fmt, ...) helper_push_log_context(cnx, fmt, (protoop_arg_t[]){__VA_ARGS__}, PROTOOP_NUMARGS(__VA_ARGS__))
+#define POP_LOG_CTX(cnx)    run_noparam(cnx, PROTOOPID_NOPARAM_POP_LOG_CONTEXT, 0, NULL, NULL)
+#else
+#define LOG if (0)
+#define LOG_EVENT(cnx, cat, ev_type, trig, data_fmt, ...)
+#define PUSH_LOG_CTX(cnx, fmt, ...)
+#define POP_LOG_CTX(cnx)
+#endif
+
 void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
 
 #ifdef PLUGIN_MEMORY_DBG
@@ -89,6 +103,16 @@ static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_
     return plugin_run_protoop(cnx, &pp, pid_str);
 }
 
+static __attribute__((always_inline)) void helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {
+    protoop_arg_t args[5];
+    args[0] = (protoop_arg_t) buf;
+    args[1] = buf_len;
+    args[2] = (protoop_arg_t) fmt;
+    args[3] = (protoop_arg_t) fmt_args;
+    args[4] = args_len;
+    run_noparam(cnx, PROTOOPID_NOPARAM_SNPRINTF, 5, args, NULL);
+}
+
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
 {
     protoop_arg_t args[1];
@@ -105,6 +129,28 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
     run_noparam(cnx, PROTOOPID_NOPARAM_PRINTF, 3, args, NULL);
 }
 
+static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
+    char *data = my_malloc(cnx, 1024);
+    helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
+    protoop_arg_t pargs[5];
+    pargs[0] = (protoop_arg_t) args[0];
+    pargs[1] = (protoop_arg_t) args[1];
+    pargs[2] = (protoop_arg_t) args[2];
+    pargs[3] = (protoop_arg_t) NULL;
+    pargs[4] = (protoop_arg_t) data;
+    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 5, pargs, NULL);
+    my_free(cnx, (void *) data);
+}
+
+static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_t *cnx, char *fmt, protoop_arg_t *fmt_args, size_t args_len) {
+    char *data = my_malloc(cnx, 256);
+    helper_protoop_snprintf(cnx, data, 256, fmt, fmt_args, args_len);
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) data;
+    run_noparam(cnx, PROTOOPID_NOPARAM_PUSH_LOG_CONTEXT, 1, args, NULL);
+    my_free(cnx, (void *) data);
+}
+
 static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
@@ -119,7 +165,7 @@ static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_pack
     return ret;
 }
 
-static void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
+static __attribute__((always_inline)) void helper_congestion_algorithm_notify(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
     picoquic_congestion_notification_t notification, uint64_t rtt_measurement, uint64_t nb_bytes_acknowledged,
     uint64_t lost_packet_number, uint64_t current_time)
 {
@@ -709,5 +755,25 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     args[2] = (protoop_arg_t) end_range;
     run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
 }
+
+#define TMP_FRAME_BEGIN(cnx, parsed_frame, local_frame, frame_type)                                                     \
+    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
+    if (parsed_frame) {                                                                                                 \
+        frame_type local_frame;                                                                                         \
+        my_memcpy(&local_frame, parsed_frame, sizeof(frame_type));                                                      \
+
+
+#define TMP_FRAME_END }
+
+#define TMP_FRAME_BEGIN_MALLOC(cnx, parsed_frame, local_frame, frame_type)                                                     \
+    frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
+    if (parsed_frame) {                                                                                                 \
+        frame_type *local_frame = (frame_type *) my_malloc(cnx, sizeof(frame_type));                                    \
+        my_memcpy(local_frame, parsed_frame, sizeof(frame_type));                                                       \
+
+
+#define TMP_FRAME_END_MALLOC(cnx, local_frame) \
+        my_free(cnx, local_frame); \
+    }
 
 #endif
