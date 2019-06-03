@@ -606,10 +606,11 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     }
 
     if (!ok) {
+        LOG_EVENT(cnx, "PLUGINS", "PLUGIN_INSERTION_FAILED", "", "{\"filename\": \"%s\"}", plugin_fname);
         free(p);
+    } else {
+        LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
     }
-
-    LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
 
     free(preprocessed);
 
