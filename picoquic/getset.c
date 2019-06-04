@@ -179,7 +179,7 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
             printf("ERROR: trying to get pid to request %u but only %d pid to requests...\n", param, cnx->pids_to_request.size);
             return 0;
         }
-        return &cnx->pids_to_request.elems[param];
+        return (protoop_arg_t) &cnx->pids_to_request.elems[param];
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -980,7 +980,7 @@ protoop_arg_t get_preq(plugin_req_pid_t *preq, access_key_t ak)
     case AK_PIDREQ_PID_ID:
         return preq->pid_id;
     case AK_PIDREQ_PLUGIN_NAME:
-        return preq->plugin_name;
+        return (protoop_arg_t) preq->plugin_name;
     case AK_PIDREQ_REQUESTED:
         return preq->requested;   
     default:
