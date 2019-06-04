@@ -367,6 +367,7 @@ int quic_server(const char* server_name, int server_port,
     uint64_t current_time = 0;
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
+    int new_context_created = 0;
 
     /* Open a UDP socket */
     ret = picoquic_open_server_sockets(&server_sockets, server_port);
@@ -376,7 +377,7 @@ int quic_server(const char* server_name, int server_port,
         current_time = picoquic_current_time();
         /* Create QUIC context */
         qserver = picoquic_create(8, pem_cert, pem_key, NULL, NULL, first_server_callback, NULL,
-            cnx_id_callback, cnx_id_callback_ctx, reset_seed, current_time, NULL, NULL, NULL, 0);
+            cnx_id_callback, cnx_id_callback_ctx, reset_seed, current_time, NULL, NULL, NULL, 0, NULL);
 
         if (qserver == NULL) {
             printf("Could not create server context\n");
@@ -429,13 +430,13 @@ int quic_server(const char* server_name, int server_port,
                 ret = picoquic_incoming_packet(qserver, buffer,
                     (size_t)bytes_recv, (struct sockaddr*)&addr_from,
                     (struct sockaddr*)&addr_to, if_index_to,
-                    current_time);
+                    current_time, &new_context_created);
 
                 if (ret != 0) {
                     ret = 0;
                 }
 
-                if (cnx_server != picoquic_get_first_cnx(qserver) && picoquic_get_first_cnx(qserver) != NULL) {
+                if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
                     for (int i = 0; i < plugins; i++) {
                         int plugged = plugin_insert_plugin(cnx_server, plugin_fnames[i]);
@@ -823,6 +824,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int notified_ready = 0;
     const char* alpn = (proposed_version == 0xFF00000D)?"hq-13":"hq-14";
     int zero_rtt_available = 0;
+    int new_context_created = 0;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
 
@@ -865,7 +867,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     callback_ctx.last_interaction_time = current_time;
 
     if (ret == 0) {
-        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0);
+        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0, NULL);
 
         if (qclient == NULL) {
             ret = -1;
@@ -1008,7 +1010,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 ret = picoquic_incoming_packet(qclient, buffer,
                     (size_t)bytes_recv, (struct sockaddr*)&packet_from,
                     (struct sockaddr*)&packet_to, if_index_to,
-                    current_time);
+                    current_time, &new_context_created);
                 client_receive_loop++;
 
                 // picoquic_log_processing(F_log, cnx_client, bytes_recv, ret);

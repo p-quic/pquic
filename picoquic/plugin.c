@@ -6,6 +6,13 @@
 #include "memory.h"
 #include "picoquic_internal.h"
 
+#include <archive.h>
+#include <archive_entry.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 const char *pluglet_type_name(pluglet_type_enum te) {
     char const *text = "unknown";
     switch (te) {
@@ -259,8 +266,8 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, p
     return 0;
 }
 
-bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_plugin_t *p,
-    char *plugin_dirname, protoop_str_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
+bool parse_plugin_line(char* line, protoop_str_id_t inserted_pid,
+    param_id_t *param, pluglet_type_enum *pte, char **pluglet_fname)
 {
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
@@ -322,6 +329,21 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
 
     /* Handle end of line */
     token[strcspn(token, "\r\n")] = 0;
+
+    *pluglet_fname = token;
+
+    return true;
+}
+
+bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_plugin_t *p,
+    char *plugin_dirname, protoop_str_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
+{
+    char *pluglet_fname;
+    bool ok = parse_plugin_line(line, inserted_pid, param, pte, &pluglet_fname);
+    if (!ok) {
+        return false;
+    }
+
     size_t max_dirname_size = 250;
     char abs_path[max_dirname_size];
     if (strlen(plugin_dirname) >= max_dirname_size){
@@ -332,13 +354,12 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
     // abs_path is thus large enough
     strcpy(abs_path, plugin_dirname);
     strcat(abs_path, "/");
-    strcat(abs_path, token);
+    strcat(abs_path, pluglet_fname);
     return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
-protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line) {
-    /* Part one: extract plugin id */
-    char *token = strsep(&line, " ");
+char* plugin_parse_first_plugin_line(char *first_line) {
+    char *token = strsep(&first_line, " ");
     if (token == NULL) {
         printf("No token for protocol operation id extracted!\n");
         return false;
@@ -353,13 +374,20 @@ protoop_plugin_t* plugin_parse_first_plugin_line(picoquic_cnx_t* cnx, char *line
         return NULL;
     }
 
+    return token;
+}
+
+protoop_plugin_t* plugin_initialize(char *first_line) {
+    /* Part one: extract plugin id */
+    char *plugin_id = plugin_parse_first_plugin_line(first_line);
+
     protoop_plugin_t *p = calloc(1, sizeof(protoop_plugin_t));
     if (!p) {
         printf("Cannot allocate memory for plugin!\n");
         return NULL;
     }
 
-    strncpy(p->name, token, PROTOOPPLUGINNAME_MAX);
+    strncpy(p->name, plugin_id, PROTOOPPLUGINNAME_MAX);
     p->block_queue_cc = queue_init();
     if (!p->block_queue_cc) {
         printf("Cannot allocate memory for sending queue congestion control!\n");
@@ -521,7 +549,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     char buf[max_filename_size];
     if (strlen(plugin_fname) >= max_filename_size){
         printf("The size of the plugin path is too large (>= %lu)\n", max_filename_size);
-        return false;
+        return 1;
     }
     // here, we know that plugin_fname has a \0 at an index before max_filename_size
     strcpy(buf, plugin_fname);
@@ -551,12 +579,14 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     read = getline(&line, &len, file);
     if (read == -1) {
         printf("Error in the file %s\n", plugin_fname);
+        fclose(file);
         return 1;
     }
 
-    protoop_plugin_t *p = plugin_parse_first_plugin_line(cnx, line);
+    protoop_plugin_t *p = plugin_initialize(line);
     if (!p) {
         printf("Cannot extract plugin line in file %s\n", plugin_fname);
+        fclose(file);
         return 1;
     }
 
@@ -621,6 +651,270 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     fclose(file);
 
     return ok ? 0 : 1;
+}
+
+int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
+    FILE *file = fopen(plugin_fname, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+    char *first_line = NULL;
+    size_t len = 0;
+    ssize_t read = getline(&first_line, &len, file);
+    if (read == -1) {
+        printf("Error in the file %s\n", plugin_fname);
+        fclose(file);
+        return 1;
+    }
+
+    char* pid_tmp = plugin_parse_first_plugin_line(first_line);
+    if (pid_tmp == NULL) {
+        printf("Cannot extract plugin id\n");
+        fclose(file);
+        return 1;
+    }
+    fclose(file);
+
+    /* FIXME It's bad, I know... */
+    strcpy(plugin_id, pid_tmp);
+
+    return 0;
+}
+
+int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname,
+    uint8_t* plugin_data, size_t max_plugin_data, size_t* plugin_data_len)
+{
+    size_t max_filename_size = 250;
+    char buf[max_filename_size];
+    if (strlen(plugin_fname) >= max_filename_size){
+        printf("The size of the plugin path is too large (>= %lu)\n", max_filename_size);
+        return 1;
+    }
+    // here, we know that plugin_fname has a \0 at an index before max_filename_size
+    strcpy(buf, plugin_fname);
+    char *line = NULL;
+    size_t len = 0;
+    size_t read_len = 0;
+    char *plugin_dirname = dirname(buf);
+    int err = 0;
+
+    char *preprocessed = NULL;
+    if (plugin_preprocess_file(cnx, plugin_dirname, plugin_fname, &preprocessed) != 0 || !preprocessed) {
+        if (preprocessed) free(preprocessed);
+        return -1;
+    }
+
+    size_t preprocessed_len = strlen(preprocessed);
+    FILE *file = fmemopen(preprocessed, preprocessed_len, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+
+    read_len = getline(&line, &len, file);
+    if (read_len == -1) {
+        printf("Error in the file %s\n", plugin_fname);
+        fclose(file);
+        return 1;
+    }
+    struct archive_entry *entry;
+    struct archive *a = archive_write_new();
+    if (!a) return 1;
+    //archive_write_add_filter_gzip(a);
+    archive_write_set_format_zip(a);
+    archive_write_open_memory(a, plugin_data, max_plugin_data, plugin_data_len);
+
+    char plugin_fname_buf[strlen(plugin_fname) + 1];
+    strcpy(plugin_fname_buf, plugin_fname);
+    char *plugin_bname = basename(plugin_fname_buf);
+
+    /* First include the plugin manifest */
+    entry = archive_entry_new();
+    archive_entry_set_pathname(entry, plugin_bname);
+    archive_entry_set_size(entry, preprocessed_len);
+    archive_entry_set_filetype(entry, AE_IFREG);
+    archive_entry_set_perm(entry, 0644);
+    archive_entry_set_mtime(entry, picoquic_current_time() / 1000000, (picoquic_current_time() % 1000000) * 1000);
+    err = archive_write_header(a, entry);
+    if (err != ARCHIVE_OK) {
+        printf("Error when writing entry header %d: %s\n", err, archive_error_string(a));
+        archive_entry_free(entry);
+        archive_write_close(a);
+        archive_write_free(a);
+        return 1;
+    }
+    err = archive_write_data(a, preprocessed, preprocessed_len);
+    if (err != preprocessed_len) {
+        printf("Error when writing entry data %d: %s\n", err, archive_error_string(a));
+        archive_entry_free(entry);
+        archive_write_close(a);
+        archive_write_free(a);
+        return 1;
+    }
+    archive_entry_free(entry);
+
+    bool ok = true;
+    char inserted_pid[100];
+    param_id_t param;
+    pluglet_type_enum pte;
+    char *pluglet_fname;
+    size_t max_dirname_size = 250;
+    char abs_path[max_dirname_size];
+    struct stat st;
+    int fd;
+    char buff[8192];
+    if (strlen(plugin_dirname) >= max_dirname_size){
+        printf("The size of the plugin path is too large (>= %lu)\n", max_dirname_size);
+        return false;
+    }
+    while (ok && (read_len = getline(&line, &len, file)) != -1) {
+        /* Skip blank lines */
+        if (read_len <= 1) {
+            continue;
+        }
+        ok = parse_plugin_line(line, (protoop_str_id_t) inserted_pid, &param, &pte, &pluglet_fname);
+        if (ok) {
+            // here, we know that plugin_dirname will have a \0 at an index before max_dirname_size
+            // abs_path is thus large enough
+            strcpy(abs_path, plugin_dirname);
+            strcat(abs_path, "/");
+            strcat(abs_path, pluglet_fname);
+            stat(abs_path, &st);
+            entry = archive_entry_new();
+            archive_entry_set_pathname(entry, pluglet_fname);
+            archive_entry_set_size(entry, st.st_size);
+            archive_entry_set_filetype(entry, AE_IFREG);
+            archive_entry_set_perm(entry, 0644);
+            archive_entry_set_mtime(entry, picoquic_current_time() / 1000000, (picoquic_current_time() % 1000000) * 1000);
+            err = archive_write_header(a, entry);
+            if (err != ARCHIVE_OK) {
+                printf("Error when writing entry header %d: %s\n", err, archive_error_string(a));
+                archive_entry_free(entry);
+                archive_write_close(a);
+                archive_write_free(a);
+                return 1;
+            }
+            fd = open(abs_path, O_RDONLY);
+            if (fd < 0) {
+                printf("Opening %s failed\n", abs_path);
+                archive_entry_free(entry);
+                archive_write_close(a);
+                archive_write_free(a);
+                return 1;
+            }
+            len = read(fd, buff, sizeof(buff));
+            while ( len > 0 ) {
+                archive_write_data(a, buff, len);
+                len = read(fd, buff, sizeof(buff));
+            }
+            close(fd);
+            archive_entry_free(entry);
+        }
+    }
+
+    archive_write_close(a);
+    archive_write_free(a);
+
+    return 0;
+}
+
+/* From the example in https://github.com/libarchive/libarchive/wiki/Examples#A_Universal_Decompressor */
+static int
+copy_data(struct archive *ar, struct archive *aw)
+{
+    int r;
+    const void *buff;
+    size_t size;
+    la_int64_t offset;
+
+    for (;;) {
+        r = archive_read_data_block(ar, &buff, &size, &offset);
+        if (r == ARCHIVE_EOF)
+            return (ARCHIVE_OK);
+        if (r < ARCHIVE_OK)
+            return (r);
+        r = archive_write_data_block(aw, buff, size, offset);
+        if (r < ARCHIVE_OK) {
+            fprintf(stderr, "%s\n", archive_error_string(aw));
+            return (r);
+        }
+    }
+}
+
+/* From the example in https://github.com/libarchive/libarchive/wiki/Examples#A_Universal_Decompressor */
+int plugin_process_plugin_data_exchange(picoquic_cnx_t *cnx, const char* plugin_name, uint8_t *data, size_t data_length)
+{
+    struct archive *a;
+    struct archive *ext;
+    struct archive_entry *entry;
+    int flags;
+    int r;
+
+    /* Select which attributes we want to restore. */
+    flags = ARCHIVE_EXTRACT_TIME;
+    flags |= ARCHIVE_EXTRACT_PERM;
+    flags |= ARCHIVE_EXTRACT_ACL;
+    flags |= ARCHIVE_EXTRACT_FFLAGS;
+
+    a = archive_read_new();
+    archive_read_support_format_all(a);
+    archive_read_support_compression_all(a);
+    ext = archive_write_disk_new();
+    archive_write_disk_set_options(ext, flags);
+    archive_write_disk_set_standard_lookup(ext);
+    char destination_path[500];
+    char destination_path_base[450];
+    strcpy(destination_path_base, cnx->quic->plugin_store_path);
+    strcat(destination_path_base, "/");
+    strcat(destination_path_base, plugin_name);
+
+    if (picoquic_check_or_create_directory(destination_path_base)) {
+        return 1;
+    }
+    strcat(destination_path_base, "/");
+
+    if ((r = archive_read_open_memory(a, data, data_length)))
+        return 1;
+
+    for (;;) {
+        r = archive_read_next_header(a, &entry);
+        if (r == ARCHIVE_EOF)
+            break;
+        if (r < ARCHIVE_OK)
+            fprintf(stderr, "%s\n", archive_error_string(a));
+        if (r < ARCHIVE_WARN)
+            return 1;
+
+        /* Extract the file in the cache */
+        strcpy(destination_path, destination_path_base);
+        strcat(destination_path, archive_entry_pathname(entry));
+        archive_entry_set_pathname(entry, destination_path);
+
+        r = archive_write_header(ext, entry);
+        if (r < ARCHIVE_OK)
+            fprintf(stderr, "%s\n", archive_error_string(ext));
+        else if (archive_entry_size(entry) > 0) {
+            r = copy_data(a, ext);
+            if (r < ARCHIVE_OK)
+                fprintf(stderr, "%s\n", archive_error_string(ext));
+            if (r < ARCHIVE_WARN)
+                return 1;
+        }
+        r = archive_write_finish_entry(ext);
+        if (r < ARCHIVE_OK)
+            fprintf(stderr, "%s\n", archive_error_string(ext));
+        if (r < ARCHIVE_WARN)
+            return 1;
+    }
+    archive_read_close(a);
+    archive_read_free(a);
+    archive_write_close(ext);
+    archive_write_free(ext);
+    return 0;
 }
 
 void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {

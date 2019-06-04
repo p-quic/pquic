@@ -309,7 +309,7 @@ int parseheadertest()
     addr_10.sin_port = 4434;
 
     quic = picoquic_create(8, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (quic == NULL) {
         ret = -1;
     } else {
@@ -568,10 +568,10 @@ int packet_enc_dec_test()
     picoquic_cnx_t* cnx_client = NULL;
     picoquic_cnx_t* cnx_server = NULL;
     picoquic_quic_t* qclient = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     picoquic_quic_t* qserver = picoquic_create(8,
         PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE, 
-        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qclient == NULL || qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic contexts.\n");
         ret = -1;

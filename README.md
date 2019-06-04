@@ -103,6 +103,8 @@ To build Picoquic on Linux, you need to:
 
  * Install and build Openssl on your machine
 
+ * Install libarchive. It is usually found in distribution packages (e.g., `apt install libarchive-dev`) or on (the LibArchive page)[http://libarchive.org/]
+
  * Clone and compile Picotls, using cmake as explained in the Picotls documentation.
 
  * Clone and compile Picoquic with its uBPF dependency:

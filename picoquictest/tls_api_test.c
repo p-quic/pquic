@@ -622,14 +622,14 @@ static int tls_api_init_ctx(picoquic_test_tls_api_ctx_t** pctx, uint32_t propose
         /* Test the creation of the client and server contexts */
         test_ctx->qclient = picoquic_create(8, NULL, NULL, PICOQUIC_TEST_CERT_STORE, NULL, test_api_callback,
             (void*)&test_ctx->client_callback, NULL, NULL, NULL, *p_simulated_time,
-            p_simulated_time, ticket_file_name, NULL, 0);
+            p_simulated_time, ticket_file_name, NULL, 0, NULL);
 
         test_ctx->qserver = picoquic_create(8,
             PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             PICOQUIC_TEST_ALPN, test_api_callback, (void*)&test_ctx->server_callback, NULL, NULL, NULL,
             *p_simulated_time, p_simulated_time, NULL,
             (use_bad_crypt == 0) ? test_ticket_encrypt_key : test_ticket_badcrypt_key,
-            (use_bad_crypt == 0) ? sizeof(test_ticket_encrypt_key) : sizeof(test_ticket_badcrypt_key));
+            (use_bad_crypt == 0) ? sizeof(test_ticket_encrypt_key) : sizeof(test_ticket_badcrypt_key), NULL);
 
         if (test_ctx->qclient == NULL || test_ctx->qserver == NULL) {
             ret = -1;
@@ -679,6 +679,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
     uint64_t* simulated_time, int* was_active)
 {
     int ret = 0;
+    int new_context_created = 0;
     picoquictest_sim_link_t* target_link = NULL;
     picoquic_path_t *path;
 
@@ -785,7 +786,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                     ret = picoquic_incoming_packet(test_ctx->qclient, packet->bytes, (uint32_t)packet->length,
                         (struct sockaddr*)&packet->addr_from,
                         (struct sockaddr*)&packet->addr_to, 0,
-                        *simulated_time);
+                        *simulated_time, &new_context_created);
                     *was_active |= 1;
                 }
 
@@ -808,7 +809,7 @@ static int tls_api_one_sim_round(picoquic_test_tls_api_ctx_t* test_ctx,
                     ret = picoquic_incoming_packet(test_ctx->qserver, packet->bytes, (uint32_t)packet->length,
                         (struct sockaddr*)&packet->addr_from,
                         (struct sockaddr*)&packet->addr_to, 0,
-                        *simulated_time);
+                        *simulated_time, &new_context_created);
                 }
 
                 if (ret != 0)
@@ -1376,6 +1377,7 @@ int tls_api_bad_server_reset_test()
     uint64_t loss_mask = 0;
     picoquic_test_tls_api_ctx_t* test_ctx = NULL;
     int ret = tls_api_init_ctx(&test_ctx, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN, &simulated_time, NULL, 0, 0, 0);
+    int new_context_created = 0;
     uint8_t buffer[256];
 
     if (ret == 0) {
@@ -1395,7 +1397,7 @@ int tls_api_bad_server_reset_test()
         ret = picoquic_incoming_packet(test_ctx->qclient, buffer, sizeof(buffer),
             (struct sockaddr*)(&test_ctx->server_addr),
             (struct sockaddr*)(&test_ctx->client_addr), 0,
-            simulated_time);
+            simulated_time, &new_context_created);
     }
 
     /* check that the client is still up */
@@ -2351,7 +2353,7 @@ int wrong_keyshare_test()
         PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
         PICOQUIC_TEST_ALPN, test_api_callback, (void*)&server_callback, NULL, NULL, NULL,
         simulated_time, &simulated_time, NULL,
-        test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key));
+        test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key), NULL);
 
     if (qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic Server context.\n");
@@ -2531,7 +2533,7 @@ int wrong_tls_version_test()
         PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
         PICOQUIC_TEST_ALPN, test_api_callback, (void*)&server_callback, NULL, NULL, NULL,
         simulated_time, &simulated_time, NULL,
-        test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key));
+        test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key), NULL);
 
     if (qserver == NULL) {
         ret = -1;
@@ -2656,7 +2658,7 @@ int bad_certificate_test()
             PICOQUIC_TEST_SERVER_BAD_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             PICOQUIC_TEST_ALPN, test_api_callback, (void*)&test_ctx->server_callback, NULL, NULL, NULL,
             simulated_time, &simulated_time, NULL,
-            test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key));
+            test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key), NULL);
 
         if (test_ctx->qserver == NULL) {
             ret = -1;
@@ -2733,7 +2735,7 @@ int set_verify_certificate_callback_test()
         test_ctx->qclient = picoquic_create(8,
             PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             NULL, test_api_callback, (void*)&test_ctx->client_callback, NULL, NULL, NULL,
-            simulated_time, &simulated_time, NULL, NULL, 0);
+            simulated_time, &simulated_time, NULL, NULL, 0, NULL);
 
         if (test_ctx->qclient == NULL) {
             ret = -1;
@@ -2804,11 +2806,11 @@ int virtual_time_test()
     picoquic_quic_t * qsimul = picoquic_create(8, NULL, NULL, PICOQUIC_TEST_CERT_STORE, 
         NULL, test_api_callback,
         (void*)callback_ctx, NULL, NULL, NULL, simulated_time,
-        &simulated_time, ticket_file_name, NULL, 0);
+        &simulated_time, ticket_file_name, NULL, 0, NULL);
     picoquic_quic_t * qdirect = picoquic_create(8, NULL, NULL, PICOQUIC_TEST_CERT_STORE, 
         NULL, test_api_callback,
         (void*)callback_ctx, NULL, NULL, NULL, current_time,
-        NULL, ticket_file_name, NULL, 0);
+        NULL, ticket_file_name, NULL, 0, NULL);
 
     if (qsimul == NULL || qdirect == NULL)
     {
@@ -2917,7 +2919,7 @@ int set_certificate_and_key_test()
             NULL, NULL, NULL,
             PICOQUIC_TEST_ALPN, test_api_callback, (void*)&test_ctx->server_callback, NULL, NULL, NULL,
             simulated_time, &simulated_time, NULL,
-            test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key));
+            test_ticket_encrypt_key, sizeof(test_ticket_encrypt_key), NULL);
 
         if (test_ctx->qserver == NULL) {
             ret = -1;
@@ -3022,7 +3024,7 @@ int request_client_authentication_test()
         test_ctx->qclient = picoquic_create(8,
             PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             NULL, test_api_callback, (void*)&test_ctx->client_callback, NULL, NULL, NULL,
-            simulated_time, &simulated_time, NULL, NULL, 0);
+            simulated_time, &simulated_time, NULL, NULL, 0, NULL);
 
         if (test_ctx->qclient == NULL) {
             ret = -1;
@@ -3088,7 +3090,7 @@ int bad_client_certificate_test()
         test_ctx->qclient = picoquic_create(8,
             PICOQUIC_TEST_SERVER_BAD_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             NULL, test_api_callback, (void*)&test_ctx->client_callback, NULL, NULL, NULL,
-            simulated_time, &simulated_time, NULL, NULL, 0);
+            simulated_time, &simulated_time, NULL, NULL, 0, NULL);
 
         if (test_ctx->qclient == NULL) {
             ret = -1;

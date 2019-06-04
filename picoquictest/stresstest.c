@@ -504,6 +504,7 @@ static int stress_submit_sp_packets(picoquic_stress_ctx_t * ctx, picoquic_quic_t
 static int stress_handle_packet_arrival(picoquic_stress_ctx_t * ctx, picoquic_quic_t * q, picoquictest_sim_link_t* link)
 {
     int ret = 0;
+    int new_context_created = 0;
     /* dequeue packet from server to client and submit */
     picoquictest_sim_packet_t* packet = picoquictest_sim_link_dequeue(link, ctx->simulated_time);
 
@@ -511,7 +512,7 @@ static int stress_handle_packet_arrival(picoquic_stress_ctx_t * ctx, picoquic_qu
         ret = picoquic_incoming_packet(q, packet->bytes, (uint32_t)packet->length,
             (struct sockaddr*)&packet->addr_from,
             (struct sockaddr*)&packet->addr_to, 0,
-            ctx->simulated_time);
+            ctx->simulated_time, &new_context_created);
         if (ret != 0){
             stress_debug_break();
         }
@@ -832,7 +833,7 @@ static int stress_create_client_context(int client_index, picoquic_stress_ctx_t 
         /* Create the quic context for this client*/
         ctx->qclient = picoquic_create(8, NULL, NULL, PICOQUIC_TEST_CERT_STORE, NULL, NULL,
             NULL, NULL, NULL, NULL, stress_ctx->simulated_time, &stress_ctx->simulated_time,
-            ctx->ticket_file_name, NULL, 0);
+            ctx->ticket_file_name, NULL, 0, NULL);
         if (ctx->qclient == NULL) {
             DBG_PRINTF("Cannot create the quic client #%d.\n", (int)client_index);
             ret = -1;
@@ -902,7 +903,7 @@ static int stress_or_fuzz_test(picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx)
             PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
             PICOQUIC_TEST_ALPN, stress_server_callback, NULL, NULL, NULL, NULL,
             stress_ctx.simulated_time, &stress_ctx.simulated_time, NULL,
-            stress_ticket_encrypt_key, sizeof(stress_ticket_encrypt_key));
+            stress_ticket_encrypt_key, sizeof(stress_ticket_encrypt_key), NULL);
 
         if (stress_ctx.qserver == NULL) {
             DBG_PRINTF("%s", "Cannot create the test server.\n");

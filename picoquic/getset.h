@@ -201,6 +201,26 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak);
  */
 void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 
+/**
+ * Get a specific field belonging to the pid request \p preq
+ * \warning This API is not stable, do not use it!
+ * 
+ * \param preq The pid request pointer
+ * \param ak The key of the field to get
+ * 
+ * \return The value of the field with the corresponding key
+ */
+protoop_arg_t get_preq(plugin_req_pid_t *preq, access_key_t ak);
+
+/**
+ * Set a specific field belonging to the pid request \p preq to the value \p val
+ * \warning This API is not stable, do not use it!
+ * 
+ * \param preq The pid request pointer
+ * \param ak The key of the field to get
+ * \param val The value to set
+ */
+void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 
 
 /**
@@ -346,6 +366,12 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_FIRST_MISC_FRAME 0x37
 /** The first stream in the queue */
 #define AK_CNX_FIRST_STREAM 0x38
+/** Are plugins requested? */
+#define AK_CNX_PLUGIN_REQUESTED 0x39
+/** The number of plugin ids to request, as uint16_t */
+#define AK_CNX_PIDS_TO_REQUEST_SIZE 0x3A
+/** The pids to request structure pointer */
+#define AK_CNX_PIDS_TO_REQUEST 0x3B
 
 /**
  * @}
@@ -623,6 +649,25 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val);
 #define AK_PH_EPOCH 0x04
 /** The packet type */
 #define AK_PH_PTYPE 0x05
+
+/**
+ * @}
+ * 
+ * @defgroup GETSET_PIDREQ_AK PIDs to Request Access Keys
+ * 
+ * \brief Those access keys are dedicated to the \p get_pidred and \p get_pidred calls.
+ * \warning This API is not stable, please do not use it!
+ * 
+ * @{
+ */
+
+/** The pointer to the PID ID */
+#define AK_PIDREQ_PID_ID 0x00
+/** The plugin name */
+#define AK_PIDREQ_PLUGIN_NAME 0x01
+/** Was the plugin requested? */
+#define AK_PIDREQ_REQUESTED 0x02
+
 
 /**
  * @}

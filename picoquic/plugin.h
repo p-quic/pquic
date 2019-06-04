@@ -35,6 +35,27 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, p
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname);
 
 /**
+ * Function that parses the identifier of a plugin contained in its manifest.
+ * The name of the ID is copied in the provided buffer (requires at least 250 bytes).
+ * Returns 0 on success.
+ */
+int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id);
+
+/**
+ * This function prepares an archive containing the plugin to exchange.
+ * Returns 0 on success.
+ */
+int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname,
+    uint8_t* plugin_data, size_t max_plugin_data, size_t* plugin_data_len);
+
+/**
+ * This function extracts the archive contained in memory in preq in the cache of
+ * the host of the connection.
+ * Returns 0 on success.
+ */
+int plugin_process_plugin_data_exchange(picoquic_cnx_t *cnx, const char* plugin_name, uint8_t *data, size_t data_length);
+
+/**
  * Function allowing a plugin to access its opaque data space.
  * Given an ID, the function allocates the required space (if possible) the
  * first time the ID is requested and set allocated to 1, otherwise it just

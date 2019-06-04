@@ -314,6 +314,9 @@ char const* picoquic_log_frame_names(uint8_t frame_type)
     case picoquic_frame_type_ack_ecn:
         frame_name = "ack_ecn";
         break;
+    case picoquic_frame_type_plugin_validate:
+        frame_name = "plugin_validate";
+        break;
     default:
         if (PICOQUIC_IN_RANGE(frame_type, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
             frame_name = "stream";
@@ -938,6 +941,88 @@ size_t picoquic_log_crypto_hs_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
     return byte_index;
 }
 
+size_t picoquic_log_plugin_validate_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    size_t byte_index = 1;
+    uint64_t pid_id;
+    uint64_t pid_len;
+
+    size_t l1 = picoquic_varint_decode(bytes + 1, bytes_max - 1, &pid_id);
+
+    if (1 + l1 > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(1 + l1), (int)bytes_max);
+        return bytes_max;
+    }
+
+    byte_index = 1 + l1;
+
+    size_t l2 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &pid_len);
+    if (byte_index + l1 > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(byte_index + l1), (int)bytes_max);
+        return bytes_max;
+    }
+    byte_index += l2;
+
+    if (byte_index + pid_len > bytes_max) {
+        fprintf(F, "    Malformed PLUGIN VALIDATE, requires %d bytes out of %d\n", (int)(byte_index + pid_len), (int)bytes_max);
+        return bytes_max;
+    }
+
+    char pid[pid_len];
+    memcpy(pid, bytes + byte_index, pid_len);
+    byte_index += pid_len;
+
+    fprintf(F, "    PLUGIN VALIDATE: ID %lx for %s.\n", pid_id, pid);
+
+    return byte_index;
+}
+
+size_t picoquic_log_plugin_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
+{
+    uint8_t fin = 0;
+    uint64_t pid_id = 0;
+    uint64_t offset = 0;
+    uint64_t data_length = 0;
+    size_t byte_index = 2;
+    size_t l_pid = 0;
+    size_t l_off = 0;
+    size_t l_len = 0;
+
+    if (bytes_max > byte_index) {
+        fin = bytes[1];
+        l_pid = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &pid_id);
+        byte_index += l_pid;
+    }
+
+    if (bytes_max > byte_index) {
+        l_off = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offset);
+        byte_index += l_off;
+    }
+
+    if (bytes_max > byte_index) {
+        l_len = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &data_length);
+        byte_index += l_len;
+    }
+
+    if (l_off == 0 || l_len == 0 || byte_index + data_length > bytes_max) {
+        fprintf(F, "    Malformed Plugin frame.\n");
+        byte_index = bytes_max;
+    } else {
+
+        fprintf(F, "    PLUGIN frame, PID_ID %" PRIu64 ", FIN %d, offset %" PRIu64 ", length %d", pid_id, fin, offset, (int)data_length);
+
+        fprintf(F, ": ");
+        for (size_t i = 0; i < 8 && i < data_length; i++) {
+            fprintf(F, "%02x", bytes[byte_index + i]);
+        }
+        fprintf(F, "%s\n", (data_length > 8) ? "..." : "");
+
+        byte_index += (size_t)data_length;
+    }
+
+    return byte_index;
+}
+
 size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
@@ -1339,6 +1424,14 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
         case 0x1d:
             byte_index += picoquic_log_datagram_frame(F, cnx_id64, bytes + byte_index, length - byte_index);
             break;
+        case picoquic_frame_type_plugin_validate:
+            byte_index += picoquic_log_plugin_validate_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case picoquic_frame_type_plugin:
+            byte_index += picoquic_log_plugin_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
         case 0x22: /* ADD_ADDRESS */
             byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
                 length - byte_index);
@@ -1639,8 +1732,12 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
                                 ret = -1;
                             }
                             else {
+                                char *format_str = "%02x";
+                                if (extension_type == picoquic_tp_supported_plugins || extension_type == picoquic_tp_plugins_to_inject) {
+                                    format_str = "%c";
+                                }
                                 for (uint16_t i = 0; i < extension_length; i++) {
-                                    fprintf(F, "%02x", bytes[byte_index++]);
+                                    fprintf(F, format_str, bytes[byte_index++]);
                                 }
                                 fprintf(F, "\n");
                             }

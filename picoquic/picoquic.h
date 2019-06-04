@@ -77,6 +77,7 @@ extern "C" {
 #define PICOQUIC_ERROR_CNXID_SEGMENT (PICOQUIC_ERROR_CLASS + 32)
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS (PICOQUIC_ERROR_CLASS + 40)
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC (PICOQUIC_ERROR_CLASS + 41)
+#define PICOQUIC_ERROR_INVALID_PLUGIN_STREAM_ID (PICOQUIC_ERROR_CLASS + 42)
 
 #define PICOQUIC_MISCCODE_CLASS 0x800
 #define PICOQUIC_MISCCODE_RETRY_NXT_PKT (PICOQUIC_MISCCODE_CLASS + 1)
@@ -136,7 +137,9 @@ typedef enum {
     picoquic_frame_type_stream_range_max = 0x17,
     picoquic_frame_type_crypto_hs = 0x18,
     picoquic_frame_type_new_token = 0x19,
-    picoquic_frame_type_ack_ecn = 0x1a
+    picoquic_frame_type_ack_ecn = 0x1a,
+    picoquic_frame_type_plugin_validate = 0x1e,
+    picoquic_frame_type_plugin = 0x1f
 } picoquic_frame_type_enum_t;
 
 /*
@@ -296,6 +299,8 @@ typedef struct _picoquic_packet_header picoquic_packet_header;
 typedef struct st_picoquic_tp_t picoquic_tp_t;
 typedef struct _picoquic_stream_data picoquic_stream_data;
 
+typedef struct st_plugin_req_pid_t plugin_req_pid_t;
+
 typedef struct st_protocol_operation_struct_t protocol_operation_struct_t;
 
 typedef uint64_t protoop_arg_t;
@@ -418,6 +423,20 @@ typedef struct new_token_frame {
     uint8_t* token_ptr; /* Start of the data, not contained in the structure */
 } new_token_frame_t;
 
+typedef struct plugin_validate_frame {
+    uint64_t pid_id;
+    uint64_t pid_len;
+    char *pid;
+} plugin_validate_frame_t;
+
+typedef struct plugin_frame {
+    uint8_t fin;
+    uint64_t pid_id;
+    uint64_t offset;
+    uint64_t length;
+    uint8_t data[1500];
+} plugin_frame_t;
+
 
 typedef enum {
     picoquic_callback_no_event = 0,
@@ -522,9 +541,16 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     uint64_t* p_simulated_time,
     char const* ticket_file_name,
     const uint8_t* ticket_encryption_key,
-    size_t ticket_encryption_key_length);
+    size_t ticket_encryption_key_length,
+    char* plugin_store_path);
 
 void picoquic_free(picoquic_quic_t* quic);
+
+/* Set the plugins we want to inject */
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
+
+/* If the application required plugin insertion, handle the negotiation */
+int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx);
 
 /* Set cookie mode on QUIC context when under stress */
 void picoquic_set_cookie_mode(picoquic_quic_t* quic, int cookie_mode);
@@ -616,7 +642,8 @@ int picoquic_incoming_packet(
     struct sockaddr* addr_from,
     struct sockaddr* addr_to,
     int if_index_to,
-    uint64_t current_time);
+    uint64_t current_time,
+    int* new_context_created);
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
 
@@ -632,6 +659,10 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
 
 int picoquic_stop_sending(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint16_t local_stream_error);
+
+/* send and receive data on plugin frames */
+int picoquic_add_to_plugin_stream(picoquic_cnx_t* cnx,
+    uint64_t pid_id, const uint8_t* data, size_t length, int set_fin);
 
 /* Congestion algorithm definition */
 typedef enum {
@@ -720,6 +751,10 @@ size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
 
 /* Stream management */
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);
+
+/* Plugin stream management */
+picoquic_stream_head* picoquic_find_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int create);
+picoquic_stream_head* picoquic_find_or_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int is_remote);
 
 /* Utilities */
 int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sas_length);

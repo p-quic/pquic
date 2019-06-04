@@ -34,6 +34,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <assert.h>
 
 int snprintf_bytes(char *str, size_t size, const uint8_t *buf, size_t buf_len) {
     int i = 0;
@@ -289,4 +292,102 @@ int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual)
     }
 
     return ret;
+}
+
+/* Returns 0 if ok */
+int picoquic_check_or_create_directory(char* path) {
+    struct stat sb;
+
+    int err = stat(path, &sb);
+    if (err == 0 && S_ISDIR(sb.st_mode)) {
+        /* File exists and it is a directory, so it's fine! */
+        return 0;
+    }
+    if (err == 0 && S_ISREG(sb.st_mode)) {
+        /* It's a regular file, we cannot make it a directory! */
+        fprintf(stderr, "Cannot use path %s for directory; it is a regular file.\n", path);
+        return 1;
+    }
+    if (err != 0 && errno == ENOENT) {
+        /* Directory does not exist yet, so create it */
+        err = mkdir(path, 0755);
+        if (err != 0) {
+            perror("Error when creating directory");
+            return 1;
+        }
+        /* That's it. */
+        return 0;
+    }
+
+    perror("Error when checking directory");
+    return 1;
+}
+
+char *picoquic_string_join_path_and_fname(char* dir_path, const char* fname)
+{
+    /* TODO be multi platform */
+    char *directory_separator = "/";
+    strcat(dir_path, directory_separator);
+    strncat(dir_path, fname, 256);
+    return dir_path;
+}
+
+/* From https://stackoverflow.com/a/744822 */
+int picoquic_string_ends_with(const char *str, const char *suffix) {
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
+/* From https://stackoverflow.com/a/9210560 */
+char** picoquic_string_split(char* a_str, const char a_delim)
+{
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp)
+    {
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+
+    /* Add space for terminating null string so caller
+       knows where the list of returned strings ends. */
+    count++;
+
+    result = malloc(sizeof(char*) * count);
+
+    if (result)
+    {
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+
+        while (token)
+        {
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+
+    return result;
 }

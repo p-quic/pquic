@@ -133,6 +133,56 @@ size_t picoquic_decode_transport_param_preferred_address(uint8_t * bytes, size_t
 }
 
 
+uint16_t picoquic_get_list_transport_parameter(char* plugin_tp_list, plugin_list_t* list) {
+    uint16_t length = 0;
+    for (int i = 0; i < list->size; i++) {
+        if (i > 0) {
+            plugin_tp_list[length++] = ',';
+        }
+        strcpy(&plugin_tp_list[length], list->elems[i].plugin_name);
+        length += strlen(list->elems[i].plugin_name);
+    }
+    if (length > 0) {
+        plugin_tp_list[length++] = '\0';
+    }
+    return length;
+}
+
+
+uint16_t picoquic_get_supported_plugins_transport_parameter(picoquic_cnx_t* cnx) {
+    if (cnx->quic == NULL || cnx->quic->supported_plugins.size == 0) {
+        /* No supported plugins transport parameter */
+        return 0;
+    }
+
+    cnx->local_parameters.supported_plugins = malloc(sizeof(char) * (
+            cnx->quic->supported_plugins.name_num_bytes + cnx->quic->supported_plugins.size));
+    if (cnx->local_parameters.supported_plugins == NULL) {
+        DBG_PRINTF("Failed to allocate memory for local supported plugins transport param\n");
+        return 0;
+    }
+
+    return picoquic_get_list_transport_parameter(cnx->local_parameters.supported_plugins, &cnx->quic->supported_plugins);
+}
+
+
+uint16_t picoquic_get_plugins_to_inject_transport_parameter(picoquic_cnx_t* cnx) {
+    if (cnx->quic == NULL || cnx->quic->plugins_to_inject.size == 0) {
+        /* No plugins to inject transport parameter */
+        return 0;
+    }
+
+    cnx->local_parameters.plugins_to_inject = malloc(sizeof(char) * (
+            cnx->quic->plugins_to_inject.name_num_bytes + cnx->quic->plugins_to_inject.size));
+    if (cnx->local_parameters.plugins_to_inject == NULL) {
+        DBG_PRINTF("Failed to allocate memory for local plugins to inject transport param\n");
+        return 0;
+    }
+
+    return picoquic_get_list_transport_parameter(cnx->local_parameters.plugins_to_inject, &cnx->quic->plugins_to_inject);
+}
+
+
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
@@ -179,6 +229,15 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     }
     if (cnx->local_parameters.initial_max_stream_data_uni > 0) {
         param_size += (2 + 2 + 4);
+    }
+
+    size_t supported_plugins_len = picoquic_get_supported_plugins_transport_parameter(cnx);
+    if (supported_plugins_len > 0) {
+        param_size += (2 + 2 + supported_plugins_len);
+    }
+    size_t plugins_to_insert_len = picoquic_get_plugins_to_inject_transport_parameter(cnx);
+    if (plugins_to_insert_len > 0) {
+        param_size += (2 + 2 + plugins_to_insert_len);
     }
     /* TODO: add more tests here if adding new parameters */
 
@@ -323,6 +382,25 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
             byte_index += 2;
             picoformat_32(bytes + byte_index, cnx->local_parameters.initial_max_stream_data_uni);
             /* TODO: restore this line if adding new parameters: byte_index += 4; */
+            byte_index += 4;
+        }
+
+        if (supported_plugins_len > 0) {
+            picoformat_16(bytes + byte_index, picoquic_tp_supported_plugins);
+            byte_index += 2;
+            picoformat_16(bytes + byte_index, supported_plugins_len);
+            byte_index += 2;
+            memcpy(bytes + byte_index, cnx->local_parameters.supported_plugins, supported_plugins_len);
+            byte_index += supported_plugins_len;
+        }
+
+        if (plugins_to_insert_len > 0) {
+            picoformat_16(bytes + byte_index, picoquic_tp_plugins_to_inject);
+            byte_index += 2;
+            picoformat_16(bytes + byte_index, plugins_to_insert_len);
+            byte_index += 2;
+            memcpy(bytes + byte_index, cnx->local_parameters.plugins_to_inject, plugins_to_insert_len);
+            byte_index += plugins_to_insert_len;
         }
     }
 
@@ -334,7 +412,8 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 {
     int ret = 0;
     size_t byte_index = 0;
-    uint32_t present_flag = 0;
+    /* Provide support up to TP 63 */
+    uint64_t present_flag = 0;
 
     cnx->remote_parameters_received = 1;
 
@@ -417,7 +496,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
         if (extensions_end > bytes_max) {
             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
-        } else
+        } else {
             while (ret == 0 && byte_index < extensions_end) {
                 if (byte_index + 4 > extensions_end) {
                     ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
@@ -430,11 +509,11 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                     } else {
                         if (extension_type < 64) {
-                            if ((present_flag & (1 << extension_type)) != 0) {
+                            if ((present_flag & (1UL << extension_type)) != 0) {
                                 /* Malformed, already present */
                                 ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                             } else {
-                                present_flag |= (1 << extension_type);
+                                present_flag |= (1UL << extension_type);
                             }
                         }
 
@@ -557,6 +636,26 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                                 cnx->remote_parameters.migration_disabled = 1;
                             }
                             break;
+                        case picoquic_tp_supported_plugins:
+                            if (extension_length > 0) {
+                                cnx->remote_parameters.supported_plugins = malloc(sizeof(char) * extension_length);
+                                if (cnx->remote_parameters.supported_plugins == NULL) {
+                                    fprintf(stderr, "Cannot allocate memory for remote supported plugins\n");
+                                } else {
+                                    memcpy(cnx->remote_parameters.supported_plugins, bytes + byte_index, extension_length);
+                                }
+                            }
+                            break;
+                        case picoquic_tp_plugins_to_inject:
+                            if (extension_length > 0) {
+                                cnx->remote_parameters.plugins_to_inject = malloc(sizeof(char) * extension_length);
+                                if (cnx->remote_parameters.plugins_to_inject == NULL) {
+                                    fprintf(stderr, "Cannot allocate memory for remote plugins to inject\n");
+                                } else {
+                                    memcpy(cnx->remote_parameters.plugins_to_inject, bytes + byte_index, extension_length);
+                                }
+                            }
+                            break;
                         default:
                             /* ignore unknown extensions */
                             protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, NULL, extension_type, extension_length, bytes + byte_index);
@@ -569,6 +668,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                     }
                 }
             }
+        }
     }
 
     /* TODO: remove this kludge once we remove support for draft 13 */

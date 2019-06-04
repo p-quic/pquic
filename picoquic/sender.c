@@ -182,6 +182,92 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
 }
 
 /*
+ * Sending plugins
+ */
+int picoquic_add_to_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id,
+    const uint8_t* data, size_t length, int set_fin)
+{
+    int ret = 0;
+    int is_unidir = 1;
+    picoquic_stream_head* stream = NULL;
+
+    stream = picoquic_find_plugin_stream(cnx, pid_id, 0);
+
+    if (stream == NULL) {
+        /* Need to check that the ID is authorized */
+
+        /* Check that it is initiated by the server */
+        if (cnx->client_mode) {
+            ret = PICOQUIC_ERROR_INVALID_PLUGIN_STREAM_ID;
+        }
+
+        if (ret == 0) {
+            stream = picoquic_create_plugin_stream(cnx, pid_id);
+
+            if (stream == NULL) {
+                ret = PICOQUIC_ERROR_MEMORY;
+            } else if (is_unidir) {
+                /* Mark the stream as already finished in remote direction */
+                picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled | picoquic_stream_flag_fin_received);
+            }
+        }
+    }
+
+    if (ret == 0 && set_fin) {
+        if ((stream->stream_flags & picoquic_stream_flag_fin_notified) != 0) {
+            /* app error, notified the fin twice*/
+            if (length > 0) {
+                ret = -1;
+            }
+        } else {
+            picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_notified);
+        }
+    }
+
+    /* If our side has sent RST_STREAM or received STOP_SENDING, we should not send anymore data. */
+    if (STREAM_RESET_SENT(stream) || STREAM_STOP_SENDING_RECEIVED(stream)) {
+        ret = -1;
+    }
+
+    if (ret == 0 && length > 0) {
+        picoquic_stream_data* stream_data = (picoquic_stream_data*)malloc(sizeof(picoquic_stream_data));
+
+        if (stream_data == 0) {
+            ret = -1;
+        } else {
+            stream_data->bytes = (uint8_t*)malloc(length);
+
+            if (stream_data->bytes == NULL) {
+                free(stream_data);
+                stream_data = NULL;
+                ret = -1;
+            } else {
+                picoquic_stream_data** pprevious = &stream->send_queue;
+                picoquic_stream_data* next = stream->send_queue;
+
+                memcpy(stream_data->bytes, data, length);
+                stream_data->length = length;
+                stream_data->offset = 0;
+                stream_data->next_stream_data = NULL;
+
+                while (next != NULL) {
+                    pprevious = &next->next_stream_data;
+                    next = next->next_stream_data;
+                }
+
+                *pprevious = stream_data;
+            }
+        }
+
+        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_PLUGIN_STREAM", "", "{\"stream\": \"%p\", \"pid_id\": %lu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
+
+        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+    }
+
+    return ret;
+}
+
+/*
  * Packet management
  */
 
@@ -2760,6 +2846,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     picoquic_stream_head* stream = NULL;
     int tls_ready = picoquic_is_tls_stream_ready(cnx);
     stream = picoquic_find_ready_stream(cnx);
+    picoquic_stream_head* plugin_stream = NULL;
+    plugin_stream = picoquic_find_ready_plugin_stream(cnx);
 
 
     /* First enqueue frames that can be fairly sent, if any */
@@ -2934,6 +3022,53 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                     packet->is_pure_ack = 0;
                                     packet->is_congestion_controlled = 1;
                                 }
+                            }
+                        }
+                        /* If required, request for plugins */
+                        if (ret == 0 && !cnx->plugin_requested) {
+                            int is_retransmittable = 1;
+                            for (int i = 0; ret == 0 && i < cnx->pids_to_request.size; i++) {
+                                ret = picoquic_write_plugin_validate_frame(cnx, &bytes[length], &bytes[send_buffer_min_max - checksum_overhead],
+                                    cnx->pids_to_request.elems[i].pid_id, cnx->pids_to_request.elems[i].plugin_name, &data_bytes, &is_retransmittable);
+                                if (ret == 0) {
+                                    length += (uint32_t)data_bytes;
+                                    if (data_bytes > 0)
+                                    {
+                                        packet->is_pure_ack = 0;
+                                        packet->is_congestion_controlled = 1;
+                                        cnx->pids_to_request.elems[i].requested = 1;
+                                    }
+                                }
+                                else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                                    ret = 0;
+                                }
+                            }
+                            cnx->plugin_requested = 1;
+                        }
+
+                        /* Encode the plugin frame, or frames */
+                        while (plugin_stream != NULL) {
+                            size_t stream_bytes_max = picoquic_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                            ret = picoquic_prepare_plugin_frame(cnx, plugin_stream, &bytes[length],
+                                                                stream_bytes_max, &data_bytes);
+                            if (ret == 0) {
+                                length += (uint32_t)data_bytes;
+                                if (data_bytes > 0)
+                                {
+                                    packet->is_pure_ack = 0;
+                                    packet->is_congestion_controlled = 1;
+                                }
+
+                                if (stream_bytes_max > checksum_overhead + length + 8) {
+                                    plugin_stream = picoquic_find_ready_plugin_stream(cnx);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                            else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                                ret = 0;
+                                break;
                             }
                         }
 

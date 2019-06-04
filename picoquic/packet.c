@@ -1253,16 +1253,17 @@ int picoquic_incoming_segment(
     struct sockaddr* addr_to,
     int if_index_to,
     uint64_t current_time,
-    picoquic_connection_id_t * previous_dest_id)
+    picoquic_connection_id_t * previous_dest_id,
+    int *new_context_created)
 {
     int ret = 0;
     picoquic_cnx_t* cnx = NULL;
     picoquic_packet_header ph;
-    int new_context_created = 0;
+    *new_context_created = 0;
 
     /* Parse the header and decrypt the packet */
     ret = picoquic_parse_header_and_decrypt(quic, bytes, length, packet_length, addr_from,
-        current_time, &ph, &cnx, consumed, &new_context_created);
+        current_time, &ph, &cnx, consumed, new_context_created);
     if (cnx != NULL) LOG {
         PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
     }
@@ -1336,7 +1337,7 @@ int picoquic_incoming_segment(
                         if (cnx->client_mode == 0) {
                             /* TODO: finish processing initial connection packet */
                             ret = picoquic_incoming_initial(&cnx, bytes,
-                                addr_from, addr_to, if_index_to, &ph, current_time, new_context_created);
+                                addr_from, addr_to, if_index_to, &ph, current_time, *new_context_created);
                         }
                         else {
                             /* TODO: this really depends on the current receive epoch */
@@ -1442,7 +1443,8 @@ int picoquic_incoming_packet(
     struct sockaddr* addr_from,
     struct sockaddr* addr_to,
     int if_index_to,
-    uint64_t current_time)
+    uint64_t current_time,
+    int* new_context_created)
 {
     uint32_t consumed_index = 0;
     int ret = 0;
@@ -1454,7 +1456,7 @@ int picoquic_incoming_packet(
 
         ret = picoquic_incoming_segment(quic, bytes + consumed_index, 
             length - consumed_index, length,
-            &consumed, addr_from, addr_to, if_index_to, current_time, &previous_destid);
+            &consumed, addr_from, addr_to, if_index_to, current_time, &previous_destid, new_context_created);
 
         if (ret == 0) {
             consumed_index += consumed;

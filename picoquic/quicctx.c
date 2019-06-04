@@ -32,6 +32,8 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
+#include <dirent.h>
+#include <stdio.h>
 #endif
 
 
@@ -252,6 +254,124 @@ void picoquic_free_cached_plugins(cached_plugins_t* cplugins)
     free(cplugins);
 }
 
+int picoquic_get_supported_plugins(picoquic_quic_t* quic)
+{
+    quic->supported_plugins.size = 0;
+    quic->supported_plugins.name_num_bytes = 0;
+
+    if (quic->plugin_store_path == NULL) {
+        /* No store path, so no supported plugins */
+        return 0;
+    }
+
+#ifdef _WINDOWS
+    DBG_PRINTF("File listing in Windows is not supported yet.\n");
+    return 0;
+#endif
+
+    /* Single pass */
+    DIR *d, *sub_d;
+    struct dirent *dir, *sub_dir;
+    const int max_plugin_fname_len = strlen(quic->plugin_store_path) + 514; /* From d_name max length, plus the separator and null char*/
+    char tmp_buf[max_plugin_fname_len];
+    char pid_buf[250]; /* Required plugin name size */
+    size_t pid_size, path_size;
+    d = opendir(quic->plugin_store_path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            /* The first character cannot be a '.' */
+            if (dir->d_name[0] != '.') {
+                /* Don't forget to reinit tmp_buf... */
+                memset(tmp_buf, 0, max_plugin_fname_len);
+                strcpy(tmp_buf, quic->plugin_store_path);
+                picoquic_string_join_path_and_fname(tmp_buf, dir->d_name);
+                sub_d = opendir(tmp_buf);
+                if (sub_d) {
+                    while ((sub_dir = readdir(sub_d)) != NULL) {
+                        if (picoquic_string_ends_with(sub_dir->d_name, ".plugin")) {
+                            picoquic_string_join_path_and_fname(tmp_buf, sub_dir->d_name);
+                            if (plugin_parse_plugin_id(tmp_buf, pid_buf)) {
+                                fprintf(stderr, "Error when parsing PID of path %s\n", tmp_buf);
+                                continue;
+                            }
+                            pid_size = strlen(pid_buf);
+                            path_size = strlen(tmp_buf);
+                            quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path = malloc(sizeof(char) * (path_size + 1));
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path == NULL) {
+                                fprintf(stderr, "Error when malloc'ing memory for path %s\n", tmp_buf);
+                                continue;
+                            }
+                            quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name = malloc(sizeof(char) * (pid_size + 1));
+                            if (quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name == NULL) {
+                                fprintf(stderr, "Error when malloc'ing memory for name %s\n", pid_buf);
+                                free(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path);
+                                continue;
+                            }
+                            strcpy(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_path, tmp_buf);
+                            strcpy(quic->supported_plugins.elems[quic->supported_plugins.size].plugin_name, pid_buf);
+                            quic->supported_plugins.name_num_bytes += pid_size;
+                            quic->supported_plugins.size++;
+
+                            if (quic->supported_plugins.size >= MAX_PLUGIN) {
+                                fprintf(stderr, "WARNING: limit of supported plugins reached!\n");
+                                break;
+                            }
+                        }
+                    }
+                    closedir(sub_d);
+                }
+            }
+        }
+        closedir(d);
+    }
+
+    return 0;
+}
+
+
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    int err = 0;
+    char buf[256];
+    size_t buf_len;
+    int i;
+    for (i = 0; err == 0 && i < plugins; i++) {
+        err = plugin_parse_plugin_id(plugin_fnames[i], buf);
+        if (err != 0) {
+            break;
+        }
+        buf_len = strlen(buf);
+        quic->plugins_to_inject.elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
+        if (quic->plugins_to_inject.elems[i].plugin_name == NULL) {
+            break;
+        }
+        quic->plugins_to_inject.elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
+        if (quic->plugins_to_inject.elems[i].plugin_path == NULL) {
+            free(quic->plugins_to_inject.elems[i].plugin_name);
+            break;
+        }
+        strcpy(quic->plugins_to_inject.elems[i].plugin_name, buf);
+        strcpy(quic->plugins_to_inject.elems[i].plugin_path, plugin_fnames[i]);
+        printf("Plugin with path %s and name %s\n", quic->plugins_to_inject.elems[i].plugin_path, quic->plugins_to_inject.elems[i].plugin_name);
+        quic->plugins_to_inject.name_num_bytes += buf_len;
+        quic->plugins_to_inject.size++;
+    }
+
+    if (err != 0) {
+        /* Free everything! */
+        for (int j = 0; j < i; j++) {
+            free(quic->plugins_to_inject.elems[i].plugin_name);
+            free(quic->plugins_to_inject.elems[i].plugin_path);
+        }
+        quic->plugins_to_inject.size = 0;
+        quic->plugins_to_inject.name_num_bytes = 0;
+        return 1;
+    }
+
+    return 0;
+}
+
+
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     char const* cert_file_name,
@@ -267,7 +387,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     uint64_t* p_simulated_time,
     char const* ticket_file_name,
     const uint8_t* ticket_encryption_key,
-    size_t ticket_encryption_key_length)
+    size_t ticket_encryption_key_length,
+    char* plugin_store_path)
 {
     picoquic_quic_t* quic = (picoquic_quic_t*)malloc(sizeof(picoquic_quic_t));
     int ret = 0;
@@ -334,6 +455,18 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 ret = -1;
                 DBG_PRINTF("%s", "Cannot create cached plugins queue \n");
             }
+            quic->plugin_store_path = NULL;
+            if (plugin_store_path != NULL) {
+                if (picoquic_check_or_create_directory(plugin_store_path)) {
+                    fprintf(stderr, "Cannot use plugin cache %s; continue without it.\n", plugin_store_path);
+                } else {
+                    quic->plugin_store_path = plugin_store_path;
+                }
+            }
+            picoquic_get_supported_plugins(quic);
+            /* If plugins should be inserted, a dedicated call will occur */
+            quic->plugins_to_inject.size = 0;
+            quic->plugins_to_inject.name_num_bytes = 0;
         }
     }
 
@@ -411,6 +544,20 @@ void picoquic_free(picoquic_quic_t* quic)
                 picoquic_free_cached_plugins(tmp);
             }
             queue_free(quic->cached_plugins_queue);
+        }
+
+        if (quic->supported_plugins.size > 0) {
+            for (int i = 0; i < quic->supported_plugins.size; i++) {
+                free(quic->supported_plugins.elems[i].plugin_name);
+                free(quic->supported_plugins.elems[i].plugin_path);
+            }
+        }
+
+        if (quic->plugins_to_inject.size > 0) {
+            for (int i = 0; i < quic->plugins_to_inject.size; i++) {
+                free(quic->plugins_to_inject.elems[i].plugin_name);
+                free(quic->plugins_to_inject.elems[i].plugin_path);
+            }
         }
 
         free(quic);
@@ -580,6 +727,8 @@ void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode)
     tp->idle_timeout = PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000000;
     tp->max_packet_size = PICOQUIC_PRACTICAL_MAX_MTU;
     tp->ack_delay_exponent = 3;
+    tp->supported_plugins = NULL;
+    tp->plugins_to_inject = NULL;
 }
 
 
@@ -1192,6 +1341,123 @@ uint64_t picoquic_is_0rtt_available(picoquic_cnx_t* cnx)
     return (cnx->crypto_context[1].aead_encrypt == NULL) ? 0 : 1;
 }
 
+/* Return the index in the list of pid, or the size of the list otherwise */
+int picoquic_pid_index(plugin_list_t* list, char* pid)
+{
+    for (int j = 0; j < list->size; j++) {
+        if (strcmp(list->elems[j].plugin_name, pid) == 0) {
+            return j;
+        }
+    }
+    return list->size;
+}
+
+int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
+{
+    /* If there is no plugins_to_inject remote parameter, stop now */
+    if (!cnx->remote_parameters.plugins_to_inject) {
+        return 0;
+    }
+    /* The client can inject all plugins required that it already supports. */
+    char **pids_to_inject = picoquic_string_split(cnx->remote_parameters.plugins_to_inject, ',');
+    char *pid_to_inject;
+    int index;
+    plugin_list_t* supported_plugins = &cnx->quic->supported_plugins;
+    if (pids_to_inject) {
+        for (int i = 0; (pid_to_inject = pids_to_inject[i]) != NULL; i++) {
+            /* Search in the supported plugins */
+            index = picoquic_pid_index(supported_plugins, pid_to_inject);
+
+            if (index < supported_plugins->size) {
+                /* FIXME plugin loading optimization */
+                /* FIXME what if plugin load fails? */
+                /* Plugin is supported, insert it */
+                int plugged = plugin_insert_plugin(cnx, supported_plugins->elems[index].plugin_path);
+                if (plugged == 0) {
+                    fprintf(stderr, "Client successfully inserted plugin %s\n", supported_plugins->elems[index].plugin_path);
+                } else {
+                    fprintf(stderr, "Client failed to insert plugin %s\n", supported_plugins->elems[index].plugin_path);
+                }
+            } else {
+                fprintf(stderr, "Client does not support plugin %s, request it.\n", pid_to_inject);
+                size_t pid_len = strlen(pid_to_inject) + 1;
+                cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name = malloc(sizeof(char) * (pid_len));
+                if (cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name == NULL) {
+                    fprintf(stderr, "Client cannot allocate memory to request %s!\n", pid_to_inject);
+                } else {
+                    cnx->pids_to_request.elems[cnx->pids_to_request.size].data = malloc(sizeof(uint8_t) * MAX_PLUGIN_DATA_LEN);
+                    if (cnx->pids_to_request.elems[cnx->pids_to_request.size].data == NULL) {
+                        fprintf(stderr, "Client cannot allocate memory to request %s!\n", pid_to_inject);
+                        free(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name);
+                        cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name = NULL;
+                    } else {
+                        memcpy(cnx->pids_to_request.elems[cnx->pids_to_request.size].plugin_name, pid_to_inject, pid_len);
+                        cnx->pids_to_request.elems[cnx->pids_to_request.size].pid_id = cnx->pids_to_request.size;
+                        cnx->pids_to_request.size++;
+                    }
+                }
+            }
+        }
+        free(pids_to_inject);
+    }
+
+    return 0;
+}
+
+int picoquic_handle_plugin_negotiation_server(picoquic_cnx_t* cnx)
+{
+    /* If there is no supported_plugins remote parameter, stop now */
+    if (!cnx->remote_parameters.supported_plugins) {
+        return 0;
+    }
+    char **supported_pids = picoquic_string_split(cnx->remote_parameters.supported_plugins, ',');
+    char *supported_pid;
+    int index;
+    plugin_list_t* plugins_to_inject = &cnx->quic->plugins_to_inject;
+    if (supported_pids) {
+        for (int i = 0; (supported_pid = supported_pids[i]) != NULL; i++) {
+            /* Search in the plugins to inject */
+            index = picoquic_pid_index(plugins_to_inject, supported_pid);
+
+            if (index < plugins_to_inject->size) {
+                /* FIXME plugin loading optimization */
+                /* FIXME what if plugin load fails? */
+                /* Plugin is supported, insert it */
+                int plugged = plugin_insert_plugin(cnx, plugins_to_inject->elems[index].plugin_path);
+                if (plugged == 0) {
+                    fprintf(stderr, "Server successfully inserted plugin %s\n", plugins_to_inject->elems[index].plugin_path);
+                } else {
+                    fprintf(stderr, "Server failed to insert plugin %s\n", plugins_to_inject->elems[index].plugin_path);
+                }
+            }
+        }
+        free(supported_pids);
+    }
+
+    return 0;
+}
+
+/* Handle plugin negotiation */
+int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx)
+{
+    /* This function should be called once transport parameters have been exchanged */
+    if (!cnx->remote_parameters_received) {
+        DBG_PRINTF("Trying to handle plugin negotiation before having received remote transport parameters!\n");
+        return 1;
+    }
+
+    int err;
+
+    /* XXX So far, we only allow remote injection from server to client */
+    if (picoquic_is_client(cnx)) {
+        err = picoquic_handle_plugin_negotiation_client(cnx);
+    } else {
+        err = picoquic_handle_plugin_negotiation_server(cnx);
+    }
+
+    return err;
+}
+
 /*
  * Provide clock time
  */
@@ -1562,6 +1828,12 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             free(stream);
         }
 
+        while ((stream = cnx->first_plugin_stream) != NULL) {
+            cnx->first_plugin_stream = stream->next_stream;
+            picoquic_clear_stream(stream);
+            free(stream);
+        }
+
         if (cnx->tls_ctx != NULL) {
             picoquic_tlscontext_free(cnx, cnx->tls_ctx);
             cnx->tls_ctx = NULL;
@@ -1614,6 +1886,32 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         } else {
             /* Free protocol operations and plugins */
             picoquic_free_protoops_and_plugins(cnx);
+        }
+
+        /* Free possibly allocated memory in pids to request */
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            if (cnx->pids_to_request.elems[i].plugin_name != NULL) {
+                free(cnx->pids_to_request.elems[i].plugin_name);
+                cnx->pids_to_request.elems[i].plugin_name = NULL;
+            }
+            if (cnx->pids_to_request.elems[i].data != NULL) {
+                free(cnx->pids_to_request.elems[i].data);
+                cnx->pids_to_request.elems[i].data = NULL;
+            }
+        }
+
+        /* Free the plugin name pointers */
+        if (cnx->local_parameters.supported_plugins != NULL) {
+            free(cnx->local_parameters.supported_plugins);
+        }
+        if (cnx->remote_parameters.supported_plugins != NULL) {
+            free(cnx->local_parameters.supported_plugins);
+        }
+        if (cnx->local_parameters.plugins_to_inject != NULL) {
+            free(cnx->local_parameters.plugins_to_inject);
+        }
+        if (cnx->remote_parameters.plugins_to_inject != NULL) {
+            free(cnx->local_parameters.plugins_to_inject);
         }
 
         /* Delete pending reserved frames, if any */
@@ -2181,6 +2479,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_OPENED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PLUGIN_STREAM_OPENED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_FLAGS_CHANGED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_CLOSED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FAST_RETRANSMIT, &protoop_noop);

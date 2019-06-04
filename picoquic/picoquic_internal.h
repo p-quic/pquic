@@ -150,6 +150,32 @@ typedef struct st_cached_plugins_t {
     protoop_plugin_t *plugins; /* A hash map to the plugins referenced by ops */
 } cached_plugins_t;
 
+typedef struct st_plugin_fname_t {
+    char* plugin_name;
+    char* plugin_path;
+} plugin_fname_t;
+
+#define MAX_PLUGIN 64
+
+typedef struct st_plugin_list_t {
+    uint16_t size;
+    uint16_t name_num_bytes; // Count the number of bytes in the plugin names
+    plugin_fname_t elems[MAX_PLUGIN];
+} plugin_list_t;
+
+typedef struct st_plugin_req_pid_t {
+    char* plugin_name;
+    int requested:1;
+    uint64_t pid_id;
+    uint64_t received_length;
+    uint8_t *data;
+} plugin_req_pid_t;
+
+typedef struct st_plugin_request_t {
+    uint16_t size;
+    plugin_req_pid_t elems[MAX_PLUGIN];
+} plugin_request_t;
+
 /*
 	 * QUIC context, defining the tables of connections,
 	 * open sockets, etc.
@@ -201,6 +227,12 @@ typedef struct st_picoquic_quic_t {
 
     /* Queue of cached plugins */
     queue_t* cached_plugins_queue;
+    /* Path to the plugin cache store */
+    char* plugin_store_path;
+    /* List of supported plugins in plugin cache store */
+    plugin_list_t supported_plugins;
+    /* List of plugins we want to inject locally */
+    plugin_list_t plugins_to_inject;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -221,7 +253,9 @@ typedef enum {
     picoquic_tp_initial_max_uni_streams = 8,
     picoquic_tp_disable_migration = 9,
     picoquic_tp_initial_max_stream_data_bidi_remote = 10,
-    picoquic_tp_initial_max_stream_data_uni = 11
+    picoquic_tp_initial_max_stream_data_uni = 11,
+    picoquic_tp_supported_plugins = 32,
+    picoquic_tp_plugins_to_inject = 33
 } picoquic_tp_enum;
 
 typedef struct st_picoquic_tp_preferred_address_t {
@@ -244,6 +278,8 @@ typedef struct st_picoquic_tp_t {
     uint8_t ack_delay_exponent;
     unsigned int migration_disabled; 
     picoquic_tp_preferred_address_t preferred_address;
+    char* supported_plugins;
+    char* plugins_to_inject;
 } picoquic_tp_t;
 
 /*
@@ -516,6 +552,8 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define CONTEXT_MEMORY (2 * 1024 * 1024) /* In bytes, at least needed by tests */
 
+#define MAX_PLUGIN_DATA_LEN (1024 * 1000) /* In bytes */
+
 /* 
  * Per connection context.
  * This is the structure that will be passed to pluglets.
@@ -638,6 +676,13 @@ typedef struct st_picoquic_cnx_t {
     uint16_t core_rate;
     /* Should we wake directly the stack due to a reserved frame? */
     uint8_t wake_now:1;
+    uint8_t plugin_requested:1;
+
+    /* List of plugins that should be requested on this connection */
+    plugin_request_t pids_to_request;
+
+    /* Management of plugin streams */
+    picoquic_stream_head * first_plugin_stream;
 
     /* Management of default protocol operations and plugins */
     protocol_operation_struct_t *ops;
@@ -1038,6 +1083,15 @@ int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed);
 int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
                                 size_t bytes_max, size_t* consumed);
+
+int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+                                         uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable);
+
+/* plugin stream management */
+picoquic_stream_head* picoquic_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id);
+picoquic_stream_head* picoquic_find_ready_plugin_stream(picoquic_cnx_t* cnx);
+int picoquic_prepare_plugin_frame(picoquic_cnx_t* cnx, picoquic_stream_head* plugin_stream,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed);
 
 
 /* send/receive */

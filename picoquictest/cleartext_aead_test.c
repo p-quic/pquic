@@ -86,10 +86,10 @@ int cleartext_aead_test()
     picoquic_cnx_t* cnx_client = NULL;
     picoquic_cnx_t* cnx_server = NULL;
     picoquic_quic_t* qclient = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     picoquic_quic_t* qserver = picoquic_create(8,
         PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
-        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qclient == NULL || qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic contexts.\n");
         ret = -1;
@@ -211,7 +211,7 @@ int cleartext_aead_vector_test_one(picoquic_connection_id_t test_id, uint8_t * c
     struct sockaddr_in test_addr_c;
     picoquic_cnx_t* cnx_client = NULL;
     picoquic_quic_t* qclient = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qclient == NULL) {
         DBG_PRINTF("%s: Could not create Quic context.\n", test_name);
         ret = -1;
@@ -417,7 +417,7 @@ int cleartext_pn_enc_test()
     picoquic_cnx_t* cnx_client = NULL;
     picoquic_cnx_t* cnx_server = NULL;
     picoquic_quic_t* qclient = picoquic_create(8, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     picoquic_quic_t* qserver = picoquic_create(8,
 #ifdef _WINDOWS
 #ifdef _WINDOWS64
@@ -428,7 +428,7 @@ int cleartext_pn_enc_test()
 #else
         "certs/cert.pem", "certs/key.pem",
 #endif
-        NULL, "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qclient == NULL || qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic contexts.\n");
         ret = -1;
@@ -536,7 +536,7 @@ int cleartext_pn_vector_test()
 #else
         "certs/cert.pem", "certs/key.pem",
 #endif
-        NULL, "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        NULL, "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic contexts.\n");
         ret = -1;
@@ -804,7 +804,7 @@ static int draft31_incoming_initial_test()
     /* Create a server context */
     picoquic_quic_t* qserver = picoquic_create(8,
         PICOQUIC_TEST_SERVER_CERT, PICOQUIC_TEST_SERVER_KEY, PICOQUIC_TEST_CERT_STORE,
-        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0);
+        "test", NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, 0, NULL);
     if (qserver == NULL) {
         DBG_PRINTF("%s", "Could not create Quic server context.\n");
         ret = -1;

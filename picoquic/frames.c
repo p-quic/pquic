@@ -270,6 +270,83 @@ picoquic_stream_head* picoquic_find_or_create_stream(picoquic_cnx_t* cnx, uint64
     return stream;
 }
 
+picoquic_stream_head* picoquic_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id)
+{
+    picoquic_stream_head* stream = (picoquic_stream_head*)malloc(sizeof(picoquic_stream_head));
+    if (stream != NULL) {
+        picoquic_stream_head* previous_stream = NULL;
+        picoquic_stream_head* next_stream = cnx->first_plugin_stream;
+
+        memset(stream, 0, sizeof(picoquic_stream_head));
+        stream->stream_id = pid_id;
+
+        /* FIXME currently, only server is allowed to send plugin frames */
+        if (cnx->client_mode) {
+            stream->maxdata_local = MAX_PLUGIN_DATA_LEN; /* Limit to MAX_PLUGIN_DATA_LEN */
+            stream->maxdata_remote = 0;
+        } else {
+            stream->maxdata_local = 0;
+            stream->maxdata_remote = MAX_PLUGIN_DATA_LEN; /* Limit to MAX_PLUGIN_DATA_LEN */
+        }
+
+        /*
+         * Make sure that the streams are open in order.
+         */
+        while (next_stream != NULL && next_stream->stream_id < pid_id) {
+            previous_stream = next_stream;
+            next_stream = next_stream->next_stream;
+        }
+
+        stream->next_stream = next_stream;
+
+        if (previous_stream == NULL) {
+            cnx->first_plugin_stream = stream;
+        } else {
+            previous_stream->next_stream = stream;
+        }
+
+        protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PLUGIN_STREAM_OPENED, NULL, stream, pid_id);
+    }
+
+    return stream;
+}
+
+picoquic_stream_head* picoquic_find_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int create)
+{
+    picoquic_stream_head* stream = cnx->first_plugin_stream;
+
+    while (stream) {
+        if (stream->stream_id == pid_id) {
+            break;
+        } else {
+            stream = stream->next_stream;
+        }
+    };
+
+    if (create != 0 && stream == NULL) {
+        stream = picoquic_create_plugin_stream(cnx, pid_id);
+    }
+
+    return stream;
+}
+
+picoquic_stream_head* picoquic_find_or_create_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id, int is_remote)
+{
+    picoquic_stream_head* stream = picoquic_find_plugin_stream(cnx, pid_id, 0);
+
+    if (stream == NULL) {
+        /* We expect being remote and being the client */
+        if (!is_remote || !cnx->client_mode) {
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_STREAM_ID_ERROR, 0);
+        } else if ((stream = picoquic_create_plugin_stream(cnx, pid_id)) == NULL) {
+            picoquic_connection_error(cnx, PICOQUIC_ERROR_MEMORY, 0);
+        }
+    }
+
+    return stream;
+}
+
+
 void picoquic_add_stream_flags(picoquic_cnx_t* cnx, picoquic_stream_head* stream, uint32_t flags) {
     bool stream_closed = STREAM_CLOSED(stream);
     uint32_t old_flags = stream->stream_flags;
@@ -906,6 +983,46 @@ picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t 
     return (picoquic_stream_head *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, NULL, max_size, path);
 }
 
+/**
+ * See PROTOOP_NOPARAM_FIND_READY_PLUGIN_STREAM
+ */
+protoop_arg_t find_ready_plugin_stream(picoquic_cnx_t *cnx)
+{
+    picoquic_stream_head* stream = cnx->first_plugin_stream;
+
+    if (cnx->maxdata_remote > cnx->data_sent) {
+        while (stream) {
+            if ((stream->send_queue != NULL && stream->send_queue->length > stream->send_queue->offset &&
+                  stream->sent_offset < stream->maxdata_remote) ||
+                 (STREAM_SEND_FIN(stream) && (stream->sent_offset < stream->maxdata_remote)) ||
+                STREAM_SEND_RESET(stream) || STREAM_SEND_STOP_SENDING(stream)) {
+                /* Consider it is always ok */
+                break;
+            }
+
+            stream = stream->next_stream;
+
+        } ;
+    } else {
+        if ((stream->send_queue == NULL ||
+             stream->send_queue->length <= stream->send_queue->offset) &&
+            (!STREAM_FIN_NOTIFIED(stream) || STREAM_FIN_SENT(stream)) &&
+            (!STREAM_RESET_REQUESTED(stream) || STREAM_RESET_SENT(stream)) &&
+            (!STREAM_STOP_SENDING_REQUESTED(stream) || STREAM_STOP_SENDING_SENT(stream))) {
+            stream = NULL;
+            printf("This should never happen for plugin stream...\n");
+        }
+    }
+
+    return (protoop_arg_t) stream;
+}
+
+picoquic_stream_head* picoquic_find_ready_plugin_stream(picoquic_cnx_t* cnx)
+{
+    protoop_params_t pp = { .pid = &PROTOOP_NOPARAM_FIND_READY_PLUGIN_STREAM, .inputc = 0, .inputv = NULL, .outputv = NULL, .caller_is_intern = true};
+    return (picoquic_stream_head *) plugin_run_protoop_internal(cnx, &pp);
+}
+
 protoop_arg_t stream_bytes_max(picoquic_cnx_t* cnx) {
     size_t bytes_max = (size_t) cnx->protoop_inputv[0];
     protoop_save_outputs(cnx, bytes_max);
@@ -1070,6 +1187,141 @@ int picoquic_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head* str
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, outs,
         stream, bytes, bytes_max);
+    *consumed = (protoop_arg_t) outs[0];
+    return ret;
+}
+
+/**
+ * See PROTOOP_NOPARAM_PREPARE_STREAM_FRAME
+ */
+protoop_arg_t prepare_plugin_frame(picoquic_cnx_t* cnx)
+{
+    picoquic_stream_head* plugin_stream = (picoquic_stream_head*) cnx->protoop_inputv[0];
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
+
+    size_t consumed = 0;
+
+    int ret = 0;
+
+    if ((plugin_stream->send_queue == NULL || plugin_stream->send_queue->length <= plugin_stream->send_queue->offset) &&
+        (!STREAM_FIN_NOTIFIED(plugin_stream) || STREAM_FIN_SENT(plugin_stream))) {
+        consumed = 0;
+    } else {
+        size_t byte_index = 0;
+        size_t l_pid = 0;
+        size_t l_off = 0;
+        size_t length = 0;
+
+        bytes[byte_index++] = picoquic_frame_type_plugin;
+
+        /* If the FIN bit is set, we will put it after */
+        bytes[byte_index++] = 0;
+
+
+        if (bytes_max > byte_index) {
+            /* PID ID */
+            l_pid = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index, plugin_stream->stream_id);
+            byte_index += l_pid;
+        }
+
+        if (bytes_max > byte_index) {
+            /* Offset */
+            l_off = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index, plugin_stream->sent_offset);
+            byte_index += l_off;
+        }
+
+        if (byte_index > bytes_max || l_pid == 0 || (plugin_stream->sent_offset > 0 && l_off == 0)) {
+            consumed = 0;
+            ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+        } else {
+            /* Compute the length */
+            size_t space = bytes_max - byte_index;
+
+            if (space < 2 || plugin_stream->send_queue == NULL) {
+                length = 0;
+            } else {
+                size_t available = (size_t)(plugin_stream->send_queue->length - plugin_stream->send_queue->offset);
+
+                length = available;
+
+                /* Enforce maxdata per stream on all streams, including stream 0 */
+                if (length >(plugin_stream->maxdata_remote - plugin_stream->sent_offset)) {
+                    length = (size_t)(plugin_stream->maxdata_remote - plugin_stream->sent_offset);
+                }
+
+                /* Flow control restrictions */
+                if (length > (cnx->maxdata_remote - cnx->data_sent)) {
+                    length = (size_t)(cnx->maxdata_remote - cnx->data_sent);
+                }
+
+                /* This is going to be a trial and error process */
+                size_t l_len = 0;
+
+                /* Try a simple encoding */
+                l_len = picoquic_varint_encode(bytes + byte_index, space,
+                    (uint64_t)length);
+                if (l_len == 0 || (l_len == space && length > 0)) {
+                    /* Will not try a silly encoding */
+                    consumed = 0;
+                    ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+                } else if (length + l_len > space) {
+                    /* try a shorter packet */
+                    length = space - l_len;
+                    l_len = picoquic_varint_encode(bytes + byte_index, space,
+                        (uint64_t)length);
+                    byte_index += l_len;
+                } else {
+                    /* This is good */
+                    byte_index += l_len;
+                }
+            }
+
+            if (ret == 0 && length > 0) {
+                memcpy(&bytes[byte_index], plugin_stream->send_queue->bytes + plugin_stream->send_queue->offset, length);
+                byte_index += length;
+
+                plugin_stream->send_queue->offset += length;
+                if (plugin_stream->send_queue->offset >= plugin_stream->send_queue->length) {
+                    picoquic_stream_data* next = plugin_stream->send_queue->next_stream_data;
+                    free(plugin_stream->send_queue->bytes);
+                    free(plugin_stream->send_queue);
+                    plugin_stream->send_queue = next;
+                }
+
+                LOG_EVENT(cnx, "FRAMES", "PLUGIN_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"pid_id\": %lu, \"offset\": %lu, \"length\": %lu, \"fin\": %d}", bytes, plugin_stream->stream_id, plugin_stream->sent_offset, length, STREAM_FIN_NOTIFIED(plugin_stream) && plugin_stream->send_queue == 0);
+
+                plugin_stream->sent_offset += length;
+                /* The client does not handle this correctly, so fix this at client side... */
+                // if (stream->stream_id != 0) {
+                    cnx->data_sent += length;
+                //}
+                consumed = byte_index;
+            }
+
+            if (ret == 0 && STREAM_FIN_NOTIFIED(plugin_stream) && plugin_stream->send_queue == 0) {
+                /* Set the fin bit */
+                picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_sent);
+                bytes[1] = 1;
+            } else if (ret == 0 && length == 0) {
+                /* No point in sending a silly packet */
+                consumed = 0;
+                ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+            }
+        }
+    }
+
+    protoop_save_outputs(cnx, consumed);
+
+    return (protoop_arg_t) ret;
+}
+
+int picoquic_prepare_plugin_frame(picoquic_cnx_t* cnx, picoquic_stream_head* plugin_stream,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_PLUGIN_FRAME, outs,
+        plugin_stream, bytes, bytes_max);
     *consumed = (protoop_arg_t) outs[0];
     return ret;
 }
@@ -3356,6 +3608,305 @@ protoop_arg_t decode_stream_id_blocked_frame(picoquic_cnx_t* cnx)
     return (protoop_arg_t) bytes;
 }
 
+protoop_arg_t write_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t*) cnx->protoop_inputv[1];
+    plugin_validate_frame_t* frame_ctx = (plugin_validate_frame_t*) cnx->protoop_inputv[2];
+
+    int ret = 0;
+    int consumed = 0;
+    int is_retransmittable = 1;
+    size_t max_bytes = (size_t) (bytes_max - bytes);
+
+    size_t l1 = picoquic_varint_encode(bytes + 1, max_bytes - 1, frame_ctx->pid_id);
+    size_t l2 = picoquic_varint_encode(bytes + 1 + l1, max_bytes - 1 - l1, frame_ctx->pid_len);
+
+    if (l1 == 0 || l2 == 0 || (bytes + 1 + l1 + l2 + frame_ctx->pid_len) > bytes_max) {
+        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+    } else {
+        bytes[0] = picoquic_frame_type_plugin_validate;
+        memcpy(bytes + 1 + l1 + l2, frame_ctx->pid, frame_ctx->pid_len);
+        consumed = 1 + l1 + l2 + frame_ctx->pid_len;
+    }
+
+    protoop_save_outputs(cnx, consumed, is_retransmittable);
+    return ret;
+}
+
+int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable)
+{
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    plugin_validate_frame_t frame_ctx;
+    frame_ctx.pid_id = pid_id;
+    frame_ctx.pid_len = strlen(pid) + 1; // To have '\0'
+    frame_ctx.pid = pid;
+    int ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, picoquic_frame_type_plugin_validate, outs,
+        bytes, bytes_max, &frame_ctx);
+    *consumed = (size_t) outs[0];
+    *is_retransmittable = (int) outs[1];
+    return ret;
+}
+
+/**
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+protoop_arg_t parse_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
+
+    int ack_needed = 1;
+    int is_retransmittable = 1;
+    plugin_validate_frame_t* frame = malloc(sizeof(plugin_validate_frame_t));
+
+    if (!frame) {
+        printf("Failed to allocate memory for plugin_validate_frame_t\n");
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->pid_id)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    /* Currently, the length includes the '\0' */
+    if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->pid_len)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if (frame->pid_len > 250) {
+        /* Probably the length is not correctly formatted */
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    frame->pid = malloc(sizeof(char) * frame->pid_len);
+    if (!frame->pid) {
+        printf("Failed to allocate memory for pid in plugin_validate_frame_t\n");
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+    memcpy(frame->pid, bytes, frame->pid_len);
+    bytes += frame->pid_len;
+
+    protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+    return (protoop_arg_t) bytes;
+}
+
+/**
+ * See PROTOOP_PARAM_PROCESS_FRAME
+ */
+protoop_arg_t process_plugin_validate_frame(picoquic_cnx_t* cnx)
+{
+    plugin_validate_frame_t* frame = (plugin_validate_frame_t *) cnx->protoop_inputv[0];
+
+    printf("I should process plugin validate for PID %s with PID_ID %lx\n", frame->pid, frame->pid_id);
+    /* Find the corresponding plugin path */
+    for (int i = 0; i < cnx->quic->plugins_to_inject.size; i++) {
+        if (strcmp(frame->pid, cnx->quic->plugins_to_inject.elems[i].plugin_name) == 0) {
+            printf("Found PID %s with path %s; prepare it!\n", frame->pid, cnx->quic->plugins_to_inject.elems[i].plugin_path);
+            uint8_t plugin_buffer[MAX_PLUGIN_DATA_LEN];
+            size_t size_used = 0;
+            plugin_prepare_plugin_data_exchange(cnx, cnx->quic->plugins_to_inject.elems[i].plugin_path, plugin_buffer,
+                MAX_PLUGIN_DATA_LEN, &size_used);
+            printf("MAX_PLUGIN_DATA_LEN %d size_used %ld\n", MAX_PLUGIN_DATA_LEN, size_used);
+            picoquic_add_to_plugin_stream(cnx, frame->pid_id, plugin_buffer, size_used, 1);
+            return 0;
+        }
+    }
+
+    printf("Not found PID %s ?!?\n", frame->pid);
+    return 0;
+}
+
+/**
+ * See PROTOOP_PARAM_PARSE_FRAME
+ */
+protoop_arg_t parse_plugin_frame(picoquic_cnx_t* cnx)
+{
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t *bytes_max = (uint8_t *) cnx->protoop_inputv[1];
+
+    int ack_needed = 1;
+    int is_retransmittable = 1;
+    plugin_frame_t* frame = malloc(sizeof(plugin_frame_t));
+
+    if (!frame) {
+        printf("Failed to allocate memory for plugin_frame_t\n");
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    memcpy(&frame->fin, bytes + 1, 1);
+
+    if ((bytes = picoquic_frames_varint_decode(bytes + 2, bytes_max, &frame->pid_id)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->offset)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->length)) == NULL)
+    {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    if (frame->length > bytes_max - bytes) {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_max_data);
+        free(frame);
+        frame = NULL;
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    memcpy(frame->data, bytes, frame->length);
+    bytes += frame->length;
+
+    protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+    return (protoop_arg_t) bytes;
+}
+
+void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* plugin_stream)
+{
+    picoquic_stream_data* data = plugin_stream->stream_data;
+    plugin_req_pid_t *preq = NULL;
+
+    while (data != NULL && data->offset <= plugin_stream->consumed_offset) {
+        size_t start = (size_t)(plugin_stream->consumed_offset - data->offset);
+        size_t data_length = data->length - start;
+        picoquic_call_back_event_t fin_now = picoquic_callback_no_event;
+
+        plugin_stream->consumed_offset += data_length;
+
+        if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && (plugin_stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
+            fin_now = picoquic_callback_stream_fin;
+            picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
+        }
+
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"plugin_id\": %lu, \"data_length\": %lu}", plugin_stream->stream_id, data_length);
+        /* FIXME not efficient */
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            preq = &cnx->pids_to_request.elems[i];
+            if (preq->pid_id == plugin_stream->stream_id) {
+                memcpy(preq->data + preq->received_length, data->bytes, data_length);
+                preq->received_length += data_length;
+                break;
+            }
+        }
+
+        free(data->bytes);
+        plugin_stream->stream_data = data->next_stream_data;
+        free(data);
+        data = plugin_stream->stream_data;
+    }
+
+    /* Once all data have been received, process it! */
+
+    if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && (plugin_stream->stream_flags & picoquic_stream_flag_fin_received) == picoquic_stream_flag_fin_received) {
+        picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
+        for (int i = 0; i < cnx->pids_to_request.size; i++) {
+            preq = &cnx->pids_to_request.elems[i];
+            if (preq->pid_id == plugin_stream->stream_id) {
+                plugin_process_plugin_data_exchange(cnx, preq->plugin_name, preq->data, preq->received_length);
+                free(preq->data);
+                preq->data = NULL;
+                break;
+            }
+        }
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"plugin_id\": %lu, \"data_length\": 0}", plugin_stream->stream_id);
+    }
+}
+
+/**
+ * See PROTOOP_PARAM_PROCESS_FRAME
+ */
+protoop_arg_t process_plugin_frame(picoquic_cnx_t* cnx)
+{
+    plugin_frame_t* frame = (plugin_frame_t *) cnx->protoop_inputv[0];
+    uint64_t current_time = (uint64_t) cnx->protoop_inputv[1];
+
+    int ret = 0;
+    uint64_t should_notify = 0;
+    /* Is there such a stream, is it still open? */
+    picoquic_stream_head* plugin_stream;
+    uint64_t new_fin_offset = frame->offset + frame->length;
+
+    if ((plugin_stream = picoquic_find_or_create_plugin_stream(cnx, frame->pid_id, 1)) == NULL) {
+        ret = 1;  // Error already signaled
+    } else if ((plugin_stream->stream_flags & picoquic_stream_flag_fin_received) != 0) {
+        if (frame->fin != 0 ? plugin_stream->fin_offset != new_fin_offset : new_fin_offset > plugin_stream->fin_offset) {
+            ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FINAL_OFFSET_ERROR, 0);
+        }
+    } else {
+        if (frame->fin) {
+            picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_received);
+            should_notify = 1;
+            cnx->latest_progress_time = current_time;
+        }
+
+        if (new_fin_offset > plugin_stream->fin_offset) {
+            ret = picoquic_flow_control_check_stream_offset(cnx, plugin_stream, new_fin_offset);
+        }
+    }
+
+    if (ret == 0) {
+        int new_data_available = 0;
+
+        ret = picoquic_queue_network_input(cnx, plugin_stream, (size_t)frame->offset, frame->data, frame->length, &new_data_available);
+
+        if (new_data_available) {
+            should_notify = 1;
+            cnx->latest_progress_time = current_time;
+        }
+    }
+
+    if (ret == 0 && should_notify != 0) {
+        /* check how much data there is to send */
+        picoquic_plugin_data_callback(cnx, plugin_stream);
+    }
+
+    return ret;
+}
+
 /**
  * See PROTOOP_PARAM_PARSE_FRAME
  * Default behaviour for unknown parameter
@@ -3680,6 +4231,8 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_crypto_hs, &parse_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_new_token, &parse_new_token_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_ack_ecn, &parse_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_plugin_validate, &parse_plugin_validate_frame);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_plugin, &parse_plugin_frame);
 
     register_param_protoop_default(cnx, &PROTOOP_PARAM_PROCESS_FRAME, &process_unknown_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_padding, &process_ignore_frame);
@@ -3701,6 +4254,8 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_crypto_hs, &process_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_new_token, &process_ignore_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ack_ecn, &process_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_plugin_validate, &process_plugin_validate_frame);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_plugin, &process_plugin_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_DECODE_STREAM_FRAME, &decode_stream_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_UPDATE_RTT, &update_rtt);
@@ -3722,9 +4277,13 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME, &prepare_first_misc_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, &prepare_required_max_stream_data_frames);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, &prepare_stream_frame);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PLUGIN_FRAME, &prepare_plugin_frame);
+
+    register_param_protoop(cnx, &PROTOOP_PARAM_WRITE_FRAME, picoquic_frame_type_plugin_validate, &write_plugin_validate_frame);
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FIND_READY_STREAM, &find_ready_stream);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM, &find_ready_stream);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_FIND_READY_PLUGIN_STREAM, &find_ready_plugin_stream);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_ACK_NEEDED, &is_ack_needed);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_IS_TLS_STREAM_READY, &is_tls_stream_ready);
 

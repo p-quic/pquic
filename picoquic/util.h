@@ -58,6 +58,10 @@ uint8_t picoquic_create_packet_header_cnxid_lengths(uint8_t dest_len, uint8_t sr
 void picoquic_parse_packet_header_cnxid_lengths(uint8_t l_byte, uint8_t *dest_len, uint8_t *srce_len);
 
 int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual);
+int picoquic_check_or_create_directory(char* path);
+char *picoquic_string_join_path_and_fname(char* dir_path, const char* fname);
+int picoquic_string_ends_with(const char *str, const char *suffix);
+char** picoquic_string_split(char* a_str, const char a_delim);
 
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

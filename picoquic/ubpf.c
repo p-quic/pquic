@@ -130,6 +130,9 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x66, "strncpy", strncpy);
     ubpf_register(vm, 0x67, "inet_ntop", inet_ntop);
 
+    ubpf_register(vm, 0x69, "get_preq", get_preq);
+    ubpf_register(vm, 0x6a, "set_preq", set_preq);
+
     ubpf_register(vm, 0x70, "strcmp", strncmp);
 }
 

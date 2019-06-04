@@ -240,11 +240,19 @@ extern protoop_id_t PROTOOP_NOPARAM_FIND_READY_STREAM;
 extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_NEXT_STREAM;
 
 /**
+ * Get a plugin stream that is ready to send.
+ *
+ * \return \b picoquic_stream_head* Pointer to a plugin stream ready to be sent
+ */
+#define PROTOOPID_NOPARAM_FIND_READY_PLUGIN_STREAM "find_ready_plugin_stream"
+extern protoop_id_t PROTOOP_NOPARAM_FIND_READY_PLUGIN_STREAM;
+
+/**
  * Check if it is needed to send back an ACK frame for the given path \p path_x
  * \param[in] current_time \b uint64_t The current time
  * \param[in] pc \b picoquic_packet_context_enum The packet context that would be acked
  * \param[in] path_x \b picoquic_path_t* The path that would be acked
- * 
+ *
  * \return \b int Iff non-zero, indicates that an ACK frame is needed
  */
 #define PROTOOPID_NOPARAM_IS_ACK_NEEDED "is_ack_needed"
@@ -472,6 +480,17 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MTU_PROBE;
 #define PROTOOPID_NOPARAM_PREPARE_STREAM_FRAME "prepare_stream_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_STREAM_FRAME;
 
+/**
+ * Prepare a PLUGIN frame.
+ * \param[in] plugin_stream \b picoquic_stream_head* The plugin stream from which data to write originate
+ * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame
+ * \param[in] bytes_max \b size_t Max size that can be written
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] consumed \b size_t Number of bytes written
+ */
+#define PROTOOPID_NOPARAM_PREPARE_PLUGIN_FRAME "prepare_plugin_frame"
+extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PLUGIN_FRAME;
 
 /**
  * Returns the maximal address writable for a stream in a packet.
@@ -677,6 +696,12 @@ extern protoop_id_t PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED;
  */
 #define PROTOOPID_NOPARAM_STREAM_OPENED "stream_opened"
 extern protoop_id_t PROTOOP_NOPARAM_STREAM_OPENED;
+
+/**
+ * Observer-only anchor that must be triggered whenever a plugin stream is opened.
+ */
+#define PROTOOPID_NOPARAM_PLUGIN_STREAM_OPENED "plugin_stream_opened"
+extern protoop_id_t PROTOOP_NOPARAM_PLUGIN_STREAM_OPENED;
 
 /**
  * Observer-only anchor that must be triggered whenever the stream flags changed.
