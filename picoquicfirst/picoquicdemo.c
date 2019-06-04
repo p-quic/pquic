@@ -370,7 +370,8 @@ int quic_server(const char* server_name, int server_port,
     const char* pem_cert, const char* pem_key,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
-    int mtu_max, const char** plugin_fnames, int plugins, FILE *F_log, char *qlog_filename)
+    int mtu_max, const char** local_plugin_fnames, int local_plugins,
+    const char** both_plugin_fnames, int both_plugins, FILE *F_log, char *qlog_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -413,7 +414,7 @@ int quic_server(const char* server_name, int server_port,
             PICOQUIC_SET_LOG(qserver, F_log);
 
             /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
-            ret = picoquic_set_plugins_to_inject(qserver, plugin_fnames, plugins);
+            ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins);
             if (ret != 0) {
                 printf("Error when setting plugins to inject\n");
             }
@@ -468,6 +469,19 @@ int quic_server(const char* server_name, int server_port,
 
                 if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
+
+                    /* We first insert all locally asked plugins */
+                    for (int i = 0; i < local_plugins; i++) {
+                        int plugged = plugin_insert_plugin(cnx_server, local_plugin_fnames[i]);
+                        printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
+                        if (plugged == 0) {
+                            printf("Successfully inserted local plugin %s\n", local_plugin_fnames[i]);
+                        } else {
+                            printf("Failed to insert local plugin %s\n", local_plugin_fnames[i]);
+                        }
+                    }
+
+
                     picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
@@ -827,7 +841,8 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
     uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
-    const char** plugin_fnames, int plugins, int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path)
+    const char** local_plugin_fnames, int local_plugins,
+    int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -947,6 +962,16 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
+            for (int i = 0; i < local_plugins; i++) {
+                ret = plugin_insert_plugin(cnx_client, local_plugin_fnames[i]);
+                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                if (ret == 0) {
+                    printf("Successfully inserted local plugin %s\n", local_plugin_fnames[i]);
+                } else {
+                    printf("Failed to insert local plugin %s\n", local_plugin_fnames[i]);
+                }
+            }
+
             if (qlog_filename) {
                 int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                 if (qlog_fd != -1) {
@@ -1260,7 +1285,9 @@ void usage()
     fprintf(stderr, "  -k file               key file (default: %s)\n", default_server_key_file);
     fprintf(stderr, "  -G size               GET size (default: -1)\n");
     fprintf(stderr, "  -4                    if -G is set, only use a request through the stream 4 instead of 0 then 4\n");
-    fprintf(stderr, "  -P file               plugin file (default: NULL). Can be used several times to load several plugins.\n");
+    fprintf(stderr, "  -P file               locally injected plugin file (default: NULL). Do not require peer support. Can be used several times to load several plugins.\n");
+    fprintf(stderr, "  -C directory          directory containing the cached plugins requiring support from both peers (default: NULL). Only for client.\n");
+    fprintf(stderr, "  -Q file               plugin file to be injected at both side (default: NULL). Can be used several times to require several plugins. Only for server.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
     fprintf(stderr, "  -t file               root trust file");
@@ -1314,8 +1341,10 @@ int main(int argc, char** argv)
     const char* server_key_file = default_server_key_file;
     const char* log_file = NULL;
     const char * sni = NULL;
-    const char * plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
-    int plugins = 0;
+    const char * local_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
+    const char * both_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
+    int local_plugins = 0;
+    int both_plugins = 0;
     int server_port = default_server_port;
     const char* root_trust_file = NULL;
     uint32_t proposed_version = 0xff00000b;
@@ -1356,11 +1385,15 @@ int main(int argc, char** argv)
             server_key_file = optarg;
             break;
         case 'P':
-            plugin_fnames[plugins] = optarg;
-            plugins++;
+            local_plugin_fnames[local_plugins] = optarg;
+            local_plugins++;
             break;
         case 'C':
             plugin_store_path = optarg;
+            break;
+        case 'Q':
+            both_plugin_fnames[both_plugins] = optarg;
+            both_plugins++;
             break;
         case 'G':
             if ((get_size = atoi(optarg)) <= 0) {
@@ -1489,17 +1522,21 @@ int main(int argc, char** argv)
             F_log = stdout;
         }
         /* Run as server */
-        printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d, and %d plugins\n",
-            server_port, server_name, just_once, do_hrr, plugins);
-        for(int i = 0; i < plugins; i++) {
-            printf("\tplugin %s\n", plugin_fnames[i]);
+        printf("Starting PicoQUIC server on port %d, server name = %s, just_once = %d, hrr= %d, %d local plugins and %d both plugins\n",
+            server_port, server_name, just_once, do_hrr, local_plugins, both_plugins);
+        for(int i = 0; i < local_plugins; i++) {
+            printf("\tlocal plugin %s\n", local_plugin_fnames[i]);
+        }
+        for(int i = 0; i < both_plugins; i++) {
+            printf("\tlocal plugin %s\n", both_plugin_fnames[i]);
         }
         ret = quic_server(server_name, server_port,
             server_cert_file, server_key_file, just_once, do_hrr,
             /* TODO: find an alternative to using 64 bit mask. */
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
-            (uint8_t*)reset_seed, mtu_max, plugin_fnames, plugins, F_log, qlog_filename);
+            (uint8_t*)reset_seed, mtu_max, local_plugin_fnames, local_plugins,
+            both_plugin_fnames, both_plugins, F_log, qlog_filename);
         printf("Server exit with code = %d\n", ret);
     } else {
         FILE* F_log = NULL;
@@ -1526,12 +1563,14 @@ int main(int argc, char** argv)
         }
 
         /* Run as client */
-        printf("Starting PicoQUIC connection to server IP = %s, port = %d and %d plugins\n", server_name, server_port, plugins);
-        for(int i = 0; i < plugins; i++) {
-            printf("\tplugin %s\n", plugin_fnames[i]);
-            fprintf(stderr, "WARNING: direct plugin insertion at client is not functional now! Use -C instead.\n");
+        printf("Starting PicoQUIC connection to server IP = %s, port = %d and %d local plugins\n", server_name, server_port, local_plugins);
+        for(int i = 0; i < local_plugins; i++) {
+            printf("\tlocal plugin %s\n", local_plugin_fnames[i]);
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, plugin_fnames, plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
+        if (local_plugins > 0) {
+            fprintf(stderr, "WARNING: direct plugin insertion at client might interfere with remote plugin injection...\n");
+        }
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
 
         printf("Client exit with code = %d\n", ret);
 
