@@ -1,4 +1,4 @@
-#include <picoquic_internal.h>
+#include <picoquic.h>
 #include "../bpf.h"
 
 static __attribute__((always_inline)) void free_rp(picoquic_cnx_t *cnx, recovered_packets_t *rp) {

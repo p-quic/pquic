@@ -1,8 +1,5 @@
-#include "../../../picoquic/picoquic_internal.h"
 #include "../fec.h"
 #include "../../helpers.h"
-#include "../../../picoquic/memory.h"
-#include "../../../picoquic/memcpy.h"
 #include "../bpf.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0

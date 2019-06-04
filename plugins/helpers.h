@@ -6,6 +6,7 @@
 #include "memcpy.h"
 #include "memory.h"
 #include "getset.h"
+#include "util.h"
 
 #define PICOQUIC_MAX_PACKET_SIZE 1536
 #define PICOQUIC_MIN_SEGMENT_SIZE 256

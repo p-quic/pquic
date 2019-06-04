@@ -36,13 +36,14 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     int tls_ready = helper_is_tls_stream_ready(cnx);
     stream = helper_find_ready_stream(cnx);
 
+    picoquic_stream_head* plugin_stream = helper_find_ready_plugin_stream(cnx);
 
     /* First enqueue frames that can be fairly sent, if any */
     /* Only schedule new frames if there is no planned frames */
 
     queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
     if (queue_peek(reserved_frames) == NULL) {
-        stream = helper_schedule_next_stream_stream(cnx, send_buffer_min_max - checksum_overhead - length);
+        stream = helper_schedule_next_stream(cnx, send_buffer_min_max - checksum_overhead - length, path_x);
         picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_min_max - checksum_overhead - length);
     }
 
@@ -230,8 +231,66 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                             }
                         }
+
+                        /* If required, request for plugins */
+                        uint8_t plugin_requested = (uint8_t) get_cnx(cnx, AK_CNX_PLUGIN_REQUESTED, 0);
+                        if (ret == 0 && !plugin_requested) {
+                            int is_retransmittable = 1;
+                            uint16_t pids_to_request_size = (uint16_t) get_cnx(cnx, AK_CNX_PIDS_TO_REQUEST_SIZE, 0);
+                            plugin_req_pid_t *pid_to_request;
+                            uint64_t pid_id;
+                            char *plugin_name;
+
+                            for (int i = 0; ret == 0 && i < pids_to_request_size; i++) {
+                                pid_to_request = (plugin_req_pid_t *) get_cnx(cnx, AK_CNX_PIDS_TO_REQUEST, i);
+                                pid_id = (uint64_t) get_preq(pid_to_request, AK_PIDREQ_PID_ID);
+                                plugin_name = (char *) get_preq(pid_to_request, AK_PIDREQ_PLUGIN_NAME);
+                                ret = helper_write_plugin_validate_frame(cnx, &bytes[length], &bytes[send_buffer_min_max - checksum_overhead],
+                                    pid_id, plugin_name, &data_bytes, &is_retransmittable);
+                                if (ret == 0) {
+                                    length += (uint32_t)data_bytes;
+                                    if (data_bytes > 0)
+                                    {
+                                        set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
+                                        set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                                        set_preq(pid_to_request, AK_PIDREQ_REQUESTED, 1);
+                                    }
+                                }
+                                else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                                    ret = 0;
+                                }
+                            }
+                            set_cnx(cnx, AK_CNX_PLUGIN_REQUESTED, 0, 1);
+                        }
+
+                        /* Encode the plugin frame, or frames */
+                        while (plugin_stream != NULL) {
+                            size_t stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
+                            ret = helper_prepare_plugin_frame(cnx, plugin_stream, &bytes[length],
+                                                                stream_bytes_max, &data_bytes);
+                            if (ret == 0) {
+                                length += (uint32_t)data_bytes;
+                                if (data_bytes > 0)
+                                {
+                                    set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
+                                    set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                                }
+
+                                if (stream_bytes_max > checksum_overhead + length + 8) {
+                                    plugin_stream = helper_find_ready_plugin_stream(cnx);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                            else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
+                                ret = 0;
+                                break;
+                            }
+                        }
+
                         size_t stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
-                        stream = helper_schedule_next_stream(cnx, stream_bytes_max);
+                        stream = helper_schedule_next_stream(cnx, stream_bytes_max, path_x);
 
                         /* Encode the stream frame, or frames */
                         while (stream != NULL) {
@@ -247,7 +306,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {
                                     stream_bytes_max = helper_stream_bytes_max(cnx, send_buffer_min_max - checksum_overhead - length, header_length, bytes);
-                                    stream = helper_schedule_next_stream(cnx, stream_bytes_max);
+                                    stream = helper_schedule_next_stream(cnx, stream_bytes_max, path_x);
                                 } else {
                                     break;
                                 }

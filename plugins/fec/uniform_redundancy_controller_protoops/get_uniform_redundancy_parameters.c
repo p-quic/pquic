@@ -1,4 +1,3 @@
-#include "picoquic.h"
 #include "../bpf.h"
 #include "uniform_redundancy_controller.h"
 

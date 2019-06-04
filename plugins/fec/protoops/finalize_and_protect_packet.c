@@ -1,5 +1,3 @@
-#include <picoquic_internal.h>
-#include <getset.h>
 #include "../bpf.h"
 
 

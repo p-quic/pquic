@@ -1,7 +1,5 @@
 #ifndef FEC_H
 #define FEC_H
-#include "memory.h"
-#include "memcpy.h"
 #include "../helpers.h"
 
 #define FEC_MAGIC_NUMBER 0x10

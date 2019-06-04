@@ -1,4 +1,3 @@
-#include "plugin.h"
 #include "../helpers.h"
 #include "bpf.h"
 

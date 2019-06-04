@@ -1,10 +1,9 @@
 #ifndef FEC_BPF_H
 #define FEC_BPF_H
 #include <picoquic_logger.h>
-#include "picoquic_internal.h"
+#include <picoquic_internal.h>
+#include "../helpers.h"
 #include "fec.h"
-#include "memory.h"
-#include "memcpy.h"
 #define MAX_RECOVERED_PACKETS_IN_BUFFER 50
 #define MIN(a, b) ((a < b) ? a : b)
 

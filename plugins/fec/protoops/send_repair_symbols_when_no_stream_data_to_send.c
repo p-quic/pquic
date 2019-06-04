@@ -1,5 +1,3 @@
-
-#include <picoquic.h>
 #include "../../helpers.h"
 
 /**

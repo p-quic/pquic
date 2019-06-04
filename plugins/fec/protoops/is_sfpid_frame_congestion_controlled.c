@@ -1,4 +1,3 @@
-#include "picoquic.h"
 #include "../../helpers.h"
 
 protoop_arg_t is_sfpid_frame_congestion_controlled(picoquic_cnx_t* cnx)

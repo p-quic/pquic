@@ -1,7 +1,4 @@
-#include "picoquic.h"
 #include "../../helpers.h"
-#include "memory.h"
-#include "memcpy.h"
 #include "../bpf.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0

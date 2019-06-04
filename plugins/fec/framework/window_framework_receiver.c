@@ -1,9 +1,6 @@
 
 #include "../bpf.h"
-#include "picoquic.h"
 #include "../../helpers.h"
-#include "memory.h"
-#include "memcpy.h"
 
 #define RECEIVE_BUFFER_MAX_LENGTH 30
 

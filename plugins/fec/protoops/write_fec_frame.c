@@ -1,6 +1,6 @@
 
 
-#include <picoquic_internal.h>
+#include <picoquic.h>
 #include "../bpf.h"
 
 protoop_arg_t write_fec_frame(picoquic_cnx_t *cnx) {

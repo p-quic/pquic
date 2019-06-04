@@ -1,7 +1,5 @@
 #include "../fec.h"
 #include "../../helpers.h"
-#include "memory.h"
-#include "memcpy.h"
 #include "../bpf.h"
 
 #define INITIAL_SYMBOL_ID 1
