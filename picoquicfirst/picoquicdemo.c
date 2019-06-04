@@ -939,7 +939,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             if (sni == NULL) {
                 /* Standard verifier would crash */
                 fprintf(stdout, "No server name specified, certificate will not be verified.\n");
-                if (F_log != stdout && F_log != stderr)
+                if (F_log && F_log != stdout && F_log != stderr)
                 {
                     fprintf(F_log, "No server name specified, certificate will not be verified.\n");
                 }
@@ -949,7 +949,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
                 /* Standard verifier would crash */
                 fprintf(stdout, "No root crt list specified, certificate will not be verified.\n");
-                if (F_log != stdout && F_log != stderr)
+                if (F_log && F_log != stdout && F_log != stderr)
                 {
                     fprintf(F_log, "No root crt list specified, certificate will not be verified.\n");
                 }
@@ -1094,7 +1094,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 if (picoquic_get_cnx_state(cnx_client) == picoquic_state_client_almost_ready && notified_ready == 0) {
                     if (picoquic_tls_is_psk_handshake(cnx_client)) {
                         fprintf(stdout, "The session was properly resumed!\n");
-                        if (F_log != stdout && F_log != stderr) {
+                        if (F_log && F_log != stdout && F_log != stderr) {
                             fprintf(F_log, "The session was properly resumed!\n");
                         }
                     }
@@ -1162,14 +1162,14 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                             if (cnx_client->nb_zero_rtt_sent != 0) {
                                 fprintf(stdout, "Out of %u zero RTT packets, %u were acked by the server.\n",
                                     cnx_client->nb_zero_rtt_sent, cnx_client->nb_zero_rtt_acked);
-                                if (F_log != stdout && F_log != stderr)
+                                if (F_log && F_log != stdout && F_log != stderr)
                                 {
                                     fprintf(F_log, "Out of %u zero RTT packets, %u were acked by the server.\n",
                                         cnx_client->nb_zero_rtt_sent, cnx_client->nb_zero_rtt_acked);
                                 }
                             }
                             fprintf(stdout, "All done, Closing the connection.\n");
-                            if (F_log != stdout && F_log != stderr)
+                            if (F_log && F_log != stdout && F_log != stderr)
                             {
                                 fprintf(F_log, "All done, Closing the connection.\n");
                             }
@@ -1178,7 +1178,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                         } else if (
                             picoquic_current_time() > callback_ctx.last_interaction_time && picoquic_current_time() - callback_ctx.last_interaction_time > 10000000ull) {
                             fprintf(stdout, "No progress for 10 seconds. Closing. \n");
-                            if (F_log != stdout && F_log != stderr)
+                            if (F_log && F_log != stdout && F_log != stderr)
                             {
                                 fprintf(F_log, "No progress for 10 seconds. Closing. \n");
                             }
@@ -1507,7 +1507,7 @@ int main(int argc, char** argv)
 
     FILE* F_log = NULL;
 
-    if (log_file != NULL && !strcmp(log_file, "/dev/null")) {
+    if (log_file != NULL && strcmp(log_file, "/dev/null") != 0) {
 #ifdef _WINDOWS
         if (fopen_s(&F_log, log_file, "w") != 0) {
                 F_log = NULL;
@@ -1520,7 +1520,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (!F_log && (!log_file || !strcmp(log_file, "/dev/null"))) {
+    if (!F_log && (!log_file || strcmp(log_file, "/dev/null") != 0)) {
         F_log = stdout;
     }
 
