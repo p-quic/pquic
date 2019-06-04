@@ -55,6 +55,8 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x13, "get_ph", get_ph);
     ubpf_register(vm, 0x14, "set_ph", set_ph);
     ubpf_register(vm, 0x15, "cancel_head_reservation", cancel_head_reservation);
+    ubpf_register(vm, 0x16, "get_preq", get_preq);
+    ubpf_register(vm, 0x17, "set_preq", set_preq);
     /* specific to picoquic, how to remove this dependency ? */
     ubpf_register(vm, 0x18, "picoquic_reinsert_cnx_by_wake_time", picoquic_reinsert_cnx_by_wake_time);
     ubpf_register(vm, 0x19, "picoquic_current_time", picoquic_current_time);

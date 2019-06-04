@@ -244,6 +244,11 @@ static picoquic_stream_head *helper_find_ready_stream(picoquic_cnx_t *cnx)
     return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_STREAM, 0, NULL, NULL);
 }
 
+static picoquic_stream_head *helper_find_ready_plugin_stream(picoquic_cnx_t *cnx)
+{
+    return (picoquic_stream_head *) run_noparam(cnx, PROTOOPID_NOPARAM_FIND_READY_PLUGIN_STREAM, 0, NULL, NULL);
+}
+
 static int helper_is_ack_needed(picoquic_cnx_t *cnx, uint64_t current_time, picoquic_packet_context_enum pc,
     picoquic_path_t* path_x)
 {
@@ -410,13 +415,43 @@ static int helper_prepare_stream_frame(picoquic_cnx_t* cnx, picoquic_stream_head
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
     protoop_arg_t outs[1];
-    protoop_arg_t args[4];
+    protoop_arg_t args[3];
     args[0] = (protoop_arg_t) stream;
     args[1] = (protoop_arg_t) bytes;
     args[2] = (protoop_arg_t) bytes_max;
-    args[3] = (protoop_arg_t) *consumed;
     int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_STREAM_FRAME, 3, args, outs);
-    *consumed = (protoop_arg_t) outs[0];
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
+static int helper_prepare_plugin_frame(picoquic_cnx_t* cnx, picoquic_stream_head* stream,
+    uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[1];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) stream;
+    args[1] = (protoop_arg_t) bytes;
+    args[2] = (protoop_arg_t) bytes_max;
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_PLUGIN_FRAME, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
+static int helper_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
+    uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable)
+{
+    protoop_arg_t outs[2];
+    plugin_validate_frame_t frame_ctx;
+    frame_ctx.pid_id = pid_id;
+    frame_ctx.pid_len = strlen(pid) + 1; // To have '\0'
+    frame_ctx.pid = pid;
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) &frame_ctx;
+    int ret = (int) run_param(cnx, PROTOOPID_PARAM_WRITE_FRAME, picoquic_frame_type_plugin_validate, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    *is_retransmittable = (int) outs[1];
     return ret;
 }
 

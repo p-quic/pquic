@@ -170,6 +170,16 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return (protoop_arg_t) cnx->first_misc_frame;
     case AK_CNX_RETRY_FRAMES:
         return (protoop_arg_t) cnx->retry_frames;
+    case AK_CNX_PLUGIN_REQUESTED:
+        return cnx->plugin_requested;
+    case AK_CNX_PIDS_TO_REQUEST_SIZE:
+        return cnx->pids_to_request.size;
+    case AK_CNX_PIDS_TO_REQUEST:
+        if (param >= cnx->pids_to_request.size) {
+            printf("ERROR: trying to get pid to request %u but only %d pid to requests...\n", param, cnx->pids_to_request.size);
+            return 0;
+        }
+        return &cnx->pids_to_request.elems[param];
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -402,6 +412,15 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_FIRST_MISC_FRAME:
         printf("ERROR: trying to modify first misc frame...\n");
+        break;
+    case AK_CNX_PLUGIN_REQUESTED:
+        cnx->plugin_requested = (uint8_t) val;
+        break;
+    case AK_CNX_PIDS_TO_REQUEST_SIZE:
+        cnx->pids_to_request.size = (uint16_t) val;
+        break;
+    case AK_CNX_PIDS_TO_REQUEST:
+        printf("ERROR: trying to modify pids to request...\n");
         break;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
@@ -951,6 +970,39 @@ void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val)
         break;
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
+        break;
+    }
+}
+
+protoop_arg_t get_preq(plugin_req_pid_t *preq, access_key_t ak)
+{
+    switch (ak) {
+    case AK_PIDREQ_PID_ID:
+        return preq->pid_id;
+    case AK_PIDREQ_PLUGIN_NAME:
+        return preq->plugin_name;
+    case AK_PIDREQ_REQUESTED:
+        return preq->requested;   
+    default:
+        printf("ERROR: unknown pid req access key %u\n", ak);
+        return 0;
+    }
+}
+
+void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val)
+{
+    switch (ak) {
+    case AK_PIDREQ_PID_ID:
+        printf("ERROR: setting pid id is not implemented\n");
+        break;
+    case AK_PIDREQ_PLUGIN_NAME:
+        printf("ERROR: setting plugin name is not implemented\n");
+        break;
+    case AK_PIDREQ_REQUESTED:
+        preq->requested = val;
+        break;    
+    default:
+        printf("ERROR: unknown pid req access key %u\n", ak);
         break;
     }
 }

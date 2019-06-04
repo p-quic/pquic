@@ -299,6 +299,8 @@ typedef struct _picoquic_packet_header picoquic_packet_header;
 typedef struct st_picoquic_tp_t picoquic_tp_t;
 typedef struct _picoquic_stream_data picoquic_stream_data;
 
+typedef struct st_plugin_req_pid_t plugin_req_pid_t;
+
 typedef struct st_protocol_operation_struct_t protocol_operation_struct_t;
 
 typedef uint64_t protoop_arg_t;
