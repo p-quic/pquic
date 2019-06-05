@@ -881,13 +881,6 @@ protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
 
         if (length > 0) {
             packet->checksum_overhead = checksum_overhead;
-            /* Compute the packet RTO NOW, don't adapt it to the RTT! */
-            if (path_x->pkt_ctx[packet->pc].nb_retransmit == 0) {
-                packet->rto_time = packet->send_time + path_x->retransmit_timer;
-            }
-            else {
-                packet->rto_time = packet->send_time + (1000000ull << (path_x->pkt_ctx[packet->pc].nb_retransmit - 1));
-            }
             picoquic_queue_for_retransmit(cnx, path_x, packet, length, current_time);
         } else {
             send_length = 0;
@@ -961,7 +954,9 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
         } 
     } else {
         /* There has not been any higher packet acknowledged, thus we fall back on timer logic. */
-        retransmit_time = p->rto_time;
+        uint64_t rto = (send_path->pkt_ctx[pc].nb_retransmit == 0) ?
+            send_path->retransmit_timer : (1000000ull << (send_path->pkt_ctx[pc].nb_retransmit - 1));
+        retransmit_time = p->send_time + rto;
         is_timer_based = 1;
     }
     if (p->ptype == picoquic_packet_0rtt_protected) {
@@ -1835,8 +1830,15 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
                     }
 
-                    if (p->rto_time < next_time) {
-                        next_time = p->rto_time;
+                    if (path_x->pkt_ctx[pc].nb_retransmit == 0) {
+                        if (p->send_time + path_x->retransmit_timer < next_time) {
+                            next_time = p->send_time + path_x->retransmit_timer;
+                        }
+                    }
+                    else {
+                        if (p->send_time + (1000000ull << (path_x->pkt_ctx[pc].nb_retransmit - 1)) < next_time) {
+                            next_time = p->send_time + (1000000ull << (path_x->pkt_ctx[pc].nb_retransmit - 1));
+                        }
                     }
                 }
             }

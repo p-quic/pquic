@@ -270,7 +270,6 @@ typedef struct st_picoquic_packet_t {
     struct st_picoquic_path_t * send_path;
     uint64_t sequence_number;
     uint64_t send_time;
-    uint64_t rto_time;
     uint32_t length;
     uint32_t send_length;
     uint32_t checksum_overhead;

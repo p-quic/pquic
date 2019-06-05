@@ -537,8 +537,6 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PKT_IS_CONGESTION_CONTROLLED 0x0d
 /** Pointer to the content of the packet */
 #define AK_PKT_BYTES 0x0e
-/** The RTO time of the packet */
-#define AK_PKT_RTO_TIME 0x0f
 /** Flag stating that the packet is a MTU probe */
 #define AK_PKT_IS_MTU_PROBE 0x10
 
