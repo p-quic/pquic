@@ -139,9 +139,18 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                     }    
 
                     if (p != NULL) {
-                        uint64_t rto_time = (uint64_t) get_pkt(p, AK_PKT_RTO_TIME);
-                        if (rto_time < next_time) {
-                            next_time = rto_time;
+                        uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_NB_RETRANSMIT);
+                        uint64_t send_time = (uint64_t) get_pkt(p, AK_PKT_SEND_TIME);
+                        if (nb_retransmit == 0) {
+                            uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, AK_PATH_RETRANSMIT_TIMER, 0);
+                            if (send_time + retransmit_timer_x < next_time) {
+                                next_time = send_time + retransmit_timer_x;
+                            }
+                        }
+                        else {
+                            if (send_time + (1000000ull << (nb_retransmit - 1)) < next_time) {
+                                next_time = send_time + (1000000ull << (nb_retransmit - 1));
+                            }
                         }
                     }
                 }
