@@ -2154,7 +2154,7 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
                 if (family == AF_INET) {
                     struct sockaddr_in *sai4 = (struct sockaddr_in *) ifa->ifa_addr;
                     in_addr_t a = sai4->sin_addr.s_addr & (in_addr_t) 0xff;
-                    if ((remove_10 && a == (in_addr_t) 0x0a) || a == (in_addr_t) 0x2a) {
+                    if ((remove_10 && a == (in_addr_t) 0x0a) /* || a == (in_addr_t) 0x2a */) {
                         /* Don't consider this address */
                         continue;
                     }
