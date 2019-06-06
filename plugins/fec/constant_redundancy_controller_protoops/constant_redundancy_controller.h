@@ -1,2 +1,2 @@
-#define DEFAULT_N 30
-#define DEFAULT_K 25
+#define DEFAULT_N 6
+#define DEFAULT_K 5
