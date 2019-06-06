@@ -240,11 +240,11 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipa
 
     plugins = "-P plugins/datagram/datagram.plugin"
     if multipath:
-        plugins += " -P plugins/multipath/multipath.plugin"
+        plugins += " -P plugins/multipath/multipath_rtt.plugin"
 
     if quic_tun:
         if gdb:
-            net['vpn'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn {} -p 4443 2>&1 > log_server.log &'.format(plugins))
+            net['vpn'].cmd('xterm -e gdb -ex run -ex bt --args picoquicvpn {} -p 4443 2>&1 > log_server.log &'.format(plugins))
         else:
             net['vpn'].cmd('./picoquicvpn {} -p 4443 2>&1 > log_server.log &'.format(plugins))
         sleep(1)
@@ -257,7 +257,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipa
 
     if quic_tun:
         if gdb:
-            net['cl'].cmd('gdb -batch -ex run -ex bt --args picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
+            net['cl'].cmd('xterm -e gdb -ex run -ex bt --args picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
         else:
             net['cl'].cmd('./picoquicvpn {} 10.2.2.2 4443 2>&1 > log_client.log &'.format(plugins))
 
@@ -281,9 +281,9 @@ def teardown_net(net):
 
 def run():
     net_cleanup()
-    net = Mininet(KiteTopo(bw_a=10, bw_b=10, delay_ms_a=10, delay_ms_b=10, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True, switch=OVSBridge, controller=None)
+    net = Mininet(KiteTopo(bw_a=100, bw_b=100, delay_ms_a=10, delay_ms_b=10, loss_a=0, loss_b=0), link=TCLink, autoStaticArp=True, switch=OVSBridge, controller=None)
     net.start()
-    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=True, multipath=True)
+    setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipath=True)
 
     CLI(net)
     teardown_net(net)
