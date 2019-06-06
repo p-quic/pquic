@@ -1078,7 +1078,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         is_retransmittable = (int) outs[1];
         /* TODO FIXME consumed */
         protoop_plugin_t *p = rfs->p;
-        if (ret == 0 && data_bytes <= rfs->nb_bytes) {
+        if (ret == 0 && data_bytes > 0 && data_bytes <= rfs->nb_bytes) {
             length += (uint32_t) data_bytes;
             /* Keep track of the bytes sent by the plugin */
             p->bytes_in_flight += (uint64_t) data_bytes;
@@ -1103,6 +1103,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
                        cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
             }
             memset(&bytes[length], 0, rfs->nb_bytes);
+            protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, rfs->frame_type, NULL, rfs, 2);
         }
 
         if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
@@ -1127,7 +1128,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         is_retransmittable = (int) outs[1];
         /* TODO FIXME consumed */
         protoop_plugin_t *p = rfs->p;
-        if (ret == 0 && data_bytes <= rfs->nb_bytes) {
+        if (ret == 0 && data_bytes > 0 && data_bytes <= rfs->nb_bytes) {
             length += (uint32_t) data_bytes;
             /* Keep track of the bytes sent by the plugin */
             p->bytes_in_flight += (uint64_t) data_bytes;
@@ -1153,6 +1154,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
                            cnx->current_plugin, rfs->frame_type, rfs->nb_bytes, data_bytes);
             }
             memset(&bytes[length], 0, rfs->nb_bytes);
+            protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, rfs->frame_type, NULL, rfs, 2);
         }
 
         if (ret == PICOQUIC_MISCCODE_RETRY_NXT_PKT) {
