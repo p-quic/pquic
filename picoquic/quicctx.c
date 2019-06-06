@@ -2134,7 +2134,6 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
     }
 
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        bool remove_10 = false;
         if (strncmp("docker", ifa->ifa_name, 6) == 0 ||
             strncmp("lo", ifa->ifa_name, 2) == 0 ||
             strncmp("tun", ifa->ifa_name, 3) == 0)
@@ -2142,30 +2141,17 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
             /* Do not consider those addresses */
             continue;
         }
-        /* Special check for experiments */
-        if (strncmp("eth0", ifa->ifa_name, 4) == 0) {
-            remove_10 = true;
-        }
         /* What if an interface has no IP address? */
         if (ifa->ifa_addr) {
             family = ifa->ifa_addr->sa_family;
             if (family == AF_INET || family == AF_INET6) {
                 struct sockaddr_storage *sai = (struct sockaddr_storage *) ifa->ifa_addr;
-                if (family == AF_INET) {
-                    struct sockaddr_in *sai4 = (struct sockaddr_in *) ifa->ifa_addr;
-                    in_addr_t a = sai4->sin_addr.s_addr & (in_addr_t) 0xff;
-                    if ((remove_10 && a == (in_addr_t) 0x0a) /* || a == (in_addr_t) 0x2a */) {
-                        /* Don't consider this address */
-                        continue;
-                    }
-                } else if (family == AF_INET6) {
+                if (family == AF_INET6) {
                     struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) ifa->ifa_addr;
-                    if (sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x80fe ||
-                        sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x42fd) {
+                    if (sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x80fe) {
                         continue;
                     }
                 }
-
                 if (count < sas_length) {
                     if_index = if_nametoindex(ifa->ifa_name);
                     memcpy(&if_indexes[count], &if_index, sizeof(uint32_t));

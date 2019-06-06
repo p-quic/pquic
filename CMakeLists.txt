@@ -130,6 +130,7 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/parse_path_update.c
     plugins/multipath/process_path_update.c
     plugins/multipath/write_path_update.c
+    plugins/multipath/addresses_filters/no_v6_no_10.c
 )
 
 SET(PLUGINS_STREAM_SCHEDULER

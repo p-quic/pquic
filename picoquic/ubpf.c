@@ -113,6 +113,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, 0x40, "queue_peek", queue_peek);
     /* FIXME remove this function */
     ubpf_register(vm, 0x41, "picoquic_frame_fair_reserve", picoquic_frame_fair_reserve);
+    ubpf_register(vm, 0x42, "plugin_pluglet_exists", plugin_pluglet_exists);
 
     ubpf_register(vm, 0x50, "inet_ntop", inet_ntop);
     ubpf_register(vm, 0x51, "strerror", strerror);

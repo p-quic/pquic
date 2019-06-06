@@ -248,6 +248,41 @@ static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t pat
     reserve_frames(cnx, 1, rfs);
 }
 
+static bool accept_addr(picoquic_cnx_t *cnx, struct sockaddr_storage *sa, uint32_t if_index) {
+    protoop_id_t pid;
+    pid.id = "accept_addr";
+    pid.hash = hash_value_str(pid.id);
+    if (!plugin_pluglet_exists(cnx, &pid, NO_PARAM, pluglet_replace)) {
+        return true;
+    }
+    protoop_arg_t args[2];
+    args[0] = (protoop_arg_t) sa;
+    args[1] = (protoop_arg_t) if_index;
+    return (bool) run_noparam(cnx, pid.id, 2, args, NULL);
+}
+
+static size_t filter_addrs(picoquic_cnx_t *cnx, struct sockaddr_storage *sas, uint32_t *if_indexes, int addrs) {
+    int i = 0;
+    while (i < addrs) {
+        struct sockaddr_storage *sa = sas + i;
+        char dst[INET_ADDRSTRLEN];
+        PROTOOP_PRINTF(cnx, "Address %s ", (protoop_arg_t) inet_ntop(AF_INET, &((struct sockaddr_in *) sa)->sin_addr, dst, sizeof(dst)));
+        if (!accept_addr(cnx, sa, *(if_indexes + i))) {
+            struct sockaddr_storage *end = sas + (addrs - 1);
+            if (end != sa) {
+                my_memcpy(sa, end, sizeof(struct sockaddr_storage));
+                *(if_indexes + i) = *(if_indexes + (addrs - 1));
+            }
+            addrs--;
+            PROTOOP_PRINTF(cnx, "was rejected\n");
+        } else {
+            i++;
+            PROTOOP_PRINTF(cnx, "was accepted\n");
+        }
+    }
+    return addrs;
+}
+
 static void reserve_add_address_frame(picoquic_cnx_t *cnx)
 {
     add_address_ctx_t *aac = (add_address_ctx_t *) my_malloc(cnx, sizeof(add_address_ctx_t));
@@ -256,6 +291,11 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
         return;
     }
     aac->nb_addrs = (size_t) picoquic_getaddrs(aac->sas, aac->if_indexes, MAX_ADDRS);
+    if (aac->nb_addrs == 0) {
+        my_free(cnx, aac);
+        return;
+    }
+    aac->nb_addrs = filter_addrs(cnx, aac->sas, aac->if_indexes, aac->nb_addrs);
     if (aac->nb_addrs == 0) {
         my_free(cnx, aac);
         return;

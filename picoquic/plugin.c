@@ -1130,6 +1130,38 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char
     return plugin_run_protoop_internal(cnx, pp);
 }
 
+bool plugin_pluglet_exists(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t param, pluglet_type_enum anchor) {
+    protocol_operation_struct_t *post;
+    if (pid->hash == 0) {
+        pid->hash = hash_value_str(pid->id);
+    }
+    HASH_FIND_PID(cnx->ops, &pid->hash, post);
+    if (!post)
+        return false;
+
+    protocol_operation_param_struct_t *popst;
+    if (post->is_parametrable) {
+        HASH_FIND(hh, post->params, &param, sizeof(param_id_t), popst);
+        if (!popst)
+            return false;
+    } else {
+        popst = post->params;
+    }
+
+    switch (anchor) {
+        case pluglet_extern:
+            return popst->replace && !popst->intern;
+        case pluglet_replace:
+            return popst->replace && popst->intern;
+        case pluglet_pre:
+            return popst->pre;
+        case pluglet_post:
+            return popst->post;
+        default:
+            return false;
+    }
+}
+
 int get_errno() {
     return errno;
 }
