@@ -14,7 +14,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
         bpf_data *bpfd = get_bpf_data(cnx);
         if (bpfd->nb_proposed_snt == 0) {
             /* Prepare MP_NEW_CONNECTION_IDs */
-            for (uint64_t i = 1; i < MAX_PATHS; i++) {
+            for (uint64_t i = 1; i < MAX_PATHS + 1; i++) {
                 reserve_mp_new_connection_id_frame(cnx, i);
             }
             /* And also send add address */
