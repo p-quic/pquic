@@ -5,9 +5,15 @@
 #define MP_OPAQUE_ID 0x00
 #define MP_DUPLICATE_ID 0x01
 
+#ifndef N_PATHS
 #define N_PATHS 2
-#define MAX_PATHS 32
+#endif
+#ifndef MAX_PATHS
+#define MAX_PATHS 8
+#endif
+#ifndef MAX_ADDRS
 #define MAX_ADDRS 8
+#endif
 
 #define PREPARE_NEW_CONNECTION_ID_FRAME (PROTOOPID_SENDER + 0x48)
 #define PREPARE_MP_ACK_FRAME (PROTOOPID_SENDER + 0x49)
