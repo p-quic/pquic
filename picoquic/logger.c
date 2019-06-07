@@ -1301,16 +1301,29 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
 size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max) {
     size_t byte_index = 0;
     uint64_t len = 0;
+    uint64_t datagram_id = 0;
     uint8_t *payload = NULL;
 
     uint8_t type_byte = *bytes;
     byte_index++;
-    if (type_byte == 0x1c) {
-        len = bytes_max - byte_index;
-        fprintf(F, " \tDATAGRAM\n");
-    } else {
-        byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
-        fprintf(F, " \tDATAGRAM (len=%lu)\n", len);
+    switch (type_byte) {
+        case 0x2c:
+            len = bytes_max - byte_index;
+            fprintf(F, "    DATAGRAM\n");
+            break;
+        case 0x2d:
+            byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
+            fprintf(F, "    DATAGRAM (len=%lu)\n", len);
+            break;
+        case 0x2e:
+            byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
+            len = bytes_max - byte_index;
+            fprintf(F, "    DATAGRAM (id=%lu)\n", datagram_id);
+        case 0x2f:
+            byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
+            byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
+            fprintf(F, "    DATAGRAM (id=%lu, len=%lu)\n", datagram_id, len);
+            break;
     }
     byte_index += len;
 
@@ -1420,8 +1433,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             byte_index += picoquic_log_new_token_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
-        case 0x1c: /* DATAGRAM */
-        case 0x1d:
+        case 0x2c: /* DATAGRAM */
+        case 0x2d:
+        case 0x2e:
+        case 0x2f:
             byte_index += picoquic_log_datagram_frame(F, cnx_id64, bytes + byte_index, length - byte_index);
             break;
         case picoquic_frame_type_plugin_validate:
