@@ -123,7 +123,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
 
                     PROTOOP_PRINTF(cnx, "Path %p CWIN %lu BIF %lu\n", (protoop_arg_t) path_x, cwin, bytes_in_transit);
-                    if (challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
+                    if (challenge_repeat_count > MAX_PATHS * PICOQUIC_CHALLENGE_REPEAT_MAX) {
                         PROTOOP_PRINTF(cnx, "%s\n", (protoop_arg_t) "Too many challenge retransmits, disconnect");
                         picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                         helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close);
