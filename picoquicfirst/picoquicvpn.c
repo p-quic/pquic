@@ -888,11 +888,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     /* Wait for packets */
     while (ret == 0 && picoquic_get_cnx_state(cnx_client) != picoquic_state_disconnected) {
         int bytes_recv;
-        if (picoquic_is_cnx_backlog_empty(cnx_client) && callback_ctx.nb_open_streams == 0) {
-            delay_max = 10000;
-        } else {
-            delay_max = 10000000;
-        }
 
         from_length = to_length = sizeof(struct sockaddr_storage);
 
