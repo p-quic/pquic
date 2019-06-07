@@ -273,7 +273,7 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         cnx->max_early_data_size = (size_t) val;
         break;
     case AK_CNX_STATE:
-        cnx->cnx_state = (picoquic_state_enum) val;
+        picoquic_set_cnx_state(cnx, (picoquic_state_enum) val);
         break;
     case AK_CNX_INITIAL_CID:
         printf("ERROR: setting initial CID is not implemented!\n");
