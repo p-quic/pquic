@@ -45,7 +45,9 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
     if (ret == 0 && retransmit_possible &&
         (length = helper_retransmit_needed(cnx, pc, path_x, current_time, packet, send_buffer_min_max, &is_cleartext_mode, &header_length, &retrans_reason)) > 0) {
         if (reason != NULL) {
-            run_noparam(cnx, retrans_reason, 1, (protoop_arg_t *) packet, NULL);
+            protoop_arg_t args[1];
+            args[0] = (protoop_arg_t) packet;
+            run_noparam(cnx, retrans_reason, 1, (protoop_arg_t *) &args, NULL);
         }
         /* Set the new checksum length */
         checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
