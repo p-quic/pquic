@@ -1197,13 +1197,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         cnx->core_rate = 500;
     }
 
-    /* The following lines should be uncommented only for testing purpose */
-    // plugin_insert_plugin(cnx, "plugins/basic/basic.plugin");
-    // plugin_insert_plugin(cnx, "plugins/ecn/ecn.plugin");
-    // plugin_insert_plugin(cnx, "plugins/multipath/multipath.plugin");
-    // plugin_insert_plugin(cnx, "plugins/tlp/tlp.plugin");
-    // plugin_insert_plugin(cnx, "plugins/cop2/cop2.plugin");
-
     return cnx;
 }
 
@@ -1862,7 +1855,6 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         /* If we are the server, keep the protocol operations in the cache */
         /* First condition is needed for tests */
         if (cnx->quic && !picoquic_is_client(cnx)) {
-            /* TODO */
             cached_plugins_t* cached = malloc(sizeof(cached_plugins_t));
             if (!cached) {
                 DBG_PRINTF("%s", "Cannot allocate memory to cache plugins; free them.\n");

@@ -3720,22 +3720,18 @@ protoop_arg_t process_plugin_validate_frame(picoquic_cnx_t* cnx)
 {
     plugin_validate_frame_t* frame = (plugin_validate_frame_t *) cnx->protoop_inputv[0];
 
-    printf("I should process plugin validate for PID %s with PID_ID %lx\n", frame->pid, frame->pid_id);
     /* Find the corresponding plugin path */
     for (int i = 0; i < cnx->quic->plugins_to_inject.size; i++) {
         if (strcmp(frame->pid, cnx->quic->plugins_to_inject.elems[i].plugin_name) == 0) {
-            printf("Found PID %s with path %s; prepare it!\n", frame->pid, cnx->quic->plugins_to_inject.elems[i].plugin_path);
             uint8_t plugin_buffer[MAX_PLUGIN_DATA_LEN];
             size_t size_used = 0;
             plugin_prepare_plugin_data_exchange(cnx, cnx->quic->plugins_to_inject.elems[i].plugin_path, plugin_buffer,
                 MAX_PLUGIN_DATA_LEN, &size_used);
-            printf("MAX_PLUGIN_DATA_LEN %d size_used %ld\n", MAX_PLUGIN_DATA_LEN, size_used);
             picoquic_add_to_plugin_stream(cnx, frame->pid_id, plugin_buffer, size_used, 1);
             return 0;
         }
     }
 
-    printf("Not found PID %s ?!?\n", frame->pid);
     return 0;
 }
 
