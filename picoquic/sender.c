@@ -1985,6 +1985,7 @@ picoquic_packet_type_enum picoquic_packet_type_from_epoch(int epoch)
     return ptype;
 }
 
+
 /**
  * See PROTOOP_NOPARAM_PREPARE_PACKET_OLD_CONTEXT
  */
@@ -2006,6 +2007,10 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
             }
         }
         if (cnx->handshake_complete_time + (3 * max_rto) < picoquic_current_time()) {
+            // we won't consider old contexts anymore: empty the retransmit queue
+            while(path_x->pkt_ctx[pc].retransmit_oldest) {
+                picoquic_dequeue_retransmit_packet(cnx, path_x->pkt_ctx[pc].retransmit_oldest, 1);
+            }
             protoop_save_outputs(cnx, 0);
             return 0;
         }
