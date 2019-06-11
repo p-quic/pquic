@@ -533,18 +533,6 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
 }
 
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
-
-    /* XXX: Assume that it is always the same (combination of) plugins that are set */
-    /* Fast track: do we have cached plugins? */
-    /* First condition is required for tests */
-    if (cnx->quic && cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
-        cached_plugins_t* cache = queue_dequeue(cnx->quic->cached_plugins_queue);
-        cnx->ops = cache->ops;
-        cnx->plugins = cache->plugins;
-        free(cache);
-        return 0;
-    }
-
     size_t max_filename_size = 250;
     char buf[max_filename_size];
     if (strlen(plugin_fname) >= max_filename_size){
@@ -682,6 +670,96 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
     strcpy(plugin_id, pid_tmp);
 
     return 0;
+}
+
+int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_t* plugins)
+{
+    int ret = 0;
+    int err = 0;
+
+    /* First, look at the cache */
+    /* Fast track: do we have cached plugins? */
+    /* First condition is required for tests */
+    if (cnx->quic && cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
+        cached_plugins_t* first = queue_dequeue(cnx->quic->cached_plugins_queue);
+        cached_plugins_t* curr = first;
+        do {
+            /* Check that the cache exactly contains what we want */
+            /* This is not optimised, but it should be ok for the current usage we have */
+            if (curr->nb_plugins == nb_plugins) {
+                bool ok = true;
+                for (int i = 0; ok && i < nb_plugins; i++) {
+                    bool found = false;
+                    for (int j = 0; !found && j < nb_plugins; j++) {
+                        if (strcmp(plugins[i].plugin_name, curr->plugin_names[j]) == 0) {
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        ok = false;
+                    }
+                }
+
+                if (ok) {
+                    /* curr is the one we were looking for! Insert it! */
+                    cnx->ops = curr->ops;
+                    cnx->plugins = curr->plugins;
+                    free(curr);
+                    DBG_PRINTF("%s", "Plugin found in cache: inserted!\n");
+                    return 0;
+                }
+            }
+
+            /* Otherwise, reinsert in the queue and continue */
+            err = queue_enqueue(cnx->quic->cached_plugins_queue, curr);
+            if (err) {
+                DBG_PRINTF("%s", "Cannot re-insert cached plugins!\n");
+            }
+        } while ((curr = queue_dequeue(cnx->quic->cached_plugins_queue)) != first && curr != NULL);
+    }
+
+    /* If the combination was not previously cached, insert them now */
+    for (int i = 0; i < nb_plugins; i++) {
+        err = plugin_insert_plugin(cnx, plugins[i].plugin_path);
+        if (ret == 0) {
+            printf("Successfully inserted local plugin %s\n", plugins[i].plugin_path);
+        } else {
+            printf("Failed to insert local plugin %s\n", plugins[i].plugin_path);
+            ret++;
+        }
+    }
+    return ret;
+}
+
+int plugin_insert_plugins_from_fnames(picoquic_cnx_t *cnx, uint8_t nb_plugins, char **plugin_fnames)
+{
+    int nb_plugins_failed = 0;
+    /* We first need to know the ID of the plugin before going further */
+    if (nb_plugins > 0) {
+        /* It's a little messy... */
+        char plugin_ids[nb_plugins][PROTOOPPLUGINNAME_MAX];
+        plugin_fname_t plugins[nb_plugins];
+        int err = 0;
+        for (int i = 0; err == 0 && i < nb_plugins; i++) {
+            err = plugin_parse_plugin_id(plugin_fnames[i], plugin_ids[i]);
+            if (err) {
+                fprintf(stderr, "Failed to parse plugin ID for %s; do not insert plugins!\n", plugin_fnames[i]);
+            }
+            plugins[i].plugin_name = plugin_ids[i];
+            plugins[i].plugin_path = plugin_fnames[i];
+        }
+        if (err == 0) {
+            printf("%" PRIx64 ": ",
+                    picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
+            nb_plugins_failed = plugin_insert_plugins(cnx, nb_plugins, plugins);
+            if (nb_plugins_failed == 0) {
+                fprintf(stderr, "Successfully inserted %u plugins\n", nb_plugins);
+            } else {
+                fprintf(stderr, "Failed to insert %d plugins\n", nb_plugins_failed);
+            }
+        }
+    }
+    return nb_plugins_failed;
 }
 
 int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_fname,

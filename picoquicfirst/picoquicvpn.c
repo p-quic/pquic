@@ -467,16 +467,10 @@ int quic_server(const char* server_name, int server_port,
                     }
 
                     if (new_context_created) {
-                        cnx_server = picoquic_get_first_cnx(qserver);
-                        for (int i = 0; i < plugins; i++) {
-                            int plugged = plugin_insert_plugin(cnx_server, plugin_fnames[i]);
+                        if (plugins > 0) {
                             printf("%" PRIx64 ": ",
                                    picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
-                            if (plugged == 0) {
-                                printf("Successfully inserted plugin %s\n", plugin_fnames[i]);
-                            } else {
-                                printf("Failed to insert plugin %s\n", plugin_fnames[i]);
-                            }
+                            plugin_insert_plugins_from_fnames(cnx_server, plugins, (char **) plugin_fnames);
                         }
 
                         if (qlog_filename) {
@@ -819,14 +813,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
-            for (int i = 0; i < plugins; i++) {
-                ret = plugin_insert_plugin(cnx_client, plugin_fnames[i]);
-                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
-                if (ret == 0) {
-                    printf("Successfully inserted plugin %s\n", plugin_fnames[i]);
-                } else {
-                    printf("Failed to insert plugin %s\n", plugin_fnames[i]);
-                }
+            if (plugins > 0) {
+                printf("%" PRIx64 ": ",
+                        picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                plugin_insert_plugins_from_fnames(cnx_client, plugins, (char **) plugin_fnames);
             }
 
             if (qlog_filename) {

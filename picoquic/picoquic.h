@@ -437,6 +437,12 @@ typedef struct plugin_frame {
 } plugin_frame_t;
 
 
+typedef struct st_plugin_fname_t {
+    char* plugin_name;
+    char* plugin_path;
+} plugin_fname_t;
+
+
 typedef enum {
     picoquic_callback_no_event = 0,
     picoquic_callback_stream_fin,

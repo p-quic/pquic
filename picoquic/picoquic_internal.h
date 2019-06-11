@@ -139,6 +139,9 @@ int picoquic_load_tickets(picoquic_stored_ticket_t** pp_first_ticket,
     uint64_t current_time, char const* ticket_file_name);
 void picoquic_free_tickets(picoquic_stored_ticket_t** pp_first_ticket);
 
+
+#define MAX_PLUGIN 64
+#define PROTOOPPLUGINNAME_MAX 100
 /**
  * XXX: For now, we assume we always request the same plugin.
  * If not, we would require an hash map with linked list, but the current behaviour
@@ -147,15 +150,10 @@ void picoquic_free_tickets(picoquic_stored_ticket_t** pp_first_ticket);
  */
 typedef struct st_cached_plugins_t {
     protocol_operation_struct_t* ops; /* A hash map to the protocol operations */
-    protoop_plugin_t *plugins; /* A hash map to the plugins referenced by ops */
+    protoop_plugin_t* plugins; /* A hash map to the plugins referenced by ops */
+    char plugin_names[MAX_PLUGIN][PROTOOPPLUGINNAME_MAX]; /* The names of the plugins */
+    uint8_t nb_plugins;
 } cached_plugins_t;
-
-typedef struct st_plugin_fname_t {
-    char* plugin_name;
-    char* plugin_path;
-} plugin_fname_t;
-
-#define MAX_PLUGIN 64
 
 typedef struct st_plugin_list_t {
     uint16_t size;
@@ -472,7 +470,6 @@ typedef struct st_picoquic_opaque_meta_t {
     size_t size;
 } picoquic_opaque_meta_t;
 
-#define PROTOOPPLUGINNAME_MAX 100
 #define OPAQUE_ID_MAX 0x10
 #define PLUGIN_MEMORY (16 * 1024 * 1024) /* In bytes, at least needed by tests */
 

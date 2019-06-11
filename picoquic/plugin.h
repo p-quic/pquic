@@ -35,6 +35,24 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, p
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname);
 
 /**
+ * Function taking a list of plugin file names with their associated plugin
+ * IDs and insert them in the provided order.
+ * Notice that this function can reuse some previously cached plugins.
+ * plugin_fnames and plugin_ids remain unchanged.
+ * Returns the number of plugins that couldn't be inserted.
+ */
+int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_t* plugins); 
+
+/**
+ * Function taking a list of plugin file names with their associated plugin
+ * IDs and insert them in the provided order.
+ * Notice that this function can reuse some previously cached plugins.
+ * plugin_fnames and plugin_ids remain unchanged.
+ * Returns the number of plugins that couldn't be inserted.
+ */
+int plugin_insert_plugins_from_fnames(picoquic_cnx_t *cnx, uint8_t nb_plugins, char **plugin_fnames); 
+
+/**
  * Function that parses the identifier of a plugin contained in its manifest.
  * The name of the ID is copied in the provided buffer (requires at least 250 bytes).
  * Returns 0 on success.

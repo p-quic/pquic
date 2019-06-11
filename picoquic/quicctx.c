@@ -1361,20 +1361,16 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
     int index;
     plugin_list_t* supported_plugins = &cnx->quic->supported_plugins;
     if (pids_to_inject) {
+        plugin_fname_t plugins[supported_plugins->size];
+        uint8_t nb_plugins = 0;
+
         for (int i = 0; (pid_to_inject = pids_to_inject[i]) != NULL; i++) {
             /* Search in the supported plugins */
             index = picoquic_pid_index(supported_plugins, pid_to_inject);
 
             if (index < supported_plugins->size) {
-                /* FIXME plugin loading optimization */
-                /* FIXME what if plugin load fails? */
-                /* Plugin is supported, insert it */
-                int plugged = plugin_insert_plugin(cnx, supported_plugins->elems[index].plugin_path);
-                if (plugged == 0) {
-                    fprintf(stderr, "Client successfully inserted plugin %s\n", supported_plugins->elems[index].plugin_path);
-                } else {
-                    fprintf(stderr, "Client failed to insert plugin %s\n", supported_plugins->elems[index].plugin_path);
-                }
+                plugins[nb_plugins] = supported_plugins->elems[index];
+                nb_plugins++;
             } else {
                 fprintf(stderr, "Client does not support plugin %s, request it.\n", pid_to_inject);
                 size_t pid_len = strlen(pid_to_inject) + 1;
@@ -1395,6 +1391,14 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
                 }
             }
         }
+
+        /* TODO plugin loading optimisation */
+        int nb_plugins_failed = plugin_insert_plugins(cnx, nb_plugins, plugins);
+        if (nb_plugins_failed == 0) {
+            fprintf(stderr, "Client successfully inserted %u plugins\n", nb_plugins);
+        } else {
+            fprintf(stderr, "Client failed to insert %d plugins\n", nb_plugins_failed);
+        }
         free(pids_to_inject);
     }
 
@@ -1412,21 +1416,24 @@ int picoquic_handle_plugin_negotiation_server(picoquic_cnx_t* cnx)
     int index;
     plugin_list_t* plugins_to_inject = &cnx->quic->plugins_to_inject;
     if (supported_pids) {
+        plugin_fname_t plugins[plugins_to_inject->size];
+        uint8_t nb_plugins = 0;
+
         for (int i = 0; (supported_pid = supported_pids[i]) != NULL; i++) {
             /* Search in the plugins to inject */
             index = picoquic_pid_index(plugins_to_inject, supported_pid);
 
             if (index < plugins_to_inject->size) {
-                /* FIXME plugin loading optimization */
-                /* FIXME what if plugin load fails? */
-                /* Plugin is supported, insert it */
-                int plugged = plugin_insert_plugin(cnx, plugins_to_inject->elems[index].plugin_path);
-                if (plugged == 0) {
-                    fprintf(stderr, "Server successfully inserted plugin %s\n", plugins_to_inject->elems[index].plugin_path);
-                } else {
-                    fprintf(stderr, "Server failed to insert plugin %s\n", plugins_to_inject->elems[index].plugin_path);
-                }
+                plugins[nb_plugins] = plugins_to_inject->elems[index];
+                nb_plugins++;
             }
+        }
+        /* TODO plugin loading optimisation */
+        int nb_plugins_failed = plugin_insert_plugins(cnx, nb_plugins, plugins);
+        if (nb_plugins_failed == 0) {
+            fprintf(stderr, "Server successfully inserted %u plugins\n", nb_plugins);
+        } else {
+            fprintf(stderr, "Server failed to insert %d plugins\n", nb_plugins_failed);
         }
         free(supported_pids);
     }
@@ -1862,6 +1869,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             } else {
                 cached->ops = cnx->ops;
                 cached->plugins = cnx->plugins;
+                cached->nb_plugins = 0;
                 protoop_plugin_t *current_p, *tmp_p;
                 HASH_ITER(hh, cached->plugins, current_p, tmp_p) {
                     /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
@@ -1871,6 +1879,10 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     memset(current_p->opaque_metas, 0, sizeof(current_p->opaque_metas));
                     /* And reinit the memory */
                     init_memory_management(current_p);
+                    /* And copy the name of the plugin */
+                    strcpy(cached->plugin_names[cached->nb_plugins], current_p->name);
+                    /* We found one plugin, so count it! */
+                    cached->nb_plugins++;
                 }
                 int err = queue_enqueue(cnx->quic->cached_plugins_queue, cached);
                 if (err) {

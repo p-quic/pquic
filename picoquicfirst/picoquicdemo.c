@@ -471,16 +471,11 @@ int quic_server(const char* server_name, int server_port,
                     cnx_server = picoquic_get_first_cnx(qserver);
 
                     /* We first insert all locally asked plugins */
-                    for (int i = 0; i < local_plugins; i++) {
-                        int plugged = plugin_insert_plugin(cnx_server, local_plugin_fnames[i]);
-                        printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
-                        if (plugged == 0) {
-                            printf("Successfully inserted local plugin %s\n", local_plugin_fnames[i]);
-                        } else {
-                            printf("Failed to insert local plugin %s\n", local_plugin_fnames[i]);
-                        }
+                    if (local_plugins > 0) {
+                        printf("%" PRIx64 ": ",
+                                picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
+                        plugin_insert_plugins_from_fnames(cnx_server, local_plugins, (char **) local_plugin_fnames);
                     }
-
 
                     picoquic_handle_plugin_negotiation(cnx_server);
 
@@ -969,14 +964,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
-            for (int i = 0; i < local_plugins; i++) {
-                ret = plugin_insert_plugin(cnx_client, local_plugin_fnames[i]);
-                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
-                if (ret == 0) {
-                    printf("Successfully inserted local plugin %s\n", local_plugin_fnames[i]);
-                } else {
-                    printf("Failed to insert local plugin %s\n", local_plugin_fnames[i]);
-                }
+            if (local_plugins > 0) {
+                printf("%" PRIx64 ": ",
+                        picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                plugin_insert_plugins_from_fnames(cnx_client, local_plugins, (char **) local_plugin_fnames);
             }
 
             if (qlog_filename) {
