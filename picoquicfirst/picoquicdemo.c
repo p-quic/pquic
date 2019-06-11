@@ -1178,7 +1178,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                             {
                                 fprintf(F_log, "All done, Closing the connection.\n");
                             }
-                            free((void *)callback_ctx.demo_stream);
+                            if (get_size > 0) {
+                                free((void *)callback_ctx.demo_stream);
+                            }
                             ret = picoquic_close(cnx_client, 0);
                         } else if (
                             picoquic_current_time() > callback_ctx.last_interaction_time && picoquic_current_time() - callback_ctx.last_interaction_time > 10000000ull) {
