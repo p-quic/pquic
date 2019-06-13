@@ -1,5 +1,5 @@
 #include "../framework/block_framework_sender.h"
-#include "../framework/block_framework_receiver.c"
+#include "../framework/block_framework_receiver.h"
 
 
 protoop_arg_t block_get_source_fpid(picoquic_cnx_t *cnx)

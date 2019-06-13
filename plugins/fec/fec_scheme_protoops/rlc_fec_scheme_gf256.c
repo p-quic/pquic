@@ -1,9 +1,8 @@
 #include <picoquic.h>
-#include "../gf256/swif_symbol.c"
-#include "../fec.h"
 #include "../../helpers.h"
+#include "../fec.h"
 #include "../prng/tinymt32.c"
-#include "../bpf.h"
+#include "../gf256/swif_symbol.c"
 #include "rlc_fec_scheme_gf256.h"
 #define MIN(a, b) ((a < b) ? a : b)
 

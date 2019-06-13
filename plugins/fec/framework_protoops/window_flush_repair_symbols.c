@@ -1,4 +1,4 @@
-#include "../framework/window_framework_sender.c"
+#include "../framework/window_framework_sender.h"
 
 
 protoop_arg_t window_flush_repair_symbols(picoquic_cnx_t *cnx)

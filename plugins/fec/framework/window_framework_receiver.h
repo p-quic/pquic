@@ -1,5 +1,4 @@
 
-#include "../bpf.h"
 #include "../../helpers.h"
 
 #define RECEIVE_BUFFER_MAX_LENGTH 30

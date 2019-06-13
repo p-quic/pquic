@@ -1,5 +1,5 @@
 #include "../framework/block_framework_sender.h"
-#include "../framework/block_framework_receiver.c"
+#include "../framework/block_framework_receiver.h"
 
 
 // returns 0 if false

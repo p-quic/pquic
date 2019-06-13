@@ -1,5 +1,5 @@
-#include "../framework/window_framework_sender.c"
-#include "../framework/window_framework_receiver.c"
+#include "../framework/window_framework_sender.h"
+#include "../framework/window_framework_receiver.h"
 
 
 protoop_arg_t window_select_symbols_to_protect(picoquic_cnx_t *cnx)

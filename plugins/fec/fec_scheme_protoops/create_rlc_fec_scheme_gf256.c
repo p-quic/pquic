@@ -5,7 +5,6 @@
 #include "rlc_fec_scheme_gf256.h"
 #include "../gf256/generated_table_code.c"
 
-//#include "../fec.h"
 
 static __attribute__((always_inline)) int create_fec_schemes(picoquic_cnx_t *cnx, rlc_gf256_fec_scheme_t *fec_schemes[2]) {
     // TODO: free when error

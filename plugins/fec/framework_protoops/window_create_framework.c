@@ -1,5 +1,5 @@
-#include "../framework/window_framework_sender.c"
-#include "../framework/window_framework_receiver.c"
+#include "../framework/window_framework_sender.h"
+#include "../framework/window_framework_receiver.h"
 #include "../fec_scheme_protoops/rlc_fec_scheme_gf256.h"
 
 
