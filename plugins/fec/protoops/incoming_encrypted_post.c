@@ -1,4 +1,4 @@
-#include "../bpf.h"
+#include "../fec_protoops.h"
 
 /**
  * uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];

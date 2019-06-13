@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "memory.h"
-#include "../bpf.h"
+#include "../fec_protoops.h"
 
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

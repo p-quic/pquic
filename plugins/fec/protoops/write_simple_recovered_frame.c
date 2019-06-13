@@ -1,5 +1,5 @@
 #include <picoquic.h>
-#include "../bpf.h"
+#include "../fec_protoops.h"
 
 static __attribute__((always_inline)) void free_rp(picoquic_cnx_t *cnx, recovered_packets_t *rp) {
     my_free(cnx, rp->packets);

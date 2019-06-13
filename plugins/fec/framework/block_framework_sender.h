@@ -1,6 +1,6 @@
 #include "../fec.h"
 #include "../../helpers.h"
-#include "../bpf.h"
+#include "../fec_protoops.h"
 
 #define INITIAL_FEC_BLOCK_NUMBER 0
 #define MAX_QUEUED_REPAIR_SYMBOLS 6

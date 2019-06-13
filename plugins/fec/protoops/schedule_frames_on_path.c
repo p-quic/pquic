@@ -1,5 +1,5 @@
 #include "picoquic.h"
-#include "../bpf.h"
+#include "../fec_protoops.h"
 #define MIN_BYTES_TO_RETRANSMIT_PROTECT 20
 
 static __attribute__((always_inline)) bool is_mtu_probe(picoquic_packet_t *p, picoquic_path_t *path) {

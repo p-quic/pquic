@@ -1,5 +1,5 @@
 #include "uniform_redundancy_controller.h"
-#include "../bpf.h"
+#include "../fec_protoops.h"
 
 // sets as output the pointer towards the controller's state
 protoop_arg_t create_uniform_redundancy_controller(picoquic_cnx_t *cnx)
