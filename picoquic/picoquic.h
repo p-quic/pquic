@@ -772,6 +772,10 @@ bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
 
 void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
 
+
+int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,
+                                                size_t bytes_max_size, int epoch, picoquic_path_t* path_x);
+
 #ifdef __cplusplus
 }
 #endif

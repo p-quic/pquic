@@ -1,4 +1,4 @@
-#include <picoquic_internal.h>
+#include <picoquic.h>
 #include "../gf256/swif_symbol.c"
 #include "../fec.h"
 #include "../../helpers.h"

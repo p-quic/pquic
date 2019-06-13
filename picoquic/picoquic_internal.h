@@ -1097,9 +1097,6 @@ int picoquic_prepare_plugin_frame(picoquic_cnx_t* cnx, picoquic_stream_head* plu
 int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max_size, int epoch, uint64_t current_time, picoquic_path_t* path_x);
 
-int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,
-    size_t bytes_max_size, int epoch, picoquic_path_t* path_x);
-
 int picoquic_skip_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max_size, size_t* consumed, int* pure_ack);
 
 int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes,

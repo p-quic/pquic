@@ -1,4 +1,4 @@
-#include <picoquic_internal.h>
+#include <picoquic.h>
 #include "../gmp/mini-gmp.c"
 #include "../fec.h"
 #include "../../helpers.h"

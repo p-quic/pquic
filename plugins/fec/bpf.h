@@ -1,7 +1,7 @@
 #ifndef FEC_BPF_H
 #define FEC_BPF_H
 #include <picoquic_logger.h>
-#include <picoquic_internal.h>
+#include <picoquic.h>
 #include "../helpers.h"
 #include "fec.h"
 #define MAX_RECOVERED_PACKETS_IN_BUFFER 50
