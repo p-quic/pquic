@@ -467,6 +467,7 @@ int quic_server(const char* server_name, int server_port,
                     }
 
                     if (new_context_created) {
+                        cnx_server = picoquic_get_first_cnx(qserver);
                         if (plugins > 0) {
                             printf("%" PRIx64 ": ",
                                    picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
