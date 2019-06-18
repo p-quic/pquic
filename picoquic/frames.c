@@ -3725,10 +3725,12 @@ protoop_arg_t process_plugin_validate_frame(picoquic_cnx_t* cnx)
         if (strcmp(frame->pid, cnx->quic->plugins_to_inject.elems[i].plugin_name) == 0) {
             uint8_t plugin_buffer[MAX_PLUGIN_DATA_LEN];
             size_t size_used = 0;
-            plugin_prepare_plugin_data_exchange(cnx, cnx->quic->plugins_to_inject.elems[i].plugin_path, plugin_buffer,
+            int err = plugin_prepare_plugin_data_exchange(cnx, cnx->quic->plugins_to_inject.elems[i].plugin_path, plugin_buffer,
                 MAX_PLUGIN_DATA_LEN, &size_used);
-            picoquic_add_to_plugin_stream(cnx, frame->pid_id, plugin_buffer, size_used, 1);
-            return 0;
+            if (err == 0) {
+                picoquic_add_to_plugin_stream(cnx, frame->pid_id, plugin_buffer, size_used, 1);
+            }
+            return err;
         }
     }
 
