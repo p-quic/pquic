@@ -111,6 +111,9 @@ static const char* bad_request_message = "<html><head><title>Bad Request</title>
 #include "../picoquic/util.h"
 #include "../picoquic/plugin.h"
 
+static const char* response_buffer = NULL;
+static size_t response_length = 0;
+
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
     char hostname[256];
@@ -322,28 +325,36 @@ static void first_server_callback(picoquic_cnx_t* cnx,
 
         /* if FIN present, process request through http 0.9 */
         if ((fin_or_event == picoquic_callback_stream_fin || crlf_present != 0) && stream_ctx->response_length == 0) {
-            char buf[256];
-
             stream_ctx->command[stream_ctx->command_length] = 0;
             /* if data generated, just send it. Otherwise, just FIN the stream. */
             stream_ctx->status = picoquic_first_server_stream_status_finished;
-            if (http0dot9_get(stream_ctx->command, stream_ctx->command_length,
-                    ctx->buffer, ctx->buffer_max, &stream_ctx->response_length)
-                != 0) {
-                printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
-                printf("Server CB, Stream: %" PRIu64 ", Reply with bad request message after command: %s\n",
-                    stream_id, strip_endofline(buf, sizeof(buf), (char*)&stream_ctx->command));
-                
-                // picoquic_reset_stream(cnx, stream_id, 404);
 
-                (void)picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t *) bad_request_message,
-                    strlen(bad_request_message), 1);
-            } else {
+            if (response_length > 0) {
                 printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
-                printf("Server CB, Stream: %" PRIu64 ", Processing command: %s\n",
-                    stream_id, strip_endofline(buf, sizeof(buf), (char*)&stream_ctx->command));
-                picoquic_add_to_stream(cnx, stream_id, ctx->buffer,
-                    stream_ctx->response_length, 1);
+                printf("Server CB, Stream: %" PRIu64 ", Sending %lu-byte static response\n",
+                       stream_id, response_length);
+                stream_ctx->response_length = response_length;
+                picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, response_length, 1);
+            } else {
+                char buf[256];
+                if (http0dot9_get(stream_ctx->command, stream_ctx->command_length,
+                                  ctx->buffer, ctx->buffer_max, &stream_ctx->response_length)
+                    != 0) {
+                    printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
+                    printf("Server CB, Stream: %" PRIu64 ", Reply with bad request message after command: %s\n",
+                           stream_id, strip_endofline(buf, sizeof(buf), (char *) &stream_ctx->command));
+
+                    // picoquic_reset_stream(cnx, stream_id, 404);
+
+                    (void) picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t *) bad_request_message,
+                                                  strlen(bad_request_message), 1);
+                } else {
+                    printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
+                    printf("Server CB, Stream: %" PRIu64 ", Processing command: %s\n",
+                           stream_id, strip_endofline(buf, sizeof(buf), (char *) &stream_ctx->command));
+                    picoquic_add_to_stream(cnx, stream_id, ctx->buffer,
+                                           stream_ctx->response_length, 1);
+                }
             }
         } else if (stream_ctx->response_length == 0) {
             char buf[256];
@@ -392,6 +403,16 @@ int quic_server(const char* server_name, int server_port,
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
     int new_context_created = 0;
+
+#ifdef STATIC_RESPONSE
+    response_buffer = (const char *) malloc(STATIC_RESPONSE);
+    if (!response_buffer) {
+        fprintf(stderr, "Unable to allocated %d-byte static response\n", STATIC_RESPONSE);
+        exit(-1);
+    }
+    memset((char *) response_buffer, 42, STATIC_RESPONSE);
+    response_length  = STATIC_RESPONSE;
+#endif
 
     /* Open a UDP socket */
     ret = picoquic_open_server_sockets(&server_sockets, server_port);
