@@ -51,6 +51,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     frame->datagram_id = datagram_id;
     my_memcpy(frame->datagram_data_ptr, payload, (size_t) len);
     slot->frame_ctx = frame;
+    slot->is_congestion_controlled = DCC;
 
     size_t reserved_size = reserve_frames(cnx, 1, slot);
     if (reserved_size < slot->nb_bytes) {
