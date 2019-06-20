@@ -240,7 +240,7 @@ def setup_net(net, ip_tun=True, quic_tun=True, gdb=False, tcpdump=False, multipa
 
     plugins = "-P plugins/datagram/datagram.plugin"
     if multipath:
-        plugins += " -P plugins/multipath/multipath_rtt.plugin"
+        plugins += " -P plugins/multipath/multipath_rr.plugin"
 
     if quic_tun:
         if gdb:
