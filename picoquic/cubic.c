@@ -29,6 +29,22 @@ typedef enum {
     picoquic_cubic_alg_congestion_avoidance
 } picoquic_cubic_alg_state_t;
 
+static const char * get_alg_state_name(picoquic_cubic_alg_state_t state) {
+    switch (state) {
+        case picoquic_cubic_alg_slow_start:
+            return "slow start";
+        case picoquic_cubic_alg_recovery:
+            return "recovery";
+        case picoquic_cubic_alg_tcp_friendly:
+            return "tcp friendly";
+        case picoquic_cubic_alg_congestion_avoidance:
+            return "congestion avoidance";
+        default:
+            return NULL;
+    }
+}
+
+#define NB_RTT_CUBIC 6
 
 typedef struct st_picoquic_cubic_state_t {
     picoquic_cubic_alg_state_t alg_state;
@@ -41,7 +57,23 @@ typedef struct st_picoquic_cubic_state_t {
     uint64_t ssthresh;
 
     uint64_t residual_ack;
+    uint64_t min_rtt;
+    uint64_t last_rtt[NB_RTT_CUBIC];
+    int nb_rtt;
+    picoquic_cnx_t *cnx;
 } picoquic_cubic_state_t;
+
+static int log_cubic_state(picoquic_cubic_state_t *cubic_state, char *buf, size_t buf_length) {
+    int ret = snprintf(buf, buf_length, "{\"alg_state\": \"%s\", ", get_alg_state_name(cubic_state->alg_state));
+    ret += snprintf(buf + ret, buf_length - ret, "\"start_of_epoch\": %lu, ", cubic_state->start_of_epoch);
+    ret += snprintf(buf + ret, buf_length - ret, "\"K\": %f, ", cubic_state->K);
+    ret += snprintf(buf + ret, buf_length - ret, "\"W_max\": %f, ", cubic_state->W_max);
+    ret += snprintf(buf + ret, buf_length - ret, "\"W_last_max\": %f, ", cubic_state->W_last_max);
+    ret += snprintf(buf + ret, buf_length - ret, "\"C\": %f, ", cubic_state->C);
+    ret += snprintf(buf + ret, buf_length - ret, "\"beta\": %f, ", cubic_state->beta);
+    ret += snprintf(buf + ret, buf_length - ret, "\"ssthresh\": %lu}", cubic_state->ssthresh);
+    return ret;
+}
 
 void picoquic_cubic_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
 {
@@ -50,6 +82,7 @@ void picoquic_cubic_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
     path_x->congestion_alg_state = (void*)cubic_state;
 
     if (path_x->congestion_alg_state != NULL) {
+        memset(cubic_state, 0, sizeof(picoquic_cubic_state_t));
         cubic_state->alg_state = picoquic_cubic_alg_slow_start;
         cubic_state->ssthresh = (uint64_t)((int64_t)-1);
         cubic_state->W_last_max = (double)cubic_state->ssthresh/(double)path_x->send_mtu;
@@ -57,6 +90,7 @@ void picoquic_cubic_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
         cubic_state->C = 0.4;
         cubic_state->beta = 7.0 / 8.0;
         cubic_state->start_of_epoch = 0;
+        cubic_state->cnx = cnx;
 
         path_x->cwin = PICOQUIC_CWIN_INITIAL;
     }
@@ -194,6 +228,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
     picoquic_cubic_state_t* cubic_state = (picoquic_cubic_state_t*)path_x->congestion_alg_state;
 
     if (cubic_state != NULL) {
+        picoquic_cubic_alg_state_t old_alg_state = cubic_state->alg_state;
         switch (cubic_state->alg_state) {
         case picoquic_cubic_alg_slow_start:
             switch (notification) {
@@ -217,7 +252,42 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
             case picoquic_congestion_notification_spurious_repeat:
                 break;
             case picoquic_congestion_notification_rtt_measurement:
-                /* TODO: consider using RTT increases as signal to get out of slow start */
+                /* Using RTT increases as signal to get out of initial slow start */
+                if (cubic_state->ssthresh == (uint64_t)((int64_t)-1)) {
+                    uint64_t rolling_min;
+                    uint64_t delta_rtt;
+
+                    if (rtt_measurement < cubic_state->min_rtt || cubic_state->min_rtt == 0) {
+                        cubic_state->min_rtt = rtt_measurement;
+                    }
+
+                    if (cubic_state->nb_rtt > NB_RTT_CUBIC) {
+                        cubic_state->nb_rtt = 0;
+                    }
+
+                    cubic_state->last_rtt[cubic_state->nb_rtt] = rtt_measurement;
+                    cubic_state->nb_rtt++;
+
+                    rolling_min = cubic_state->last_rtt[0];
+
+                    for (int i = 1; i < NB_RTT_CUBIC; i++) {
+                        if (cubic_state->last_rtt[i] == 0) {
+                            break;
+                        }
+                        else if (cubic_state->last_rtt[i] < rolling_min) {
+                            rolling_min = cubic_state->last_rtt[i];
+                        }
+                    }
+
+                    delta_rtt = rolling_min - cubic_state->min_rtt;
+                    if (delta_rtt * 4 > cubic_state->min_rtt) {
+                        /* RTT increased too much, get out of slow start! */
+                        cubic_state->ssthresh = path_x->cwin;
+                        cubic_state->W_max = path_x->cwin / path_x->send_mtu;
+                        cubic_state->W_last_max = cubic_state->W_max;
+                        picoquic_cubic_enter_avoidance(cubic_state, current_time);
+                    }
+                }
                 break;
             default:
                 /* ignore */
@@ -318,6 +388,31 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
 
         /* Compute pacing data */
         picoquic_update_pacing_data(path_x);
+
+        LOG {
+            char state_str[1024] = { 0 };
+            log_cubic_state(cubic_state, state_str, sizeof(state_str));
+
+            switch (notification) {
+                case picoquic_congestion_notification_spurious_repeat:
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "SPURIOUS_REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %lu, \"bytes_in_transit\": %lu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    break;
+                case picoquic_congestion_notification_rtt_measurement:
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "RTT_ESTIMATE", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %lu, \"bytes_in_transit\": %lu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    break;
+                case picoquic_congestion_notification_acknowledgement:
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "ACKNOWLEDGMENT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %lu, \"bytes_in_transit\": %lu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    break;
+                case picoquic_congestion_notification_repeat:
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %lu, \"bytes_in_transit\": %lu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    break;
+                case picoquic_congestion_notification_timeout:
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "TIMEOUT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %lu, \"bytes_in_transit\": %lu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 }
 

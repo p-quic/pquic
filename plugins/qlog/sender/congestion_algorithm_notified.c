@@ -17,8 +17,10 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
             break;
         case picoquic_congestion_notification_acknowledgement:
             LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "ACKNOWLEDGMENT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"bytes_acknowledged\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), nb_bytes_acknowledged);
+            break;
         case picoquic_congestion_notification_repeat:
             LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "REPEAT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
+            break;
         case picoquic_congestion_notification_timeout:
             LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "TIMEOUT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
             break;
