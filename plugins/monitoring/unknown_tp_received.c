@@ -3,13 +3,13 @@
 
 /** See PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED */
 protoop_arg_t unknown_tp_received(picoquic_cnx_t *cnx) {
-    cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
+    monitoring_conn_metrics *metrics = get_monitoring_metrics(cnx);
 
     uint16_t type = (uint16_t) get_cnx(cnx, AK_CNX_INPUT, 0);
     uint16_t length = (uint16_t) get_cnx(cnx, AK_CNX_INPUT, 1);
     uint8_t *value = (uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 2);
 
-    cop2_tp *tp = my_malloc(cnx, sizeof(cop2_tp));
+    monitoring_tp *tp = my_malloc(cnx, sizeof(monitoring_tp));
     if (tp == NULL) {
         return -1;
     }

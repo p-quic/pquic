@@ -91,19 +91,19 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/process_datagram_buffer.c
 )
 
-SET(PLUGINS_COP2
-    plugins/cop2/cnx_state_changed.c
-    plugins/cop2/packet_received.c
-    plugins/cop2/packet_sent.c
-    plugins/cop2/rtt_updated.c
-    plugins/cop2/check_ooo_stream_frame.c
-    plugins/cop2/check_spurious_stream_frame.c
-    plugins/cop2/packet_lost.c
-    plugins/cop2/fast_retransmit.c
-    plugins/cop2/retransmission_timeout.c
-    plugins/cop2/tail_loss_probe.c
-    plugins/cop2/stream_opened.c
-    plugins/cop2/stream_closed.c
+SET(PLUGINS_MONITORING
+    plugins/monitoring/cnx_state_changed.c
+    plugins/monitoring/packet_received.c
+    plugins/monitoring/packet_sent.c
+    plugins/monitoring/rtt_updated.c
+    plugins/monitoring/check_ooo_stream_frame.c
+    plugins/monitoring/check_spurious_stream_frame.c
+    plugins/monitoring/packet_lost.c
+    plugins/monitoring/fast_retransmit.c
+    plugins/monitoring/retransmission_timeout.c
+    plugins/monitoring/tail_loss_probe.c
+    plugins/monitoring/stream_opened.c
+    plugins/monitoring/stream_closed.c
 )
 
 SET(PLUGINS_MULTIPATH
@@ -205,8 +205,8 @@ ADD_LIBRARY(picoquic-core
 
 # They add lot of noise at compile time without actually compiling them...
 if($ENV{COMPILE_CLION})
-    ADD_LIBRARY(plugins-cop2
-        ${PLUGINS_COP2}
+    ADD_LIBRARY(plugins-monitoring
+        ${PLUGINS_MONITORING}
     )
 
     ADD_LIBRARY(plugins-multipath

@@ -10,7 +10,7 @@
 #include "util.h"
 #include "getset.h"
 
-#define COP2_OPAQUE_ID 0x02
+#define MONITORING_OPAQUE_ID 0x02
 #define BILLION ((unsigned int) 1000000)
 
 #define CMP_SOCKADDR(a, b)  (picoquic_compare_addr((struct sockaddr *)&a, (struct sockaddr *)&b))
@@ -53,7 +53,7 @@ typedef struct {
     /* time in µsec */
     uint64_t ack_delay;
     uint64_t max_ack_delay;
-} __attribute__((packed, aligned(8))) cop2_metrics;
+} __attribute__((packed, aligned(8))) monitoring_metrics;
 
 typedef struct {
     /* QUIC streams */
@@ -65,9 +65,9 @@ typedef struct {
     uint64_t peer_max_recv_buf;
 
     uint64_t app_data_sent;
-} cop2_quic_metrics;
+} monitoring_quic_metrics;
 
-typedef struct st_cop2_path_metrics {
+typedef struct st_monitoring_path_metrics {
     struct timespec t_start;
     struct timespec t_end;
 
@@ -80,49 +80,49 @@ typedef struct st_cop2_path_metrics {
     int peer_addr_len;
     struct sockaddr_storage peer_addr;
 
-    cop2_metrics metrics;
-    struct st_cop2_path_metrics *next;
-} __attribute__((packed, aligned(8))) cop2_path_metrics;
+    monitoring_metrics metrics;
+    struct st_monitoring_path_metrics *next;
+} __attribute__((packed, aligned(8))) monitoring_path_metrics;
 
-typedef struct st_cop2_tp {
+typedef struct st_monitoring_tp {
     uint16_t type;
     uint16_t length;
     uint8_t *value;
-    struct st_cop2_tp *next;
-} cop2_tp;
+    struct st_monitoring_tp *next;
+} monitoring_tp;
 
 typedef struct {  // We might want to add CIDs to this
-    cop2_quic_metrics quic_metrics;
+    monitoring_quic_metrics quic_metrics;
     int n_unknown_tps;
-    cop2_tp *unknown_tps;
-    cop2_tp *unknown_tps_tail;
-    cop2_path_metrics handshake_metrics;
+    monitoring_tp *unknown_tps;
+    monitoring_tp *unknown_tps_tail;
+    monitoring_path_metrics handshake_metrics;
     int n_established_paths;
-    cop2_path_metrics *established_metrics;
-} cop2_conn_metrics;
+    monitoring_path_metrics *established_metrics;
+} monitoring_conn_metrics;
 
-static __attribute__((always_inline)) cop2_conn_metrics *initialize_metrics_data(picoquic_cnx_t *cnx)  // TODO: We need to free it as well
+static __attribute__((always_inline)) monitoring_conn_metrics *initialize_metrics_data(picoquic_cnx_t *cnx)  // TODO: We need to free it as well
 {
-    cop2_conn_metrics *metrics = (cop2_conn_metrics *) my_malloc(cnx, sizeof(cop2_conn_metrics));
+    monitoring_conn_metrics *metrics = (monitoring_conn_metrics *) my_malloc(cnx, sizeof(monitoring_conn_metrics));
     if (!metrics) return NULL;
-    my_memset(metrics, 0, sizeof(cop2_conn_metrics));
+    my_memset(metrics, 0, sizeof(monitoring_conn_metrics));
     return metrics;
 }
 
-static __attribute__((always_inline)) cop2_conn_metrics *get_cop2_metrics(picoquic_cnx_t *cnx)
+static __attribute__((always_inline)) monitoring_conn_metrics *get_monitoring_metrics(picoquic_cnx_t *cnx)
 {
     int allocated = 0;
-    cop2_conn_metrics **bpfd_ptr = (cop2_conn_metrics **) get_opaque_data(cnx, COP2_OPAQUE_ID, sizeof(cop2_conn_metrics *), &allocated);
+    monitoring_conn_metrics **bpfd_ptr = (monitoring_conn_metrics **) get_opaque_data(cnx, MONITORING_OPAQUE_ID, sizeof(monitoring_conn_metrics *), &allocated);
     if (!bpfd_ptr) return NULL;
     if (allocated) {
         *bpfd_ptr = initialize_metrics_data(cnx);
-        my_memset(*bpfd_ptr, 0, sizeof(cop2_conn_metrics));
+        my_memset(*bpfd_ptr, 0, sizeof(monitoring_conn_metrics));
         clock_gettime(CLOCK_MONOTONIC, &((*bpfd_ptr)->handshake_metrics.t_start));
     }
     return *bpfd_ptr;
 }
 
-static __attribute__((always_inline)) int copy_path(char *dst, cop2_path_metrics *path) {
+static __attribute__((always_inline)) int copy_path(char *dst, monitoring_path_metrics *path) {
     int copied = 0;
 
     long elapsed = TIME_SUBTRACT_MS(path->t_start, path->t_end);
@@ -148,14 +148,14 @@ static __attribute__((always_inline)) int copy_path(char *dst, cop2_path_metrics
     copied += sizeof(int);
     my_memcpy(dst + copied, &path->peer_addr, (size_t) path->peer_addr_len);
     copied += path->peer_addr_len;
-    my_memcpy(dst + copied, &path->metrics, sizeof(cop2_metrics));
-    copied += sizeof(cop2_metrics);
+    my_memcpy(dst + copied, &path->metrics, sizeof(monitoring_metrics));
+    copied += sizeof(monitoring_metrics);
     return copied;
 }
 
-static __attribute__((always_inline)) int unknown_tps_length(cop2_conn_metrics *metrics) {
+static __attribute__((always_inline)) int unknown_tps_length(monitoring_conn_metrics *metrics) {
     int length = sizeof(int);
-    cop2_tp *tp = metrics->unknown_tps;
+    monitoring_tp *tp = metrics->unknown_tps;
     while(tp != NULL) {
         length += 2 * sizeof(uint16_t);
         length += tp->length;
@@ -164,10 +164,10 @@ static __attribute__((always_inline)) int unknown_tps_length(cop2_conn_metrics *
     return length;
 }
 
-static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics, picoquic_path_t *path)
+static __attribute__((always_inline)) monitoring_path_metrics *find_metrics_for_path(picoquic_cnx_t *cnx, monitoring_conn_metrics *metrics, picoquic_path_t *path)
 {
-    cop2_path_metrics *prev_path = NULL;
-    cop2_path_metrics *path_metrics = metrics->established_metrics;
+    monitoring_path_metrics *prev_path = NULL;
+    monitoring_path_metrics *path_metrics = metrics->established_metrics;
     struct sockaddr_storage *path_local_addr = (struct sockaddr_storage *) get_path(path, AK_PATH_LOCAL_ADDR, 0);
     struct sockaddr_storage *path_peer_addr = (struct sockaddr_storage *) get_path(path, AK_PATH_PEER_ADDR, 0);
     int limit = metrics->n_established_paths; // T2 oddity
@@ -178,15 +178,15 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
 
     if (path_metrics == NULL) {
         if (prev_path == NULL) {
-            metrics->established_metrics = (cop2_path_metrics *) my_malloc(cnx, sizeof(cop2_path_metrics));
+            metrics->established_metrics = (monitoring_path_metrics *) my_malloc(cnx, sizeof(monitoring_path_metrics));
             path_metrics = metrics->established_metrics;
         } else {
-            prev_path->next = (cop2_path_metrics *) my_malloc(cnx, sizeof(cop2_path_metrics));
+            prev_path->next = (monitoring_path_metrics *) my_malloc(cnx, sizeof(monitoring_path_metrics));
             path_metrics = prev_path->next;
         }
 
         metrics->n_established_paths++;
-        my_memset(path_metrics, 0, sizeof(cop2_path_metrics));
+        my_memset(path_metrics, 0, sizeof(monitoring_path_metrics));
         picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, AK_CNX_INITIAL_CID, 0);
         picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, AK_PATH_REMOTE_CID, 0);
         picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path, AK_PATH_LOCAL_CID, 0);
@@ -209,7 +209,7 @@ static __attribute__((always_inline)) cop2_path_metrics *find_metrics_for_path(p
     return path_metrics;
 }
 
-static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path_metrics, picoquic_cnx_t *cnx, picoquic_path_t *path) {
+static __attribute__((always_inline)) void complete_path(monitoring_path_metrics *path_metrics, picoquic_cnx_t *cnx, picoquic_path_t *path) {
     picoquic_connection_id_t *initial_cnxid = (picoquic_connection_id_t *) get_cnx(cnx, AK_CNX_INITIAL_CID, 0);
     picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path, AK_PATH_REMOTE_CID, 0);
     picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path, AK_PATH_LOCAL_CID, 0);
@@ -236,7 +236,7 @@ static __attribute__((always_inline)) void complete_path(cop2_path_metrics *path
     clock_gettime(CLOCK_MONOTONIC, &path_metrics->t_end);
 }
 
-static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop2_conn_metrics *metrics) {
+static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, monitoring_conn_metrics *metrics) {
     struct sockaddr_in si;
     memset(&si, 0, sizeof(struct sockaddr_in));
     si.sin_family = AF_INET;
@@ -244,7 +244,7 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
     inet_aton("127.0.0.1", &si.sin_addr);
 
     int n_paths = metrics->n_established_paths + 1;
-    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics);
+    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(monitoring_metrics);
 
     char *buf = (char *) my_malloc(cnx, (unsigned int) (n_paths * len_path_metrics));
     if (buf == NULL) {
@@ -254,7 +254,7 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
 
     size_t copied = 0;
     copied += copy_path(buf + copied, &metrics->handshake_metrics);
-    cop2_path_metrics *path = metrics->established_metrics;
+    monitoring_path_metrics *path = metrics->established_metrics;
     for (int i = 1; i < n_paths; i++) {
         copied += copy_path(buf + copied, path);
         path = path->next;
@@ -270,15 +270,15 @@ static __attribute__((always_inline)) void dump_metrics(picoquic_cnx_t *cnx, cop
 }
 
 
-static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoquic_cnx_t *cnx, cop2_path_metrics *path_metrics, uint8_t flow_start_reason, uint8_t flow_end_reason) {
+static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoquic_cnx_t *cnx, monitoring_path_metrics *path_metrics, uint8_t flow_start_reason, uint8_t flow_end_reason) {
     struct sockaddr_in si;
     memset(&si, 0, sizeof(struct sockaddr_in));
     si.sin_family = AF_INET;
     si.sin_port = my_htons(55555);
     inet_aton("127.0.0.1", &si.sin_addr);
 
-    cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
-    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(cop2_metrics) + sizeof(cop2_quic_metrics) + unknown_tps_length(metrics);
+    monitoring_conn_metrics *metrics = get_monitoring_metrics(cnx);
+    size_t len_path_metrics = sizeof(long) + 2 * (sizeof(int) + sizeof(struct sockaddr_storage)) + sizeof(monitoring_metrics) + sizeof(monitoring_quic_metrics) + unknown_tps_length(metrics);
     len_path_metrics += 2; // Accounts for flow states
     char *buf = (char *) my_malloc(cnx, (unsigned int) (len_path_metrics));
     if (buf == NULL) {
@@ -286,11 +286,11 @@ static __attribute__((always_inline)) void send_path_metrics_to_exporter(picoqui
         return;
     }
 
-    my_memcpy(buf, &get_cop2_metrics(cnx)->quic_metrics, sizeof(cop2_quic_metrics));
-    size_t copied = sizeof(cop2_quic_metrics);
+    my_memcpy(buf, &get_monitoring_metrics(cnx)->quic_metrics, sizeof(monitoring_quic_metrics));
+    size_t copied = sizeof(monitoring_quic_metrics);
     my_memcpy(buf + copied, &metrics->n_unknown_tps, sizeof(int));
     copied += sizeof(int);
-    cop2_tp *tp = metrics->unknown_tps;
+    monitoring_tp *tp = metrics->unknown_tps;
     while(tp != NULL) {
         my_memcpy(buf + copied, &tp->type, sizeof(uint16_t));
         copied += sizeof(uint16_t);

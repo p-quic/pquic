@@ -6,8 +6,8 @@
  */
 protoop_arg_t rtt_updated(picoquic_cnx_t *cnx)
 {
-    cop2_conn_metrics *metrics = get_cop2_metrics(cnx);
-    cop2_path_metrics *path_metrics;
+    monitoring_conn_metrics *metrics = get_monitoring_metrics(cnx);
+    monitoring_path_metrics *path_metrics;
     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_STATE, 0);
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, AK_CNX_INPUT, 3);
     picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 4);

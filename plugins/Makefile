@@ -1,4 +1,4 @@
-SUBDIRS := basic cop2 datagram fec multipath
+SUBDIRS := basic monitoring datagram fec multipath
 
 all: $(SUBDIRS)
 $(SUBDIRS):
