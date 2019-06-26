@@ -7,6 +7,6 @@
  */
 protoop_arg_t stream_opened(picoquic_cnx_t *cnx)
 {
-    get_cop2_metrics(cnx)->quic_metrics.streams_opened++;
+    get_monitoring_metrics(cnx)->quic_metrics.streams_opened++;
     return 0;
 }
