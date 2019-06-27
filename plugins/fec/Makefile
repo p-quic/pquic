@@ -2,13 +2,15 @@ SRC=$(wildcard *protoops/*.c)
 OBJ_SIGCOMM=$(shell sh get_protoops_sigcomm19.sh)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DDISABLE_PROTOOP_PRINTF
+CLANG=clang-6.0
+LLC=llc-6.0
 
 all: $(SRC) $(OBJ)
 
 $(OBJ): %.o
 
 %.o: %.c
-	clang $(CFLAGS) -O2 -fno-gnu-inline-asm -emit-llvm -c $< -o - | llc-6.0 -march=bpf -filetype=obj -o $@
+	$(CLANG) $(CFLAGS) -O2 -fno-gnu-inline-asm -emit-llvm -c $< -o - | $(LLC) -march=bpf -filetype=obj -o $@
 
 .PHONY: %.o generate_verif generate_verif_sigcomm %_full.c
 .NOTPARALLEL: verif_ verif_sigcomm

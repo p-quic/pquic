@@ -2,6 +2,8 @@ SRC=$(shell find -name "*.c")
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DPACING -DDISABLE_PROTOOP_PRINTF -DDISABLE_QLOG
 SUBDIRS=path_schedulers
+CLANG=clang-6.0
+LLC=llc-6.0
 
 all: $(SRC) $(OBJ) $(SUBDIRS)
 
@@ -11,7 +13,7 @@ $(SUBDIRS):
 $(OBJ): %.o
 
 %.o: %.c
-	clang-6.0 $(CFLAGS) -O2 -fno-gnu-inline-asm -emit-llvm -c $< -o - | llc-6.0 -march=bpf -filetype=obj -o $@
+	$(CLANG) $(CFLAGS) -O2 -fno-gnu-inline-asm -emit-llvm -c $< -o - | $(LLC) -march=bpf -filetype=obj -o $@
 
 clean:
 	rm -rf *.o
