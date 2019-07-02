@@ -23,8 +23,8 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         return 0;
     }
 
+#ifdef PATH_MONITORING
     uint64_t now = picoquic_current_time();
-
     for (int i = 0; i < bpfd->nb_proposed; i++) {
         pd = bpfd->paths[i];
         if (pd->state == path_active) {
@@ -81,6 +81,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
             reserve_path_update(cnx, pd->path_id, 0);
         }
     }
+#endif
 
     if (bpfd->nb_active >= N_PATHS) {
         return 0;
