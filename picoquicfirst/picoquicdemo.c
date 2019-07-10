@@ -101,7 +101,7 @@ static const char* default_server_key_file = "certs/key.pem";
 
 static const int default_server_port = 4443;
 static const char* default_server_name = "::";
-static const char* ticket_store_filename = "demo_ticket_store.bin";
+static char* ticket_store_filename = "demo_ticket_store.bin";
 
 static const char* bad_request_message = "<html><head><title>Bad Request</title></head><body>Bad request. Why don't you try \"GET /doc-456789.html\"?</body></html>";
 
@@ -1326,6 +1326,7 @@ void usage()
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
     fprintf(stderr, "  -t file               root trust file");
+    fprintf(stderr, "  -R                    enforce 1RTT");
     fprintf(stderr, "  -1                    Once\n");
     fprintf(stderr, "  -r                    Do Reset Request\n");
     fprintf(stderr, "  -s <64b 64b>          Reset seed\n");
@@ -1411,7 +1412,7 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzi:s:l:m:n:t:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRi:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1503,6 +1504,9 @@ int main(int argc, char** argv)
             break;
         case 'q':
             qlog_filename = optarg;
+            break;
+        case 'R':
+            ticket_store_filename = NULL;
             break;
         case 'h':
             usage();
