@@ -84,24 +84,32 @@ void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
 #define my_free(cnx,ptr) my_free(cnx,ptr)
 #endif
 
-static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+
+static inline protoop_arg_t run_noparam_with_pid(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv, protoop_id_t *pid) {
     protoop_params_t pp;
     pp.param = NO_PARAM;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return plugin_run_protoop(cnx, &pp, pid_str);
+    return plugin_run_protoop(cnx, &pp, pid_str, pid);
+}
+static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+    return run_noparam_with_pid(cnx, pid_str, inputc, inputv, outputv, NULL);
 }
 
-static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+static inline protoop_arg_t run_param_with_pid(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv, protoop_id_t *pid) {
     protoop_params_t pp;
     pp.param = param;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return plugin_run_protoop(cnx, &pp, pid_str);
+    return plugin_run_protoop(cnx, &pp, pid_str, pid);
+}
+
+static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+    return run_param_with_pid(cnx, pid_str, param, inputc, inputv, outputv, NULL);
 }
 
 static __attribute__((always_inline)) void helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {

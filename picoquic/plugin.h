@@ -103,7 +103,7 @@ void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *al
  */
 protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp);
 
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str);
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str, protoop_id_t *pid);
 
 bool plugin_pluglet_exists(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t param, pluglet_type_enum anchor);
 

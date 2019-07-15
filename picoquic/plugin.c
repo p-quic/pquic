@@ -1199,12 +1199,20 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     return status;
 }
 
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str)
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str, protoop_id_t *pid)
 {
-    protoop_id_t pid;
-    pid.id = pid_str;
-    pid.hash = hash_value_str(pid.id);
-    pp->pid = &pid;
+    protoop_id_t tmp_pid;
+    if (pid) {
+        if (pid->hash == 0) {
+            pid->id = pid_str;
+            pid->hash = hash_value_str(pid->id);
+        }
+        pp->pid = pid;
+    } else {
+        tmp_pid.id = pid_str;
+        tmp_pid.hash = hash_value_str(tmp_pid.id);
+        pp->pid = &tmp_pid;
+    }
     return plugin_run_protoop_internal(cnx, pp);
 }
 
