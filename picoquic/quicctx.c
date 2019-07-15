@@ -161,6 +161,154 @@ const picoquic_version_parameters_t picoquic_supported_versions[] = {
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
 
+
+int picoquic_get_plugin_stats(picoquic_cnx_t *cnx, plugin_stat_t **statsptr, int nmemb) {
+
+    protocol_operation_struct_t *ops = (cnx->ops);
+    protocol_operation_struct_t *current_post, *tmp_protoop;
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    observer_node_t *cur;
+    plugin_stat_t *stats = *statsptr;
+    if (!stats || nmemb == 0) {
+        nmemb = 100;
+        stats = malloc(nmemb*sizeof(plugin_stat_t));
+        if (!stats) return -1;
+    }
+
+    int current_position = 0;
+
+
+
+    HASH_ITER(hh, ops, current_post, tmp_protoop) {
+        if (current_position == nmemb) {
+            nmemb *= 2;
+            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+            if (!stats) return -1;
+        }
+
+        if (current_post->is_parametrable) {
+            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                if (current_popst->replace) {
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = current_popst->replace->p->name;
+                    stats[current_position].replace = true;
+                    stats[current_position].pre = false;
+                    stats[current_position].post = false;
+                    stats[current_position].is_param = true;
+                    stats[current_position].param = current_popst->param;
+                    stats[current_position].count = current_popst->replace->count;
+                    stats[current_position].total_execution_time = current_popst->replace->total_execution_time;
+                    current_position++;
+                }
+
+                if (current_popst->pre) {
+                    cur = current_popst->pre;
+                    while (cur) {
+                        if (current_position == nmemb) {
+                            nmemb *= 2;
+                            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                            if (!stats) return -1;
+                        }
+                        stats[current_position].protoop_name = current_post->name;
+                        stats[current_position].pluglet_name = cur->observer->p->name;
+                        stats[current_position].replace = false;
+                        stats[current_position].pre = true;
+                        stats[current_position].post = false;
+                        stats[current_position].is_param = true;
+                        stats[current_position].param = current_popst->param;
+                        stats[current_position].count = cur->observer->count;
+                        stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                        cur = cur->next;
+                        current_position++;
+                    }
+                }
+                if (current_popst->post) {
+                    cur = current_popst->post;
+                    while (cur) {
+                        if (current_position == nmemb) {
+                            nmemb *= 2;
+                            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                            if (!stats) return -1;
+                        }
+                        stats[current_position].protoop_name = current_post->name;
+                        stats[current_position].pluglet_name = cur->observer->p->name;
+                        stats[current_position].replace = false;
+                        stats[current_position].pre = false;
+                        stats[current_position].post = true;
+                        stats[current_position].is_param = true;
+                        stats[current_position].param = current_popst->param;
+                        stats[current_position].count = cur->observer->count;
+                        stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                        cur = cur->next;
+                        current_position++;
+                    }
+                }
+            }
+        } else {
+            current_popst = current_post->params;
+            if (current_popst->replace) {
+                if (current_position == nmemb) {
+                    nmemb *= 2;
+                    stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                    if (!stats) return -1;
+                }
+                stats[current_position].protoop_name = current_post->name;
+                stats[current_position].pluglet_name = current_popst->replace->p->name;
+                stats[current_position].replace = true;
+                stats[current_position].pre = false;
+                stats[current_position].post = false;
+                stats[current_position].is_param = false;
+                stats[current_position].count = current_popst->replace->count;
+                stats[current_position].total_execution_time = current_popst->replace->total_execution_time;
+                current_position++;
+            }
+
+            if (current_popst->pre) {
+                cur = current_popst->pre;
+                while (cur) {
+                    if (current_position == nmemb) {
+                        nmemb *= 2;
+                        stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                        if (!stats) return -1;
+                    }
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = cur->observer->p->name;
+                    stats[current_position].replace = false;
+                    stats[current_position].pre = true;
+                    stats[current_position].post = false;
+                    stats[current_position].is_param = false;
+                    stats[current_position].count = cur->observer->count;
+                    stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                    cur = cur->next;
+                    current_position++;
+                }
+            }
+            if (current_popst->post) {
+                cur = current_popst->post;
+                while (cur) {
+                    if (current_position == nmemb) {
+                        nmemb *= 2;
+                        stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                        if (!stats) return -1;
+                    }
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = cur->observer->p->name;
+                    stats[current_position].replace = false;
+                    stats[current_position].pre = false;
+                    stats[current_position].post = true;
+                    stats[current_position].is_param = false;
+                    stats[current_position].count = cur->observer->count;
+                    stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                    cur = cur->next;
+                    current_position++;
+                }
+            }
+        }
+    }
+    *statsptr = stats;
+    return current_position;
+}
+
 void picoquic_free_protoops(protocol_operation_struct_t * ops)
 {
     protocol_operation_struct_t *current_post, *tmp_protoop;

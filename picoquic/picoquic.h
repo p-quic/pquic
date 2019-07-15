@@ -455,6 +455,14 @@ typedef enum {
     picoquic_callback_stream_gap  /* bytes=NULL, len = length-of-gap or 0 (if unknown) */
 } picoquic_call_back_event_t;
 
+typedef struct plugin_stat {
+    char *protoop_name;
+    char *pluglet_name;
+    bool pre, replace, post, is_param;
+    param_id_t param;
+    uint64_t count;
+    uint64_t total_execution_time;
+} plugin_stat_t;
 #define PICOQUIC_STREAM_ID_TYPE_MASK 3
 #define PICOQUIC_STREAM_ID_CLIENT_INITIATED 0
 #define PICOQUIC_STREAM_ID_SERVER_INITIATED 1
@@ -594,6 +602,23 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
     picoquic_stream_data_cb_fn callback_fn, void* callback_ctx);
 
 int picoquic_start_client_cnx(picoquic_cnx_t* cnx);
+
+/*
+ * pre: stats != NULL
+ * populates an array containing statistics for each (protoop, pluglet) pair used in this connection
+ * When *stats is NULL, the result array will be allocated using malloc(3).
+ * When *stats is not NULL, it points to an already existing array allocated with malloc(3) with nmemb slots of
+ *  sizeof(plugin_stat_t) bytes. The address stored in *stats before the call to the function must not be used after the
+ *  call if it is different from the value stored in *stats after the call to the function.
+ * When the array is too small to store all the statistics, it will be reallocated using realloc(3) and the address of
+ *  the new array will be stored in *stats
+ * RETURN VALUE:
+ *  -1 if an error occurred
+ *  the number of added statistics elements otherwise
+ * In any case, *stats will either be NULL or point to a valid memory address allocated with malloc(3) after a call to
+ * this function.
+ */
+int picoquic_get_plugin_stats(picoquic_cnx_t *cnx, plugin_stat_t **stats, int nmemb);
 
 void picoquic_delete_cnx(picoquic_cnx_t* cnx);
 

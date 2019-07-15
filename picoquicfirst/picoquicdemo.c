@@ -210,6 +210,57 @@ static void first_server_callback_delete_context(picoquic_first_server_callback_
     free(ctx);
 }
 
+static void write_stats(picoquic_cnx_t *cnx, char *filename) {
+    if (!filename) return;
+    FILE *out = stdout;
+    bool file = false;
+    if (strcmp(filename, "-")) {
+        out = fopen(filename, "w");
+        if (!out) {
+            fprintf(stderr, "impossible to write stats on file %s\n", filename);
+            return;
+        }
+        file = true;
+    }
+    plugin_stat_t *stats = malloc(100*sizeof(plugin_stat_t));
+    int nstats = picoquic_get_plugin_stats(cnx, &stats, 100);
+    printf("%d stats\n", nstats);
+    if (nstats != -1) {
+        const int size = 300;
+        char str[size];
+        char buf[size];
+        str[0] = '\0';
+        str[size-1] = '\0';
+        buf[0] = '\0';
+        buf[size-1] = '\0';
+        for (int i = 0 ; i < nstats ; i++) {
+            if (stats[i].pre){
+                strcpy(str, "pre");
+            } else if (stats[i].post) {
+                strcpy(str, "post");
+            } else {
+                strcpy(str, "replace");
+            }
+            snprintf(buf, size-1, "%s %s", str, stats[i].protoop_name);
+            strncpy(str, buf, size-1);
+            if (stats[i].is_param) {
+                snprintf(buf, size-1, "%s (param 0x%hx)", str, stats[i].param);
+                strncpy(str, buf, size-1);
+            }
+            snprintf(buf, size-1, "%s (%s)", str, stats[i].pluglet_name);
+            strncpy(str, buf, size-1);
+            snprintf(buf, size-1, "%s: %lu calls", str, stats[i].count);
+            strncpy(str, buf, size-1);
+            double average_execution_time = stats[i].count ? (((double) stats[i].total_execution_time)/((double) stats[i].count)) : 0;
+            snprintf(buf, size-1, "%s, (avg=%fms, tot=%fms)", str, average_execution_time/1000, ((double) stats[i].total_execution_time)/1000);
+            strncpy(str, buf, size-1);
+            fprintf(out, "%s\n", str);
+        }
+    }
+    free(stats);
+    if (file) fclose(out);
+}
+
 static void first_server_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx)
@@ -382,7 +433,7 @@ int quic_server(const char* server_name, int server_port,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
     int mtu_max, const char** local_plugin_fnames, int local_plugins,
-    const char** both_plugin_fnames, int both_plugins, FILE *F_log, char *qlog_filename)
+    const char** both_plugin_fnames, int both_plugins, FILE *F_log, char *qlog_filename, char *stats_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -556,11 +607,10 @@ int quic_server(const char* server_name, int server_port,
                         if (cnx_next == cnx_server) {
                             cnx_server = NULL;
                         }
-
+                        write_stats(cnx_next, stats_filename);
                         picoquic_delete_cnx(cnx_next);
 
                         fflush(stdout);
-
                         break;
                     } else if (ret == 0) {
                         int peer_addr_len = 0;
@@ -858,7 +908,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     const char * root_crt,
     uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
     const char** local_plugin_fnames, int local_plugins,
-    int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path)
+    int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path, char *stats_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -1261,6 +1311,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         if (picoquic_save_tickets(qclient->p_first_ticket, picoquic_current_time(), ticket_store_filename) != 0) {
             fprintf(stderr, "Could not store the saved session tickets.\n");
         }
+        write_stats(cnx_client, stats_filename);
         picoquic_free(qclient);
     }
 
@@ -1340,6 +1391,7 @@ void usage()
     fprintf(stderr, "  -l file               Log file\n");
     fprintf(stderr, "  -m mtu_max            Largest mtu value that can be tried for discovery\n");
     fprintf(stderr, "  -q output.qlog        qlog output file\n");
+    fprintf(stderr, "  -S filename           if set, write plugin statistics in the specified file (- for stdout)\n");
     fprintf(stderr, "  -h                    This help message\n");
     exit(1);
 }
@@ -1409,10 +1461,11 @@ int main(int argc, char** argv)
     int only_stream_4 = 0;
 
     char *qlog_filename = NULL;
+    char *stats_filename = NULL;
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRi:s:l:m:n:t:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRS:i:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1505,6 +1558,9 @@ int main(int argc, char** argv)
         case 'q':
             qlog_filename = optarg;
             break;
+        case 'S':
+            stats_filename = optarg;
+            break;
         case 'R':
             ticket_store_filename = NULL;
             break;
@@ -1575,7 +1631,7 @@ int main(int argc, char** argv)
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
             (uint8_t*)reset_seed, mtu_max, local_plugin_fnames, local_plugins,
-            both_plugin_fnames, both_plugins, F_log, qlog_filename);
+            both_plugin_fnames, both_plugins, F_log, qlog_filename, stats_filename);
         printf("Server exit with code = %d\n", ret);
     } else {
         if (F_log != NULL) {
@@ -1590,7 +1646,7 @@ int main(int argc, char** argv)
         if (local_plugins > 0) {
             fprintf(stderr, "WARNING: direct plugin insertion at client might interfere with remote plugin injection...\n");
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path, stats_filename);
 
         printf("Client exit with code = %d\n", ret);
 

@@ -181,7 +181,7 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
 }
 
 pluglet_t *load_elf(void *code, size_t code_len, uint64_t memory_ptr, uint32_t memory_size) {
-    pluglet_t *pluglet = (pluglet_t *)malloc(sizeof(pluglet_t));
+    pluglet_t *pluglet = (pluglet_t *)calloc(1, sizeof(pluglet_t));
     if (!pluglet) {
         return NULL;
     }
@@ -257,6 +257,13 @@ uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_l
     }
 
     /* printf("0x%"PRIx64"\n", ret); */
-
+    pluglet->count++;
+#ifndef DEBUG_PLUGIN_EXECUTION_TIME
     return _exec_loaded_code(pluglet, arg, mem, mem_len, error_msg, JIT);
+#else
+    uint64_t before = picoquic_current_time();
+    uint64_t err = _exec_loaded_code(pluglet, arg, mem, mem_len, error_msg, JIT);
+    pluglet->total_execution_time += picoquic_current_time() - before;
+    return err;
+#endif
 }
