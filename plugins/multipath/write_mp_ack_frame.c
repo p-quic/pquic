@@ -32,7 +32,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     size_t num_block_index = 0;
     uint8_t mp_ack_type_byte = MP_ACK_TYPE;
     bpf_data *bpfd = get_bpf_data(cnx);
-    path_data_t *pd = mp_get_path_data(bpfd, path_x);
+    path_data_t *pd = mp_get_receive_path_data(bpfd, path_x);
     
 
     /* Check that there is enough room in the packet, and something to acknowledge */

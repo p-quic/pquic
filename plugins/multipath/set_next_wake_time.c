@@ -48,7 +48,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             for (int i = 0; blocked == 0 && i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
-                pd = mp_get_path_data(bpfd, path_x);
+                pd = mp_get_path_data(bpfd, true, path_x);
                 /* If the path is not active, don't expect anything! */
                 if (pd != NULL && pd->state != path_active) {
                     continue;
@@ -85,7 +85,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
         {
             for (int i = 0; blocked != 0 && pacing == 0 && i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-                pd = mp_get_path_data(bpfd, path_x);
+                pd = mp_get_path_data(bpfd, true, path_x);
                 /* If the path is not active, don't expect anything! */
                 if (pd != NULL && pd->state != path_active) {
                     continue;
@@ -124,7 +124,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 for (int i = 0; i < nb_paths; i++) {
                     path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-                    pd = mp_get_path_data(bpfd, path_x);
+                    pd = mp_get_path_data(bpfd, true, path_x);
                     /* If the path is not active, don't expect anything! */
                     if (pd != NULL && pd->state != path_active) {
                         continue;
@@ -179,7 +179,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     /* Consider path challenges */
     for (int i = 0; i < nb_paths; i++) {
         path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-        pd = mp_get_path_data(bpfd, path_x);
+        pd = mp_get_path_data(bpfd, true, path_x);
         /* If the path is not active, don't expect anything! */
         if (pd != NULL && pd->state != path_active) {
             continue;
@@ -238,7 +238,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     PROTOOP_PRINTF(cnx, "Last packet size was %d\n", last_pkt_length);
     for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
         picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-        pd = mp_get_path_data(bpfd, path_x);
+        pd = mp_get_path_data(bpfd, true, path_x);
         /* If the path is not active, don't expect anything! */
         if (pd != NULL && pd->state != path_active) {
             continue;
@@ -258,7 +258,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     if (blocked != 0) {
         for (int i = (nb_paths > 1); blocked != 0 && pacing == 0 && i < nb_paths; i++) {
             path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-            pd = mp_get_path_data(bpfd, path_x);
+            pd = mp_get_path_data(bpfd, true, path_x);
             /* If the path is not active, don't expect anything! */
             if (pd != NULL && pd->state != path_active) {
                 continue;
@@ -329,7 +329,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             for (int i = 0; i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-                pd = mp_get_path_data(bpfd, path_x);
+                pd = mp_get_path_data(bpfd, true, path_x);
                 /* If the path is not active, don't expect anything! */
                 if (pd != NULL && pd->state != path_active) {
                     continue;
@@ -391,7 +391,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 
         for (int i = 0; i < nb_paths; i++) {
             path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-            pd = mp_get_path_data(bpfd, path_x);
+            pd = mp_get_path_data(bpfd, true, path_x);
             /* If the path is not active, don't expect anything! */
             if (pd != NULL && pd->state != path_active) {
                 continue;

@@ -28,11 +28,10 @@
 #define RTT_PROBE_INTERVAL 100000
 
 typedef enum mp_path_state_e {
-    path_proposed = 0,
-    path_ready = 1,
-    path_active = 2,
-    path_unusable = 3,
-    path_closed = 4,
+    path_ready = 0,
+    path_active = 1,
+    path_unusable = 2, /* XXX: (QDC) Not sure this is needed anymore */
+    path_closed = 3,
 } mp_path_state;
 
 typedef struct {
@@ -52,13 +51,16 @@ typedef struct {
 
 typedef struct {
     picoquic_path_t *path;
+    /* FIXME find a proper way to distinguish sending vs. receive path */
+    bool is_sending_path;
     uint64_t path_id;
-    mp_path_state state; /* 0: proposed, 1: ready, 2: active, 3: unusable, 4: closed */
+    mp_path_state state; /* 0: ready, 1: active, 2: closed */
     uint8_t loc_addr_id;
     uint8_t rem_addr_id;
-    picoquic_connection_id_t local_cnxid;
-    picoquic_connection_id_t remote_cnxid;
+    /* For receive paths, it is local cnxid / reset secret, for sending paths it is remote */
+    picoquic_connection_id_t cnxid;
     uint8_t reset_secret[PICOQUIC_RESET_SECRET_SIZE];
+
     uint64_t last_rtt_probe;
     uint8_t rtt_probe_tries;
     bool rtt_probe_ready;
@@ -77,19 +79,27 @@ typedef struct {
 } addr_data_t;
 
 typedef struct {
-    uint8_t nb_proposed;
-    uint8_t nb_active;
-    uint8_t nb_proposed_snt;
-    uint8_t nb_proposed_rcv;
+    uint64_t max_ack_delay;
+    uint64_t smoothed_rtt;
+    uint64_t rtt_variant;
+    uint64_t rtt_min;
+} stats_t;
+
+typedef struct {
+    uint8_t nb_sending_active;
+    uint8_t nb_sending_proposed;
+    uint8_t nb_receive_proposed;
     uint8_t nb_loc_addrs;
     uint8_t nb_rem_addrs;
 
     /* Just for simple rr scheduling */
     uint8_t last_path_index_sent;
 
-    path_data_t *paths[MAX_PATHS];
+    path_data_t *sending_paths[MAX_PATHS];
+    path_data_t *receive_paths[MAX_PATHS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
+    stats_t tuple_stats[MAX_PATHS][MAX_PATHS]; /* [receive index][sending index] */
 
     // uint8_t pkt_seen_non_ack;
 } bpf_data;
@@ -161,41 +171,56 @@ static bpf_duplicate_data *get_bpf_duplicate_data(picoquic_cnx_t *cnx)
     return *bpfdd_ptr;
 }
 
-static int mp_get_path_index(picoquic_cnx_t *cnx, bpf_data *bpfd, uint64_t path_id, int *new_path_index) {
+/* Returns -1 if not found */
+static int mp_find_path_index_internal(picoquic_cnx_t *cnx, uint8_t max_count, path_data_t **paths, uint64_t path_id) {
     int path_index;
-    if (new_path_index) {
-        *new_path_index = false;
-    }
     path_data_t *pd = NULL;
-    for (path_index = 0; path_index < bpfd->nb_proposed; path_index++) {
-        pd = bpfd->paths[path_index];
+    for (path_index = 0; path_index < max_count; path_index++) {
+        pd = paths[path_index];
         if (!pd || pd->path_id == path_id) {
             break;
         }
     }
-    if (path_index == bpfd->nb_proposed || !pd) {
-        if (bpfd->nb_proposed >= MAX_PATHS) {
-            path_index = -1;
-        } else {
-            bpfd->paths[path_index] = my_malloc_ex(cnx, sizeof(path_data_t));
-            if (!bpfd->paths[path_index]) {
-                return -1;
-            }
-            my_memset(bpfd->paths[path_index], 0, sizeof(path_data_t));
-            bpfd->paths[path_index]->path_id = path_id;
-            bpfd->nb_proposed++;
-            if (new_path_index) {
-                *new_path_index = true;
-            }
-        }
+    if (path_index == max_count || !pd) {
+        path_index = -1;
     }
     return path_index;
 }
 
-static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
+static int mp_get_path_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_path, uint64_t path_id, int *new_path_index) {
+    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
+    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
+    int path_index = mp_find_path_index_internal(cnx, max_count, paths, path_id);
+    if (new_path_index) {
+        *new_path_index = false;
+    }
+
+    if (path_index < 0 && max_count < MAX_PATHS) {
+        paths[max_count] = my_malloc_ex(cnx, sizeof(path_data_t));
+        if (!paths[max_count]) {
+            return -1;
+        }
+        my_memset(paths[max_count], 0, sizeof(path_data_t));
+        paths[max_count]->path_id = path_id;
+        if (for_sending_path) {
+            bpfd->nb_sending_proposed++;
+        } else {
+            bpfd->nb_receive_proposed++;
+        }
+        if (new_path_index) {
+            *new_path_index = true;
+        }
+    }
+
+    return path_index;
+}
+
+static path_data_t *mp_get_path_data(bpf_data *bpfd, bool for_sending_path, picoquic_path_t *path_x) {
+    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
+    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
     path_data_t *pd = NULL;
-    for (int path_index = 0; path_index < bpfd->nb_proposed; path_index++) {
-        pd = bpfd->paths[path_index];
+    for (int path_index = 0; path_index < max_count; path_index++) {
+        pd = paths[path_index];
         if (pd && pd->path == path_x) {
             return pd;
         }
@@ -203,23 +228,61 @@ static path_data_t *mp_get_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
     return NULL;
 }
 
-static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+static path_data_t *mp_get_sending_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
+    return mp_get_path_data(bpfd, true, path_x);
+}
+
+static path_data_t *mp_get_receive_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
+    return mp_get_path_data(bpfd, false, path_x);
+}
+
+static int mp_get_path_index_from_path(bpf_data *bpfd, bool for_sending_path, picoquic_path_t *path_x) {
+    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
+    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
+    path_data_t *pd = NULL;
+    for (int path_index = 0; path_index < max_count; path_index++) {
+        pd = paths[path_index];
+        if (pd && pd->path == path_x) {
+            return path_index;
+        }
+    }
+    return -1;
+}
+
+static __attribute__((always_inline)) void mp_sending_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
 {
     pd->state = path_ready;
-    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+    pd->is_sending_path = true;
     /* By default, create the path with the current peer address of path 0 */
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
     int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
     pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
-    /* Also insert CIDs */
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_LOCAL_CID, 0);
-    my_memcpy(local_cnxid, &pd->local_cnxid, sizeof(picoquic_connection_id_t));
+    /* Also insert the remote CID */
     picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_REMOTE_CID, 0);
-    my_memcpy(remote_cnxid, &pd->remote_cnxid, sizeof(picoquic_connection_id_t));
+    my_memcpy(remote_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
-    LOG_EVENT(cnx, "MULTIPATH", "PATH_READY", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+    LOG_EVENT(cnx, "MULTIPATH", "SENDING_PATH_READY", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+}
+
+static __attribute__((always_inline)) void mp_receive_path_active(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+{
+    pd->state = path_active;
+    pd->is_sending_path = false;
+    /* By default, create the path with the current peer address of path 0 */
+    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+    struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
+    int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
+    /* TODO cope with possible errors */
+    pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
+    /* Also insert the local CID */
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_LOCAL_CID, 0);
+    my_memcpy(local_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
+    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
+    my_memcpy(reset_secret, pd->reset_secret, 16);
+    LOG_EVENT(cnx, "MULTIPATH", "RECEIVE_PATH_READY", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
 }
 
 static __attribute__((always_inline)) size_t varint_len(uint64_t val) {
@@ -489,4 +552,18 @@ static picoquic_path_t *schedule_path(picoquic_cnx_t *cnx, picoquic_packet_t *re
 
 static void manage_paths(picoquic_cnx_t *cnx) {
     run_noparam(cnx, "manage_paths", 0, NULL, NULL);
+}
+
+static picoquic_packet_t* mp_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
+    uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc,
+    picoquic_path_t* sending_path, picoquic_path_t* receive_path)
+{
+    protoop_arg_t args[6];
+    args[0] = (protoop_arg_t) largest;
+    args[1] = (protoop_arg_t) current_time;
+    args[2] = (protoop_arg_t) ack_delay;
+    args[3] = (protoop_arg_t) pc;
+    args[4] = (protoop_arg_t) sending_path;
+    args[5] = (protoop_arg_t) receive_path;
+    return (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 6, args, NULL);
 }

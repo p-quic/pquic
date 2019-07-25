@@ -9,19 +9,20 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
     mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 1);
     int epoch = (int) get_cnx(cnx, AK_CNX_INPUT, 2);
+    picoquic_path_t *receive_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 3);
 
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    int path_index = mp_get_path_index(cnx, bpfd, frame->path_id, NULL);
+    int path_index = mp_get_path_index(cnx, bpfd, true, frame->path_id, NULL);
     if (path_index < 0) {
         helper_protoop_printf(cnx, "No path index found...", NULL, 0);
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     }
 
-    picoquic_path_t *path_x = bpfd->paths[path_index]->path;
+    picoquic_path_t *sending_path = bpfd->sending_paths[path_index]->path;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
-    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(sending_path, AK_PATH_PKT_CTX, pc);
     uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_SEND_SEQUENCE);
 
     if (epoch == 1) {
@@ -31,11 +32,11 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
     } else if (frame->ack.largest_acknowledged >= send_sequence) {
         protoop_arg_t args[5];
         args[0] = (protoop_arg_t) frame->ack.largest_acknowledged;
-        args[1] = (protoop_arg_t) path_x;
+        args[1] = (protoop_arg_t) sending_path;
         args[2] = (protoop_arg_t) send_sequence;
         args[3] = (protoop_arg_t) pc;
         args[4] = (protoop_arg_t) frame->path_id;
-        helper_protoop_printf(cnx, "MP ACK frame largest is %lu for path %p but send_sequence is %lu with pc %lu (PID %lu)\n", args, 5);
+        helper_protoop_printf(cnx, "MP ACK frame largest is %lu for sending path %p but send_sequence is %lu with pc %lu (PID %lu)\n", args, 5);
         /* FIXME Clearly, there is a bug, but don't deal with it now... */
         if (send_sequence == 0) {
             return 0;
@@ -44,7 +45,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         return 1;
     } else {
         /* Attempt to update the RTT */
-        picoquic_packet_t* top_packet = helper_update_rtt(cnx, frame->ack.largest_acknowledged, current_time, frame->ack.ack_delay, pc, path_x);
+        picoquic_packet_t* top_packet = mp_update_rtt(cnx, frame->ack.largest_acknowledged, current_time, frame->ack.ack_delay, pc, sending_path, receive_path);
 
         uint64_t range = frame->ack.first_ack_block;
         uint64_t block_to_block;
@@ -65,7 +66,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         }
 
         if (range > 0) {
-            helper_check_spurious_retransmission(cnx, frame->ack.largest_acknowledged + 1 - range, frame->ack.largest_acknowledged, current_time, pc, path_x);
+            helper_check_spurious_retransmission(cnx, frame->ack.largest_acknowledged + 1 - range, frame->ack.largest_acknowledged, current_time, pc, sending_path);
         }
 
         uint64_t largest = frame->ack.largest_acknowledged;
@@ -104,7 +105,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
             }
 
             if (range > 0) {
-                helper_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc, path_x);
+                helper_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc, sending_path);
             }
         }
     }

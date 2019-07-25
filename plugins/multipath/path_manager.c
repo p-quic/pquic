@@ -13,7 +13,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
     path_data_t *pd = NULL;
 
     /* Don't go further if the address exchange is not complete! */
-    if (!bpfd->nb_proposed) {
+    if (!bpfd->nb_sending_proposed || !bpfd->nb_receive_proposed) {
         PROTOOP_PRINTF(cnx, "Address exchange is not complete\n");
         return 0;
     }
@@ -25,21 +25,21 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
 
 #ifdef PATH_MONITORING
     uint64_t now = picoquic_current_time();
-    for (int i = 0; i < bpfd->nb_proposed; i++) {
-        pd = bpfd->paths[i];
+    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
+        pd = bpfd->sending_paths[i];
         if (pd->state == path_active) {
             picoquic_packet_context_t *ctx = (picoquic_packet_context_t *) get_path(pd->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
             if (get_pkt_ctx(ctx, AK_PKTCTX_LATEST_PROGRESS_TIME) < get_pkt_ctx(ctx, AK_PKTCTX_LATEST_RETRANSMIT_TIME) && get_pkt_ctx(ctx, AK_PKTCTX_LATEST_RETRANSMIT_TIME) + (UNUSABLE_RTT_COEF * get_path(pd->path, AK_PATH_SMOOTHED_RTT, 0)) < now) {
                 pd->state = path_unusable;
                 pd->failure_count++;
                 pd->cooldown_time = now + ((COOLDOWN_RTT_COEF * get_path(pd->path, AK_PATH_SMOOTHED_RTT, 0)) << pd->failure_count);
-                bpfd->nb_active--;
+                bpfd->nb_sending_active--;
 
                 LOG {
                     char from[48], to[48];
                     struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
                     struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
-                    LOG_EVENT(cnx, "MULTIPATH", "PATH_UNUSABLE", "TIMEOUT",
+                    LOG_EVENT(cnx, "MULTIPATH", "SENDING_PATH_UNUSABLE", "TIMEOUT",
                               "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\", \"cooldown\": %lu}",
                               pd->path_id, (protoop_arg_t) pd->path,
                               (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
@@ -56,7 +56,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         }
     }
 
-    for (int i = 0; i < bpfd->nb_proposed; i++) {
+    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
         pd = bpfd->paths[i];
         if (pd->state == path_unusable && pd->cooldown_time < now) {
             pd->state = path_closed;
@@ -65,7 +65,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                 char from[48], to[48];
                 struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
                 struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
-                LOG_EVENT(cnx, "MULTIPATH", "PATH_CLOSED", "COOLDOWN",
+                LOG_EVENT(cnx, "MULTIPATH", "SENDING_PATH_CLOSED", "COOLDOWN",
                           "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
                           pd->path_id, (protoop_arg_t) pd->path,
                           (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
@@ -83,7 +83,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
     }
 #endif
 
-    if (bpfd->nb_active >= N_PATHS) {
+    if (bpfd->nb_sending_active >= N_PATHS) {
         return 0;
     }
 
@@ -92,9 +92,9 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         for (int rem = 0; rem < bpfd->nb_rem_addrs; rem++) {
             addr_data_t *adr = &bpfd->rem_addrs[rem];
 
-            for (int path_idx = 0; path_idx < bpfd->nb_proposed; path_idx++) {
-                pd = bpfd->paths[path_idx];
-                if (pd->state == path_ready && bpfd->nb_active < N_PATHS) {
+            for (int path_idx = 0; path_idx < bpfd->nb_sending_proposed; path_idx++) {
+                pd = bpfd->sending_paths[path_idx];
+                if (pd->state == path_ready && bpfd->nb_sending_active < N_PATHS) {
                     pd->state = path_active;
                     pd->loc_addr_id = (uint8_t) (loc + 1);
                     pd->rem_addr_id = (uint8_t) (rem + 1);
@@ -103,7 +103,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                     set_path(pd->path, AK_PATH_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);
                     set_path(pd->path, AK_PATH_PEER_ADDR_LEN, 0, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
                     my_memcpy((struct sockaddr_storage *) get_path(pd->path, AK_PATH_PEER_ADDR, 0), adr->sa, (adr->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
-                    bpfd->nb_active++;
+                    bpfd->nb_sending_active++;
 
                     LOG {
                         char from[48], to[48];
