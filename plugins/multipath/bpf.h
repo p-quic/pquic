@@ -199,6 +199,7 @@ static int mp_get_path_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sendi
         path_index = max_count;
         paths[path_index] = my_malloc(cnx, sizeof(path_data_t));
         if (!paths[path_index]) {
+            helper_protoop_printf(cnx, "Cannot allocate path_data...\n", NULL, 0);
             return -1;
         }
         my_memset(paths[path_index], 0, sizeof(path_data_t));

@@ -24,7 +24,6 @@ protoop_arg_t process_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
     my_memcpy(sending_path->reset_secret, frame->ncidf.stateless_reset_token, 16);
 
     if (new_path_index) {
-        bpfd->nb_sending_proposed++;
         mp_sending_path_ready(cnx, sending_path, current_time);
     }
 

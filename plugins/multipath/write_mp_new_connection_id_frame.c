@@ -77,7 +77,6 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 
         consumed = byte_index;
 
-        bpfd->nb_receive_proposed++;
         /* Now that we sent the MP NEW CONNECTION ID frame, we should be active to receive packets */
         mp_receive_path_active(cnx, p, picoquic_current_time());
     }
