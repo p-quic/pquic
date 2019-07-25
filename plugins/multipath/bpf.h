@@ -196,12 +196,13 @@ static int mp_get_path_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sendi
     }
 
     if (path_index < 0 && max_count < MAX_PATHS) {
-        paths[max_count] = my_malloc_ex(cnx, sizeof(path_data_t));
-        if (!paths[max_count]) {
+        path_index = max_count;
+        paths[path_index] = my_malloc(cnx, sizeof(path_data_t));
+        if (!paths[path_index]) {
             return -1;
         }
-        my_memset(paths[max_count], 0, sizeof(path_data_t));
-        paths[max_count]->path_id = path_id;
+        my_memset(paths[path_index], 0, sizeof(path_data_t));
+        paths[path_index]->path_id = path_id;
         if (for_sending_path) {
             bpfd->nb_sending_proposed++;
         } else {
