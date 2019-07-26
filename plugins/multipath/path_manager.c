@@ -4,11 +4,7 @@
 #define COOLDOWN_RTT_COEF 8
 
 protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
-    int client_mode = (int) get_cnx(cnx, AK_CNX_CLIENT_MODE, 0);
-    /* Prevent the server from starting using new paths */
-    if (!client_mode) {
-        return 0;
-    }
+    /* Now, even the server MUST itself setup its sending paths */
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = NULL;
 
