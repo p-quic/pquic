@@ -8,7 +8,7 @@ static uint64_t find_smooth_rtt(bpf_data *bpfd, int sending_index) {
         srtt += bpfd->tuple_stats[i][sending_index].smoothed_rtt * bpfd->tuple_stats[i][sending_index].nb_updates;
         nb_updates += bpfd->tuple_stats[i][sending_index].nb_updates;
     }
-    if (nb_updates == 0) return 0;
+    if (nb_updates == 0) return 1; /* Give a chance to be used */
     return srtt / nb_updates;
 }
 
