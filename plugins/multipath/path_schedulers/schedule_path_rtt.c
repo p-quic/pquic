@@ -1,5 +1,15 @@
 #include "../bpf.h"
 
+static uint64_t find_smallest_smooth_rtt(bpf_data *bpfd, int sending_index) {
+    uint64_t srtt = 0;
+    for (int i = 0; i < bpfd->nb_receive_proposed; i++) {
+        if (srtt == 0 || bpfd->tuple_stats[i][sending_index].smoothed_rtt < srtt) {
+            srtt = bpfd->tuple_stats[i][sending_index].smoothed_rtt;
+        }
+    }
+    return srtt;
+}
+
 protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     picoquic_packet_t *retransmit_p  = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     picoquic_path_t *from_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
@@ -51,7 +61,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             if (challenge_verified_c && sending_path == path_0) {
                 sending_path = path_c;
                 selected_path_index = i;
-                smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
+                smoothed_rtt_x = find_smallest_smooth_rtt(bpfd, i);
                 valid = 0;
                 path_reason = "AVOID_PATH_0";
             }
@@ -60,7 +70,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             if (change_path && i != bpfd->last_path_index_sent) {
                 sending_path = path_c;
                 selected_path_index = i;
-                smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
+                smoothed_rtt_x = find_smallest_smooth_rtt(bpfd, i);
                 valid = 0;
                 path_reason = "PATH_CHANGE";
                 break;
@@ -109,7 +119,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
 
             /* As ACKs are related to receive paths, no more logic here! */
 
-            uint64_t smoothed_rtt_c = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
+            uint64_t smoothed_rtt_c = find_smallest_smooth_rtt(bpfd, i);
             if (path_c != path_0) {
 // TODO: Fix RTT probes
 #ifdef ENABLE_RTT_PROBE
