@@ -70,6 +70,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                     /* First compute for the tuples */
                     if (receive_path_index >= 0 && old_sending_path_index >= 0) {
                         stats_t *stats = &bpfd->tuple_stats[receive_path_index][old_sending_path_index];
+                        stats->nb_updates++;
                         if (stats->smoothed_rtt == 0 && stats->rtt_variant == 0) {
                             stats->smoothed_rtt = rtt_estimate;
                             stats->rtt_variant = rtt_estimate / 2;

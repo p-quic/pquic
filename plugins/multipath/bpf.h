@@ -83,6 +83,7 @@ typedef struct {
     uint64_t smoothed_rtt;
     uint64_t rtt_variant;
     uint64_t rtt_min;
+    uint64_t nb_updates;
 } stats_t;
 
 typedef struct {
