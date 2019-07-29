@@ -236,11 +236,22 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 
     int nb_paths = (int) get_cnx(cnx, AK_CNX_NB_PATHS, 0);
     PROTOOP_PRINTF(cnx, "Last packet size was %d\n", last_pkt_length);
+
+    /* If any receive path requires path response, do it now! */
+    for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
+        picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
+        pd = mp_get_path_data(bpfd, false, path_x);
+        if (pd == NULL) continue;
+        if (get_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0) != 0) {
+            blocked = 0;
+        }
+    }
+
     for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
         picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
         pd = mp_get_path_data(bpfd, true, path_x);
         /* If the path is not active, don't expect anything! */
-        if (pd != NULL && pd->state != path_active) {
+        if (pd == NULL || pd->state != path_active) {
             continue;
         }
         uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
