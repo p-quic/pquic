@@ -134,8 +134,8 @@ void *my_realloc(picoquic_cnx_t *cnx, void *ptr, unsigned int size) {
 void init_memory_management(protoop_plugin_t *p)
 {
 	p->memory_pool.mem_start = (uint8_t *) p->memory;
-	p->memory_pool.size_of_each_block = 2600; /* TEST */
-	p->memory_pool.num_of_blocks = PLUGIN_MEMORY / 2600;
+	p->memory_pool.size_of_each_block = 3100; /* TEST */
+	p->memory_pool.num_of_blocks = PLUGIN_MEMORY / 3100;
 	p->memory_pool.num_initialized = 0;
 	p->memory_pool.num_free_blocks = p->memory_pool.num_of_blocks;
 	p->memory_pool.next = p->memory_pool.mem_start;
