@@ -203,6 +203,23 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                         }
                     }
 
+                    /* if present, send path response. This ensures we send it on the right path */
+                    if (any_path_challenge_response_to_send) {
+#define PICOQUIC_CHALLENGE_LENGTH 8
+                        for (int i = 0; i < bpfd->nb_receive_proposed; i++) {
+                            if (path_challenge_response_to_send[i] && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
+                                picoquic_path_t *receive_path = bpfd->receive_paths[i]->path;
+                                /* This is not really clean, but it will work */
+                                my_memset(&bytes[length], picoquic_frame_type_path_response, 1);
+                                uint8_t *challenge_response = (uint8_t *) get_path(receive_path, AK_PATH_CHALLENGE_RESPONSE, 0);
+                                my_memcpy(&bytes[length+1], challenge_response, PICOQUIC_CHALLENGE_LENGTH);
+                                set_path(receive_path, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0, 0);
+                                length += PICOQUIC_CHALLENGE_LENGTH + 1;
+                                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                            }
+                        }
+                    }
+
                     if (cwin > bytes_in_transit) {
                         /* if present, send tls data */
                         if (tls_ready) {
@@ -215,22 +232,6 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 {
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_CONTAINS_CRYPTO, 1);
-                                    set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
-                                }
-                            }
-                        }
-                        /* if present, send path response. This ensures we send it on the right path */
-                        if (any_path_challenge_response_to_send) {
-#define PICOQUIC_CHALLENGE_LENGTH 8
-                            for (int i = 0; i < bpfd->nb_receive_proposed; i++) {
-                                if (path_challenge_response_to_send[i] && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
-                                    picoquic_path_t *receive_path = bpfd->receive_paths[i]->path;
-                                    /* This is not really clean, but it will work */
-                                    my_memset(&bytes[length], picoquic_frame_type_path_response, 1);
-                                    uint8_t *challenge_response = (uint8_t *) get_path(receive_path, AK_PATH_CHALLENGE_RESPONSE, 0);
-                                    my_memcpy(&bytes[length+1], challenge_response, PICOQUIC_CHALLENGE_LENGTH);
-                                    set_path(receive_path, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0, 0);
-                                    length += PICOQUIC_CHALLENGE_LENGTH + 1;
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                                 }
                             }
