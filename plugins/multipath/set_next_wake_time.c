@@ -201,6 +201,30 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     picoquic_reinsert_cnx_by_wake_time(cnx, next_time);
 }
 
+static int get_nb_paths(bpf_data *bpfd, int nb_tot_paths, bool for_sending) {
+    if (nb_tot_paths <= 1) return nb_tot_paths;
+    return for_sending ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
+}
+
+static picoquic_path_t *_get_path(picoquic_cnx_t *cnx, bpf_data *bpfd, int nb_tot_paths, bool for_sending, int index, path_data_t **pd) {
+    if (nb_tot_paths <= 1) {
+        if (pd) *pd = NULL;
+        return (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+    }
+    path_data_t **pds = for_sending ? bpfd->sending_paths : bpfd->receive_paths;
+    *pd = pds[index];
+    return pds[index]->path;
+}
+
+static picoquic_path_t *get_sending_path(picoquic_cnx_t *cnx, bpf_data *bpfd, int nb_tot_paths, int index, path_data_t **pd) {
+    return _get_path(cnx, bpfd, nb_tot_paths, true, index, pd);
+}
+
+static picoquic_path_t *get_receive_path(picoquic_cnx_t *cnx, bpf_data *bpfd, int nb_tot_paths, int index, path_data_t **pd) {
+    return _get_path(cnx, bpfd, nb_tot_paths, false, index, pd);
+}
+
+
 /**
  * See PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME
  */
@@ -234,24 +258,26 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         blocked = 0;
     }
 
-    int nb_paths = (int) get_cnx(cnx, AK_CNX_NB_PATHS, 0);
+    int nb_tot_paths = (int) get_cnx(cnx, AK_CNX_NB_PATHS, 0);
     PROTOOP_PRINTF(cnx, "Last packet size was %d\n", last_pkt_length);
 
+    int nb_snd_paths = get_nb_paths(bpfd, nb_tot_paths, true);
+    int nb_rcv_paths = get_nb_paths(bpfd, nb_tot_paths, false);
+    picoquic_path_t *path_x = NULL;
+
     /* If any receive path requires path response, do it now! */
-    for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
-        picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-        pd = mp_get_path_data(bpfd, false, path_x);
+    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_rcv_paths; i++) {
+        path_x = get_receive_path(cnx, bpfd, nb_tot_paths, i, &pd);
         if (pd == NULL) continue;
         if (get_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0) != 0) {
             blocked = 0;
         }
     }
 
-    for (int i = (nb_paths > 1); last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
-        picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-        pd = mp_get_path_data(bpfd, true, path_x);
+    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_snd_paths; i++) {
+        path_x = get_sending_path(cnx, bpfd, nb_tot_paths, i, &pd);
         /* If the path is not active, don't expect anything! */
-        if (pd == NULL || pd->state != path_active) {
+        if (nb_tot_paths > 1 && (pd == NULL || pd->state != path_active)) {
             continue;
         }
         uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
@@ -264,14 +290,12 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_t *pkt_ctx;
     if (blocked != 0) {
-        for (int i = (nb_paths > 1); blocked != 0 && pacing == 0 && i < nb_paths; i++) {
-            path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-            pd = mp_get_path_data(bpfd, true, path_x);
+        for (int i = 0; blocked != 0 && pacing == 0 && i < nb_snd_paths; i++) {
+            path_x = get_sending_path(cnx, bpfd, nb_tot_paths, i, &pd);
             /* If the path is not active, don't expect anything! */
-            if (pd != NULL && pd->state != path_active) {
+            if (nb_tot_paths > 1 && (pd == NULL || pd->state != path_active)) {
                 continue;
             }
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context && (i == 0 || pc == picoquic_packet_context_application); pc++) {
@@ -338,11 +362,16 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         PROTOOP_PRINTF(cnx, "I set pace timer to %lu", next_time);
     } else {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
-            for (int i = 0; i < nb_paths; i++) {
-                path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-                pd = mp_get_path_data(bpfd, true, path_x);
+            /* XXX: slightly hacky */
+            for (int i = 0; i <= nb_snd_paths; i++) {
+                if (i == nb_snd_paths) {
+                    /* Well, in the case of only having the initial path, we run twice here. Still, it is not a big deal in MP */
+                    path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+                } else {
+                    path_x = get_sending_path(cnx, bpfd, nb_tot_paths, i, &pd);
+                }
                 /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != path_active) {
+                if (nb_tot_paths > 1 && (pd == NULL || pd->state != path_active)) {
                     continue;
                 }
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
@@ -400,9 +429,14 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             }
         }
 
-        for (int i = 0; i < nb_paths; i++) {
-            path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-            pd = mp_get_path_data(bpfd, true, path_x);
+        /* XXX: slightly hacky */
+        for (int i = 0; i <= nb_snd_paths; i++) {
+            if (i == nb_snd_paths) {
+                /* Well, in the case of only having the initial path, we run twice here. Still, it is not a big deal in MP */
+                path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+            } else {
+                path_x = get_sending_path(cnx, bpfd, nb_tot_paths, i, &pd);
+            }
             /* If the path is not active, don't expect anything! */
             if (pd != NULL && pd->state != path_active) {
                 continue;
