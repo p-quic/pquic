@@ -14,6 +14,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     int receive_path_index = -1;
 
     bpf_data *bpfd = get_bpf_data(cnx);
+    bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
 
     if (receive_path != NULL) {
         receive_path_index = mp_get_path_index_from_path(bpfd, false, receive_path);
@@ -69,7 +70,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 
                     /* First compute for the tuples */
                     if (receive_path_index >= 0 && old_sending_path_index >= 0) {
-                        stats_t *stats = &bpfd->tuple_stats[receive_path_index][old_sending_path_index];
+                        stats_t *stats = &bpftd->tuple_stats[receive_path_index][old_sending_path_index];
                         stats->nb_updates++;
                         if (stats->smoothed_rtt == 0 && stats->rtt_variant == 0) {
                             stats->smoothed_rtt = rtt_estimate;

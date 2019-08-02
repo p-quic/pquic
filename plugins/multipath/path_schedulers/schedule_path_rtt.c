@@ -1,12 +1,12 @@
 #include "../bpf.h"
 
-static uint64_t find_smooth_rtt(bpf_data *bpfd, int sending_index) {
+static uint64_t find_smooth_rtt(bpf_data *bpfd, bpf_tuple_data *bpftd, int sending_index) {
     /* Instead of finding the smallest RTT, just weight them by the number of packets */
     uint64_t srtt = 0;
     uint64_t nb_updates = 0;
     for (int i = 0; i < bpfd->nb_receive_proposed; i++) {
-        srtt += bpfd->tuple_stats[i][sending_index].smoothed_rtt * bpfd->tuple_stats[i][sending_index].nb_updates;
-        nb_updates += bpfd->tuple_stats[i][sending_index].nb_updates;
+        srtt += bpftd->tuple_stats[i][sending_index].smoothed_rtt * bpftd->tuple_stats[i][sending_index].nb_updates;
+        nb_updates += bpftd->tuple_stats[i][sending_index].nb_updates;
     }
     if (nb_updates == 0) return 1; /* Give a chance to be used */
     return srtt / nb_updates;
@@ -30,6 +30,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     picoquic_path_t *path_0 = sending_path;
     picoquic_path_t *path_c = NULL;
     bpf_data *bpfd = get_bpf_data(cnx);
+    bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
     path_data_t *pd = NULL;
     uint8_t selected_path_index = 255;
     manage_paths(cnx);
@@ -63,7 +64,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             if (challenge_verified_c && sending_path == path_0) {
                 sending_path = path_c;
                 selected_path_index = i;
-                smoothed_rtt_x = find_smooth_rtt(bpfd, i);
+                smoothed_rtt_x = find_smooth_rtt(bpfd, bpftd, i);
                 valid = 0;
                 path_reason = "AVOID_PATH_0";
             }
@@ -72,7 +73,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             if (change_path && i != bpfd->last_path_index_sent) {
                 sending_path = path_c;
                 selected_path_index = i;
-                smoothed_rtt_x = find_smooth_rtt(bpfd, i);
+                smoothed_rtt_x = find_smooth_rtt(bpfd, bpftd, i);
                 valid = 0;
                 path_reason = "PATH_CHANGE";
                 break;
@@ -121,7 +122,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
 
             /* As ACKs are related to receive paths, no more logic here! */
 
-            uint64_t smoothed_rtt_c = find_smooth_rtt(bpfd, i);
+            uint64_t smoothed_rtt_c = find_smooth_rtt(bpfd, bpftd, i);
             if (path_c != path_0) {
 // TODO: Fix RTT probes
 #ifdef ENABLE_RTT_PROBE

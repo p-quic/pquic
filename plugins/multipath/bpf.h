@@ -4,6 +4,7 @@
 
 #define MP_OPAQUE_ID 0x00
 #define MP_DUPLICATE_ID 0x01
+#define MP_TUPLE_ID 0x02
 
 #ifndef N_PATHS
 #define N_PATHS 2
@@ -100,10 +101,13 @@ typedef struct {
     path_data_t *receive_paths[MAX_PATHS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
-    stats_t tuple_stats[MAX_PATHS][MAX_PATHS]; /* [receive index][sending index] */
 
     // uint8_t pkt_seen_non_ack;
 } bpf_data;
+
+typedef struct {
+    stats_t tuple_stats[MAX_PATHS][MAX_PATHS]; /* [receive index][sending index] */
+} bpf_tuple_data;
 
 typedef struct {
     uint8_t requires_duplication;
@@ -151,6 +155,25 @@ static bpf_data *get_bpf_data(picoquic_cnx_t *cnx)
         *bpfd_ptr = initialize_bpf_data(cnx);
     }
     return *bpfd_ptr;
+}
+
+static bpf_tuple_data *initialize_bpf_tuple_data(picoquic_cnx_t *cnx)
+{
+    bpf_tuple_data *bpftd = (bpf_tuple_data *) my_malloc(cnx, sizeof(bpf_tuple_data));
+    if (!bpftd) return NULL;
+    my_memset(bpftd, 0, sizeof(bpf_tuple_data));
+    return bpftd;
+}
+
+static bpf_tuple_data *get_bpf_tuple_data(picoquic_cnx_t *cnx)
+{
+    int allocated = 0;
+    bpf_tuple_data **bpftd_ptr = (bpf_tuple_data **) get_opaque_data(cnx, MP_TUPLE_ID, sizeof(bpf_tuple_data *), &allocated);
+    if (!bpftd_ptr) return NULL;
+    if (allocated) {
+        *bpftd_ptr = initialize_bpf_tuple_data(cnx);
+    }
+    return *bpftd_ptr;
 }
 
 static bpf_duplicate_data *initialize_bpf_duplicate_data(picoquic_cnx_t *cnx)
