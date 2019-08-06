@@ -229,6 +229,7 @@ typedef enum {
 } picoquic_packet_context_enum;
 
 typedef struct protoop_plugin protoop_plugin_t;
+typedef struct st_plugin_struct_metadata plugin_struct_metadata_t;
 
 /* This structure is used for sending booking purposes */
 typedef struct reserve_frame_slot {
@@ -283,6 +284,8 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_mtu_probe : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
+
+    plugin_struct_metadata_t *metadata;
 
     uint8_t bytes[PICOQUIC_MAX_PACKET_SIZE];
 } picoquic_packet_t;
@@ -676,6 +679,8 @@ int picoquic_incoming_packet(
     int* new_context_created);
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
+
+void picoquic_destroy_packet(picoquic_packet_t *p);
 
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t** path);

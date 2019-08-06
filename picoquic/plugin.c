@@ -1248,6 +1248,57 @@ bool plugin_pluglet_exists(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t pa
     }
 }
 
+
+int set_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t val) {
+    if (!plugin) {
+        printf("ERROR: set_plugin_metadata called with an undefined plugin\n");
+        return -1;
+    }
+    if (idx >= STRUCT_METADATA_MAX) {
+        printf("ERROR: set_plugin_metadata called with an index out of bound\n");
+        return -1;
+    }
+    if (plugin->hash == 0) {
+        plugin->hash = hash_value_str(plugin->name);
+    }
+    plugin_struct_metadata_t *md = NULL;
+    HASH_FIND_PLUGIN(*metadata, &(plugin->hash), md);
+    if (md == NULL) {
+        md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        md->plugin_hash = plugin->hash;
+        HASH_ADD_PLUGIN(*metadata, plugin_hash, md);
+    }
+    md->metadata[idx] = val;
+    return 0;
+}
+
+// gets the metadata attached to a plugin
+// (creates the metadata structure if it is not already there)
+int get_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t *out) {
+    if (!plugin) {
+        printf("ERROR: set_plugin_metadata called with an undefined plugin\n");
+        return -1;
+    }
+    if (idx >= STRUCT_METADATA_MAX) {
+        printf("ERROR: set_plugin_metadata called with an index out of bound\n");
+        return -1;
+    }
+    if (plugin->hash == 0) {
+        plugin->hash = hash_value_str(plugin->name);
+    }
+    plugin_struct_metadata_t *md = NULL;
+    // try to find the metadata
+    HASH_FIND_PLUGIN(*metadata, &(plugin->hash), md);
+    if (md == NULL) {
+        // the metadata were not already allocated, so create it
+        md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        md->plugin_hash = plugin->hash;
+        HASH_ADD_PLUGIN((*metadata), plugin_hash, md);
+    }
+    *out = md->metadata[idx];
+    return 0;
+}
+
 int get_errno() {
     return errno;
 }

@@ -491,6 +491,7 @@ typedef struct protoop_plugin {
     uint64_t bytes_in_flight; /* Number of bytes in flight due to generated frames */
     uint64_t bytes_total; /* Number of total bytes by generated frames, for monitoring */
     uint64_t frames_total; /* Number of total generated frames, for monitoring */
+    uint64_t hash;         /* Hash of the plugin name */
     /* Opaque field for free use by plugins */
     picoquic_opaque_meta_t opaque_metas[OPAQUE_ID_MAX];
     /* With uBPF, we don't want the VM it corrupts the memory of another context.
@@ -502,6 +503,7 @@ typedef struct protoop_plugin {
 } protoop_plugin_t;
 
 #define PROTOOPNAME_MAX 100
+#define STRUCT_METADATA_MAX 4
 
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
@@ -536,6 +538,13 @@ typedef struct st_protocol_operation_struct_t {
     protocol_operation_param_struct_t *params; /* This is a hash map */
     UT_hash_handle hh; /* Make the structure hashable */
 } protocol_operation_struct_t;
+
+typedef struct st_plugin_struct_metadata {
+    uint64_t plugin_hash;   /* primary key (we will store the plugin hash inside, so we assume it won't collide) */
+    uint64_t metadata[STRUCT_METADATA_MAX];
+
+    UT_hash_handle hh; /* Make the structure hashable */
+} plugin_struct_metadata_t;
 
 /* Register functions */
 int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_operation op);

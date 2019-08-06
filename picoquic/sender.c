@@ -283,6 +283,20 @@ picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx)
     return packet;
 }
 
+void picoquic_destroy_packet(picoquic_packet_t *p)
+{
+    if (p->metadata) {
+
+        plugin_struct_metadata_t *current_md, *tmp;
+
+        HASH_ITER(hh, p->metadata, current_md, tmp) {
+            HASH_DEL(p->metadata,current_md);  /* delete; users advances to next */
+            free(current_md);            /* optional- if you want to free  */
+        }
+    }
+    free(p);
+}
+
 void picoquic_update_payload_length(
     uint8_t* bytes, size_t pnum_index, size_t header_length, size_t packet_length)
 {
@@ -738,7 +752,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
 
     remove_registered_plugin_frames(cnx, should_free, p);
     if (should_free) {
-        free(p);
+        picoquic_destroy_packet(p);
     }
     else {
         LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": %d, \"pn\": %lu}", p->send_path, p->pc, p->sequence_number);
@@ -801,7 +815,7 @@ protoop_arg_t dequeue_retransmitted_packet(picoquic_cnx_t *cnx)
         p->next_packet->previous_packet = p->previous_packet;
     }
 
-    free(p);
+    picoquic_destroy_packet(p);
 
     return 0;
 }
@@ -3427,7 +3441,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi1) {
                     if (packet->length == 0) {
-                        free(packet);
+                        picoquic_destroy_packet(packet);
                         packet = NULL;
                     }
                     break;
@@ -3435,7 +3449,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                     LOG_EVENT(cnx, "TRANSPORT", "PACKET_PREPARED", "", "{\"type\": \"%s\", \"pn\": %lu, \"path\": \"%p\"}", picoquic_log_ptype_name(packet->ptype), packet->sequence_number, packet->send_path);
                 }
             } else {
-                free(packet);
+                picoquic_destroy_packet(packet);
                 packet = NULL;
 
                 if (*send_length != 0){

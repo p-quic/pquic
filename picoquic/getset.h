@@ -97,6 +97,26 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak);
 void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val);
 
 /**
+ * Sets the plugin-specific metadata of this packet at index `idx` to `val`
+ * @param cnx The connection pointer
+ * @param pkt The packet pointer
+ * @param idx The index of the plugin-specific metadata
+ * @param val The value of the metadata to set
+ */
+void set_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx, protoop_arg_t val);
+
+
+/**
+ * Gets and returns the value of the plugin-specific metadata of this packet at index `idx`
+ * If the metadata have never been set before, zero is returned
+ * @param cnx The connection pointer
+ * @param pkt The packet pointer
+ * @param idx The index of the plugin-specific metadata to get
+ *
+ */
+protoop_arg_t get_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx);
+
+/**
  * Get a specific field belonging to the sack item \p sack_item
  * 
  * \param sack_item The sack_item pointer

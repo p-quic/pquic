@@ -107,6 +107,22 @@ protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char
 
 bool plugin_pluglet_exists(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t param, pluglet_type_enum anchor);
 
+/**
+ * This function sets metadata at `idx` to `val` from a plugin structure metadata hashmap stored at `metadata`
+ * If the metadata are not present in the hashmap, it will be allocated and the values at indexes different thant `idx`
+ * are set to zero by default
+ * Returns 0 if no error, -1 if an error occurred
+ */
+int set_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t val);
+
+/**
+ * This function sets out to the values of the plugin metadata at `idx` from a plugin structure metadata hashmap stored
+ * in `metadata`. If the metadata are not present in the hashmap, it will be allocated and the values are set to zero
+ * by default (*out will thus be set to 0)
+ * Returns 0 if no error, -1 if an error occurred
+ */
+int get_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t *out);
+
 int get_errno();
 
 #ifndef MAX

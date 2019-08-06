@@ -726,6 +726,28 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
     }
 }
 
+void set_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx, protoop_arg_t val) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: set_pkt_metadata called outside a plugin context\n");
+        return -1;
+    }
+    if (set_plugin_metadata(cnx->current_plugin, &pkt->metadata, idx, val))
+        printf("ERROR: set_plugin_metadata returned a non-zero error code\n");
+}
+
+
+protoop_arg_t get_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: set_pkt_metadata called outside a plugin context\n");
+        return -1;
+    }
+    uint64_t out;
+    int err = get_plugin_metadata(cnx->current_plugin, &pkt->metadata, idx, &out);
+    if (err)
+        printf("ERROR: get_plugin_metadata returned a non-zero error code\n");
+    return out;
+}
+
 protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
 {
     switch(ak) {
