@@ -1300,6 +1300,10 @@ int set_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **met
     HASH_FIND_PLUGIN(*metadata, &(plugin->hash), md);
     if (md == NULL) {
         md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        if (!md) {
+            printf("ERROR: out of memory !\n");
+            return -1;
+        }
         md->plugin_hash = plugin->hash;
         HASH_ADD_PLUGIN(*metadata, plugin_hash, md);
     }
@@ -1327,6 +1331,10 @@ int get_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **met
     if (md == NULL) {
         // the metadata were not already allocated, so create it
         md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        if (!md) {
+            printf("ERROR: out of memory !\n");
+            return -1;
+        }
         md->plugin_hash = plugin->hash;
         HASH_ADD_PLUGIN((*metadata), plugin_hash, md);
     }
