@@ -358,32 +358,63 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
     return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
-char* plugin_parse_first_plugin_line(char *first_line) {
-    char *token = strsep(&first_line, " ");
-    if (token == NULL) {
+int plugin_parse_parameter(char *param_token, plugin_parameters_t *params) {
+    if (strcmp(param_token, "rate_unlimited") == 0) {
+        params->rate_unlimited = true;
+        return 0;
+    }
+    printf("Unrecognized plugin option: \"%s\"\n", param_token);
+    return 1;
+}
+
+// returns a pointer to the plugin id (i.e. the first token of the line, where the separator can be ' ', '\r', or '\n')
+// A '\0' is inserted in first_line at the place of the first separator
+char *get_plugin_id(char **first_line) {
+    char **line_to_parse = first_line;
+    char *token = strsep(line_to_parse, " \r\n");
+    if (line_to_parse == NULL) {
         printf("No token for protocol operation id extracted!\n");
         return false;
     }
 
-    /* Handle end of line  FIXME Move me later when parameters are present */
-    token[strcspn(token, "\r\n")] = 0;
-
-    if (strchr(token, '.') == token + strlen(token)) {
+    char *plugin_name = token;
+    if (strchr(plugin_name, '.') == plugin_name + strlen(plugin_name)) {
         /* No hierarchical name found, refuse it! */
         printf("The name of the plugin is not hierarchical; discard it!\n");
         return NULL;
     }
+    return plugin_name;
+}
 
-    return token;
+char* plugin_parse_first_plugin_line(char *first_line, plugin_parameters_t *params) {
+    char *line_to_parse = first_line;
+    char *plugin_name = NULL;
+    if (!(plugin_name = get_plugin_id(&line_to_parse))) {
+        return NULL;
+    }
+    char *token = NULL;
+
+    while((token = strsep(&line_to_parse, " \r\n")), line_to_parse) {
+        if (strlen(token) > 0 && plugin_parse_parameter(token, params)) {
+            printf("Impossible to parse first plugin line\n");
+            return NULL;
+        }
+    }
+
+    return plugin_name;
 }
 
 protoop_plugin_t* plugin_initialize(char *first_line) {
-    /* Part one: extract plugin id */
-    char *plugin_id = plugin_parse_first_plugin_line(first_line);
 
     protoop_plugin_t *p = calloc(1, sizeof(protoop_plugin_t));
     if (!p) {
         printf("Cannot allocate memory for plugin!\n");
+        return NULL;
+    }
+    /* Part one: extract plugin id */
+    char *plugin_id = plugin_parse_first_plugin_line(first_line, &p->params);
+    if (!plugin_id) {
+        free(p);
         return NULL;
     }
 
@@ -564,6 +595,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
+    // reading the first line
     read = getline(&line, &len, file);
     if (read == -1) {
         printf("Error in the file %s\n", plugin_fname);
@@ -649,7 +681,7 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
         return 1;
     }
 
-    char *first_line = NULL;
+    char *first_line = NULL;    // will be allocated by getline
     size_t len = 0;
     ssize_t read = getline(&first_line, &len, file);
     if (read == -1) {
@@ -657,8 +689,9 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
         fclose(file);
         return 1;
     }
+    char *line_to_parse = first_line;
 
-    char* pid_tmp = plugin_parse_first_plugin_line(first_line);
+    char* pid_tmp = get_plugin_id(&line_to_parse);
     if (pid_tmp == NULL) {
         printf("Cannot extract plugin id\n");
         fclose(file);
@@ -668,6 +701,8 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
 
     /* FIXME It's bad, I know... */
     strcpy(plugin_id, pid_tmp);
+    if (first_line)
+        free(first_line);
 
     return 0;
 }

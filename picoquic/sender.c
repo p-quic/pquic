@@ -2781,33 +2781,35 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
 
     /* First pass: consider only under-rated plugins with CC */
     do {
-        while ((block = queue_peek(p->block_queue_cc)) != NULL &&
-                queued_bytes < frame_mss &&
-                !(stream != NULL && plugin_use >= max_plugin_cwin) &&
-                (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
-        {
-            should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
-            block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_cc);
-            for (int i = 0; i < block->nb_frames; i++) {
-                /* Not the most efficient way, but will do the trick */
-                block->frames[i].p = p;
-                queue_enqueue(cnx->reserved_frames, &block->frames[i]);
-            }
-            /* Update queued bytes counter */
-            queued_bytes += block->total_bytes;
-            LOG {
-                char ftypes_str[250];
-                size_t ftypes_ofs = 0;
+        if (p->params.rate_unlimited || total_plugin_bytes_in_flight < max_plugin_cwin){
+            while ((block = queue_peek(p->block_queue_cc)) != NULL &&
+                   queued_bytes < frame_mss &&
+                   !(stream != NULL && (!p->params.rate_unlimited && plugin_use >= max_plugin_cwin)) &&
+                   (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
+            {
+                should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
+                block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_cc);
                 for (int i = 0; i < block->nb_frames; i++) {
-                    ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                    /* Not the most efficient way, but will do the trick */
+                    block->frames[i].p = p;
+                    queue_enqueue(cnx->reserved_frames, &block->frames[i]);
                 }
-                LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE_UNDER_RATED", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+                /* Update queued bytes counter */
+                queued_bytes += block->total_bytes;
+                LOG {
+                    char ftypes_str[250];
+                    size_t ftypes_ofs = 0;
+                    for (int i = 0; i < block->nb_frames; i++) {
+                        ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                    }
+                    LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE_UNDER_RATED", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+                }
+                /* Free the block */
+                free(block);
             }
-            /* Free the block */
-            free(block);
         }
         total_plugin_bytes_in_flight += p->bytes_in_flight;
-    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr && total_plugin_bytes_in_flight < max_plugin_cwin);
+    } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
     p = cnx->first_drr;
     /* Second pass: consider all plugins with non CC */
     do {
