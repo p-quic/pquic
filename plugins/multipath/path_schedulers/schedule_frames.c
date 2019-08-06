@@ -162,7 +162,12 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     for (int i = 0; i < bpfd->nb_proposed; i++) {
                         path_data_t *pdtmp = bpfd->paths[i];
                         if (pdtmp->state == path_active || pdtmp->state == path_unusable) {
-                            reserve_mp_ack_frame(cnx, pdtmp->path, picoquic_packet_context_application);
+                            picoquic_packet_context_t *pc = (picoquic_packet_context_t *) get_path(pdtmp->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
+                            picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pc, AK_PKTCTX_FIRST_SACK_ITEM);
+                            uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE);
+                            if (first_sack_start_range != (uint64_t)((int64_t)-1)) {  // Don't reserve for path without activity
+                                reserve_mp_ack_frame(cnx, pdtmp->path, picoquic_packet_context_application);
+                            }
                         }
                     }
                 }
