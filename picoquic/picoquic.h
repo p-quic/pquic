@@ -800,7 +800,7 @@ void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time)
 
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
 
-void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
+size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
 
 
 int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,

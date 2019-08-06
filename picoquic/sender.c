@@ -2722,11 +2722,11 @@ picoquic_path_t *picoquic_select_sending_path(picoquic_cnx_t *cnx, picoquic_pack
 }
 
 /* This implements a deficit round robin with bursts */
-void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss)
+size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss)
 {
     /* If there is no plugin, there is no frame to reserve! */
     if (!cnx->plugins) {
-        return;
+        return 0;
     }
     /* Handle the first call */
     if (!cnx->first_drr) {
@@ -2757,7 +2757,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     */
 
     bool should_wake_now = false;
-    uint64_t queued_bytes = 0;
+    size_t queued_bytes = 0;
 
     p = cnx->first_drr;
 
@@ -2765,7 +2765,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     do {
         if (p->params.rate_unlimited || total_plugin_bytes_in_flight < max_plugin_cwin){
             while ((block = queue_peek(p->block_queue_cc)) != NULL &&
-                   queued_bytes < frame_mss &&
+                   queued_bytes + block->total_bytes < frame_mss &&
                    !(stream != NULL && (!p->params.rate_unlimited && plugin_use >= max_plugin_cwin)) &&
                    (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
             {
@@ -2796,7 +2796,7 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
     /* Second pass: consider all plugins with non CC */
     do {
         while ((block = queue_peek(p->block_queue_non_cc)) != NULL &&
-                queued_bytes < frame_mss &&
+                queued_bytes + block->total_bytes < frame_mss &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
             should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
@@ -2832,6 +2832,8 @@ void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, p
             cnx->wake_now = 1;
         }
     }
+
+    return queued_bytes;
 }
 
 /**
