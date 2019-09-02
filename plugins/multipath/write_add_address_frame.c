@@ -88,8 +88,6 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
         consumed = byte_index;
     }
 
-    my_free(cnx, aac);
-
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 1);
 
