@@ -254,6 +254,7 @@ typedef struct reserve_frames_block {
 typedef struct st_picoquic_packet_plugin_frame_t {
     struct st_picoquic_packet_plugin_frame_t* next;
     protoop_plugin_t* plugin;
+    size_t frame_offset; /* Offset of the start of the frame in the packet payload */
     uint64_t bytes;
     reserve_frame_slot_t *rfs; /* Memory held by the plugin, responsible for its my_free */
 } picoquic_packet_plugin_frame_t;
