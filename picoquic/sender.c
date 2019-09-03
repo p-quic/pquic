@@ -1320,6 +1320,10 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                         size_t consumed = 0;
                                         int new_plugin_frame_is_pure_ack = 0;
                                         if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max) {
+                                            if (ret == 0 && queue_peek(cnx->reserved_frames) == NULL) {
+                                                picoquic_stream_head *stream = picoquic_schedule_next_stream(cnx, send_buffer_max - length - checksum_length, path_x);
+                                                picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_max - length - checksum_length);
+                                            }
                                             picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &new_plugin_frame_is_pure_ack);
                                             if (consumed > 0) {
                                                 // we might have written non-pure-ack frames
@@ -1347,12 +1351,26 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                         if (!packet_is_pure_ack && !has_unlimited_frame && checksum_length + length < send_buffer_max) {
                             // there is remaining space in the packet
                             size_t consumed = 0;
-                            picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, (unsigned int *) &frame_is_pure_ack);
-                            length += consumed;
-                            if (consumed > 0) {
-                                // we might have written non-pure-ack frames
-                                written_non_pure_ack_frames |= !frame_is_pure_ack;
-                            }
+                            size_t queued_bytes = 0;
+                            picoquic_stream_head *stream = picoquic_schedule_next_stream(cnx, send_buffer_max - length - checksum_length, path_x);
+                            queue_t *reserved_frames = cnx->reserved_frames;
+
+                            do { // Enqueue and write frame until no more bytes can be queued or written
+                                consumed = 0;
+                                unsigned int is_pure_ack = packet->is_pure_ack;
+                                ret = picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - length - checksum_length, packet, &consumed, &is_pure_ack);
+
+                                if (!ret && consumed > send_buffer_max - length - checksum_length) {
+                                    ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+                                } else if (ret == 0) {
+                                    length += consumed;
+                                    written_non_pure_ack_frames |= !is_pure_ack;
+                                }
+
+                                if (ret == 0 && queue_peek(reserved_frames) == NULL) {
+                                    queued_bytes = picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_max - length - checksum_length);
+                                }
+                            } while (ret == 0 && queued_bytes > 0 && consumed < send_buffer_max - length - checksum_length);
                         }
                     }
 
