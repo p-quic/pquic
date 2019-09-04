@@ -26,7 +26,7 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
                 if (num_block == ack_block_count - 1)
                     break;
 
-                block_to_block = frame->ack_blocks[num_block].gap + 1;
+                block_to_block = frame->ack_blocks[num_block + 1].gap + 1;
                 block_to_block += range;
 
                 largest -= block_to_block;
