@@ -510,7 +510,7 @@ typedef struct protoop_plugin {
 } protoop_plugin_t;
 
 #define PROTOOPNAME_MAX 100
-#define STRUCT_METADATA_MAX 4
+#define STRUCT_METADATA_MAX 10
 
 typedef protoop_arg_t (*protocol_operation)(picoquic_cnx_t *);
 
