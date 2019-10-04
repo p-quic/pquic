@@ -433,7 +433,7 @@ int quic_server(const char* server_name, int server_port,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
     int mtu_max, const char** local_plugin_fnames, int local_plugins,
-    const char** both_plugin_fnames, int both_plugins, FILE *F_log, char *qlog_filename, char *stats_filename)
+    const char** both_plugin_fnames, int both_plugins, FILE *F_log, FILE *F_tls_secrets, char *qlog_filename, char *stats_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -484,6 +484,7 @@ int quic_server(const char* server_name, int server_port,
             qserver->mtu_max = mtu_max;
             /* TODO: add log level, to reduce size in "normal" cases */
             PICOQUIC_SET_LOG(qserver, F_log);
+            PICOQUIC_SET_TLS_SECRETS_LOG(qserver, F_tls_secrets);
 
             /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
             ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins);
@@ -910,7 +911,7 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, FILE* F_tls_secrets,
     const char** local_plugin_fnames, int local_plugins,
     int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path, char *stats_filename)
 {
@@ -1005,6 +1006,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             qclient->mtu_max = mtu_max;
 
             PICOQUIC_SET_LOG(qclient, F_log);
+            PICOQUIC_SET_TLS_SECRETS_LOG(qclient, F_tls_secrets);
 
             if (sni == NULL) {
                 /* Standard verifier would crash */
@@ -1382,6 +1384,7 @@ void usage()
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
     fprintf(stderr, "  -t file               root trust file");
     fprintf(stderr, "  -R                    enforce 1RTT");
+    fprintf(stderr, "  -X file               export the TLS secrets in the specified file");
     fprintf(stderr, "  -1                    Once\n");
     fprintf(stderr, "  -r                    Do Reset Request\n");
     fprintf(stderr, "  -s <64b 64b>          Reset seed\n");
@@ -1432,6 +1435,7 @@ int main(int argc, char** argv)
     const char* server_cert_file = default_server_cert_file;
     const char* server_key_file = default_server_key_file;
     const char* log_file = NULL;
+    const char* tls_secrets_file = NULL;
     const char * sni = NULL;
     const char * local_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
     const char * both_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
@@ -1469,7 +1473,7 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRS:i:s:l:m:n:t:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRX:S:i:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1542,6 +1546,9 @@ int main(int argc, char** argv)
             break;
         case 'l':
             log_file = optarg;
+            break;
+        case 'X':
+            tls_secrets_file = optarg;
             break;
         case 'm':
             mtu_max = atoi(optarg);
@@ -1616,6 +1623,26 @@ int main(int argc, char** argv)
         F_log = stdout;
     }
 
+    FILE* F_tls_secrets = NULL;
+
+    if (tls_secrets_file != NULL && strcmp(tls_secrets_file, "/dev/null") != 0) {
+#ifdef _WINDOWS
+        if (fopen_s(&F_tls_secrets, tls_secrets_file, "w") != 0) {
+                F_tls_secrets = NULL;
+            }
+#else
+        F_tls_secrets = fopen(tls_secrets_file, "w");
+#endif
+        if (F_tls_secrets == NULL) {
+            fprintf(stderr, "Could not open the log file <%s>\n", tls_secrets_file);
+        }
+    }
+
+
+    if (!F_log && (!log_file || strcmp(log_file, "/dev/null") != 0)) {
+        F_log = stdout;
+    }
+
     if (is_client == 0) {
         if (plugin_store_path != NULL) {
             fprintf(stderr, "Do not support plugin cache at server side for now\n");
@@ -1635,8 +1662,11 @@ int main(int argc, char** argv)
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
             (uint8_t*)reset_seed, mtu_max, local_plugin_fnames, local_plugins,
-            both_plugin_fnames, both_plugins, F_log, qlog_filename, stats_filename);
+            both_plugin_fnames, both_plugins, F_log, F_tls_secrets, qlog_filename, stats_filename);
         printf("Server exit with code = %d\n", ret);
+        if (F_tls_secrets != NULL && F_tls_secrets != stdout) {
+            fclose(F_tls_secrets);
+        }
     } else {
         if (F_log != NULL) {
             debug_printf_push_stream(F_log);
@@ -1650,12 +1680,15 @@ int main(int argc, char** argv)
         if (local_plugins > 0) {
             fprintf(stderr, "WARNING: direct plugin insertion at client might interfere with remote plugin injection...\n");
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path, stats_filename);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, F_tls_secrets, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path, stats_filename);
 
         printf("Client exit with code = %d\n", ret);
 
         if (F_log != NULL && F_log != stdout) {
             fclose(F_log);
+        }
+        if (F_tls_secrets != NULL && F_tls_secrets != stdout) {
+            fclose(F_tls_secrets);
         }
     }
 }

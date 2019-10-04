@@ -181,6 +181,7 @@ typedef struct st_plugin_request_t {
 	 */
 typedef struct st_picoquic_quic_t {
     void * F_log;
+    void * F_tls_secrets;
     void* tls_master_ctx;
     picoquic_stream_data_cb_fn default_callback_fn;
     void* default_callback_ctx;
@@ -1031,6 +1032,8 @@ void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
 char const* picoquic_log_state_name(picoquic_state_enum state);
 
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
+
+#define PICOQUIC_SET_TLS_SECRETS_LOG(quic, F) (quic)->F_tls_secrets = (void*)(F)
 
 /* Small internal function */
 uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
