@@ -101,11 +101,24 @@
 #ifndef IPV6_RECVPKTINFO
 #define IPV6_RECVPKTINFO IPV6_PKTINFO /* Cygwin */
 #endif
+#ifndef IPV6_DONTFRAG
+#define IPV6_DONTFRAG 62
+#endif
 #endif
 
 #include "picoquic_internal.h"
 
+#ifndef NS3
 #define PICOQUIC_NB_SERVER_SOCKETS 2
+#else
+#define PICOQUIC_NB_SERVER_SOCKETS 1
+#endif
+
+#ifndef NS3
+#define DEFAULT_SOCK_AF AF_INET6
+#else
+#define DEFAULT_SOCK_AF AF_INET
+#endif
 
 typedef struct st_picoquic_server_sockets_t {
     SOCKET_TYPE s_socket[PICOQUIC_NB_SERVER_SOCKETS];

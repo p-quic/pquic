@@ -53,7 +53,11 @@ static int bind_to_port(SOCKET_TYPE fd, int af, int port)
 int picoquic_open_server_sockets(picoquic_server_sockets_t* sockets, int port)
 {
     int ret = 0;
+#ifndef NS3
     const int sock_af[] = { AF_INET6, AF_INET };
+#else
+    const int sock_af[] = { AF_INET };
+#endif
 
     for (int i = 0; i < PICOQUIC_NB_SERVER_SOCKETS; i++) {
         if (ret == 0) {
@@ -641,7 +645,11 @@ int picoquic_send_through_server_sockets(
     const char* bytes, int length)
 {
     /* Both Linux and Windows use separate sockets for V4 and V6 */
+#ifndef NS3
     int socket_index = (addr_dest->sa_family == AF_INET) ? 1 : 0;
+#else
+    int socket_index = 0;
+#endif
 
     int sent = picoquic_sendmsg(sockets->s_socket[socket_index], addr_dest, dest_length,
         addr_from, from_length, from_if, bytes, length);

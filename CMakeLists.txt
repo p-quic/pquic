@@ -34,7 +34,7 @@ endif()
 
 if($ENV{NS3})
     SET(GCC_COVERAGE_LINK_FLAGS "")
-    SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g -fPIC ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
+    SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g -fPIC -DNS3 ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
     SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -pie -rdynamic")
 endif()
 
