@@ -433,7 +433,7 @@ int quic_server(const char* server_name, int server_port,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
     int mtu_max, const char** local_plugin_fnames, int local_plugins,
-    const char** both_plugin_fnames, int both_plugins, FILE *F_log, FILE *F_tls_secrets, char *qlog_filename, char *stats_filename)
+    const char** both_plugin_fnames, int both_plugins, FILE *F_log, FILE *F_tls_secrets, char *qlog_filename, char *stats_filename, bool preload_plugins)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -493,6 +493,24 @@ int quic_server(const char* server_name, int server_port,
             }
         }
     }
+
+
+    if (preload_plugins) {
+        // pre-load a mock connection and insert the plugins
+        picoquic_connection_id_t dst;
+        dst.id_len = 4;
+        picoquic_connection_id_t src;
+        src.id_len = 4;
+        struct sockaddr_storage a;
+        picoquic_cnx_t *tmp_cnx = picoquic_create_cnx(qserver, dst, src, (struct sockaddr *) &a, picoquic_current_time(), 0xff00000b, NULL, NULL, 0);
+
+        if (local_plugins > 0) {
+            plugin_insert_plugins_from_fnames(tmp_cnx, local_plugins, (char **) local_plugin_fnames);
+        }
+
+        picoquic_delete_cnx(tmp_cnx);
+    }
+
 
     /* Wait for packets */
     while (ret == 0 && (just_once == 0 || cnx_server == NULL || picoquic_get_cnx_state(cnx_server) != picoquic_state_disconnected)) {
@@ -1382,9 +1400,10 @@ void usage()
     fprintf(stderr, "  -Q file               plugin file to be injected at both side (default: NULL). Can be used several times to require several plugins. Only for server.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
-    fprintf(stderr, "  -t file               root trust file");
-    fprintf(stderr, "  -R                    enforce 1RTT");
-    fprintf(stderr, "  -X file               export the TLS secrets in the specified file");
+    fprintf(stderr, "  -t file               root trust file\n");
+    fprintf(stderr, "  -R                    enforce 1RTT\n");
+    fprintf(stderr, "  -X file               export the TLS secrets in the specified file\n");
+    fprintf(stderr, "  -L                    if server, preload the specified protocol plugins (avoids latency on the first connection)\n");
     fprintf(stderr, "  -1                    Once\n");
     fprintf(stderr, "  -r                    Do Reset Request\n");
     fprintf(stderr, "  -s <64b 64b>          Reset seed\n");
@@ -1458,6 +1477,7 @@ int main(int argc, char** argv)
     uint64_t reset_seed_x[2];
     int mtu_max = 0;
     char *plugin_store_path = NULL;
+    bool preload_plugins = false;
 
 #ifdef _WINDOWS
     WSADATA wsaData;
@@ -1473,7 +1493,7 @@ int main(int argc, char** argv)
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzRX:S:i:s:l:m:n:t:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:L14rhzRX:S:i:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1519,6 +1539,9 @@ int main(int argc, char** argv)
             break;
         case '1':
             just_once = 1;
+            break;
+        case 'L':
+            preload_plugins = true;
             break;
         case 'r':
             do_hrr = 1;
@@ -1662,7 +1685,7 @@ int main(int argc, char** argv)
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
             (uint8_t*)reset_seed, mtu_max, local_plugin_fnames, local_plugins,
-            both_plugin_fnames, both_plugins, F_log, F_tls_secrets, qlog_filename, stats_filename);
+            both_plugin_fnames, both_plugins, F_log, F_tls_secrets, qlog_filename, stats_filename, preload_plugins);
         printf("Server exit with code = %d\n", ret);
         if (F_tls_secrets != NULL && F_tls_secrets != stdout) {
             fclose(F_tls_secrets);
