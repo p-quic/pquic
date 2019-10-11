@@ -188,7 +188,9 @@ static double picoquic_cubic_W_cubic(
     uint64_t current_time)
 {
     double delta_t_sec = ((double)(current_time - cubic_state->start_of_epoch)/1000000.0) - cubic_state->K;
+    printf("DELTA SEC = %f\n", delta_t_sec);
     double W_cubic = (cubic_state->C * (delta_t_sec* delta_t_sec * delta_t_sec)) + cubic_state->W_max;
+    printf("W_CUBIC = %f\n", W_cubic);
 
     return W_cubic;
 }
@@ -234,7 +236,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
                 /* Only increase when the app is CWIN limited */
-                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                if (path_x->cwin / 2 <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
                     path_x->cwin += nb_bytes_acknowledged;
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= cubic_state->ssthresh) {
