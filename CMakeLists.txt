@@ -41,6 +41,10 @@ endif()
 INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
 
+SET(MICHELFRALLOC_STATIC_LIBS
+        ${CMAKE_SOURCE_DIR}/picoquic/michelfralloc/libmichelfralloc.a
+        ${CMAKE_SOURCE_DIR}/picoquic/michelfralloc/libptmalloc3.a)
+
 SET(PICOQUIC_LIBRARY_FILES
     picoquic/cubic.c
     picoquic/endianness.c
@@ -68,6 +72,10 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/transport.c
     picoquic/ubpf.c
     picoquic/util.c
+        picoquic/michelfralloc/sbrk.c
+        picoquic/michelfralloc/sbrk.h
+        picoquic/michelfralloc/michelfralloc.c
+        picoquic/michelfralloc/michelfralloc.h
 )
 
 SET(PICOQUIC_TEST_LIBRARY_FILES
@@ -248,6 +256,7 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
@@ -260,6 +269,7 @@ TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
@@ -272,6 +282,7 @@ TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
@@ -286,6 +297,7 @@ TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 SET(TEST_EXES picoquic_ct)
