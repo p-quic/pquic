@@ -362,6 +362,9 @@ int plugin_parse_parameter(char *param_token, plugin_parameters_t *params) {
     if (strcmp(param_token, "rate_unlimited") == 0) {
         params->rate_unlimited = true;
         return 0;
+    } else if (strcmp(param_token, "dynamic_memory") == 0) {
+        params->plugin_memory_manager_type = plugin_memory_manager_dynamic;
+        return 0;
     }
     printf("Unrecognized plugin option: \"%s\"\n", param_token);
     return 1;

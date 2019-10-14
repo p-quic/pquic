@@ -18,12 +18,12 @@ sbrk_memory_context_t *get_current_context() {
  * Home-made implementation of sbrk with a context.
  */
 void *context_sbrk(intptr_t increment) {
-    fflush(stdout);
     if (current_context->memory_current_end + increment - current_context->memory_start > current_context->memory_max_size) {
         /* Out of memory */
         fprintf(stderr, "CONTEXT_SBRK: OUT OF MEMORY\n");
         return NULL;
     }
+    if (increment == 0) return NULL;
     current_context->memory_current_end += increment;
     return current_context->memory_current_end;
 }
