@@ -21,9 +21,13 @@ void *context_sbrk(intptr_t increment) {
     if (current_context->memory_current_end + increment - current_context->memory_start > current_context->memory_max_size) {
         /* Out of memory */
         fprintf(stderr, "CONTEXT_SBRK: OUT OF MEMORY\n");
+        fflush(stderr);
         return NULL;
     }
+    fflush(stdout);
     if (increment == 0) return NULL;
+
+    void *previous_end = current_context->memory_current_end;
     current_context->memory_current_end += increment;
-    return current_context->memory_current_end;
+    return previous_end;
 }
