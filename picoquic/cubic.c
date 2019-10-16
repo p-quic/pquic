@@ -188,9 +188,7 @@ static double picoquic_cubic_W_cubic(
     uint64_t current_time)
 {
     double delta_t_sec = ((double)(current_time - cubic_state->start_of_epoch)/1000000.0) - cubic_state->K;
-    printf("DELTA SEC = %f\n", delta_t_sec);
     double W_cubic = (cubic_state->C * (delta_t_sec* delta_t_sec * delta_t_sec)) + cubic_state->W_max;
-    printf("W_CUBIC = %f\n", W_cubic);
 
     return W_cubic;
 }
