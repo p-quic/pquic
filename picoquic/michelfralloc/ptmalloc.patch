@@ -35,15 +35,15 @@ diff -ru ptmalloc3-current/ptmalloc3/Makefile ptmalloc3/Makefile
  
  ptmalloc3.o: ptmalloc3.c malloc-2.8.3.h
 -	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=1 $<
-+	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 $< $(M_LIBS)
++	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 $< $(M_LIBS) -fPIC
  
  malloc.o: malloc.c
 -	$(CC) -c $(CFLAGS) $(M_FLAGS) -DONLY_MSPACES -DUSE_LOCKS=0 $<
-+	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 -DUSE_DL_PREFIX=1 -DUSE_LOCKS=0 $< $(M_LIBS)
++	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 -DUSE_DL_PREFIX=1 -DUSE_LOCKS=0 $< $(M_LIBS) -fPIC
  
  #malloc-stats.o: malloc-stats.c malloc.h
 -#	$(CC) -c $(CFLAGS) $(M_FLAGS) $<
-+#	$(CC) -c $(CFLAGS) $(M_FLAGS) $< $(M_LIBS)
++#	$(CC) -c $(CFLAGS) $(M_FLAGS) $< $(M_LIBS) -fPIC
  
  libptmalloc3.a: $(MALLOC_OBJ)
  	$(AR) cr $@ $(MALLOC_OBJ)
