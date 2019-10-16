@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 all: sbrk.o libptmalloc3.a libmichelfralloc.a
 
 sbrk.o: sbrk.h sbrk.c
