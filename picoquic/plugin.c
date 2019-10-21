@@ -560,8 +560,10 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
     }
 
     free(buf);
+#ifndef NS3
     if (line)
         free(line);
+#endif
     fclose(file);
     return 0;
 }
@@ -704,8 +706,10 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
 
     /* FIXME It's bad, I know... */
     strcpy(plugin_id, pid_tmp);
+#ifndef NS3
     if (first_line)
         free(first_line);
+#endif
 
     return 0;
 }
