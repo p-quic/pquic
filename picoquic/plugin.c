@@ -593,12 +593,27 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (preprocessed) free(preprocessed);
         return -1;
     }
+#ifndef NS3
     FILE *file = fmemopen(preprocessed, strlen(preprocessed)+1, "r");
 
     if (file == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
         return 1;
     }
+#else
+    FILE *file = tmpfile();
+    if (!file) {
+        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
+        return 1;
+    }
+    size_t preprocessed_len = strlen(preprocessed) + 1;
+    size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
+    if (written != preprocessed_len) {
+        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
+        return 1;
+    }
+    int ret = fseek(file, 0L, SEEK_SET);
+#endif
 
     // reading the first line
     read = getline(&line, &len, file);
@@ -669,9 +684,11 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     free(preprocessed);
 
+#ifndef NS3
     if (line) {
         free(line);
     }
+#endif
 
     fclose(file);
 
@@ -828,7 +845,26 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
     }
 
     size_t preprocessed_len = strlen(preprocessed);
-    FILE *file = fmemopen(preprocessed, preprocessed_len, "r");
+#ifndef NS3
+    FILE *file = fmemopen(preprocessed, preprocessed_len + 1, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+#else
+    FILE *file = tmpfile();
+    if (!file) {
+        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
+        return 1;
+    }
+    size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
+    if (written != preprocessed_len) {
+        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
+        return 1;
+    }
+    int ret = fseek(file, 0L, SEEK_SET);
+#endif
 
     if (file == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));

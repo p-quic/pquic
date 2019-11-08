@@ -3728,6 +3728,8 @@ protoop_arg_t process_plugin_validate_frame(picoquic_cnx_t* cnx)
                 MAX_PLUGIN_DATA_LEN, &size_used);
             if (err == 0) {
                 picoquic_add_to_plugin_stream(cnx, frame->pid_id, plugin_buffer, size_used, 1);
+            } else {
+                printf("Failed to prepare plugin data exchanged\n");
             }
             return err;
         }
