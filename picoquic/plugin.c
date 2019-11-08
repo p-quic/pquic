@@ -608,7 +608,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     }
     size_t preprocessed_len = strlen(preprocessed) + 1;
     size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
-    if (written != preprocessed_len) {
+    if (written != 1) {
         fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
         return 1;
     }

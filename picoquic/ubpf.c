@@ -22,7 +22,11 @@
 #include "getset.h"
 #include "picoquic_logger.h"
 
+#ifndef NS3
 #define JIT true /* putting to false show out of memory access */
+#else
+#define JIT false
+#endif
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
     printf("Out of bound access with val 0x%lx, start of mem is 0x%lx, top of stack is 0x%lx\n", val, mem_ptr, stack_ptr);
@@ -216,13 +220,18 @@ pluglet_t *load_elf(void *code, size_t code_len, uint64_t memory_ptr, uint32_t m
         free(pluglet);
         return NULL;
     }
-	pluglet->fn = ubpf_compile(pluglet->vm, &errmsg);
-	if (pluglet->fn == NULL) {
-        fprintf(stderr, "Failed to compile: %s\n", errmsg);
-        free(errmsg);
-        ubpf_destroy(pluglet->vm);
-        free(pluglet);
-        return NULL;
+
+    if (JIT) {
+        pluglet->fn = ubpf_compile(pluglet->vm, &errmsg);
+        if (pluglet->fn == NULL) {
+            fprintf(stderr, "Failed to compile: %s\n", errmsg);
+            free(errmsg);
+            ubpf_destroy(pluglet->vm);
+            free(pluglet);
+            return NULL;
+        }
+    } else {
+        pluglet->fn = NULL;
     }
 
     free(errmsg);
@@ -256,7 +265,7 @@ uint64_t exec_loaded_code(pluglet_t *pluglet, void *arg, void *mem, size_t mem_l
     if (pluglet->vm == NULL) {
         return -1;
     }
-    if (pluglet->fn == NULL) {
+    if (JIT && pluglet->fn == NULL) {
         return -1;
     }
 
