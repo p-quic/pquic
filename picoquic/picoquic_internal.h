@@ -654,7 +654,6 @@ typedef struct st_picoquic_cnx_t {
 
     /* Liveness detection */
     uint64_t latest_progress_time; /* last local time at which the connection progressed */
-    uint64_t handshake_complete_time;
 
     /* Statistics */
     uint32_t nb_path_challenge_sent;

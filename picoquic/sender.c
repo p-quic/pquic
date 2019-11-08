@@ -2012,24 +2012,6 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[4];
     uint32_t header_length = (uint32_t) cnx->protoop_inputv[5];
 
-    if (cnx->handshake_complete_time) {
-        uint64_t max_rto = 0;
-        for (int p = 0; p < cnx->nb_paths; p++) {
-            picoquic_path_t *path = cnx->path[p];
-            if (path->retransmit_timer > max_rto) {
-                max_rto = path->retransmit_timer;
-            }
-        }
-        if (cnx->handshake_complete_time + (3 * max_rto) < picoquic_current_time()) {
-            // we won't consider old contexts anymore: empty the retransmit queue
-            while(path_x->pkt_ctx[pc].retransmit_oldest) {
-                picoquic_dequeue_retransmit_packet(cnx, path_x->pkt_ctx[pc].retransmit_oldest, 1);
-            }
-            protoop_save_outputs(cnx, 0);
-            return 0;
-        }
-    }
-
     int is_cleartext_mode = (pc == picoquic_packet_context_initial) ? 1 : 0;
     uint32_t length = 0;
     size_t data_bytes = 0;

@@ -1287,7 +1287,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             /* Moved packet context initialization into path creation */
 
             cnx->latest_progress_time = start_time;
-            cnx->handshake_complete_time = 0;
 
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].stream_id = 0;
@@ -1473,9 +1472,6 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        if (state == picoquic_state_client_ready || state == picoquic_state_server_ready) {
-            cnx->handshake_complete_time = picoquic_current_time();
-        }
         LOG_EVENT(cnx, "CONNECTION", "NEW_STATE", "", "{\"state\": \"%s\"}", picoquic_log_state_name(cnx->cnx_state));
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
