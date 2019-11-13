@@ -133,6 +133,19 @@ size_t picoquic_varint_skip(uint8_t* bytes)
     return length;
 }
 
+size_t picoquic_varint_len(uint64_t val) {
+    if (val <= 63) {
+        return 1;
+    } else if (val <= 16383) {
+        return 2;
+    } else if (val <= 1073741823) {
+        return 4;
+    } else if (val <= 4611686018427387903) {
+        return 8;
+    }
+    return 0;
+}
+
 void picoquic_headint_encode_32(uint8_t* bytes, uint64_t sequence_number)
 {
     uint8_t* x = bytes;

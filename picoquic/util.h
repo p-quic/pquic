@@ -56,6 +56,7 @@ uint64_t picoquic_val64_connection_id(picoquic_connection_id_t cnx_id);
 void picoquic_set64_connection_id(picoquic_connection_id_t * cnx_id, uint64_t val64);
 uint8_t picoquic_create_packet_header_cnxid_lengths(uint8_t dest_len, uint8_t srce_len);
 void picoquic_parse_packet_header_cnxid_lengths(uint8_t l_byte, uint8_t *dest_len, uint8_t *srce_len);
+int picoquic_split_stream_frame(uint8_t *bytes, size_t bytes_max, uint8_t *buf1, size_t *buf1_len, uint8_t *buf2, size_t *buf2_len);
 
 int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual);
 int picoquic_check_or_create_directory(char* path);
