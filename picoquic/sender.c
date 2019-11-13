@@ -1792,7 +1792,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             }
 
             if (blocked != 0) {
-                if (path_x->cwin > path_x->bytes_in_transit) {
+                if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
                     if (picoquic_should_send_max_data(cnx) ||
                         picoquic_is_tls_stream_ready(cnx) ||
                         ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
