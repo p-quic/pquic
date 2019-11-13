@@ -53,10 +53,9 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
         /* Check whether it makes sense to add an ACK at the end of the retransmission */
         /* Don't do that if it risks mixing clear text and encrypted ack */
+        picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
         if (is_cleartext_mode == 0 && ptype != picoquic_packet_0rtt_protected) {
-            if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
-                                         send_buffer_min_max - checksum_overhead - length, &data_bytes)
-                == 0) {
+            if (sending_path == path_0 && helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes) == 0) {
                 length += (uint32_t)data_bytes;
                 set_pkt(packet, AK_PKT_LENGTH, length);
             }
@@ -163,7 +162,12 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     for (int i = 0; i < bpfd->nb_proposed; i++) {
                         path_data_t *pdtmp = bpfd->paths[i];
                         if (pdtmp->state == path_active || pdtmp->state == path_unusable) {
-                            reserve_mp_ack_frame(cnx, pdtmp->path, picoquic_packet_context_application);
+                            picoquic_packet_context_t *pc = (picoquic_packet_context_t *) get_path(pdtmp->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
+                            picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pc, AK_PKTCTX_FIRST_SACK_ITEM);
+                            uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE);
+                            if (first_sack_start_range != (uint64_t)((int64_t)-1)) {  // Don't reserve for path without activity
+                                reserve_mp_ack_frame(cnx, pdtmp->path, picoquic_packet_context_application);
+                            }
                         }
                     }
                 }

@@ -2601,7 +2601,7 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                 size_t ack_ofs = 0;
                 uint64_t largest = frame.largest_acknowledged;
                 int ack_block_count = frame.ack_block_count;
-                for (int num_block = -1; num_block < ack_block_count; num_block++) {
+                for (int num_block = -1; num_block < ack_block_count && ack_ofs < sizeof(ack_str); num_block++) {
                     uint64_t block_to_block;
                     uint64_t range;
                     if (num_block == -1) {
@@ -2611,14 +2611,14 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                     }
 
                     if (range <= 1)
-                        ack_ofs += sprintf(ack_str + ack_ofs, "[%lu]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
+                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%lu]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
                     else
-                        ack_ofs += sprintf(ack_str + ack_ofs, "[%lu, %lu]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
+                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%lu, %lu]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
 
                     if (num_block == ack_block_count - 1)
                         break;
 
-                    block_to_block = frame.ack_blocks[num_block].gap + 1;
+                    block_to_block = frame.ack_blocks[num_block+1].gap + 1;
                     block_to_block += range;
 
                     largest -= block_to_block;
