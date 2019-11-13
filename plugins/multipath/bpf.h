@@ -212,6 +212,7 @@ static __attribute__((always_inline)) void mp_path_ready(picoquic_cnx_t *cnx, pa
     int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
     pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
+    set_path(pd->path, AK_PATH_CHALLENGE_VERIFIED, 0, 1);  // Don't validate receive path
     /* Also insert CIDs */
     picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_LOCAL_CID, 0);
     my_memcpy(local_cnxid, &pd->local_cnxid, sizeof(picoquic_connection_id_t));
