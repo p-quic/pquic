@@ -1273,10 +1273,13 @@ int picoquic_incoming_segment(
         if (picoquic_is_connection_id_null(*previous_dest_id)) {
             *previous_dest_id = ph.dest_cnx_id;
         }
+        /* This is commented out because with multipath, we can have coalescing of several destination IDs without having issues... */
+        /*
         else if (picoquic_compare_connection_id(previous_dest_id, &ph.dest_cnx_id) != 0) {
             ret = PICOQUIC_ERROR_CNXID_SEGMENT;
 
         }
+        */
     }
 
     /* Log the incoming packet */

@@ -67,6 +67,8 @@ static const char* default_server_key_file = "..\\certs\\key.pem";
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <strings.h>
+#include <ctype.h>
 
 #ifndef __USE_XOPEN2K
 #define __USE_XOPEN2K
@@ -261,6 +263,30 @@ static void write_stats(picoquic_cnx_t *cnx, char *filename) {
     if (file) fclose(out);
 }
 
+static int get_request_length(char *command, size_t command_length)
+{
+    if (!strstr(command, "doc")) {
+        return -1;
+    }
+    char *start = rindex(command, '-');
+    if (!start) {
+        return -1;
+    }
+    start++;
+    char buf[11];
+    int i;
+    for (i = 0; i < 11 && isdigit(start[i]); i++) {
+        buf[i] = start[i];
+    }
+    buf[i] = 0;
+    char *error = NULL;
+    int ret = strtol(buf, &error, 10);
+    if (strlen(error) > 0) {
+        return -1;
+    }
+    return ret;
+}
+
 static void first_server_callback(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
     picoquic_call_back_event_t fin_or_event, void* callback_ctx)
@@ -381,11 +407,14 @@ static void first_server_callback(picoquic_cnx_t* cnx,
             stream_ctx->status = picoquic_first_server_stream_status_finished;
 
             if (response_length > 0) {
+                stream_ctx->response_length = get_request_length((char *) stream_ctx->command, stream_ctx->command_length);
+                if (stream_ctx->response_length < 0 || stream_ctx->response_length > response_length) {
+                    stream_ctx->response_length = response_length;
+                }
                 printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
                 printf("Server CB, Stream: %" PRIu64 ", Sending %lu-byte static response\n",
-                       stream_id, response_length);
-                stream_ctx->response_length = response_length;
-                picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, response_length, 1);
+                       stream_id, stream_ctx->response_length);
+                picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, stream_ctx->response_length, 1);
             } else {
                 char buf[256];
                 if (http0dot9_get(stream_ctx->command, stream_ctx->command_length,
