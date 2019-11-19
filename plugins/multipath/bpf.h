@@ -10,10 +10,10 @@
 #define N_PATHS 2
 #endif
 #ifndef MAX_PATHS
-#define MAX_PATHS 8
+#define MAX_PATHS 4
 #endif
 #ifndef MAX_ADDRS
-#define MAX_ADDRS 8
+#define MAX_ADDRS 4
 #endif
 
 #define PREPARE_NEW_CONNECTION_ID_FRAME (PROTOOPID_SENDER + 0x48)
