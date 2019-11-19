@@ -27,16 +27,16 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* First find the corresponding path_id in the bpfd
          * Create it if it is not present yet.
          */
-        int path_index = mp_get_path_index(cnx, bpfd, mncic->path_id, &new_path_index);
+        int path_index = mp_get_path_index(cnx, bpfd, false, mncic->path_id, &new_path_index);
         if (path_index < 0) {
             /* Stop sending NEW_CONNECTION_ID frames */
             set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
             return 0;
         }
 
-        path_data_t *p = bpfd->paths[path_index];
+        path_data_t *p = bpfd->receive_paths[path_index];
 
-        if (p->state > 0) {
+        if (p->state >= path_closed) {
             /* Don't complicate stuff now... */
             set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
             return 0;
@@ -44,9 +44,9 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 
         /* Create the connection ID and the related reset token */
         if (!p->proposed_cid) {
-            picoquic_create_random_cnx_id_for_cnx(cnx, &p->local_cnxid, 8);
-            picoquic_create_cnxid_reset_secret_for_cnx(cnx, &p->local_cnxid, (uint8_t *) &p->reset_secret[0]);
-            picoquic_register_cnx_id_for_cnx(cnx, &p->local_cnxid);
+            picoquic_create_random_cnx_id_for_cnx(cnx, &p->cnxid, 8);
+            picoquic_create_cnxid_reset_secret_for_cnx(cnx, &p->cnxid, (uint8_t *) &p->reset_secret[0]);
+            picoquic_register_cnx_id_for_cnx(cnx, &p->cnxid);
             p->proposed_cid = true;
         }
 
@@ -70,14 +70,15 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
             byte_index += seq_l;
         }
         my_memset(&bytes[byte_index++], 8, 1);
-        my_memcpy(bytes + byte_index, p->local_cnxid.id, p->local_cnxid.id_len);
-        byte_index += p->local_cnxid.id_len;
+        my_memcpy(bytes + byte_index, p->cnxid.id, p->cnxid.id_len);
+        byte_index += p->cnxid.id_len;
         my_memcpy(bytes + byte_index, p->reset_secret, 16);
         byte_index += 16;
 
         consumed = byte_index;
 
-        bpfd->nb_proposed_snt++;
+        /* Now that we sent the MP NEW CONNECTION ID frame, we should be active to receive packets */
+        mp_receive_path_active(cnx, p, picoquic_current_time());
     }
 
     /* Do not freem mncic yet, do it in notify! */
