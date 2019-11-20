@@ -111,7 +111,8 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             && any_path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
             && mtu_needed
-            && queue_peek(retry_frames) == NULL) {
+            && queue_peek(retry_frames) == NULL
+            && queue_peek(rtx_frames) == NULL) {
             if (ret == 0 && send_buffer_max > sending_path_mtu
                 && cwin > bytes_in_transit && mtu_needed) {
                 PROTOOP_PRINTF(cnx, "Preparing MTU probe on sending path %p\n", (protoop_arg_t) sending_path);

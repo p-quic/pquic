@@ -392,6 +392,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_PIDS_TO_REQUEST_SIZE 0x3A
 /** The pids to request structure pointer */
 #define AK_CNX_PIDS_TO_REQUEST 0x3B
+/** The queues of frames to be retransmitted */
+#define AK_CNX_RTX_FRAMES 0x3C
 
 /**
  * @}

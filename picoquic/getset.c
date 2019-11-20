@@ -170,6 +170,12 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return (protoop_arg_t) cnx->first_misc_frame;
     case AK_CNX_RETRY_FRAMES:
         return (protoop_arg_t) cnx->retry_frames;
+    case AK_CNX_RTX_FRAMES:
+        if (param >= picoquic_nb_packet_context) {
+            printf("ERROR: trying to get rtx_frames queue for unknown pc %d\n", param);
+            return 0;
+        }
+        return (protoop_arg_t) cnx->rtx_frames[param];
     case AK_CNX_FIRST_STREAM:
         return (protoop_arg_t) cnx->first_stream;
     case AK_CNX_PLUGIN_REQUESTED:
@@ -414,6 +420,9 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_FIRST_MISC_FRAME:
         printf("ERROR: trying to modify first misc frame...\n");
+        break;
+    case AK_CNX_RTX_FRAMES:
+        printf("ERROR: trying to modify rtx frames...\n");
         break;
     case AK_CNX_PLUGIN_REQUESTED:
         cnx->plugin_requested = (uint8_t) val;

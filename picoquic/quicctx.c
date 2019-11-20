@@ -1341,6 +1341,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         cnx->reserved_frames = queue_init();
         /* And the retry queue */
         cnx->retry_frames = queue_init();
+        for (int pc = 0; pc < picoquic_nb_packet_context; pc++) {
+            cnx->rtx_frames[pc] = queue_init();
+        }
         /* TODO change this arbitrary value */
         cnx->core_rate = 500;
     }

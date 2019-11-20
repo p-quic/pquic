@@ -1049,15 +1049,33 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
     picoquic_packet_t *packet = (picoquic_packet_t *) cnx->protoop_inputv[2];
 
     unsigned int is_pure_ack = 1;
-    
+
+    queue_t *rtx_frames = cnx->rtx_frames[packet->pc];
     reserve_frame_slot_t *rfs;
     reserve_frame_slot_t *first_retry = NULL;
     protoop_arg_t outs[PROTOOPARGS_MAX];
-    size_t data_bytes;
     int ret = 0;
     size_t length = 0;
     int is_retransmittable = 0;
-    /* First, retry previously considered frames */
+
+    /* First, retransmit core frames from splitted packets*/
+    struct iovec *rtx_frame = NULL;
+    printf("Handling rtx_frames for ptype: %s, peek: %p\n", picoquic_log_ptype_name(packet->ptype), queue_peek(rtx_frames));
+    while ((rtx_frame = (struct iovec *) queue_peek(rtx_frames)) != NULL &&
+            rtx_frame->iov_len <= (max_bytes - length)) {
+        rtx_frame = (struct iovec *) queue_dequeue(rtx_frames);
+
+        if (rtx_frame->iov_base) {
+            memcpy(bytes + length, rtx_frame->iov_base, rtx_frame->iov_len);
+            length += rtx_frame->iov_len;
+            is_pure_ack = 0;
+            packet->is_congestion_controlled = true;
+            free(rtx_frame->iov_base);
+        }
+        free(rtx_frame);
+    }
+
+    /* Second, retry previously considered frames */
     /* FIXME ugly code duplication, but the retry has a slightly different behaviour when retrying the packet */
     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->retry_frames)) != NULL &&
            rfs != first_retry &&
@@ -1072,7 +1090,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         }
         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                                   &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
-        data_bytes = (size_t) outs[0];
+        size_t data_bytes = (size_t) outs[0];
         is_retransmittable = (int) outs[1];
         /* TODO FIXME consumed */
         protoop_plugin_t *p = rfs->p;
@@ -1110,7 +1128,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         }
     }
 
-    /* Second, empty the reserved frames */
+    /* Third, empty the reserved frames */
     while ((rfs = (reserve_frame_slot_t *) queue_peek(cnx->reserved_frames)) != NULL &&
            rfs->nb_bytes <= (max_bytes - length)) {
         rfs = (reserve_frame_slot_t *) queue_dequeue(cnx->reserved_frames);
@@ -1123,7 +1141,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         }
         ret = (int) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_WRITE_FRAME, (param_id_t) rfs->frame_type, outs,
                                                   &bytes[length], &bytes[length + rfs->nb_bytes], rfs->frame_ctx);
-        data_bytes = (size_t) outs[0];
+        size_t data_bytes = (size_t) outs[0];
         is_retransmittable = (int) outs[1];
         /* TODO FIXME consumed */
         protoop_plugin_t *p = rfs->p;
@@ -1198,14 +1216,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
     for (int i = 0; i < cnx->nb_paths; i++) {
         picoquic_path_t* orig_path = cnx->path[i];
         picoquic_packet_t* p = orig_path->pkt_ctx[pc].retransmit_oldest;
+        queue_t *rtx_frames = cnx->rtx_frames[pc];
         /* TODO: while packets are pure ACK, drop them from retransmit queue */
         while (p != NULL) {
-            if (!p->is_pure_ack && !p->is_mtu_probe && p->send_length > send_buffer_max) {
-                // if the packet is too big to be retransmitted, then give up
-                //TODO: retransmit parts of the packet
-                length = 0;
-                break;
-            }
             int should_retransmit = 0;
             int timer_based_retransmit = 0;
             uint64_t lost_packet_number = p->sequence_number;
@@ -1314,41 +1327,62 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                 }
                                 /* Prepare retransmission if needed */
                                 if (ret == 0 && !frame_is_pure_ack) {
-                                    if (picoquic_is_stream_frame_unlimited(&p->bytes[byte_index])) {
-                                        has_unlimited_frame = true;
-                                        /* We are at the last frame of the packet, let's put all the plugin frames before it */
-                                        size_t consumed = 0;
-                                        int new_plugin_frame_is_pure_ack = 0;
-                                        if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max) {
-                                            if (ret == 0 && queue_peek(cnx->reserved_frames) == NULL) {
-                                                picoquic_stream_head *stream = picoquic_schedule_next_stream(cnx, send_buffer_max - length - checksum_length, path_x);
-                                                picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_max - length - checksum_length);
+                                    if (length + checksum_length + frame_length <= send_buffer_max) {
+                                        if (pc == picoquic_packet_context_application && picoquic_is_stream_frame_unlimited(&p->bytes[byte_index])) {
+                                            //TODO: Maybe this is useless since we can chunk/reformat stream frames now
+                                            has_unlimited_frame = true;
+                                            /* We are at the last frame of the packet, let's put all the plugin frames before it */
+                                            size_t consumed = 0;
+                                            int new_plugin_frame_is_pure_ack = 0;
+                                            if (!packet_is_pure_ack && checksum_length + length + frame_length < send_buffer_max) {
+                                                if (ret == 0 && queue_peek(cnx->reserved_frames) == NULL) {
+                                                    picoquic_stream_head *stream = picoquic_schedule_next_stream(cnx, send_buffer_max - length - checksum_length, path_x);
+                                                    picoquic_frame_fair_reserve(cnx, path_x, stream, send_buffer_max - length - checksum_length);
+                                                }
+                                                picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &new_plugin_frame_is_pure_ack);
+                                                if (consumed > 0) {
+                                                    // we might have written non-pure-ack frames
+                                                    written_non_pure_ack_frames |= !new_plugin_frame_is_pure_ack;
+                                                }
+                                                length += consumed;
                                             }
-                                            picoquic_scheduler_write_new_frames(cnx, &new_bytes[length], send_buffer_max - checksum_length - length - frame_length, packet, &consumed, (unsigned int *) &new_plugin_frame_is_pure_ack);
-                                            if (consumed > 0) {
-                                                // we might have written non-pure-ack frames
-                                                written_non_pure_ack_frames |= !new_plugin_frame_is_pure_ack;
+                                            /* Need to PAD to the end of the frame to avoid sending extra bytes */
+                                            while (checksum_length + length + frame_length < send_buffer_max) {
+                                                new_bytes[length] = picoquic_frame_type_padding;
+                                                length++;
                                             }
-                                            length += consumed;
                                         }
-                                        /* Need to PAD to the end of the frame to avoid sending extra bytes */
-                                        while (checksum_length + length + frame_length < send_buffer_max) {
-                                            new_bytes[length] = picoquic_frame_type_padding;
-                                            length++;
+                                        if (length + checksum_length + frame_length <= send_buffer_max) {
+                                            memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
+                                            length += (uint32_t)frame_length;
+                                            // we have written non-pure-ack frames
+                                            written_non_pure_ack_frames |= !frame_is_pure_ack;
                                         }
-                                    }
-                                    DBG_PRINTF("%lu <= %lu", length + frame_length + checksum_length, send_buffer_max);
-                                    if (length + frame_length + checksum_length <= send_buffer_max) {
-                                        memcpy(&new_bytes[length], &p->bytes[byte_index], frame_length);
-                                        length += (uint32_t)frame_length;
-                                        // we have written non-pure-ack frames
-                                        written_non_pure_ack_frames |= !frame_is_pure_ack;
+                                    } else if (PICOQUIC_IN_RANGE(p->bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
+                                        struct iovec *rtx_frame = (struct iovec *) malloc(sizeof(struct iovec));
+                                        rtx_frame->iov_len = frame_length;
+                                        rtx_frame->iov_base = malloc(rtx_frame->iov_len);
+                                        size_t new_bytes_max = send_buffer_max - length - checksum_length;
+                                        ret = picoquic_split_stream_frame(p->bytes + byte_index, p->length - byte_index, new_bytes + length, &new_bytes_max, rtx_frame->iov_base, &rtx_frame->iov_len) != frame_length;
+                                        if (ret == 0) {
+                                            length += new_bytes_max;
+                                            written_non_pure_ack_frames = true;
+                                            queue_enqueue(rtx_frames, rtx_frame);
+                                            picoquic_reinsert_cnx_by_wake_time(cnx, current_time);
+                                        }
+                                    } else {
+                                        struct iovec *rtx_frame = (struct iovec *) malloc(sizeof(struct iovec));
+                                        rtx_frame->iov_len = frame_length;
+                                        rtx_frame->iov_base = malloc(rtx_frame->iov_len);
+                                        memcpy(rtx_frame->iov_base, p->bytes + byte_index, rtx_frame->iov_len);
+                                        queue_enqueue(rtx_frames, rtx_frame);
+                                        picoquic_reinsert_cnx_by_wake_time(cnx, current_time);
                                     }
                                 }
                             }
                             byte_index += frame_length;
                         }
-                        if (!packet_is_pure_ack && !has_unlimited_frame && checksum_length + length < send_buffer_max) {
+                        if (pc == picoquic_packet_context_application && !packet_is_pure_ack && !has_unlimited_frame && checksum_length + length < send_buffer_max) {
                             // there is remaining space in the packet
                             size_t consumed = 0;
                             size_t queued_bytes = 0;
@@ -2040,18 +2074,16 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
         protoop_prepare_and_run_noparam(cnx, &pid, NULL, packet);
     }
 
-    if (length == 0 && path_x->pkt_ctx[pc].ack_needed != 0 &&
+    struct iovec *rtx_frame = (struct iovec *) queue_peek(cnx->rtx_frames[pc]);
+    size_t rtx_frame_len = rtx_frame ? rtx_frame->iov_len : 0;
+    if (length == 0 && (path_x->pkt_ctx[pc].ack_needed != 0 || rtx_frame_len > 0) &&
         pc != picoquic_packet_context_application) {
         packet->ptype =
             (pc == picoquic_packet_context_initial) ? picoquic_packet_initial :
             (pc == picoquic_packet_context_handshake) ? picoquic_packet_handshake :
                 picoquic_packet_0rtt_protected;
         length = picoquic_predict_packet_header_length(cnx, packet->ptype, path_x);
-        packet->offset = length;
         header_length = length;
-        packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
-        packet->send_time = current_time;
-        packet->send_path = path_x;
     }
 
     if (length > 0) {
@@ -2062,12 +2094,33 @@ protoop_arg_t prepare_packet_old_context(picoquic_cnx_t* cnx)
                 == 0) {
                 length += (uint32_t)data_bytes;
             }
+            while ((rtx_frame = queue_peek(cnx->rtx_frames[pc])) != NULL &&
+                   length + rtx_frame->iov_len + checksum_overhead < send_buffer_max) {
+                rtx_frame = queue_dequeue(cnx->rtx_frames[pc]);
+                memcpy(packet->bytes + length, rtx_frame->iov_base, rtx_frame->iov_len);
+                length += (uint32_t)rtx_frame->iov_len;
+                packet->is_pure_ack = 0;
+                packet->is_congestion_controlled = 1;
+                free(rtx_frame->iov_base);
+                free(rtx_frame);
+            }
         }
-        packet->length = length;
-        /* document the send time & overhead */
-        packet->send_time = current_time;
-        packet->checksum_overhead = checksum_overhead;
-        packet->pc = pc;
+
+        if (length > header_length) {
+            packet->offset = header_length;
+            packet->length = length;
+            packet->sequence_number = path_x->pkt_ctx[pc].send_sequence;
+            /* document the send time & overhead */
+            packet->send_time = current_time;
+            packet->send_path = path_x;
+            packet->send_time = current_time;
+            packet->checksum_overhead = checksum_overhead;
+            packet->pc = pc;
+        } else {
+            header_length = 0;
+            length = 0;
+            packet->is_pure_ack = 1;
+        }
     } else {
         packet->is_pure_ack = 1;
     }
@@ -2163,6 +2216,9 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             path_x, packet, send_buffer_max, current_time, &header_length);
     }
 
+    struct iovec *rtx_frame = (struct iovec *) queue_peek(cnx->rtx_frames[pc]);
+    size_t rtx_frame_len = rtx_frame ? rtx_frame->iov_len : 0;
+
     /* If there is nothing to send in previous context, check this one too */
     if (length == 0) {
         checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
@@ -2194,7 +2250,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             packet->is_pure_ack = 0;
         }
         else if (ret == 0 && is_cleartext_mode && tls_ready == 0
-            && cnx->first_misc_frame == NULL && path_x->pkt_ctx[pc].ack_needed == 0) {
+            && cnx->first_misc_frame == NULL && path_x->pkt_ctx[pc].ack_needed == 0 && rtx_frame_len == 0) {
             /* when in a clear text mode, only send packets if there is
             * actually something to send, or resend */
 
@@ -2214,8 +2270,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->send_path = path_x;
 
                 if ((tls_ready == 0 || path_x->cwin <= path_x->bytes_in_transit)
-                    && (cnx->cnx_state == picoquic_state_client_almost_ready
-                        || picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0)
+                    && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
                     && cnx->first_misc_frame == NULL) {
                     length = 0;
                 }
@@ -2231,6 +2286,18 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                             ret = 0;
                         }
                     }
+
+                    while ((rtx_frame = queue_peek(cnx->rtx_frames[pc])) != NULL &&
+                           length + rtx_frame->iov_len + checksum_overhead < send_buffer_max) {
+                        rtx_frame = queue_dequeue(cnx->rtx_frames[pc]);
+                        memcpy(bytes + length, rtx_frame->iov_base, rtx_frame->iov_len);
+                        length += (uint32_t)rtx_frame->iov_len;
+                        packet->is_pure_ack = 0;
+                        packet->is_congestion_controlled = 1;
+                        free(rtx_frame->iov_base);
+                        free(rtx_frame);
+                    }
+
                     /* If present, send misc frame */
                     while (cnx->first_misc_frame != NULL) {
                         ret = picoquic_prepare_first_misc_frame(cnx, &bytes[length],
@@ -2367,6 +2434,8 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
     }
 
     if (length == 0) {
+        struct iovec *rtx_frame = (struct iovec *) queue_peek(cnx->rtx_frames[pc]);
+        size_t rtx_frame_len = rtx_frame ? rtx_frame->iov_len : 0;
 
         checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
 
@@ -2415,12 +2484,24 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             }
         }
         else if ((tls_ready != 0 && path_x->cwin > path_x->bytes_in_transit) 
-            || path_x->pkt_ctx[pc].ack_needed) {
+            || path_x->pkt_ctx[pc].ack_needed || rtx_frame_len > 0) {
             if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                 send_buffer_max - checksum_overhead - length, &data_bytes)
                 == 0) {
                 length += (uint32_t)data_bytes;
                 data_bytes = 0;
+            }
+
+            while ((rtx_frame = queue_peek(cnx->rtx_frames[pc])) != NULL &&
+                   length + rtx_frame->iov_len + checksum_overhead < send_buffer_max) {
+                rtx_frame = queue_dequeue(cnx->rtx_frames[pc]);
+                memcpy(bytes + length, rtx_frame->iov_base, rtx_frame->iov_len);
+                length += (uint32_t)rtx_frame->iov_len;
+                data_bytes = rtx_frame->iov_len;
+                packet->is_pure_ack = false;
+                packet->is_congestion_controlled = true;
+                free(rtx_frame->iov_base);
+                free(rtx_frame);
             }
 
             /* Encode the crypto frame */
@@ -2931,7 +3012,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             && path_x->challenge_response_to_send == 0
             && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)
             && queue_peek(cnx->reserved_frames) == NULL
-            && queue_peek(cnx->retry_frames) == NULL) {
+            && queue_peek(cnx->retry_frames) == NULL
+            && queue_peek(cnx->rtx_frames[pc]) == NULL) {
             if (ret == 0 && send_buffer_max > path_x->send_mtu
                 && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                 length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
@@ -3301,7 +3383,10 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
         path_x->ping_received = 0;
     }
 
-    if ((queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL) && path_x->cwin > path_x->bytes_in_transit && send_length > 0) {
+    if ((queue_peek(cnx->reserved_frames) != NULL
+      || queue_peek(cnx->retry_frames) != NULL
+      || queue_peek_any((const queue_t **) cnx->rtx_frames, picoquic_nb_packet_context) != NULL)
+      && path_x->cwin > path_x->bytes_in_transit && send_length > 0) {
         picoquic_reinsert_by_wake_time(cnx->quic, cnx, current_time);
     } else {
         picoquic_cnx_set_next_wake_time(cnx, current_time, length);

@@ -701,6 +701,8 @@ typedef struct st_picoquic_cnx_t {
     queue_t *reserved_frames;
     /* Queue of frames to retry sending */
     queue_t *retry_frames;
+    /* Queues of frames to be retransmitted */
+    queue_t *rtx_frames[picoquic_nb_packet_context];
     /* Keep a pointer to the next plugin to look at first */
     protoop_plugin_t *first_drr;
     /* Core guaranteed rate (fraction over 1000) */
