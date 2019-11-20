@@ -74,6 +74,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         uint64_t challenge_time = (uint64_t) get_path(sending_path, AK_PATH_CHALLENGE_TIME, 0);
         uint64_t retransmit_timer = (uint64_t) get_path(sending_path, AK_PATH_RETRANSMIT_TIMER, 0);
         queue_t *retry_frames = (queue_t *) get_cnx(cnx, AK_CNX_RETRY_FRAMES, 0);
+        queue_t *rtx_frames = (queue_t *) get_cnx(cnx, AK_CNX_RTX_FRAMES, pc);
 
         length = helper_predict_packet_header_length(
                 cnx, packet_type, sending_path);
@@ -111,7 +112,8 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             && any_path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
             && mtu_needed
-            && queue_peek(retry_frames) == NULL) {
+            && queue_peek(retry_frames) == NULL
+            && queue_peek(rtx_frames) == NULL) {
             if (ret == 0 && send_buffer_max > sending_path_mtu
                 && cwin > bytes_in_transit && mtu_needed) {
                 PROTOOP_PRINTF(cnx, "Preparing MTU probe on sending path %p\n", (protoop_arg_t) sending_path);

@@ -137,6 +137,7 @@ static void write_header(picoquic_cnx_t *cnx, qlog_t *q) {
 static void write_trailer(picoquic_cnx_t *cnx, qlog_t *q) {
     lseek(q->fd, -(QLOG_N_END_CHARS + q->wrote_event), SEEK_END);
     char *id_str = my_malloc(cnx, (sizeof(char) * (q->hdr.odcid.id_len * 2)) + sizeof(char));
+    if (!id_str) return;
     for (int i = 0; i < q->hdr.odcid.id_len; i ++) {
         snprintf(id_str + (i * 2), 2, "%02x", q->hdr.odcid.id[i]);
     }

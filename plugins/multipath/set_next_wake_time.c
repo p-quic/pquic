@@ -50,7 +50,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
                 pd = mp_get_path_data(bpfd, true, path_x);
                 /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != path_active) {
+                if ((pd != NULL && pd->state != path_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
                     continue;
                 }
 
@@ -296,8 +296,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_snd_paths; i++) {
         path_x = get_sending_path(cnx, bpfd, nb_snd_paths, i, &pd);
         /* If the path is not active, don't expect anything! */
-        /* Do not consider path 0 here */
-        if (pd == NULL || pd->state != path_active) {
+        if ((pd != NULL && pd->state != path_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
             continue;
         }
         uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
@@ -396,7 +395,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             for (int i = 0; i < nb_snd_paths; i++) {
                 path_x = get_sending_path(cnx, bpfd, nb_snd_paths, i, &pd);
                 /* If the path is not active, don't expect anything! */
-                if (pd != NULL && pd->state != path_active) {
+                if ((pd != NULL && pd->state != path_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
                     continue;
                 }
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);

@@ -74,6 +74,14 @@ void *queue_peek(const queue_t *q)
     return q->head ? q->head->data : NULL;
 }
 
+void *queue_peek_any(const queue_t **q, int nq) {
+    void *data = NULL;
+    for (int i = 0; i < nq && !data; i++) {
+        data = queue_peek(q[i]);
+    }
+    return data;
+}
+
 size_t queue_size(const queue_t *q)
 {
     return q->size;

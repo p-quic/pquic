@@ -79,9 +79,13 @@ void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
 #ifdef PLUGIN_MEMORY_DBG
 #define my_malloc(cnx,size) my_malloc_dbg(cnx,size,__FILE__,__LINE__)
 #define my_free(cnx,ptr) my_free_dbg(cnx,ptr,__FILE__,__LINE__)
+#define my_memcpy(dst,src,size) my_memcpy_dbg(dst,src,size,__FILE__,__LINE__)
+#define my_memset(dst,c,count) my_memset_dbg(dst,c,count,__FILE__,__LINE__)
 #else
 #define my_malloc(cnx,size) my_malloc(cnx,size)
 #define my_free(cnx,ptr) my_free(cnx,ptr)
+#define my_memcpy(dst,src,size) my_memcpy(dst,src,size)
+#define my_memset(dst,c,count) my_memset(dst,c,count)
 #endif
 
 
@@ -140,6 +144,7 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
 
 static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
     char *data = my_malloc(cnx, 1024);
+    if (!data) return;
     helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
     protoop_arg_t pargs[5];
     pargs[0] = (protoop_arg_t) args[0];
@@ -153,6 +158,7 @@ static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx,
 
 static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_t *cnx, char *fmt, protoop_arg_t *fmt_args, size_t args_len) {
     char *data = my_malloc(cnx, 256);
+    if (!data) return;
     helper_protoop_snprintf(cnx, data, 256, fmt, fmt_args, args_len);
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) data;
@@ -821,6 +827,7 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
     if (parsed_frame) {                                                                                                 \
         frame_type *local_frame = (frame_type *) my_malloc(cnx, sizeof(frame_type));                                    \
+        if (!local_frame) return 0;                                                                                     \
         my_memcpy(local_frame, parsed_frame, sizeof(frame_type));                                                       \
 
 

@@ -85,10 +85,10 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
 
     for (int loc = 0; loc < bpfd->nb_loc_addrs; loc++) {
         addr_data_t *adl = &bpfd->loc_addrs[loc];
-        for (int rem = 0; rem < bpfd->nb_rem_addrs; rem++) {
+        for (int rem = 0; adl->sa && rem < bpfd->nb_rem_addrs; rem++) {
             addr_data_t *adr = &bpfd->rem_addrs[rem];
 
-            for (int path_idx = 0; path_idx < bpfd->nb_sending_proposed; path_idx++) {
+            for (int path_idx = 0; adr->sa && path_idx < bpfd->nb_sending_proposed; path_idx++) {
                 pd = bpfd->sending_paths[path_idx];
                 if (pd->state == path_ready && bpfd->nb_sending_active < N_PATHS) {
                     pd->state = path_active;

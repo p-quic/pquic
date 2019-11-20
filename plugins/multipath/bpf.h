@@ -43,6 +43,7 @@ typedef struct {
     size_t nb_addrs;
     struct sockaddr_storage sas[MAX_ADDRS];
     uint32_t if_indexes[MAX_ADDRS];
+    bool is_rtx;
 } add_address_ctx_t;
 
 typedef struct {

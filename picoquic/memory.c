@@ -99,16 +99,21 @@ void *my_malloc_block(protoop_plugin_t *p, unsigned int size) {
 		} else {
 			mp->next = NULL;
 		}
-	} else {
-		printf("Out of memory!\n");
 	}
-	*((uint64_t *)ret) = MAGIC_NUMBER;
-	return ret + 8;
+
+	if (ret) {
+        *((uint64_t *)ret) = MAGIC_NUMBER;
+        ret += 8;
+    } else {
+        printf("Out of memory!\n");
+	}
+
+	return ret;
 }
 
 void *my_malloc_dbg(picoquic_cnx_t *cnx, unsigned int size, char *file, int line) {
     void *p = my_malloc(cnx, size);
-    printf("MY MALLOC %s:%d = %p\n", file, line, p);
+    printf("MY MALLOC %s:%d = %p (%d bytes)\n", file, line, p, size);
     return p;
 }
 

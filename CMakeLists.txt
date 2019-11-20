@@ -97,7 +97,7 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/transport_param_test.c
     picoquictest/datagram.c
     picoquictest/microbench.c
-)
+        picoquictest/util.c)
 
 SET(PLUGINS_DATAGRAM
     plugins/datagram/parse_datagram_frame.c
