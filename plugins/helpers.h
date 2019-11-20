@@ -79,9 +79,13 @@ void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
 #ifdef PLUGIN_MEMORY_DBG
 #define my_malloc(cnx,size) my_malloc_dbg(cnx,size,__FILE__,__LINE__)
 #define my_free(cnx,ptr) my_free_dbg(cnx,ptr,__FILE__,__LINE__)
+#define my_memcpy(dst,src,size) my_memcpy_dbg(dst,src,size,__FILE__,__LINE__)
+#define my_memset(dst,c,count) my_memset_dbg(dst,c,count,__FILE__,__LINE__)
 #else
 #define my_malloc(cnx,size) my_malloc(cnx,size)
 #define my_free(cnx,ptr) my_free(cnx,ptr)
+#define my_memcpy(dst,src,size) my_memcpy(dst,src,size)
+#define my_memset(dst,c,count) my_memset(dst,c,count)
 #endif
 
 

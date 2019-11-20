@@ -127,6 +127,8 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "my_malloc_dbg", my_malloc_dbg);
     ubpf_register(vm, current_idx++, "my_malloc_ex", my_malloc);
     ubpf_register(vm, current_idx++, "my_free_dbg", my_free_dbg);
+    ubpf_register(vm, current_idx++, "my_memcpy_dbg", my_memcpy_dbg);
+    ubpf_register(vm, current_idx++, "my_memset_dbg", my_memset_dbg);
 
     ubpf_register(vm, current_idx++, "dprintf", dprintf);
     ubpf_register(vm, current_idx++, "snprintf", snprintf);
