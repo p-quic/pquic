@@ -159,7 +159,7 @@ static __attribute__((always_inline)) void maybe_notify_recovered_packets_to_cc(
         uint64_t current_pn64 = get_pkt(current_packet, AK_PKT_SEQUENCE_NUMBER);
         if (current_pn64 == peek_first_recovered_packet_in_buffer(b)) {
             int timer_based = 0;
-            if (!helper_retransmit_needed_by_packet(cnx, current_packet, current_time, &timer_based, NULL)) {
+            if (!helper_retransmit_needed_by_packet(cnx, current_packet, current_time, &timer_based, NULL, NULL)) {
                 // we don't need to notify it now: the packet is not considered as lost
                 // don't try any subsequenc packets as they have been sent later
                 break;

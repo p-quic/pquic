@@ -1000,12 +1000,13 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
         timer_based = 0;
     }
 
-    protoop_save_outputs(cnx, timer_based, reason);
+    protoop_save_outputs(cnx, timer_based, reason, retransmit_time);
 
     return (protoop_arg_t) should_retransmit;
 }
 
 /*
+ * TODO: Fix description
  * If a retransmit is needed, fill the packet with the required
  * retransmission. Also, prune the retransmit queue as needed.
  *
@@ -1015,7 +1016,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
  */
 
 static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
-    picoquic_packet_t* p, uint64_t current_time, int* timer_based, char **reason)
+    picoquic_packet_t* p, uint64_t current_time, int* timer_based, char **reason, uint64_t *retransmit_time)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int should_retransmit = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, outs,
@@ -1023,6 +1024,9 @@ static int picoquic_retransmit_needed_by_packet(picoquic_cnx_t* cnx,
     *timer_based = (int) outs[0];
     if (reason != NULL) {
         *reason = (char *) outs[1];
+    }
+    if (retransmit_time != NULL) {
+        *retransmit_time = outs[2];
     }
     return should_retransmit;
 }
@@ -1229,7 +1233,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
             length = 0;
             /* Get the packet type */
 
-            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason);
+            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason, NULL);
 
             if (should_retransmit == 0) {
                 /*
@@ -1668,7 +1672,7 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
                 while (p != NULL)
                 {
                     if (p->ptype < picoquic_packet_0rtt_protected) {
-                        if (picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL)) {
+                        if (picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL, NULL)) {
                             blocked = 0;
                         }
                         break;
@@ -1827,7 +1831,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 picoquic_packet_t* p = path_x->pkt_ctx[pc].retransmit_oldest;
 
-                if (p != NULL && ret == 0 && picoquic_retransmit_needed_by_packet(cnx, p, current_time, /* &ph,*/ &timer_based, NULL)) {
+                if (p != NULL && ret == 0 && picoquic_retransmit_needed_by_packet(cnx, p, current_time, /* &ph,*/ &timer_based, NULL, NULL)) {
                     blocked = 0;
                 }
                 else if (picoquic_is_ack_needed(cnx, current_time, pc, path_x)) {
@@ -1871,34 +1875,12 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     }
                 }
 
-                /* Consider delayed RACK */
                 if (p != NULL) {
-                    int64_t delta_seq = path_x->pkt_ctx[pc].highest_acknowledged - p->sequence_number;
-                    if (path_x->pkt_ctx[pc].latest_time_acknowledged > p->send_time  // we already received an acknowledgement for an older packet, so there is a hole. Identical to checking delta_seq > 0
-                        && p->send_time + path_x->smoothed_rtt + (path_x->smoothed_rtt >> 3) < next_time
-                        && p->ptype != picoquic_packet_0rtt_protected) {
-                        next_time = p->send_time + path_x->smoothed_rtt + (path_x->smoothed_rtt >> 3); // we retransmit the packet after at least 9/8*rtt
-
-                        /* RACK logic fails when the smoothed RTT is too small, in which case we
-                         * rely on dupack logic possible, or on a safe estimate of the RACK delay if it
-                         * is not */
-                        if (delta_seq < 3) {
-                            uint64_t rack_timer_min = path_x->pkt_ctx[pc].latest_time_acknowledged + PICOQUIC_RACK_DELAY; // ensure at least a safe delay of PICOQUIC_RACK_DELAY
-                            if (next_time < rack_timer_min)
-                                next_time = rack_timer_min;
-                        }
-
-                    }
-
-                    if (path_x->pkt_ctx[pc].nb_retransmit == 0) {
-                        if (p->send_time + path_x->retransmit_timer < next_time) {
-                            next_time = p->send_time + path_x->retransmit_timer;
-                        }
-                    }
-                    else {
-                        if (p->send_time + (1000000ull << (path_x->pkt_ctx[pc].nb_retransmit - 1)) < next_time) {
-                            next_time = p->send_time + (1000000ull << (path_x->pkt_ctx[pc].nb_retransmit - 1));
-                        }
+                    uint64_t retransmit_time = UINT64_MAX;
+                    char *retransmit_reason = NULL;
+                    picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, &retransmit_reason, &retransmit_time);
+                    if (retransmit_time < next_time) {
+                        next_time = retransmit_time;
                     }
                 }
             }
@@ -3295,7 +3277,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             reason = NULL;
             /* Get the packet type */
 
-            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason);
+            should_retransmit = picoquic_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason, NULL);
 
             if (should_retransmit == 0) {
                 break;

@@ -59,7 +59,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 {
                     picoquic_packet_type_enum ptype = (picoquic_packet_type_enum) get_pkt(p, AK_PKT_TYPE);
                     if (ptype < picoquic_packet_0rtt_protected) {
-                        if (helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL)) {
+                        if (helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL, NULL)) {
                             blocked = 0;
                         }
                         break;
@@ -231,7 +231,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
 
-                if (p != NULL && ret == 0 && helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL)) {
+                if (p != NULL && ret == 0 && helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL, NULL)) {
                     blocked = 0;
                 }
                 else if (helper_is_ack_needed(cnx, current_time, pc, path_x)) {

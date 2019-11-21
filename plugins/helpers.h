@@ -166,16 +166,21 @@ static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_
     my_free(cnx, (void *) data);
 }
 
-static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason)
+static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason, uint64_t *retransmit_time)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) current_time;
     args[2] = (protoop_arg_t) *timer_based_retransmit;
     int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    *timer_based_retransmit = (int) outs[0];
+    if (timer_based_retransmit) {
+        *timer_based_retransmit = (int) outs[0];
+    }
     if (reason != NULL) {
         *reason = (char *) outs[1];
+    }
+    if (retransmit_time != NULL) {
+        *retransmit_time = (uint64_t) outs[2];
     }
     return ret;
 }

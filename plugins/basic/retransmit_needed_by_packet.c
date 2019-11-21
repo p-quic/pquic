@@ -18,6 +18,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
     int64_t delta_seq = highest_acknowledged - get_pkt(p, AK_PKT_SEQUENCE_NUMBER);
     int should_retransmit = 0;
     char *reason = NULL;
+    uint64_t retransmit_timer = 0;
 
     if (delta_seq > 3) {
         /*
@@ -54,7 +55,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
             /* Don't fire yet, because of possible out of order delivery */
             int64_t time_out = current_time - send_time;
             uint64_t nb_retransmit = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_NB_RETRANSMIT);
-            uint64_t retransmit_timer = (nb_retransmit == 0) ?
+            retransmit_timer = (nb_retransmit == 0) ?
                 (uint64_t) get_path(send_path, AK_PATH_RETRANSMIT_TIMER, 0) : (1000000ull << (nb_retransmit - 1));
 
             if ((uint64_t)time_out < retransmit_timer) {
@@ -70,6 +71,7 @@ protoop_arg_t retransmit_needed_by_packet(picoquic_cnx_t *cnx)
 
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) timer_based);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) reason);
+    set_cnx(cnx, AK_CNX_OUTPUT, 2, (protoop_arg_t) retransmit_timer);
 
     return (protoop_arg_t) should_retransmit;
 }

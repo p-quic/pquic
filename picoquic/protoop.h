@@ -410,6 +410,7 @@ extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED;
  * \return \int Iff non-zero, the packet should be retransmitted
  * \param[out] timer_based \b int Iff non-zero, indicates that the retransmission is due to RTO
  * \param[out] reason \b extern protoop_id_t Iff the return value is non-zero, this indicates which mechanism triggered the retransmission
+ * \param[out] retransmit_time \b uint64_t The time computed for retransmission of the packet
  */
 #define PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET "retransmit_needed_by_packet"
 extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET;

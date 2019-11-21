@@ -39,7 +39,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
             length = 0;
             /* Get the packet type */
 
-            should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason);
+            should_retransmit = helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based_retransmit, &reason, NULL);
 
             if (should_retransmit == 0) {
                 /*
