@@ -11,6 +11,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
     uint64_t now = picoquic_current_time();
     int valid = 0;
     uint64_t selected_sent_pkt = 0;
+    int selected_cwin_limited = 0;
     char *path_reason = "";
 
     for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
@@ -49,6 +50,8 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             uint64_t cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
             uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
             if (cwin_c <= bytes_in_transit_c) {
+                if (sending_path == path_c)
+                    selected_cwin_limited = 1;
                 continue;
             }
 
@@ -73,7 +76,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
                 selected_path_index = i;
                 valid = 1;
                 selected_sent_pkt = pkt_sent_c;
-            } else if (pkt_sent_c < selected_sent_pkt) {
+            } else if (pkt_sent_c < selected_sent_pkt || selected_cwin_limited) {
                 sending_path = pd->path;
                 selected_path_index = i;
                 valid = 1;
