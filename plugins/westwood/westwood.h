@@ -94,10 +94,12 @@ static __attribute__((always_inline)) void westwood_enter_recovery(picoquic_cnx_
                                             uint64_t current_time, uint64_t *cwin)
 {
 
+    uint64_t newreno_behaviour = *cwin/2;
     westwood_state->ssthresh = 0;
     // westwood cwin reduction formula
     if (westwood_state->last_rtt_value != -1)
         westwood_state->ssthresh = westwood_state->bytes_acknowledged_during_previous_round*westwood_state->min_rtt/(uint64_t) westwood_state->last_rtt_value;
+    westwood_state->ssthresh = MAX(westwood_state->ssthresh, newreno_behaviour);
     westwood_state->cwin_before_recovery_start = *cwin;
     if (westwood_state->ssthresh < PICOQUIC_CWIN_MINIMUM) {
         westwood_state->ssthresh = PICOQUIC_CWIN_MINIMUM;
