@@ -416,7 +416,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     // }
                 }
 
-                picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
+                p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
                 if (p != NULL) {
                     uint64_t retransmit_time = UINT64_MAX;
                     char *retransmit_reason = NULL;
