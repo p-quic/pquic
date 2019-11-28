@@ -63,6 +63,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
                 bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
                 bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
+                bpfd->nb_loc_addrs++;
             } else {
                 sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
                 addr_index = i;
@@ -88,8 +89,6 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 my_memcpy(&bytes[byte_index], &port, 2);
                 byte_index += 2;
             }
-            
-            bpfd->nb_loc_addrs++;
         }
 
         consumed = byte_index;
