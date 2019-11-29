@@ -150,6 +150,8 @@ static int StreamZeroFrameOneTest(struct test_case_st* test)
         DBG_PRINTF("%s", "Could not connection context.\n");
         ret = -1;
     }
+
+    picoquic_path_t path = { 0 };
     
     cnx->local_parameters.initial_max_stream_data_bidi_local = 0x10000;
     cnx->local_parameters.initial_max_stream_data_bidi_remote = 0x10000;
@@ -158,8 +160,7 @@ static int StreamZeroFrameOneTest(struct test_case_st* test)
     cnx->maxdata_local = 0x10000;
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
-        if (NULL == picoquic_decode_stream_frame(cnx, test->list[i].packet,
-                test->list[i].packet + test->list[i].packet_length, current_time, NULL)) {
+        if (PICOQUIC_ERROR_DETECTED == picoquic_decode_frames(cnx, test->list[i].packet, test->list[i].packet_length, 3, current_time, &path)) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;
         }
@@ -312,8 +313,29 @@ static int TlsStreamFrameOneTest(struct test_case_st* test)
 
     for (size_t i = 0; ret == 0 && i < test->list_size; i++) {
         int ack_needed;
-        uint8_t* bytes = picoquic_decode_frame(&cnx, picoquic_frame_type_crypto_hs, 
-            test->list[i].packet, test->list[i].packet + test->list[i].packet_length, 0, test_epoch, &ack_needed, NULL);
+
+        protoop_arg_t outs[PROTOOPARGS_MAX];
+        uint8_t *bytes = (uint8_t*) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_crypto_hs, outs,
+                                                         test->list[i].packet, test->list[i].packet + test->list[i].packet_length);
+        void *frame = (void *) outs[0];
+        ack_needed |= (int) outs[1];
+        protoop_plugin_t *previous_plugin = cnx.previous_plugin_in_replace;
+        if (bytes && frame) {
+            int err = (int) protoop_prepare_and_run_param(&cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_crypto_hs, outs,
+                                                          frame, 0, test_epoch, NULL);
+            if (err) {
+                bytes = NULL;
+            }
+
+            /* It is the responsibility of the caller to free frame */
+            if (previous_plugin) {
+                //printf("MY FREE decode_frame = %p\n", frame);
+                my_free_in_core(cnx.previous_plugin_in_replace, frame);
+            } else {
+                free(frame);
+            }
+        }
+
         if (NULL == bytes) {
             FAIL(test, "packet %" PRIst, i);
             ret = -1;

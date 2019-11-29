@@ -1053,10 +1053,6 @@ char const* picoquic_log_state_name(picoquic_state_enum state);
 
 #define PICOQUIC_SET_TLS_SECRETS_LOG(quic, F) (quic)->F_tls_secrets = (void*)(F)
 
-/* Small internal function */
-uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
-    uint64_t current_time, int epoch, int* ack_needed, picoquic_path_t* path_x);
-
 /* handling of ACK logic */
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 
     picoquic_path_t* path_x);

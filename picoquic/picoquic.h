@@ -415,6 +415,15 @@ typedef struct path_response_frame {
     uint64_t data;
 } path_response_frame_t;
 
+typedef struct stream_frame {
+    uint64_t stream_id;
+    size_t   data_length;
+    uint64_t offset;
+    int      fin;
+    size_t   consumed;
+    uint8_t  *data_ptr;
+} stream_frame_t;
+
 typedef struct crypto_frame {
     uint64_t offset;
     uint64_t length;

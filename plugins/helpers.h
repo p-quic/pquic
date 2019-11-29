@@ -573,15 +573,6 @@ static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, ui
     return (int) run_noparam(cnx, PROTOOPID_NOPARAM_CONNECTION_ERROR, 2, args, NULL);
 }
 
-static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
-{
-    protoop_arg_t args[3];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) current_time;
-    return (uint8_t *) run_noparam(cnx, PROTOOPID_NOPARAM_DECODE_STREAM_FRAME, 3, args, NULL);
-}
-
 #define VARINT_LEN(bytes) (1U << (((bytes)[0] & 0xC0) >> 6))
 
 /* Integer parsing macros */

@@ -108,17 +108,6 @@ extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
 /* @{ */
 
 /**
- * Decode the STREAM frame and process its content.
- * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
- * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode
- * \param[in] current_time \b uint64_t Time of reception of the frame
- * \param[in] path \b picoquic_path_t* The path on which the frame was received
- *
- * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
- */
-#define PROTOOPID_NOPARAM_DECODE_STREAM_FRAME "decode_stream_frame"
-extern protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME;
-/**
  * Update the estimation of the perceived latency on the path \p path_x with the received packet.
  * \param[in] largest \b uint64_t The "largest" field of the received ACK frame
  * \param[in] current_time \b uint64_t Time of reception of the ACK frame
@@ -645,11 +634,6 @@ extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_SEGMENT;
  */
 #define PROTOOPID_NOPARAM_BEFORE_SENDING_SEGMENT "before_sending_segment"
 extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
-/**
- * \todo
- */
-#define PROTOOPID_NOPARAM_AFTER_DECODING_FRAMES "after_decoding_frames"
-extern protoop_id_t PROTOOP_NOPARAM_AFTER_DECODING_FRAMES;
 /**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
