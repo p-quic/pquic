@@ -42,8 +42,12 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "reserve_frames", reserve_frames);
     ubpf_register(vm, current_idx++, "get_cnx", get_cnx);
     ubpf_register(vm, current_idx++, "set_cnx", set_cnx);
+    ubpf_register(vm, current_idx++, "get_cnx_metadata", get_cnx_metadata);
+    ubpf_register(vm, current_idx++, "set_cnx_metadata", set_cnx_metadata);
     ubpf_register(vm, current_idx++, "get_path", get_path);
     ubpf_register(vm, current_idx++, "set_path", set_path);
+    ubpf_register(vm, current_idx++, "get_path_metadata", get_path_metadata);
+    ubpf_register(vm, current_idx++, "set_path_metadata", set_path_metadata);
     ubpf_register(vm, current_idx++, "get_pkt_ctx", get_pkt_ctx);
     ubpf_register(vm, current_idx++, "set_pkt_ctx", set_pkt_ctx);
     ubpf_register(vm, current_idx++, "get_pkt", get_pkt);

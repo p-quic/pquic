@@ -460,6 +460,7 @@ typedef struct st_picoquic_path_t {
     /* Sequence and retransmission state */
     picoquic_packet_context_t pkt_ctx[picoquic_nb_packet_context];
 
+    plugin_struct_metadata_t *metadata;
 } picoquic_path_t;
 
 /* Typedef for plugins */
@@ -721,6 +722,8 @@ typedef struct st_picoquic_cnx_t {
     protocol_operation_struct_t *ops;
 
     protoop_plugin_t *plugins;
+
+    plugin_struct_metadata_t *metadata;
 
     /* Due to uBPF constraints, all needed info must be contained in the context.
      * Furthermore, the arguments might have different types...

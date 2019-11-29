@@ -38,6 +38,27 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param);
 void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t val);
 
 /**
+ * Set the plugin-specific metadata of this connection context \p cnx at index \p idx` to \p val
+ *
+ * \param cnx The connection pointer
+ * \param idx The index of the plugin-specific metadata
+ * \param val The value of the metadata to set
+ */
+void set_cnx_metadata(picoquic_cnx_t *cnx, int idx, protoop_arg_t val);
+
+/**
+ * Get and return the value of the plugin-specific metadata of this connection context
+ * \p cnx at index \p idx
+ * If the metadata have never been set before, zero is returned
+ * 
+ * \param cnx The connection pointer
+ * \param idx The index of the plugin-specific metadata to get
+ *
+ * \return \p protoop_arg_t The value of the plugin metadata, zero is never set before
+ */
+protoop_arg_t get_cnx_metadata(picoquic_cnx_t *cnx, int idx);
+
+/**
  * Get a specific field belonging to the path \p path
  * 
  * \param path The path structure pointer
@@ -57,6 +78,27 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param);
  * \param val The value to set
  */
 void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_arg_t val);
+
+/**
+ * Set the plugin-specific metadata of this path at index \p idx to \p val
+ * 
+ * \param cnx The connection pointer
+ * \param path The path pointer
+ * \param idx The index of the plugin-specific metadata
+ * \param val The value of the metadata to set
+ */
+void set_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx, protoop_arg_t val);
+
+/**
+ * Get and return the value of the plugin-specific metadata of this path at index \p idx
+ * If the metadata have never been set before, zero is returned
+ * 
+ * \param cnx The connection pointer
+ * \param path The path pointer
+ * \param idx The index of the plugin-specific metadata to get
+ *
+ */
+protoop_arg_t get_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx);
 
 /**
  * Get a specific field beloging to the packet context \p pkt_ctx
