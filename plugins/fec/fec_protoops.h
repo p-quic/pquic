@@ -81,13 +81,12 @@ static __attribute__((always_inline)) bpf_state *initialize_bpf_state(picoquic_c
 
 static __attribute__((always_inline)) bpf_state *get_bpf_state(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_state **state_ptr = (bpf_state **) get_opaque_data(cnx, FEC_OPAQUE_ID, sizeof(bpf_state *), &allocated);
-    if (!state_ptr) return NULL;
-    if (allocated) {
-        *state_ptr = initialize_bpf_state(cnx);
+    bpf_state *state_ptr = (bpf_state *) get_cnx_metadata(cnx, FEC_OPAQUE_ID);
+    if (!state_ptr) {
+        state_ptr = initialize_bpf_state(cnx);
+        set_cnx_metadata(cnx, FEC_OPAQUE_ID, (protoop_arg_t) state_ptr);
     }
-    return *state_ptr;
+    return state_ptr;
 }
 
 static __attribute__((always_inline)) int helper_write_source_fpid_frame(picoquic_cnx_t *cnx, source_fpid_frame_t *f, uint8_t *bytes, size_t bytes_max, size_t *consumed) {

@@ -48,13 +48,12 @@ static __attribute__((always_inline)) westwood_state_t *initialize_westwood_stat
 
 static __attribute__((always_inline)) westwood_state_t *get_westwood_state_t(picoquic_cnx_t *cnx, uint64_t current_time)
 {
-    int allocated = 0;
-    westwood_state_t **state_ptr = (westwood_state_t **) get_opaque_data(cnx, WESTWOOD_OPAQUE_ID, sizeof(westwood_state_t *), &allocated);
-    if (!state_ptr) return NULL;
-    if (allocated) {
-        *state_ptr = initialize_westwood_state_t(cnx, current_time);
+    westwood_state_t *state_ptr = (westwood_state_t *) get_cnx_metadata(cnx, WESTWOOD_OPAQUE_ID);
+    if (!state_ptr) {
+        state_ptr = initialize_westwood_state_t(cnx, current_time);
+        set_cnx_metadata(cnx, WESTWOOD_OPAQUE_ID, (protoop_arg_t) state_ptr);
     }
-    return *state_ptr;
+    return state_ptr;
 }
 
 

@@ -111,15 +111,14 @@ static __attribute__((always_inline)) monitoring_conn_metrics *initialize_metric
 
 static __attribute__((always_inline)) monitoring_conn_metrics *get_monitoring_metrics(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    monitoring_conn_metrics **bpfd_ptr = (monitoring_conn_metrics **) get_opaque_data(cnx, MONITORING_OPAQUE_ID, sizeof(monitoring_conn_metrics *), &allocated);
-    if (!bpfd_ptr) return NULL;
-    if (allocated) {
-        *bpfd_ptr = initialize_metrics_data(cnx);
-        my_memset(*bpfd_ptr, 0, sizeof(monitoring_conn_metrics));
-        clock_gettime(CLOCK_MONOTONIC, &((*bpfd_ptr)->handshake_metrics.t_start));
+    monitoring_conn_metrics *bpfd_ptr = (monitoring_conn_metrics *) get_cnx_metadata(cnx, MONITORING_OPAQUE_ID);
+    if (!bpfd_ptr) {
+        bpfd_ptr = initialize_metrics_data(cnx);
+        my_memset(bpfd_ptr, 0, sizeof(monitoring_conn_metrics));
+        clock_gettime(CLOCK_MONOTONIC, &((bpfd_ptr)->handshake_metrics.t_start));
+        set_cnx_metadata(cnx, MONITORING_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
-    return *bpfd_ptr;
+    return bpfd_ptr;
 }
 
 static __attribute__((always_inline)) int copy_path(char *dst, monitoring_path_metrics *path) {

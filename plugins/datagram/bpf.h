@@ -68,16 +68,16 @@ static __attribute__((always_inline)) datagram_memory_t *initialize_datagram_mem
 
 static __attribute__((always_inline)) datagram_memory_t *get_datagram_memory(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    datagram_memory_t **bpfd_ptr = (datagram_memory_t **) get_opaque_data(cnx, DATAGRAM_OPAQUE_ID, sizeof(datagram_memory_t *), &allocated);
-    if (!bpfd_ptr) return NULL;
-    if (allocated) {
-        *bpfd_ptr = initialize_datagram_memory(cnx);
-        (*bpfd_ptr)->socket_fds[0] = -1;
-        (*bpfd_ptr)->socket_fds[1] = -1;
-        (*bpfd_ptr)->expected_datagram_id = 1;
+    datagram_memory_t *bpfd_ptr = (datagram_memory_t *) get_cnx_metadata(cnx, DATAGRAM_OPAQUE_ID);
+    if (!bpfd_ptr) {
+        bpfd_ptr = initialize_datagram_memory(cnx);
+        (bpfd_ptr)->socket_fds[0] = -1;
+        (bpfd_ptr)->socket_fds[1] = -1;
+        (bpfd_ptr)->expected_datagram_id = 1;
+        /* Save the pointer for future use */
+        set_cnx_metadata(cnx, DATAGRAM_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
-    return *bpfd_ptr;
+    return bpfd_ptr;
 }
 
 static __attribute__((always_inline)) uint32_t get_max_datagram_size(picoquic_cnx_t *cnx) {

@@ -149,13 +149,12 @@ static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 
 static bpf_data *get_bpf_data(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_data **bpfd_ptr = (bpf_data **) get_opaque_data(cnx, MP_OPAQUE_ID, sizeof(bpf_data *), &allocated);
-    if (!bpfd_ptr) return NULL;
-    if (allocated) {
-        *bpfd_ptr = initialize_bpf_data(cnx);
+    bpf_data *bpfd_ptr = (bpf_data *) get_cnx_metadata(cnx, MP_OPAQUE_ID);
+    if (!bpfd_ptr) {
+        bpfd_ptr = initialize_bpf_data(cnx);
+        set_cnx_metadata(cnx, MP_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
-    return *bpfd_ptr;
+    return bpfd_ptr;
 }
 
 static bpf_tuple_data *initialize_bpf_tuple_data(picoquic_cnx_t *cnx)
@@ -168,13 +167,12 @@ static bpf_tuple_data *initialize_bpf_tuple_data(picoquic_cnx_t *cnx)
 
 static bpf_tuple_data *get_bpf_tuple_data(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_tuple_data **bpftd_ptr = (bpf_tuple_data **) get_opaque_data(cnx, MP_TUPLE_ID, sizeof(bpf_tuple_data *), &allocated);
-    if (!bpftd_ptr) return NULL;
-    if (allocated) {
-        *bpftd_ptr = initialize_bpf_tuple_data(cnx);
+    bpf_tuple_data *bpftd_ptr = (bpf_tuple_data *) get_cnx_metadata(cnx, MP_TUPLE_ID);
+    if (!bpftd_ptr) {
+        bpftd_ptr = initialize_bpf_tuple_data(cnx);
+        set_cnx_metadata(cnx, MP_TUPLE_ID, (protoop_arg_t) bpftd_ptr);
     }
-    return *bpftd_ptr;
+    return bpftd_ptr;
 }
 
 static bpf_duplicate_data *initialize_bpf_duplicate_data(picoquic_cnx_t *cnx)
@@ -187,13 +185,12 @@ static bpf_duplicate_data *initialize_bpf_duplicate_data(picoquic_cnx_t *cnx)
 
 static bpf_duplicate_data *get_bpf_duplicate_data(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_duplicate_data **bpfdd_ptr = (bpf_duplicate_data **) get_opaque_data(cnx, MP_DUPLICATE_ID, sizeof(bpf_duplicate_data), &allocated);
-    if (!bpfdd_ptr) return NULL;
-    if (allocated) {
-        *bpfdd_ptr = initialize_bpf_duplicate_data(cnx);
+    bpf_duplicate_data *bpfdd_ptr = (bpf_duplicate_data *) get_cnx_metadata(cnx, MP_DUPLICATE_ID);
+    if (!bpfdd_ptr) {
+        bpfdd_ptr = initialize_bpf_duplicate_data(cnx);
+        set_cnx_metadata(cnx, MP_DUPLICATE_ID, (protoop_arg_t) bpfdd_ptr);
     }
-    return *bpfdd_ptr;
+    return bpfdd_ptr;
 }
 
 /* Returns -1 if not found */

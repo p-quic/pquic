@@ -44,14 +44,15 @@ typedef struct st_qlog_t {
 } qlog_t;
 
 static __attribute__((always_inline)) qlog_t* get_qlog_t(picoquic_cnx_t *cnx) {
-    int allocated = 0;
-    qlog_t *bpfd_ptr = (qlog_t *) get_opaque_data(cnx, QLOG_OPAQUE_ID, sizeof(qlog_t), &allocated);
-    if (!bpfd_ptr) return NULL;
-    if (allocated) {
+    qlog_t *bpfd_ptr = (qlog_t *) get_cnx_metadata(cnx, QLOG_OPAQUE_ID);
+    if (!bpfd_ptr) {
+        bpfd_ptr = (qlog_t *) my_malloc_ex(cnx, sizeof(qlog_t));
+        /* TODO Handle NULL */
         my_memset(bpfd_ptr, 0, sizeof(qlog_t));
         bpfd_ptr->fd = -1;
         char *events[QLOG_N_EVENT_FIELDS] = QLOG_EVENT_FIELDS;
         my_memcpy(bpfd_ptr->hdr.event_fields, events, sizeof(events));
+        set_cnx_metadata(cnx, QLOG_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
     return bpfd_ptr;
 }
