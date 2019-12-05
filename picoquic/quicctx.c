@@ -2031,8 +2031,6 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
                     while(queue_peek(current_p->block_queue_cc) != NULL) {queue_dequeue(current_p->block_queue_cc);}
                     while(queue_peek(current_p->block_queue_non_cc) != NULL) {queue_dequeue(current_p->block_queue_non_cc);}
-                    /* The additional critical data that should be reset is the opaque data in plugins */
-                    memset(current_p->opaque_metas, 0, sizeof(current_p->opaque_metas));
                     /* First destroy the memory */
                     destroy_memory_management(current_p);
                     /* And reinit the memory */

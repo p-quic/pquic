@@ -74,16 +74,6 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
 int plugin_process_plugin_data_exchange(picoquic_cnx_t *cnx, const char* plugin_name, uint8_t *data, size_t data_length);
 
 /**
- * Function allowing a plugin to access its opaque data space.
- * Given an ID, the function allocates the required space (if possible) the
- * first time the ID is requested and set allocated to 1, otherwise it just
- * returns the corresponding memory area and set allocated to 0.
- * If no additional memory could be allocated, or if the size requested does not
- * match the allocated space, returns NULL
- */
-void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated);
-
-/**
  * Function allowing running operations, either built-in or plugged.
  * It runs at invocation time, and returns to the caller the status of the callee.
  * Notice that this function is reentrant, i.e., a plugin might use an

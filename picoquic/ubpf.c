@@ -38,7 +38,6 @@ register_functions(struct ubpf_vm *vm) {
     unsigned int current_idx = 0;
     /* specific API related */
     ubpf_register(vm, current_idx++, "plugin_run_protoop", plugin_run_protoop);
-    ubpf_register(vm, current_idx++, "get_opaque_data", get_opaque_data);
     ubpf_register(vm, current_idx++, "reserve_frames", reserve_frames);
     ubpf_register(vm, current_idx++, "get_cnx", get_cnx);
     ubpf_register(vm, current_idx++, "set_cnx", set_cnx);

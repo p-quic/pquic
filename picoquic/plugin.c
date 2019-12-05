@@ -1073,38 +1073,6 @@ int plugin_process_plugin_data_exchange(picoquic_cnx_t *cnx, const char* plugin_
     return 0;
 }
 
-void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {
-    if (!cnx->current_plugin) {
-        printf("ERROR: get_opaque_data can only be called by pluglets with plugins!\n");
-        return NULL;
-    }
-    picoquic_opaque_meta_t *ometas = cnx->current_plugin->opaque_metas;
-    if (oid >= OPAQUE_ID_MAX) {
-        printf("ERROR: pluglet from plugin %s ask for opaque id %u >= max opaque id %d\n", cnx->current_plugin->name, oid, OPAQUE_ID_MAX);
-        /* Invalid ID */
-        return NULL;
-    }
-    if (ometas[oid].start_ptr) {
-        if (ometas[oid].size != size) {
-            /* The size requested is not correct */
-            return NULL;
-        }
-        *allocated = 0;
-        return ometas[oid].start_ptr;
-    }
-    /* Try to allocate memory with my_malloc */
-    ometas[oid].start_ptr = my_malloc(cnx, size);
-    if (!ometas[oid].start_ptr) {
-        /* No space left... */
-        return NULL;
-    }
-
-    /* Keep track of some meta data and returns the pointer */
-    ometas[oid].size = size;
-    *allocated = 1;
-    return ometas[oid].start_ptr;
-}
-
 protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
     if (pp->inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id %s : %d > %d\n",
