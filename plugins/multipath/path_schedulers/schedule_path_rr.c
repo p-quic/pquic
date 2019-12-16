@@ -91,7 +91,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
         size_t path_reason_len = strlen(path_reason) + 1;
         char *p_path_reason = my_malloc(cnx, path_reason_len);
         my_memcpy(p_path_reason, path_reason, path_reason_len);
-        LOG_EVENT(cnx, "MULTIPATH", "SCHEDULE_PATH", p_path_reason, "{\"sending path\": \"%p\"}", (protoop_arg_t) sending_path);
+        LOG_EVENT(cnx, "multipath", "schedule_path", p_path_reason, "{\"sending path\": \"%p\"}", (protoop_arg_t) sending_path);
         my_free(cnx, p_path_reason);
     }
     return (protoop_arg_t) sending_path;
