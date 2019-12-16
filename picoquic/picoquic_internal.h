@@ -231,8 +231,10 @@ typedef struct st_picoquic_quic_t {
     char* plugin_store_path;
     /* List of supported plugins in plugin cache store */
     plugin_list_t supported_plugins;
-    /* List of plugins we want to inject locally */
+    /* List of plugins we want to inject both locally and remotely */
     plugin_list_t plugins_to_inject;
+    /* List of local plugins to forcefully inject */
+    plugin_list_t local_plugins;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);

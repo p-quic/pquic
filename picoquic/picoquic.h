@@ -575,6 +575,9 @@ void picoquic_free(picoquic_quic_t* quic);
 /* Set the plugins we want to inject */
 int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
 
+/* Set the local plugins we want to forcefully inject */
+int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
+
 /* If the application required plugin insertion, handle the negotiation */
 int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx);
 

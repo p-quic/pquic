@@ -517,15 +517,17 @@ int quic_server(const char* server_name, int server_port,
             PICOQUIC_SET_TLS_SECRETS_LOG(qserver, F_tls_secrets);
 
             /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
-            ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins);
-            if (ret != 0) {
+            if (ret == 0 && (ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins)) != 0) {
                 printf("Error when setting plugins to inject\n");
+            }
+            if (ret == 0 && (ret = picoquic_set_local_plugins(qserver, local_plugin_fnames, local_plugins)) != 0) {
+                printf("Error when setting local plugins to inject\n");
             }
         }
     }
 
 
-    if (preload_plugins) {
+    if (ret == 0 && preload_plugins) {
         // pre-load a mock connection and insert the plugins
         picoquic_connection_id_t dst;
         dst.id_len = 4;
@@ -590,14 +592,6 @@ int quic_server(const char* server_name, int server_port,
 
                 if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
-
-                    /* We first insert all locally asked plugins */
-                    if (local_plugins > 0) {
-                        printf("%" PRIx64 ": ",
-                                picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
-                        plugin_insert_plugins_from_fnames(cnx_server, local_plugins, (char **) local_plugin_fnames);
-                    }
-
                     picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
