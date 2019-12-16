@@ -483,6 +483,7 @@ int quic_server(const char* server_name, int server_port,
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
     int new_context_created = 0;
+    int qlog_fd = -1;
 
 #ifdef STATIC_RESPONSE
     response_buffer = (const char *) malloc(STATIC_RESPONSE);
@@ -600,7 +601,7 @@ int quic_server(const char* server_name, int server_port,
                     picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
-                        int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                        qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                         if (qlog_fd != -1) {
                             protoop_prepare_and_run_extern_noparam(cnx_server, &set_qlog_file, NULL, qlog_fd);
                         } else {
@@ -651,6 +652,10 @@ int quic_server(const char* server_name, int server_port,
                         printf("Closed. Retrans= %d, spurious= %d, max sp gap = %d, max sp delay = %d\n",
                             (int)cnx_next->nb_retransmission_total, (int)cnx_next->nb_spurious,
                             (int)cnx_next->path[0]->max_reorder_gap, (int)cnx_next->path[0]->max_spurious_rtt);
+
+                        if (qlog_fd != -1) {
+                            close(qlog_fd);
+                        }
 
                         if (cnx_next == cnx_server) {
                             cnx_server = NULL;
@@ -993,6 +998,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int new_context_created = 0;
     char buf[25];
     int waiting_transport_parameters = 1;
+    int qlog_fd = -1;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
 
@@ -1095,7 +1101,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             }
 
             if (qlog_filename) {
-                int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                 if (qlog_fd != -1) {
                     protoop_prepare_and_run_extern_noparam(cnx_client, &set_qlog_file, NULL, qlog_fd);
                 } else {
@@ -1360,6 +1366,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         if (picoquic_save_tickets(qclient->p_first_ticket, picoquic_current_time(), ticket_store_filename) != 0) {
             fprintf(stderr, "Could not store the saved session tickets.\n");
         }
+
+        if (qlog_fd != -1) {
+            close(qlog_fd);
+        }
+
         write_stats(cnx_client, stats_filename);
         picoquic_free(qclient);
     }

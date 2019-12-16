@@ -2,7 +2,7 @@
 #include "bpf.h"
 
 /**
- * See "received_segment"
+ * See "header_parsed"
  * cnx->protoop_inputv[0] = picoquic_packet_header *ph
  * cnx->protoop_inputv[1] = picoquic_path_t *path
  * cnx->protoop_inputv[2] = size_t length

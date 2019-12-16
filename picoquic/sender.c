@@ -548,6 +548,7 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     uint64_t sequence_number,
     uint32_t length, uint32_t header_length,
     uint8_t* send_buffer, uint32_t send_buffer_max,
+    picoquic_packet_header *ph,
     void * aead_context, void* pn_enc)
 {
     uint32_t send_length;
@@ -565,21 +566,9 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     /* Using encryption, the "payload" length also includes the encrypted packet length */
     picoquic_update_payload_length(send_buffer, pn_offset, h_length - pn_length, length + aead_checksum_length);
 
-    LOG {
-        picoquic_connection_id_t dest_cnx_id = *(picoquic_get_destination_connection_id(cnx, ptype, path_x));
-        char dest_id_str[(dest_cnx_id.id_len) + 1];
-        snprintf_bytes(dest_id_str, (dest_cnx_id.id_len * 2) + 1, dest_cnx_id.id, dest_cnx_id.id_len);
-
-        uint32_t payload_length = (length + aead_checksum_length) - (h_length - pn_length);
-
-        if (ptype == picoquic_packet_1rtt_protected_phi0 || ptype == picoquic_packet_1rtt_protected_phi1) {
-            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_CREATED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ptype), dest_id_str, sequence_number, payload_length);
-        } else LOG {
-            char srce_id_str[(path_x->local_cnxid.id_len) + 1];
-            snprintf_bytes(srce_id_str, (path_x->local_cnxid.id_len * 2) + 1, path_x->local_cnxid.id, path_x->local_cnxid.id_len);
-
-            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_CREATED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ptype), dest_id_str, srce_id_str, sequence_number, payload_length);
-        }
+    picoquic_cnx_t *pcnx = cnx;
+    if (ph != NULL) {
+        picoquic_parse_packet_header(cnx->quic, send_buffer, length, (struct sockaddr *) &path_x->local_addr, ph, &pcnx, false);
     }
 
     /* If fuzzing is required, apply it*/
@@ -851,6 +840,8 @@ protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
         length = 0;
     }
 
+    picoquic_packet_header ph = { {{0}} };
+
     if (ret == 0 && length > 0) {
         packet->length = length;
         path_x->pkt_ctx[packet->pc].send_sequence++;
@@ -862,28 +853,28 @@ protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
         case picoquic_packet_initial:
             length = picoquic_protect_packet(cnx, packet->ptype, packet->bytes, path_x, packet->sequence_number,
                 length, header_length,
-                send_buffer, send_buffer_max, cnx->crypto_context[0].aead_encrypt, cnx->crypto_context[0].pn_enc);
+                send_buffer, send_buffer_max, &ph, cnx->crypto_context[0].aead_encrypt, cnx->crypto_context[0].pn_enc);
             break;
         case picoquic_packet_handshake:
             length = picoquic_protect_packet(cnx, packet->ptype, packet->bytes, path_x, packet->sequence_number,
                 length, header_length,
-                send_buffer, send_buffer_max, cnx->crypto_context[2].aead_encrypt, cnx->crypto_context[2].pn_enc);
+                send_buffer, send_buffer_max, &ph, cnx->crypto_context[2].aead_encrypt, cnx->crypto_context[2].pn_enc);
             break;
         case picoquic_packet_retry:
             length = picoquic_protect_packet(cnx, packet->ptype, packet->bytes, path_x, packet->sequence_number,
                 length, header_length,
-                send_buffer, send_buffer_max, cnx->crypto_context[0].aead_encrypt, cnx->crypto_context[0].pn_enc);
+                send_buffer, send_buffer_max, &ph, cnx->crypto_context[0].aead_encrypt, cnx->crypto_context[0].pn_enc);
             break;
         case picoquic_packet_0rtt_protected:
             length = picoquic_protect_packet(cnx, packet->ptype, packet->bytes, path_x, packet->sequence_number,
                 length, header_length,
-                send_buffer, send_buffer_max, cnx->crypto_context[1].aead_encrypt, cnx->crypto_context[1].pn_enc);
+                send_buffer, send_buffer_max, &ph, cnx->crypto_context[1].aead_encrypt, cnx->crypto_context[1].pn_enc);
             break;
         case picoquic_packet_1rtt_protected_phi0:
         case picoquic_packet_1rtt_protected_phi1:
             length = picoquic_protect_packet(cnx, packet->ptype, packet->bytes, path_x, packet->sequence_number,
                 length, header_length,
-                send_buffer, send_buffer_max, cnx->crypto_context[3].aead_encrypt, cnx->crypto_context[3].pn_enc);
+                send_buffer, send_buffer_max, &ph, cnx->crypto_context[3].aead_encrypt, cnx->crypto_context[3].pn_enc);
             break;
         default:
             /* Packet type error. Do nothing at all. */
@@ -895,6 +886,7 @@ protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
 
         if (length > 0) {
             packet->checksum_overhead = checksum_overhead;
+            picoquic_header_prepared(cnx, &ph, path_x, packet, length);
             picoquic_queue_for_retransmit(cnx, path_x, packet, length, current_time);
         } else {
             send_length = 0;
@@ -912,13 +904,6 @@ void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t
     size_t * send_length, uint8_t * send_buffer, uint32_t send_buffer_max, 
     picoquic_path_t * path_x, uint64_t current_time)
 {
-    /* MP: Instead of hooking the following operation every time this function is called, we place it here */
-    picoquic_packet_header ph = { 0 };
-    picoquic_cnx_t *pcnx = cnx;
-    if (picoquic_parse_packet_header(cnx->quic, packet->bytes, length, (struct sockaddr *) &path_x->local_addr, &ph, &pcnx, false) == 0) {
-        picoquic_before_sending_segment(cnx, &ph, path_x, packet, length + checksum_overhead);
-    }
-
     /* Yes, the helper macro does not handle more than 9 arguments... Too bad! */
     protoop_arg_t args [10];
     args[0] = (protoop_arg_t) packet;
@@ -3500,6 +3485,9 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
 
             if (ret == 0) {
                 *send_length += segment_length;
+                if (packet->length != 0) {
+                    picoquic_segment_prepared(cnx, packet);
+                }
                 if (packet->length == 0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi1) {
@@ -3507,17 +3495,17 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                         picoquic_destroy_packet(packet);
                         packet = NULL;
                     }
+                    picoquic_segment_aborted(cnx);
                     break;
-                } else {
-                    LOG_EVENT(cnx, "TRANSPORT", "PACKET_PREPARED", "", "{\"type\": \"%s\", \"pn\": %lu, \"path\": \"%p\"}", picoquic_log_ptype_name(packet->ptype), packet->sequence_number, packet->send_path);
                 }
             } else {
                 picoquic_destroy_packet(packet);
                 packet = NULL;
 
-                if (*send_length != 0){
+                if (*send_length != 0) {
                     ret = 0;
                 }
+                picoquic_segment_aborted(cnx);
                 break;
             }
         }

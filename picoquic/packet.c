@@ -1305,7 +1305,7 @@ int picoquic_incoming_segment(
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
-            picoquic_received_segment(cnx, &ph, path, *consumed);
+            picoquic_header_parsed(cnx, &ph, path, *consumed);
             if (cnx != NULL) LOG {
                 PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
             }

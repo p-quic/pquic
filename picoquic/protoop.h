@@ -632,8 +632,23 @@ extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_SEGMENT;
 /**
  * \todo
  */
-#define PROTOOPID_NOPARAM_BEFORE_SENDING_SEGMENT "before_sending_segment"
-extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
+#define PROTOOPID_NOPARAM_SEGMENT_PREPARED "segment_prepared"
+extern protoop_id_t PROTOOP_NOPARAM_SEGMENT_PREPARED;
+/**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_SEGMENT_ABORTED "segment_aborted"
+extern protoop_id_t PROTOOP_NOPARAM_SEGMENT_ABORTED;
+/**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_HEADER_PARSED "header_parsed"
+extern protoop_id_t PROTOOP_NOPARAM_HEADER_PARSED;
+/**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_HEADER_PREPARED "header_prepared"
+extern protoop_id_t PROTOOP_NOPARAM_HEADER_PREPARED;
 /**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
@@ -766,6 +781,13 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_ACK_DELAY;
  */
 #define PROTOOPID_NOPARAM_LOG_EVENT "log_event"
 extern protoop_id_t PROTOOP_NOPARAM_LOG_EVENT;
+
+/**
+ * Log a frame as part of the current packet
+ * \param[in] frame \b char* The JSON object representing the frame
+ */
+#define PROTOOPID_NOPARAM_LOG_FRAME "log_frame"
+extern protoop_id_t PROTOOP_NOPARAM_LOG_FRAME;
 
 /**
  * Push context information to qlog

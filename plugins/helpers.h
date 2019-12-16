@@ -143,9 +143,9 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
 }
 
 static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
-    char *data = my_malloc(cnx, 1024);
+    char *data = my_malloc(cnx, 2000);
     if (!data) return;
-    helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
+    helper_protoop_snprintf(cnx, data, 2000, args[3], fmt_args, args_len);
     protoop_arg_t pargs[5];
     pargs[0] = (protoop_arg_t) args[0];
     pargs[1] = (protoop_arg_t) args[1];
@@ -154,6 +154,12 @@ static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx,
     pargs[4] = (protoop_arg_t) data;
     run_noparam(cnx, PROTOOPID_NOPARAM_LOG_EVENT, 5, pargs, NULL);
     my_free(cnx, (void *) data);
+}
+
+static __attribute__((always_inline)) void helper_log_frame(picoquic_cnx_t *cnx, char *frame) {
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) frame;
+    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_FRAME, 1, args, NULL);
 }
 
 static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_t *cnx, char *fmt, protoop_arg_t *fmt_args, size_t args_len) {

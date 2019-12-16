@@ -4081,6 +4081,8 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
         }
     }
 
+    picoquic_received_segment(cnx);
+
     while (frames && bytes) {
         frame_queue_t *fq = frames;
 
@@ -4169,23 +4171,18 @@ protoop_arg_t skip_frame(picoquic_cnx_t *cnx)
     const uint8_t *bytes_max = bytes + bytes_max_size;
     uint8_t first_byte = bytes[0];
 
-    if (PICOQUIC_IN_RANGE(first_byte, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
-        is_retransmittable = 1;
-        bytes = picoquic_skip_stream_frame(bytes, bytes_max);
-    } else {
-        protoop_arg_t outs[PROTOOPARGS_MAX];
-        bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PARSE_FRAME, first_byte, outs,
-            bytes, bytes_max);
-        void *frame = (void *) outs[0];
-        is_retransmittable = (int) outs[2];
-        if (frame) {
-            /* We don't need the frame data, so free it */
-            if (cnx->previous_plugin_in_replace) {
-                //printf("MY FREE skip_frame = %p\n", frame);
-                my_free_in_core(cnx->previous_plugin_in_replace, frame);
-            } else {
-                free(frame);
-            }
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    bytes = (uint8_t*) protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PARSE_FRAME, first_byte, outs,
+        bytes, bytes_max);
+    void *frame = (void *) outs[0];
+    is_retransmittable = (int) outs[2];
+    if (frame) {
+        /* We don't need the frame data, so free it */
+        if (cnx->previous_plugin_in_replace) {
+            //printf("MY FREE skip_frame = %p\n", frame);
+            my_free_in_core(cnx->previous_plugin_in_replace, frame);
+        } else {
+            free(frame);
         }
     }
 
