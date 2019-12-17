@@ -12,6 +12,11 @@ protoop_arg_t log_frame(picoquic_cnx_t *cnx) {
         return 0;
     }
     (*qf)->frame = my_malloc(cnx, frame_len);
+    if (!(*qf)->frame) {
+        my_free(cnx, *qf);
+        *qf = NULL;
+        return 0;
+    }
     (*qf)->frame_len = frame_len;
     (*qf)->next = NULL;
     my_memcpy((*qf)->frame, frame, frame_len);

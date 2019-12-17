@@ -26,6 +26,8 @@ protoop_arg_t segment_prepared(picoquic_cnx_t *cnx)
     if (frame_str) {
         my_free(cnx, frame_str);
     }
-    my_free(cnx, hdr_str);
+    if (hdr_str) {
+        my_free(cnx, hdr_str);
+    }
     return 0;
 }
