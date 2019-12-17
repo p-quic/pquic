@@ -288,7 +288,7 @@ static __attribute__((always_inline)) void mp_sending_path_ready(picoquic_cnx_t 
     my_memcpy(remote_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
-    LOG_EVENT(cnx, "MULTIPATH", "SENDING_PATH_READY", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+    LOG_EVENT(cnx, "multipath", "sending_path_ready", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
 }
 
 static __attribute__((always_inline)) void mp_receive_path_active(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
@@ -307,7 +307,7 @@ static __attribute__((always_inline)) void mp_receive_path_active(picoquic_cnx_t
     my_memcpy(local_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, pd->reset_secret, 16);
-    LOG_EVENT(cnx, "MULTIPATH", "RECEIVE_PATH_READY", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+    LOG_EVENT(cnx, "multipath", "receive_path_ready", "", "{\"path_id\": %lu, \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
 }
 
 static __attribute__((always_inline)) size_t varint_len(uint64_t val) {

@@ -231,8 +231,10 @@ typedef struct st_picoquic_quic_t {
     char* plugin_store_path;
     /* List of supported plugins in plugin cache store */
     plugin_list_t supported_plugins;
-    /* List of plugins we want to inject locally */
+    /* List of plugins we want to inject both locally and remotely */
     plugin_list_t plugins_to_inject;
+    /* List of local plugins to forcefully inject */
+    plugin_list_t local_plugins;
 } picoquic_quic_t;
 
 picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
@@ -998,6 +1000,7 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     uint64_t sequence_number,
     uint32_t length, uint32_t header_length,
     uint8_t* send_buffer, uint32_t send_buffer_max,
+    picoquic_packet_header *ph,
     void * aead_context, void* pn_enc);
 
 void picoquic_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_packet_t * packet, int ret,
@@ -1046,10 +1049,6 @@ char const* picoquic_log_state_name(picoquic_state_enum state);
 #define PICOQUIC_SET_LOG(quic, F) (quic)->F_log = (void*)(F)
 
 #define PICOQUIC_SET_TLS_SECRETS_LOG(quic, F) (quic)->F_tls_secrets = (void*)(F)
-
-/* Small internal function */
-uint8_t* picoquic_decode_frame(picoquic_cnx_t* cnx, uint8_t first_byte, uint8_t* bytes, const uint8_t* bytes_max,
-    uint64_t current_time, int epoch, int* ack_needed, picoquic_path_t* path_x);
 
 /* handling of ACK logic */
 int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 
@@ -1143,9 +1142,12 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 /* Hooks for reception and sending of packets */
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
+void picoquic_received_segment(picoquic_cnx_t *cnx);
+void picoquic_segment_prepared(picoquic_cnx_t *cnx, picoquic_packet_t *pkt);
+void picoquic_segment_aborted(picoquic_cnx_t *cnx);
 /* Hooks for reception and sending of QUIC packets before encryption */  // TODO: Maybe the two above and below should be merged
-void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length);
+void picoquic_header_parsed(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, size_t length);
+void picoquic_header_prepared(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length);
 
 /* Queue stateless reset */
 void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,

@@ -183,14 +183,21 @@ SET(PLUGINS_QLOG
     plugins/qlog/frames/stream_blocked_frame_parsed.c
     plugins/qlog/frames/stream_id_blocked_frame_parsed.c
     plugins/qlog/frames/padding_or_ping_parsed.c
+    plugins/qlog/frames/frame_prepared.c
     plugins/qlog/sender/retransmit_needed_by_packet.c
     plugins/qlog/sender/retransmit_needed.c
     plugins/qlog/sender/congestion_algorithm_notified.c
     plugins/qlog/sender/ready_stream.c
     plugins/qlog/sender/next_stream_scheduled.c
+    plugins/qlog/sender/next_wake_time.c
+    plugins/qlog/sender/header_prepared.c
+        plugins/qlog/sender/segment_prepared.c
     plugins/qlog/push_log_context.c
     plugins/qlog/pop_log_context.c
-        plugins/qlog/sender/next_wake_time.c)
+    plugins/qlog/log_frame.c
+    plugins/qlog/receiver/header_parsed.c
+        plugins/qlog/receiver/segment_received.c
+        plugins/qlog/frames/stream_frame_parsed.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )

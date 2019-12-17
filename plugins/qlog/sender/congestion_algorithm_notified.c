@@ -10,19 +10,19 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
 
     switch (notification) {
         case picoquic_congestion_notification_spurious_repeat:
-            LOG_EVENT(cnx, "RECOVERY", "SPURIOUS_RETRANSMIT_DETECTED", "", "{\"cc_path\": \"%p\"}", (protoop_arg_t) path_x);
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_spurious_retransmit_detected", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
             break;
         case picoquic_congestion_notification_rtt_measurement:
-            LOG_EVENT(cnx, "RECOVERY", "RTT_ESTIMATE", "", "{\"cc_path\": \"%p\", \"rtt_estimate\": %lu, \"smoothed_rtt\": %lu}", (protoop_arg_t) path_x, rtt_measurement, get_path(path_x, AK_PATH_SMOOTHED_RTT, 0));
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_rtt_measurement", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\", \"min_rtt\": \"%lu\", \"latest_rtt\": \"%lu\", \"smoothed_rtt\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0), get_path(path_x, AK_PATH_RTT_MIN, 0), rtt_measurement, get_path(path_x, AK_PATH_SMOOTHED_RTT, 0));
             break;
         case picoquic_congestion_notification_acknowledgement:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "ACKNOWLEDGMENT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"bytes_acknowledged\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), nb_bytes_acknowledged);
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_acknowledgment", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\", \"bytes_acknowledged\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0), nb_bytes_acknowledged);
             break;
         case picoquic_congestion_notification_repeat:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "REPEAT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_repeat_acknowledgment", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
             break;
         case picoquic_congestion_notification_timeout:
-            LOG_EVENT(cnx, "CONGESTION_CONTROL", "CWIN_UPDATE", "TIMEOUT", "{\"cc_path\": \"%p\", \"cwin\": %lu, \"pn\": %lu}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), lost_packet_number);
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_acknowledgment", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
             break;
         default:
             break;

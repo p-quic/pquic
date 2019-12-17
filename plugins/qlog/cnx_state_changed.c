@@ -19,6 +19,7 @@ protoop_arg_t state_changed(picoquic_cnx_t *cnx)
                     qlog->hdr.odcid.id_len = cid_len;
                     my_memcpy(&qlog->hdr.odcid.id, (const void *) get_cnxid(cid, AK_CNXID_ID), qlog->hdr.odcid.id_len);
                 }
+                // TODO: Parameters set
             }
         }
 

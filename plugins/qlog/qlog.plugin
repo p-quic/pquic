@@ -8,22 +8,61 @@ connection_state_changed post cnx_state_changed.o
 log_event replace log_event.o
 stream_opened post frames/stream_opened.o
 stream_flags_changed post frames/stream_flags_changed.o
+parse_frame param 0x00 post frames/padding_or_ping_parsed.o
 parse_frame param 0x01 post frames/reset_stream_frame_parsed.o
 parse_frame param 0x02 post frames/connection_close_parsed.o
 parse_frame param 0x03 post frames/application_close_parsed.o
 parse_frame param 0x04 post frames/max_data_parsed.o
 parse_frame param 0x05 post frames/max_stream_data_parsed.o
+parse_frame param 0x07 post frames/padding_or_ping_parsed.o
 parse_frame param 0x08 post frames/blocked_frame_parsed.o
 parse_frame param 0x0b post frames/new_connection_id_parsed.o
 parse_frame param 0x0c post frames/stop_sending_parsed.o
 parse_frame param 0x0d post frames/ack_frame_parsed.o
 parse_frame param 0x0f post frames/path_response_parsed.o
+parse_frame param 0x10 post frames/stream_frame_parsed.o
+parse_frame param 0x11 post frames/stream_frame_parsed.o
+parse_frame param 0x12 post frames/stream_frame_parsed.o
+parse_frame param 0x13 post frames/stream_frame_parsed.o
+parse_frame param 0x14 post frames/stream_frame_parsed.o
+parse_frame param 0x15 post frames/stream_frame_parsed.o
+parse_frame param 0x16 post frames/stream_frame_parsed.o
+parse_frame param 0x17 post frames/stream_frame_parsed.o
 parse_frame param 0x18 post frames/crypto_frame_parsed.o
 parse_frame param 0x19 post frames/new_token_frame_parsed.o
-is_ack_needed post frames/is_ack_needed.o
+write_frame param 0x00 post frames/frame_prepared.o
+write_frame param 0x01 post frames/frame_prepared.o
+write_frame param 0x02 post frames/frame_prepared.o
+write_frame param 0x03 post frames/frame_prepared.o
+write_frame param 0x04 post frames/frame_prepared.o
+write_frame param 0x05 post frames/frame_prepared.o
+write_frame param 0x07 post frames/frame_prepared.o
+write_frame param 0x08 post frames/frame_prepared.o
+write_frame param 0x0b post frames/frame_prepared.o
+write_frame param 0x0c post frames/frame_prepared.o
+write_frame param 0x0d post frames/frame_prepared.o
+write_frame param 0x0f post frames/frame_prepared.o
+write_frame param 0x10 post frames/frame_prepared.o
+write_frame param 0x11 post frames/frame_prepared.o
+write_frame param 0x12 post frames/frame_prepared.o
+write_frame param 0x13 post frames/frame_prepared.o
+write_frame param 0x14 post frames/frame_prepared.o
+write_frame param 0x15 post frames/frame_prepared.o
+write_frame param 0x16 post frames/frame_prepared.o
+write_frame param 0x17 post frames/frame_prepared.o
+write_frame param 0x18 post frames/frame_prepared.o
+write_frame param 0x19 post frames/frame_prepared.o
+#is_ack_needed post frames/is_ack_needed.o
 retransmit_needed_by_packet post sender/retransmit_needed_by_packet.o
 retransmit_needed post sender/retransmit_needed.o
 congestion_algorithm_notify post sender/congestion_algorithm_notified.o
-schedule_next_stream post sender/next_stream_scheduled.o
-find_ready_stream post sender/ready_stream.o
-set_next_wake_time post sender/next_wake_time.o
+#schedule_next_stream post sender/next_stream_scheduled.o
+#find_ready_stream post sender/ready_stream.o
+#set_next_wake_time post sender/next_wake_time.o
+log_frame replace log_frame.o
+header_prepared post sender/header_prepared.o
+header_parsed post receiver/header_parsed.o
+segment_prepared post sender/segment_prepared.o
+segment_aborted post sender/segment_aborted.o
+retransmit_needed post sender/segment_aborted.o
+received_segment post receiver/segment_received.o

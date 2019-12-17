@@ -477,9 +477,7 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
     return 0;
 }
 
-
-int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
-{
+static int inject_plugin(plugin_list_t *quic_plugins, const char** plugin_fnames, int plugins) {
     int err = 0;
     char buf[256];
     size_t buf_len;
@@ -490,34 +488,44 @@ int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fn
             break;
         }
         buf_len = strlen(buf);
-        quic->plugins_to_inject.elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
-        if (quic->plugins_to_inject.elems[i].plugin_name == NULL) {
+        quic_plugins->elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
+        if (quic_plugins->elems[i].plugin_name == NULL) {
             break;
         }
-        quic->plugins_to_inject.elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
-        if (quic->plugins_to_inject.elems[i].plugin_path == NULL) {
-            free(quic->plugins_to_inject.elems[i].plugin_name);
+        quic_plugins->elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
+        if (quic_plugins->elems[i].plugin_path == NULL) {
+            free(quic_plugins->elems[i].plugin_name);
             break;
         }
-        strcpy(quic->plugins_to_inject.elems[i].plugin_name, buf);
-        strcpy(quic->plugins_to_inject.elems[i].plugin_path, plugin_fnames[i]);
-        printf("Plugin with path %s and name %s\n", quic->plugins_to_inject.elems[i].plugin_path, quic->plugins_to_inject.elems[i].plugin_name);
-        quic->plugins_to_inject.name_num_bytes += buf_len;
-        quic->plugins_to_inject.size++;
+        strcpy(quic_plugins->elems[i].plugin_name, buf);
+        strcpy(quic_plugins->elems[i].plugin_path, plugin_fnames[i]);
+        quic_plugins->name_num_bytes += buf_len;
+        quic_plugins->size++;
     }
 
     if (err != 0) {
         /* Free everything! */
         for (int j = 0; j < i; j++) {
-            free(quic->plugins_to_inject.elems[i].plugin_name);
-            free(quic->plugins_to_inject.elems[i].plugin_path);
+            free(quic_plugins->elems[i].plugin_name);
+            free(quic_plugins->elems[i].plugin_path);
         }
-        quic->plugins_to_inject.size = 0;
-        quic->plugins_to_inject.name_num_bytes = 0;
+        quic_plugins->size = 0;
+        quic_plugins->name_num_bytes = 0;
         return 1;
     }
 
     return 0;
+}
+
+
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    return inject_plugin(&quic->plugins_to_inject, plugin_fnames, plugins);
+}
+
+int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    return inject_plugin(&quic->local_plugins, plugin_fnames, plugins);
 }
 
 
@@ -616,6 +624,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
             /* If plugins should be inserted, a dedicated call will occur */
             quic->plugins_to_inject.size = 0;
             quic->plugins_to_inject.name_num_bytes = 0;
+            quic->local_plugins.size = 0;
+            quic->local_plugins.name_num_bytes = 0;
         }
     }
 
@@ -2263,21 +2273,31 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL,
-        socket);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL,
-        socket);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL, socket);
 }
 
-void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
+void picoquic_received_segment(picoquic_cnx_t *cnx) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, NULL);
 }
 
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, packet, length);
+void picoquic_segment_prepared(picoquic_cnx_t *cnx, picoquic_packet_t *pkt) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SEGMENT_PREPARED, NULL, pkt);
+}
+
+void picoquic_segment_aborted(picoquic_cnx_t *cnx) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SEGMENT_ABORTED, NULL, NULL);
+}
+
+void picoquic_header_parsed(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_HEADER_PARSED, NULL, ph, path, length);
+}
+
+void picoquic_header_prepared(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_HEADER_PREPARED, NULL, ph, path, packet, length);
 }
 
 /*
@@ -2648,9 +2668,11 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SEGMENT_PREPARED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SEGMENT_ABORTED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, &protoop_noop);
-    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
-
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_HEADER_PARSED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_HEADER_PREPARED, &protoop_noop);
     /** \todo document these */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_LOG_EVENT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, &protoop_noop);

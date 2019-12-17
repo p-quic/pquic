@@ -1,7 +1,7 @@
-SUBDIRS := basic monitoring datagram fec multipath
+SUBDIRS := basic monitoring datagram fec multipath qlog no_pacing
 
 all: $(SUBDIRS)
 $(SUBDIRS):
-	$(MAKE) -C $@
+	$(MAKE) -j$(nproc) -C $@
 
 .PHONY: all $(SUBDIRS)

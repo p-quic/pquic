@@ -415,6 +415,15 @@ typedef struct path_response_frame {
     uint64_t data;
 } path_response_frame_t;
 
+typedef struct stream_frame {
+    uint64_t stream_id;
+    size_t   data_length;
+    uint64_t offset;
+    int      fin;
+    size_t   consumed;
+    uint8_t  *data_ptr;
+} stream_frame_t;
+
 typedef struct crypto_frame {
     uint64_t offset;
     uint64_t length;
@@ -565,6 +574,9 @@ void picoquic_free(picoquic_quic_t* quic);
 
 /* Set the plugins we want to inject */
 int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
+
+/* Set the local plugins we want to forcefully inject */
+int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
 
 /* If the application required plugin insertion, handle the negotiation */
 int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx);

@@ -41,7 +41,7 @@ protoop_arg_t log_event(picoquic_cnx_t *cnx) {
             fields[3] = format_ctx(cnx, qlog);
         }
         append_event(qlog, now, fields);
-        if (generate_context) {
+        if (generate_context && fields[3]) {
             my_free(cnx, fields[3]);
         }
     }

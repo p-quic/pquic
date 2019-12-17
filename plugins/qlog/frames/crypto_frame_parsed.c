@@ -2,7 +2,11 @@
 
 protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
     TMP_FRAME_BEGIN(cnx, parsed_frame, frame, crypto_frame_t)
-        LOG_EVENT(cnx, "FRAMES", "CRYPTO_FRAME_PARSED", "", "{\"ptr\": \"%p\", \"offset\": %lu, \"length\": %lu}", (protoop_arg_t) parsed_frame, frame.offset, frame.length);
+        char *frame_str = my_malloc(cnx, 200);
+        if (!frame_str) return 0;
+        PROTOOP_SNPRINTF(cnx, frame_str, 200, "{\"frame_type\": \"crypto\", \"offset\": \"%lu\", \"length\": \"%lu\"}", frame.offset, frame.length);
+        helper_log_frame(cnx, frame_str);
+        my_free(cnx, frame_str);
     TMP_FRAME_END
     return 0;
 }

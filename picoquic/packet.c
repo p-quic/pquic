@@ -1264,6 +1264,19 @@ int picoquic_incoming_segment(
     /* Parse the header and decrypt the packet */
     ret = picoquic_parse_header_and_decrypt(quic, bytes, length, packet_length, addr_from,
         current_time, &ph, &cnx, consumed, new_context_created);
+
+    if (*new_context_created) {
+        /* We first insert all locally asked plugins */
+        if (quic->local_plugins.size > 0) {
+            printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
+            char *fnames[quic->local_plugins.size];
+            for (int i = 0; i < quic->local_plugins.size; i++) {
+                fnames[i] = quic->local_plugins.elems[i].plugin_path;
+            }
+            plugin_insert_plugins_from_fnames(cnx, quic->local_plugins.size, (char **) fnames);
+        }
+    }
+
     if (cnx != NULL) LOG {
         PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
     }
@@ -1305,7 +1318,7 @@ int picoquic_incoming_segment(
             /* Hook for performing action when connection received new packet */
             picoquic_received_packet(cnx, quic->rcv_socket);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
-            picoquic_received_segment(cnx, &ph, path, *consumed);
+            picoquic_header_parsed(cnx, &ph, path, *consumed);
             if (cnx != NULL) LOG {
                 PUSH_LOG_CTX(cnx, "\"path\": \"%p\"", path);
             }
