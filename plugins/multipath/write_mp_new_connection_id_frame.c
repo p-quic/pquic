@@ -77,8 +77,10 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 
         consumed = byte_index;
 
-        /* Now that we sent the MP NEW CONNECTION ID frame, we should be active to receive packets */
-        mp_receive_path_active(cnx, p, picoquic_current_time());
+        if (p->state < path_active) {
+            /* Now that we sent the MP NEW CONNECTION ID frame, we should be active to receive packets */
+            mp_receive_path_active(cnx, p, picoquic_current_time());
+        }
     }
 
     /* Do not freem mncic yet, do it in notify! */
