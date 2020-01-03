@@ -65,9 +65,9 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
                 bpfd->nb_loc_addrs++;
             } else {
-                sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
                 addr_index = i;
                 addr_id = addr_index + 1;
+                sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
             }
 
             /* Encode the first byte */
