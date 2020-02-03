@@ -1049,7 +1049,6 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
 
     /* First, retransmit core frames from splitted packets*/
     struct iovec *rtx_frame = NULL;
-    printf("Handling rtx_frames for ptype: %s, peek: %p\n", picoquic_log_ptype_name(packet->ptype), queue_peek(rtx_frames));
     while ((rtx_frame = (struct iovec *) queue_peek(rtx_frames)) != NULL &&
             rtx_frame->iov_len <= (max_bytes - length)) {
         rtx_frame = (struct iovec *) queue_dequeue(rtx_frames);
