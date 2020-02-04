@@ -170,6 +170,12 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return (protoop_arg_t) cnx->first_misc_frame;
     case AK_CNX_RETRY_FRAMES:
         return (protoop_arg_t) cnx->retry_frames;
+    case AK_CNX_RTX_FRAMES:
+        if (param >= picoquic_nb_packet_context) {
+            printf("ERROR: trying to get rtx_frames queue for unknown pc %d\n", param);
+            return 0;
+        }
+        return (protoop_arg_t) cnx->rtx_frames[param];
     case AK_CNX_FIRST_STREAM:
         return (protoop_arg_t) cnx->first_stream;
     case AK_CNX_PLUGIN_REQUESTED:
@@ -415,6 +421,9 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
     case AK_CNX_FIRST_MISC_FRAME:
         printf("ERROR: trying to modify first misc frame...\n");
         break;
+    case AK_CNX_RTX_FRAMES:
+        printf("ERROR: trying to modify rtx frames...\n");
+        break;
     case AK_CNX_PLUGIN_REQUESTED:
         cnx->plugin_requested = (uint8_t) val;
         break;
@@ -428,6 +437,28 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         printf("ERROR: unknown cnx access key %u\n", ak);
         break;
     }
+}
+
+void set_cnx_metadata(picoquic_cnx_t *cnx, int idx, protoop_arg_t val) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return;
+    }
+    if (set_plugin_metadata(cnx->current_plugin, &cnx->metadata, idx, val))
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+}
+
+
+protoop_arg_t get_cnx_metadata(picoquic_cnx_t *cnx, int idx) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return -1;
+    }
+    uint64_t out;
+    int err = get_plugin_metadata(cnx->current_plugin, &cnx->metadata, idx, &out);
+    if (err)
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+    return out;
 }
 
 protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
@@ -627,6 +658,29 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
     }
 }
 
+void set_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx, protoop_arg_t val) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return;
+    }
+    if (set_plugin_metadata(cnx->current_plugin, &path->metadata, idx, val))
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+}
+
+
+protoop_arg_t get_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return -1;
+    }
+    uint64_t out;
+    int err = get_plugin_metadata(cnx->current_plugin, &path->metadata, idx, &out);
+    if (err)
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+    return out;
+}
+
+
 protoop_arg_t get_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak)
 {
     switch(ak) {
@@ -724,6 +778,28 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         printf("ERROR: unknown pkt ctx access key %u\n", ak);
         break;
     }
+}
+
+void set_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx, protoop_arg_t val) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return;
+    }
+    if (set_plugin_metadata(cnx->current_plugin, &pkt->metadata, idx, val))
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+}
+
+
+protoop_arg_t get_pkt_metadata(picoquic_cnx_t *cnx, picoquic_packet_t *pkt, int idx) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return -1;
+    }
+    uint64_t out;
+    int err = get_plugin_metadata(cnx->current_plugin, &pkt->metadata, idx, &out);
+    if (err)
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+    return out;
 }
 
 protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)

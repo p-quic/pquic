@@ -575,7 +575,11 @@ int quic_server(const char* server_name, int server_port,
 
                             /* QDC: I hate having those lines here... But it is the only place to hook before sending... */
                             /* Both Linux and Windows use separate sockets for V4 and V6 */
+#ifndef NS3
                             int socket_index = (peer_addr->sa_family == AF_INET) ? 1 : 0;
+#else
+                            int socket_index = 0;
+#endif
                             picoquic_before_sending_packet(cnx_next, server_sockets.s_socket[socket_index]);
 
                             (void)picoquic_send_through_server_sockets(&server_sockets,
@@ -752,10 +756,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
     if (ret == 0) {
         /* Make the most possible flexible socket */
-        fd = socket(/*server_address.ss_family*/AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        fd = socket(/*server_address.ss_family*/DEFAULT_SOCK_AF, SOCK_DGRAM, IPPROTO_UDP);
         if (fd == INVALID_SOCKET) {
             ret = -1;
-        } else {
+        } else if (DEFAULT_SOCK_AF == AF_INET6) {
             int val = 1;
             ret = setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG, &val, sizeof(val));
             if (ret != 0) {

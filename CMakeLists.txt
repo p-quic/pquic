@@ -6,10 +6,11 @@ SET(CMAKE_C_STANDARD 11)
 
 # FIND_PACKAGE(PkgConfig REQUIRED)
 
-SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
-
-SET(GCC_COVERAGE_LINK_FLAGS    "-Wl,--no-as-needed,-lprofiler,--as-needed")
-SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+if((NOT DEFINED ENV{NS3}) OR !$ENV{NS3})
+    SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
+    SET(GCC_COVERAGE_LINK_FLAGS    "-Wl,--no-as-needed,-lprofiler,--as-needed")
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+endif()
 
 if($ENV{DISABLE_DEBUG_PRINTF})
     SET(CMAKE_C_FLAGS "-DDISABLE_DEBUG_PRINTF ${CMAKE_C_FLAGS}")
@@ -23,8 +24,22 @@ if($ENV{STATIC_RESPONSE})
     SET(CMAKE_C_FLAGS "-DSTATIC_RESPONSE=$ENV{STATIC_RESPONSE} ${CMAKE_C_FLAGS}")
 endif()
 
+if($ENV{DEBUG_PLUGIN_EXECUTION_TIME})
+    SET(CMAKE_C_FLAGS "-DDEBUG_PLUGIN_EXECUTION_TIME ${CMAKE_C_FLAGS}")
+endif()
+
+if($ENV{NS3})
+    SET(GCC_COVERAGE_LINK_FLAGS "")
+    SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g -fPIC -DNS3 ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -pie -rdynamic")
+endif()
+
 INCLUDE_DIRECTORIES(picoquic picoquictest ../picotls/include
     ${PICOTLS_INCLUDE_DIR})
+
+SET(MICHELFRALLOC_STATIC_LIBS
+        ${CMAKE_SOURCE_DIR}/picoquic/michelfralloc/libmichelfralloc.a
+        ${CMAKE_SOURCE_DIR}/picoquic/michelfralloc/libptmalloc3.a)
 
 SET(PICOQUIC_LIBRARY_FILES
     picoquic/cubic.c
@@ -53,6 +68,10 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/transport.c
     picoquic/ubpf.c
     picoquic/util.c
+        picoquic/michelfralloc/sbrk.c
+        picoquic/michelfralloc/sbrk.h
+        picoquic/michelfralloc/michelfralloc.c
+        picoquic/michelfralloc/michelfralloc.h
 )
 
 SET(PICOQUIC_TEST_LIBRARY_FILES
@@ -78,7 +97,7 @@ SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/transport_param_test.c
     picoquictest/datagram.c
     picoquictest/microbench.c
-)
+        picoquictest/util.c)
 
 SET(PLUGINS_DATAGRAM
     plugins/datagram/parse_datagram_frame.c
@@ -164,14 +183,21 @@ SET(PLUGINS_QLOG
     plugins/qlog/frames/stream_blocked_frame_parsed.c
     plugins/qlog/frames/stream_id_blocked_frame_parsed.c
     plugins/qlog/frames/padding_or_ping_parsed.c
+    plugins/qlog/frames/frame_prepared.c
     plugins/qlog/sender/retransmit_needed_by_packet.c
     plugins/qlog/sender/retransmit_needed.c
     plugins/qlog/sender/congestion_algorithm_notified.c
     plugins/qlog/sender/ready_stream.c
     plugins/qlog/sender/next_stream_scheduled.c
+    plugins/qlog/sender/next_wake_time.c
+    plugins/qlog/sender/header_prepared.c
+        plugins/qlog/sender/segment_prepared.c
     plugins/qlog/push_log_context.c
     plugins/qlog/pop_log_context.c
-        plugins/qlog/sender/next_wake_time.c)
+    plugins/qlog/log_frame.c
+    plugins/qlog/receiver/header_parsed.c
+        plugins/qlog/receiver/segment_received.c
+        plugins/qlog/frames/stream_frame_parsed.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
@@ -233,6 +259,7 @@ TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
@@ -245,6 +272,7 @@ TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
@@ -257,6 +285,7 @@ TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
@@ -271,6 +300,7 @@ TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
     ${UBPF}
     ${CMAKE_DL_LIBS}
     ${LibArchive_LIBRARIES}
+    ${MICHELFRALLOC_STATIC_LIBS}
 )
 
 SET(TEST_EXES picoquic_ct)

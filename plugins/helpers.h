@@ -79,29 +79,41 @@ void *my_malloc_ex(picoquic_cnx_t *cnx, unsigned int size);
 #ifdef PLUGIN_MEMORY_DBG
 #define my_malloc(cnx,size) my_malloc_dbg(cnx,size,__FILE__,__LINE__)
 #define my_free(cnx,ptr) my_free_dbg(cnx,ptr,__FILE__,__LINE__)
+#define my_memcpy(dst,src,size) my_memcpy_dbg(dst,src,size,__FILE__,__LINE__)
+#define my_memset(dst,c,count) my_memset_dbg(dst,c,count,__FILE__,__LINE__)
 #else
 #define my_malloc(cnx,size) my_malloc(cnx,size)
 #define my_free(cnx,ptr) my_free(cnx,ptr)
+#define my_memcpy(dst,src,size) my_memcpy(dst,src,size)
+#define my_memset(dst,c,count) my_memset(dst,c,count)
 #endif
 
-static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+
+static inline protoop_arg_t run_noparam_with_pid(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv, protoop_id_t *pid) {
     protoop_params_t pp;
     pp.param = NO_PARAM;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return plugin_run_protoop(cnx, &pp, pid_str);
+    return plugin_run_protoop(cnx, &pp, pid_str, pid);
+}
+static inline protoop_arg_t run_noparam(picoquic_cnx_t *cnx, char *pid_str, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+    return run_noparam_with_pid(cnx, pid_str, inputc, inputv, outputv, NULL);
 }
 
-static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+static inline protoop_arg_t run_param_with_pid(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv, protoop_id_t *pid) {
     protoop_params_t pp;
     pp.param = param;
     pp.caller_is_intern = true;
     pp.inputc = inputc;
     pp.inputv = inputv;
     pp.outputv = outputv;
-    return plugin_run_protoop(cnx, &pp, pid_str);
+    return plugin_run_protoop(cnx, &pp, pid_str, pid);
+}
+
+static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_id_t param, int inputc, protoop_arg_t *inputv, protoop_arg_t *outputv) {
+    return run_param_with_pid(cnx, pid_str, param, inputc, inputv, outputv, NULL);
 }
 
 static __attribute__((always_inline)) void helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {
@@ -131,8 +143,9 @@ static __attribute__((always_inline)) void helper_protoop_printf(picoquic_cnx_t 
 }
 
 static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx, char *args[4], protoop_arg_t *fmt_args, size_t args_len) {
-    char *data = my_malloc(cnx, 1024);
-    helper_protoop_snprintf(cnx, data, 1024, args[3], fmt_args, args_len);
+    char *data = my_malloc(cnx, 2000);
+    if (!data) return;
+    helper_protoop_snprintf(cnx, data, 2000, args[3], fmt_args, args_len);
     protoop_arg_t pargs[5];
     pargs[0] = (protoop_arg_t) args[0];
     pargs[1] = (protoop_arg_t) args[1];
@@ -143,8 +156,15 @@ static __attribute__((always_inline)) void helper_log_event(picoquic_cnx_t *cnx,
     my_free(cnx, (void *) data);
 }
 
+static __attribute__((always_inline)) void helper_log_frame(picoquic_cnx_t *cnx, char *frame) {
+    protoop_arg_t args[1];
+    args[0] = (protoop_arg_t) frame;
+    run_noparam(cnx, PROTOOPID_NOPARAM_LOG_FRAME, 1, args, NULL);
+}
+
 static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_t *cnx, char *fmt, protoop_arg_t *fmt_args, size_t args_len) {
     char *data = my_malloc(cnx, 256);
+    if (!data) return;
     helper_protoop_snprintf(cnx, data, 256, fmt, fmt_args, args_len);
     protoop_arg_t args[1];
     args[0] = (protoop_arg_t) data;
@@ -152,16 +172,21 @@ static __attribute__((always_inline)) void helper_push_log_context(picoquic_cnx_
     my_free(cnx, (void *) data);
 }
 
-static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason)
+static int helper_retransmit_needed_by_packet(picoquic_cnx_t *cnx, picoquic_packet_t *p, uint64_t current_time, int *timer_based_retransmit, char **reason, uint64_t *retransmit_time)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX], args[3];
     args[0] = (protoop_arg_t) p;
     args[1] = (protoop_arg_t) current_time;
     args[2] = (protoop_arg_t) *timer_based_retransmit;
     int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET, 3, args, outs);
-    *timer_based_retransmit = (int) outs[0];
+    if (timer_based_retransmit) {
+        *timer_based_retransmit = (int) outs[0];
+    }
     if (reason != NULL) {
         *reason = (char *) outs[1];
+    }
+    if (retransmit_time != NULL) {
+        *retransmit_time = (uint64_t) outs[2];
     }
     return ret;
 }
@@ -554,15 +579,6 @@ static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, ui
     return (int) run_noparam(cnx, PROTOOPID_NOPARAM_CONNECTION_ERROR, 2, args, NULL);
 }
 
-static uint8_t* helper_decode_stream_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max, uint64_t current_time)
-{
-    protoop_arg_t args[3];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) current_time;
-    return (uint8_t *) run_noparam(cnx, PROTOOPID_NOPARAM_DECODE_STREAM_FRAME, 3, args, NULL);
-}
-
 #define VARINT_LEN(bytes) (1U << (((bytes)[0] & 0xC0) >> 6))
 
 /* Integer parsing macros */
@@ -813,6 +829,7 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
     if (parsed_frame) {                                                                                                 \
         frame_type *local_frame = (frame_type *) my_malloc(cnx, sizeof(frame_type));                                    \
+        if (!local_frame) return 0;                                                                                     \
         my_memcpy(local_frame, parsed_frame, sizeof(frame_type));                                                       \
 
 

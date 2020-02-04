@@ -43,24 +43,32 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 
         for (int i = 0; i < aac->nb_addrs; i++) {
             /* First record the address */
-            addr_index = bpfd->nb_loc_addrs;
-            addr_id = addr_index + 1;
-            sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
-            if (!sa) {
-                ret = PICOQUIC_ERROR_MEMORY;
-                break;
+
+            if (!aac->is_rtx) {
+                addr_index = bpfd->nb_loc_addrs;
+                addr_id = addr_index + 1;
+                sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
+                if (!sa) {
+                    ret = PICOQUIC_ERROR_MEMORY;
+                    break;
+                }
+                my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_storage));
+                /* Take the port from the current path 0 */
+                if (sa->ss_family == AF_INET) {
+                    my_memcpy(&((struct sockaddr_in *) sa)->sin_port, &port, 2);
+                } else if (sa->ss_family == AF_INET6) {
+                    my_memcpy(&((struct sockaddr_in6 *) sa)->sin6_port, &port, 2);
+                }
+                bpfd->loc_addrs[addr_index].id = addr_id;
+                bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
+                bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
+                bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
+                bpfd->nb_loc_addrs++;
+            } else {
+                addr_index = i;
+                addr_id = addr_index + 1;
+                sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
             }
-            my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_storage));
-            /* Take the port from the current path 0 */
-            if (sa->ss_family == AF_INET) {
-                my_memcpy(&((struct sockaddr_in*)sa)->sin_port, &port, 2);
-            } else if (sa->ss_family == AF_INET6) {
-                my_memcpy(&((struct sockaddr_in6*)sa)->sin6_port, &port, 2);
-            }
-            bpfd->loc_addrs[addr_index].id = addr_id;
-            bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
-            bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
-            bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
 
             /* Encode the first byte */
             my_memset(&bytes[byte_index++], ADD_ADDRESS_TYPE, 1);
@@ -81,14 +89,10 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 my_memcpy(&bytes[byte_index], &port, 2);
                 byte_index += 2;
             }
-            
-            bpfd->nb_loc_addrs++;
         }
 
         consumed = byte_index;
     }
-
-    my_free(cnx, aac);
 
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) consumed);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) 1);

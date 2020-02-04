@@ -1,7 +1,7 @@
 be.mpiraux.monitoring
 connection_state_changed replace cnx_state_changed.o
-received_segment replace packet_received.o
-before_sending_segment replace packet_sent.o
+header_parsed replace packet_received.o
+header_prepared replace packet_sent.o
 update_rtt post rtt_updated.o
 decode_stream_frame pre check_ooo_stream_frame.o
 decode_stream_frame pre check_spurious_stream_frame.o

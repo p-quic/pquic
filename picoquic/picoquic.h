@@ -229,6 +229,7 @@ typedef enum {
 } picoquic_packet_context_enum;
 
 typedef struct protoop_plugin protoop_plugin_t;
+typedef struct st_plugin_struct_metadata plugin_struct_metadata_t;
 
 /* This structure is used for sending booking purposes */
 typedef struct reserve_frame_slot {
@@ -253,6 +254,7 @@ typedef struct reserve_frames_block {
 typedef struct st_picoquic_packet_plugin_frame_t {
     struct st_picoquic_packet_plugin_frame_t* next;
     protoop_plugin_t* plugin;
+    size_t frame_offset; /* Offset of the start of the frame in the packet payload */
     uint64_t bytes;
     reserve_frame_slot_t *rfs; /* Memory held by the plugin, responsible for its my_free */
 } picoquic_packet_plugin_frame_t;
@@ -283,6 +285,8 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_mtu_probe : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
+
+    plugin_struct_metadata_t *metadata;
 
     uint8_t bytes[PICOQUIC_MAX_PACKET_SIZE];
 } picoquic_packet_t;
@@ -411,6 +415,15 @@ typedef struct path_response_frame {
     uint64_t data;
 } path_response_frame_t;
 
+typedef struct stream_frame {
+    uint64_t stream_id;
+    size_t   data_length;
+    uint64_t offset;
+    int      fin;
+    size_t   consumed;
+    uint8_t  *data_ptr;
+} stream_frame_t;
+
 typedef struct crypto_frame {
     uint64_t offset;
     uint64_t length;
@@ -455,6 +468,14 @@ typedef enum {
     picoquic_callback_stream_gap  /* bytes=NULL, len = length-of-gap or 0 (if unknown) */
 } picoquic_call_back_event_t;
 
+typedef struct plugin_stat {
+    char *protoop_name;
+    char *pluglet_name;
+    bool pre, replace, post, is_param;
+    param_id_t param;
+    uint64_t count;
+    uint64_t total_execution_time;
+} plugin_stat_t;
 #define PICOQUIC_STREAM_ID_TYPE_MASK 3
 #define PICOQUIC_STREAM_ID_CLIENT_INITIATED 0
 #define PICOQUIC_STREAM_ID_SERVER_INITIATED 1
@@ -554,6 +575,9 @@ void picoquic_free(picoquic_quic_t* quic);
 /* Set the plugins we want to inject */
 int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
 
+/* Set the local plugins we want to forcefully inject */
+int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
+
 /* If the application required plugin insertion, handle the negotiation */
 int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx);
 
@@ -594,6 +618,23 @@ picoquic_cnx_t* picoquic_create_client_cnx(picoquic_quic_t* quic,
     picoquic_stream_data_cb_fn callback_fn, void* callback_ctx);
 
 int picoquic_start_client_cnx(picoquic_cnx_t* cnx);
+
+/*
+ * pre: stats != NULL
+ * populates an array containing statistics for each (protoop, pluglet) pair used in this connection
+ * When *stats is NULL, the result array will be allocated using malloc(3).
+ * When *stats is not NULL, it points to an already existing array allocated with malloc(3) with nmemb slots of
+ *  sizeof(plugin_stat_t) bytes. The address stored in *stats before the call to the function must not be used after the
+ *  call if it is different from the value stored in *stats after the call to the function.
+ * When the array is too small to store all the statistics, it will be reallocated using realloc(3) and the address of
+ *  the new array will be stored in *stats
+ * RETURN VALUE:
+ *  -1 if an error occurred
+ *  the number of added statistics elements otherwise
+ * In any case, *stats will either be NULL or point to a valid memory address allocated with malloc(3) after a call to
+ * this function.
+ */
+int picoquic_get_plugin_stats(picoquic_cnx_t *cnx, plugin_stat_t **stats, int nmemb);
 
 void picoquic_delete_cnx(picoquic_cnx_t* cnx);
 
@@ -651,6 +692,8 @@ int picoquic_incoming_packet(
     int* new_context_created);
 
 picoquic_packet_t* picoquic_create_packet(picoquic_cnx_t *cnx);
+
+void picoquic_destroy_packet(picoquic_packet_t *p);
 
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t** path);
@@ -770,7 +813,7 @@ void picoquic_reinsert_cnx_by_wake_time(picoquic_cnx_t* cnx, uint64_t next_time)
 
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx);
 
-void picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
+size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x, picoquic_stream_head* stream, uint64_t frame_mss);
 
 
 int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* bytes,

@@ -25,15 +25,17 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
             &largest, &ack_delay, consumed, 0);
     }
 
+    /* Here, we receive an ACK for an ACK of our receive path! */
+
     int path_index = 0;
     if (ret == 0 && path_id != 0) {
-        path_index = mp_get_path_index(cnx, bpfd, path_id, NULL);
+        path_index = mp_get_path_index(cnx, bpfd, false, path_id, NULL);
     }
 
     if (path_index < 0) {
         ret = -1;
     } else if (path_id != 0) {
-        path_x = bpfd->paths[path_index]->path;
+        path_x = bpfd->receive_paths[path_index]->path;
     }
 
     /* Find the oldest ACK range, in order to calibrate the

@@ -234,7 +234,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
             switch (notification) {
             case picoquic_congestion_notification_acknowledgement:
                 /* Only increase when the app is CWIN limited */
-                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                if (path_x->cwin / 2 <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
                     path_x->cwin += nb_bytes_acknowledged;
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= cubic_state->ssthresh) {

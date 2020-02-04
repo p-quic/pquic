@@ -294,6 +294,72 @@ int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual)
     return ret;
 }
 
+int picoquic_split_stream_frame(uint8_t *bytes, size_t bytes_max, uint8_t *buf1, size_t *buf1_max, uint8_t *buf2, size_t *buf2_max) {
+    uint64_t stream_id = 0;
+    uint64_t offset = 0;
+    size_t data_length = 0;
+    int fin = 0;
+    size_t stream_hdr_size = 0;
+
+    size_t buf1_consumed = 0;
+    size_t buf1_data_length = 0;
+    size_t buf2_consumed = 0;
+    size_t buf2_data_length = 0;
+
+    if(picoquic_parse_stream_header(bytes, bytes_max, &stream_id, &offset, &data_length, &fin, &stream_hdr_size) == -1) {
+        return -1;
+    }
+
+    if (data_length == 0) {
+        data_length = bytes_max - stream_hdr_size;
+    }
+
+    if (*buf1_max <= stream_hdr_size || *buf2_max <= stream_hdr_size || (*buf1_max + *buf2_max - stream_hdr_size - stream_hdr_size) <= data_length) {
+        // Pessimistic check on buffer sizes
+        return -1;
+    }
+
+    uint8_t first_byte = picoquic_frame_type_stream_range_min | 0x02;
+    if (offset) {
+        first_byte |= 0x04;
+    }
+    buf1[buf1_consumed++] = first_byte;
+    buf1_consumed += picoquic_varint_encode(buf1 + buf1_consumed, *buf1_max - buf1_consumed, stream_id);
+    if (offset) {
+        buf1_consumed += picoquic_varint_encode(buf1 + buf1_consumed, *buf1_max - buf1_consumed, offset);
+    }
+    buf1_data_length = *buf1_max - buf1_consumed; // We might miss a one-byte opportunity but we don't care
+    buf1_data_length -= picoquic_varint_len(buf1_data_length);
+    if (buf1_data_length >= data_length) {
+        buf1_data_length = data_length;
+        if (fin)
+            buf1[0] |= 0x01;
+    }
+    buf1_consumed += picoquic_varint_encode(buf1 + buf1_consumed, *buf1_max - buf1_consumed, buf1_data_length);
+    memcpy(buf1 + buf1_consumed, bytes + stream_hdr_size, buf1_data_length);
+    buf1_consumed += buf1_data_length;
+
+
+    if (buf1_data_length < data_length) {
+        first_byte |= 0x04;
+        if (fin) {
+            first_byte |= 0x01;
+        }
+        buf2[buf2_consumed++] = first_byte;
+        buf2_consumed += picoquic_varint_encode(buf2 + buf2_consumed, *buf2_max - buf2_consumed, stream_id);
+        buf2_consumed += picoquic_varint_encode(buf2 + buf2_consumed, *buf2_max - buf2_consumed, offset + buf1_data_length);
+        buf2_data_length = data_length - buf1_data_length; // Increasing the offset might cost one byte more, but buf2 should be large enough
+        buf2_consumed += picoquic_varint_encode(buf2 + buf2_consumed, *buf2_max - buf2_consumed, buf2_data_length);
+        memcpy(buf2 + buf2_consumed, bytes + stream_hdr_size + buf1_data_length, buf2_data_length);
+        buf2_consumed += buf2_data_length;
+    }
+
+    *buf1_max = buf1_consumed;
+    *buf2_max = buf2_consumed;
+
+    return stream_hdr_size + data_length;
+}
+
 /* Returns 0 if ok */
 int picoquic_check_or_create_directory(char* path) {
     struct stat sb;

@@ -161,6 +161,154 @@ const picoquic_version_parameters_t picoquic_supported_versions[] = {
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
 
+
+int picoquic_get_plugin_stats(picoquic_cnx_t *cnx, plugin_stat_t **statsptr, int nmemb) {
+
+    protocol_operation_struct_t *ops = (cnx->ops);
+    protocol_operation_struct_t *current_post, *tmp_protoop;
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    observer_node_t *cur;
+    plugin_stat_t *stats = *statsptr;
+    if (!stats || nmemb == 0) {
+        nmemb = 100;
+        stats = malloc(nmemb*sizeof(plugin_stat_t));
+        if (!stats) return -1;
+    }
+
+    int current_position = 0;
+
+
+
+    HASH_ITER(hh, ops, current_post, tmp_protoop) {
+        if (current_position == nmemb) {
+            nmemb *= 2;
+            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+            if (!stats) return -1;
+        }
+
+        if (current_post->is_parametrable) {
+            HASH_ITER(hh, current_post->params, current_popst, tmp_popst) {
+                if (current_popst->replace) {
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = current_popst->replace->p->name;
+                    stats[current_position].replace = true;
+                    stats[current_position].pre = false;
+                    stats[current_position].post = false;
+                    stats[current_position].is_param = true;
+                    stats[current_position].param = current_popst->param;
+                    stats[current_position].count = current_popst->replace->count;
+                    stats[current_position].total_execution_time = current_popst->replace->total_execution_time;
+                    current_position++;
+                }
+
+                if (current_popst->pre) {
+                    cur = current_popst->pre;
+                    while (cur) {
+                        if (current_position == nmemb) {
+                            nmemb *= 2;
+                            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                            if (!stats) return -1;
+                        }
+                        stats[current_position].protoop_name = current_post->name;
+                        stats[current_position].pluglet_name = cur->observer->p->name;
+                        stats[current_position].replace = false;
+                        stats[current_position].pre = true;
+                        stats[current_position].post = false;
+                        stats[current_position].is_param = true;
+                        stats[current_position].param = current_popst->param;
+                        stats[current_position].count = cur->observer->count;
+                        stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                        cur = cur->next;
+                        current_position++;
+                    }
+                }
+                if (current_popst->post) {
+                    cur = current_popst->post;
+                    while (cur) {
+                        if (current_position == nmemb) {
+                            nmemb *= 2;
+                            stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                            if (!stats) return -1;
+                        }
+                        stats[current_position].protoop_name = current_post->name;
+                        stats[current_position].pluglet_name = cur->observer->p->name;
+                        stats[current_position].replace = false;
+                        stats[current_position].pre = false;
+                        stats[current_position].post = true;
+                        stats[current_position].is_param = true;
+                        stats[current_position].param = current_popst->param;
+                        stats[current_position].count = cur->observer->count;
+                        stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                        cur = cur->next;
+                        current_position++;
+                    }
+                }
+            }
+        } else {
+            current_popst = current_post->params;
+            if (current_popst->replace) {
+                if (current_position == nmemb) {
+                    nmemb *= 2;
+                    stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                    if (!stats) return -1;
+                }
+                stats[current_position].protoop_name = current_post->name;
+                stats[current_position].pluglet_name = current_popst->replace->p->name;
+                stats[current_position].replace = true;
+                stats[current_position].pre = false;
+                stats[current_position].post = false;
+                stats[current_position].is_param = false;
+                stats[current_position].count = current_popst->replace->count;
+                stats[current_position].total_execution_time = current_popst->replace->total_execution_time;
+                current_position++;
+            }
+
+            if (current_popst->pre) {
+                cur = current_popst->pre;
+                while (cur) {
+                    if (current_position == nmemb) {
+                        nmemb *= 2;
+                        stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                        if (!stats) return -1;
+                    }
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = cur->observer->p->name;
+                    stats[current_position].replace = false;
+                    stats[current_position].pre = true;
+                    stats[current_position].post = false;
+                    stats[current_position].is_param = false;
+                    stats[current_position].count = cur->observer->count;
+                    stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                    cur = cur->next;
+                    current_position++;
+                }
+            }
+            if (current_popst->post) {
+                cur = current_popst->post;
+                while (cur) {
+                    if (current_position == nmemb) {
+                        nmemb *= 2;
+                        stats = realloc(stats, nmemb*sizeof(plugin_stat_t));
+                        if (!stats) return -1;
+                    }
+                    stats[current_position].protoop_name = current_post->name;
+                    stats[current_position].pluglet_name = cur->observer->p->name;
+                    stats[current_position].replace = false;
+                    stats[current_position].pre = false;
+                    stats[current_position].post = true;
+                    stats[current_position].is_param = false;
+                    stats[current_position].count = cur->observer->count;
+                    stats[current_position].total_execution_time = cur->observer->total_execution_time;
+                    cur = cur->next;
+                    current_position++;
+                }
+            }
+        }
+    }
+    *statsptr = stats;
+    return current_position;
+}
+
 void picoquic_free_protoops(protocol_operation_struct_t * ops)
 {
     protocol_operation_struct_t *current_post, *tmp_protoop;
@@ -237,6 +385,7 @@ void picoquic_free_plugins(protoop_plugin_t *plugins)
         /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
         queue_free(current_p->block_queue_cc);
         queue_free(current_p->block_queue_non_cc);
+        destroy_memory_management(current_p);
         free(current_p);
     }
 }
@@ -328,9 +477,7 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
     return 0;
 }
 
-
-int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
-{
+static int inject_plugin(plugin_list_t *quic_plugins, const char** plugin_fnames, int plugins) {
     int err = 0;
     char buf[256];
     size_t buf_len;
@@ -341,34 +488,44 @@ int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fn
             break;
         }
         buf_len = strlen(buf);
-        quic->plugins_to_inject.elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
-        if (quic->plugins_to_inject.elems[i].plugin_name == NULL) {
+        quic_plugins->elems[i].plugin_name = malloc(sizeof(char) * (buf_len + 1));
+        if (quic_plugins->elems[i].plugin_name == NULL) {
             break;
         }
-        quic->plugins_to_inject.elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
-        if (quic->plugins_to_inject.elems[i].plugin_path == NULL) {
-            free(quic->plugins_to_inject.elems[i].plugin_name);
+        quic_plugins->elems[i].plugin_path = malloc(sizeof(char) * (strlen(plugin_fnames[i]) + 1));
+        if (quic_plugins->elems[i].plugin_path == NULL) {
+            free(quic_plugins->elems[i].plugin_name);
             break;
         }
-        strcpy(quic->plugins_to_inject.elems[i].plugin_name, buf);
-        strcpy(quic->plugins_to_inject.elems[i].plugin_path, plugin_fnames[i]);
-        printf("Plugin with path %s and name %s\n", quic->plugins_to_inject.elems[i].plugin_path, quic->plugins_to_inject.elems[i].plugin_name);
-        quic->plugins_to_inject.name_num_bytes += buf_len;
-        quic->plugins_to_inject.size++;
+        strcpy(quic_plugins->elems[i].plugin_name, buf);
+        strcpy(quic_plugins->elems[i].plugin_path, plugin_fnames[i]);
+        quic_plugins->name_num_bytes += buf_len;
+        quic_plugins->size++;
     }
 
     if (err != 0) {
         /* Free everything! */
         for (int j = 0; j < i; j++) {
-            free(quic->plugins_to_inject.elems[i].plugin_name);
-            free(quic->plugins_to_inject.elems[i].plugin_path);
+            free(quic_plugins->elems[i].plugin_name);
+            free(quic_plugins->elems[i].plugin_path);
         }
-        quic->plugins_to_inject.size = 0;
-        quic->plugins_to_inject.name_num_bytes = 0;
+        quic_plugins->size = 0;
+        quic_plugins->name_num_bytes = 0;
         return 1;
     }
 
     return 0;
+}
+
+
+int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    return inject_plugin(&quic->plugins_to_inject, plugin_fnames, plugins);
+}
+
+int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins)
+{
+    return inject_plugin(&quic->local_plugins, plugin_fnames, plugins);
 }
 
 
@@ -467,6 +624,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
             /* If plugins should be inserted, a dedicated call will occur */
             quic->plugins_to_inject.size = 0;
             quic->plugins_to_inject.name_num_bytes = 0;
+            quic->local_plugins.size = 0;
+            quic->local_plugins.name_num_bytes = 0;
         }
     }
 
@@ -1138,7 +1297,6 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             /* Moved packet context initialization into path creation */
 
             cnx->latest_progress_time = start_time;
-            cnx->handshake_complete_time = 0;
 
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].stream_id = 0;
@@ -1193,6 +1351,9 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         cnx->reserved_frames = queue_init();
         /* And the retry queue */
         cnx->retry_frames = queue_init();
+        for (int pc = 0; pc < picoquic_nb_packet_context; pc++) {
+            cnx->rtx_frames[pc] = queue_init();
+        }
         /* TODO change this arbitrary value */
         cnx->core_rate = 500;
     }
@@ -1324,9 +1485,6 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        if (state == picoquic_state_client_ready || state == picoquic_state_server_ready) {
-            cnx->handshake_complete_time = picoquic_current_time();
-        }
         LOG_EVENT(cnx, "CONNECTION", "NEW_STATE", "", "{\"state\": \"%s\"}", picoquic_log_state_name(cnx->cnx_state));
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
@@ -1851,6 +2009,14 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     cnx->congestion_alg->alg_delete(cnx, cnx->path[i]);
                 }
 
+                /* Free the metadata */
+                if (cnx->path[i]->metadata) {
+                    plugin_struct_metadata_t *current_md, *tmp;
+                    HASH_ITER(hh, cnx->path[i]->metadata, current_md, tmp) {
+                        HASH_DEL(cnx->path[i]->metadata, current_md);
+                        free(current_md);
+                    }
+                }
                 free(cnx->path[i]);
                 cnx->path[i] = NULL;
             }
@@ -1875,8 +2041,8 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                     /* This remains safe to do this, as the memory of the frame context will be freed when cnx will */
                     while(queue_peek(current_p->block_queue_cc) != NULL) {queue_dequeue(current_p->block_queue_cc);}
                     while(queue_peek(current_p->block_queue_non_cc) != NULL) {queue_dequeue(current_p->block_queue_non_cc);}
-                    /* The additional critical data that should be reset is the opaque data in plugins */
-                    memset(current_p->opaque_metas, 0, sizeof(current_p->opaque_metas));
+                    /* First destroy the memory */
+                    destroy_memory_management(current_p);
                     /* And reinit the memory */
                     init_memory_management(current_p);
                     /* And copy the name of the plugin */
@@ -1894,6 +2060,15 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         } else {
             /* Free protocol operations and plugins */
             picoquic_free_protoops_and_plugins(cnx);
+        }
+
+        /* Free the metadata */
+        if (cnx->metadata) {
+            plugin_struct_metadata_t *current_md, *tmp;
+            HASH_ITER(hh, cnx->metadata, current_md, tmp) {
+                HASH_DEL(cnx->metadata, current_md);
+                free(current_md);
+            }
         }
 
         /* Free possibly allocated memory in pids to request */
@@ -2098,21 +2273,31 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
 }
 
 void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL,
-        socket);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL,
-        socket);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, NULL, socket);
 }
 
-void picoquic_received_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, ph, path, length);
+void picoquic_received_segment(picoquic_cnx_t *cnx) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, NULL, NULL);
 }
 
-void picoquic_before_sending_segment(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, NULL, ph, path, packet, length);
+void picoquic_segment_prepared(picoquic_cnx_t *cnx, picoquic_packet_t *pkt) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SEGMENT_PREPARED, NULL, pkt);
+}
+
+void picoquic_segment_aborted(picoquic_cnx_t *cnx) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SEGMENT_ABORTED, NULL, NULL);
+}
+
+void picoquic_header_parsed(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t* path, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_HEADER_PARSED, NULL, ph, path, length);
+}
+
+void picoquic_header_prepared(picoquic_cnx_t *cnx, picoquic_packet_header *ph, picoquic_path_t *path, picoquic_packet_t *packet, size_t length) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_HEADER_PREPARED, NULL, ph, path, packet, length);
 }
 
 /*
@@ -2483,9 +2668,11 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     /** \todo Those should be replaced by a pre/post of incoming_encrypted or incoming_segment */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_PACKET, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SEGMENT_PREPARED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_SEGMENT_ABORTED, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_RECEIVED_SEGMENT, &protoop_noop);
-    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT, &protoop_noop);
-
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_HEADER_PARSED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_HEADER_PREPARED, &protoop_noop);
     /** \todo document these */
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_LOG_EVENT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PUSH_LOG_CONTEXT, &protoop_noop);

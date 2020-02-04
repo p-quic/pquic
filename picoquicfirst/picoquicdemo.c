@@ -67,6 +67,8 @@ static const char* default_server_key_file = "..\\certs\\key.pem";
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <strings.h>
+#include <ctype.h>
 
 #ifndef __USE_XOPEN2K
 #define __USE_XOPEN2K
@@ -101,7 +103,7 @@ static const char* default_server_key_file = "certs/key.pem";
 
 static const int default_server_port = 4443;
 static const char* default_server_name = "::";
-static const char* ticket_store_filename = "demo_ticket_store.bin";
+static char* ticket_store_filename = "demo_ticket_store.bin";
 
 static const char* bad_request_message = "<html><head><title>Bad Request</title></head><body>Bad request. Why don't you try \"GET /doc-456789.html\"?</body></html>";
 
@@ -208,6 +210,81 @@ static void first_server_callback_delete_context(picoquic_first_server_callback_
         free(ctx->buffer);
     }
     free(ctx);
+}
+
+static void write_stats(picoquic_cnx_t *cnx, char *filename) {
+    if (!filename) return;
+    FILE *out = stdout;
+    bool file = false;
+    if (strcmp(filename, "-")) {
+        out = fopen(filename, "w");
+        if (!out) {
+            fprintf(stderr, "impossible to write stats on file %s\n", filename);
+            return;
+        }
+        file = true;
+    }
+    plugin_stat_t *stats = malloc(100*sizeof(plugin_stat_t));
+    int nstats = picoquic_get_plugin_stats(cnx, &stats, 100);
+    printf("%d stats\n", nstats);
+    if (nstats != -1) {
+        const int size = 300;
+        char str[size];
+        char buf[size];
+        str[0] = '\0';
+        str[size-1] = '\0';
+        buf[0] = '\0';
+        buf[size-1] = '\0';
+        for (int i = 0 ; i < nstats ; i++) {
+            if (stats[i].pre){
+                strcpy(str, "pre");
+            } else if (stats[i].post) {
+                strcpy(str, "post");
+            } else {
+                strcpy(str, "replace");
+            }
+            snprintf(buf, size-1, "%s %s", str, stats[i].protoop_name);
+            strncpy(str, buf, size-1);
+            if (stats[i].is_param) {
+                snprintf(buf, size-1, "%s (param 0x%hx)", str, stats[i].param);
+                strncpy(str, buf, size-1);
+            }
+            snprintf(buf, size-1, "%s (%s)", str, stats[i].pluglet_name);
+            strncpy(str, buf, size-1);
+            snprintf(buf, size-1, "%s: %lu calls", str, stats[i].count);
+            strncpy(str, buf, size-1);
+            double average_execution_time = stats[i].count ? (((double) stats[i].total_execution_time)/((double) stats[i].count)) : 0;
+            snprintf(buf, size-1, "%s, (avg=%fms, tot=%fms)", str, average_execution_time/1000, ((double) stats[i].total_execution_time)/1000);
+            strncpy(str, buf, size-1);
+            fprintf(out, "%s\n", str);
+        }
+    }
+    free(stats);
+    if (file) fclose(out);
+}
+
+static int get_request_length(char *command, size_t command_length)
+{
+    if (!strstr(command, "doc")) {
+        return -1;
+    }
+    char *start = rindex(command, '-');
+    if (!start) {
+        return -1;
+    }
+    start++;
+    char buf[11];
+    int i;
+    for (i = 0; i < 11 && isdigit(start[i]); i++) {
+        buf[i] = start[i];
+    }
+    buf[i] = 0;
+    char *error = NULL;
+    int ret = strtol(buf, &error, 10);
+    if (strlen(error) > 0) {
+        return -1;
+    }
+    return ret;
 }
 
 static void first_server_callback(picoquic_cnx_t* cnx,
@@ -330,11 +407,14 @@ static void first_server_callback(picoquic_cnx_t* cnx,
             stream_ctx->status = picoquic_first_server_stream_status_finished;
 
             if (response_length > 0) {
+                stream_ctx->response_length = get_request_length((char *) stream_ctx->command, stream_ctx->command_length);
+                if (stream_ctx->response_length < 0 || stream_ctx->response_length > response_length) {
+                    stream_ctx->response_length = response_length;
+                }
                 printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
                 printf("Server CB, Stream: %" PRIu64 ", Sending %lu-byte static response\n",
-                       stream_id, response_length);
-                stream_ctx->response_length = response_length;
-                picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, response_length, 1);
+                       stream_id, stream_ctx->response_length);
+                picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, stream_ctx->response_length, 1);
             } else {
                 char buf[256];
                 if (http0dot9_get(stream_ctx->command, stream_ctx->command_length,
@@ -382,7 +462,7 @@ int quic_server(const char* server_name, int server_port,
     int just_once, int do_hrr, cnx_id_cb_fn cnx_id_callback,
     void* cnx_id_callback_ctx, uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE],
     int mtu_max, const char** local_plugin_fnames, int local_plugins,
-    const char** both_plugin_fnames, int both_plugins, FILE *F_log, char *qlog_filename)
+    const char** both_plugin_fnames, int both_plugins, FILE *F_log, FILE *F_tls_secrets, char *qlog_filename, char *stats_filename, bool preload_plugins)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -403,6 +483,7 @@ int quic_server(const char* server_name, int server_port,
     picoquic_stateless_packet_t* sp;
     int64_t delay_max = 10000000;
     int new_context_created = 0;
+    int qlog_fd = -1;
 
 #ifdef STATIC_RESPONSE
     response_buffer = (const char *) malloc(STATIC_RESPONSE);
@@ -433,14 +514,35 @@ int quic_server(const char* server_name, int server_port,
             qserver->mtu_max = mtu_max;
             /* TODO: add log level, to reduce size in "normal" cases */
             PICOQUIC_SET_LOG(qserver, F_log);
+            PICOQUIC_SET_TLS_SECRETS_LOG(qserver, F_tls_secrets);
 
             /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
-            ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins);
-            if (ret != 0) {
+            if (ret == 0 && (ret = picoquic_set_plugins_to_inject(qserver, both_plugin_fnames, both_plugins)) != 0) {
                 printf("Error when setting plugins to inject\n");
+            }
+            if (ret == 0 && (ret = picoquic_set_local_plugins(qserver, local_plugin_fnames, local_plugins)) != 0) {
+                printf("Error when setting local plugins to inject\n");
             }
         }
     }
+
+
+    if (ret == 0 && preload_plugins) {
+        // pre-load a mock connection and insert the plugins
+        picoquic_connection_id_t dst;
+        dst.id_len = 4;
+        picoquic_connection_id_t src;
+        src.id_len = 4;
+        struct sockaddr_storage a;
+        picoquic_cnx_t *tmp_cnx = picoquic_create_cnx(qserver, dst, src, (struct sockaddr *) &a, picoquic_current_time(), 0xff00000b, NULL, NULL, 0);
+
+        if (local_plugins > 0) {
+            plugin_insert_plugins_from_fnames(tmp_cnx, local_plugins, (char **) local_plugin_fnames);
+        }
+
+        picoquic_delete_cnx(tmp_cnx);
+    }
+
 
     /* Wait for packets */
     while (ret == 0 && (just_once == 0 || cnx_server == NULL || picoquic_get_cnx_state(cnx_server) != picoquic_state_disconnected)) {
@@ -490,18 +592,10 @@ int quic_server(const char* server_name, int server_port,
 
                 if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
-
-                    /* We first insert all locally asked plugins */
-                    if (local_plugins > 0) {
-                        printf("%" PRIx64 ": ",
-                                picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_server)));
-                        plugin_insert_plugins_from_fnames(cnx_server, local_plugins, (char **) local_plugin_fnames);
-                    }
-
                     picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
-                        int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                        qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                         if (qlog_fd != -1) {
                             protoop_prepare_and_run_extern_noparam(cnx_server, &set_qlog_file, NULL, qlog_fd);
                         } else {
@@ -553,14 +647,17 @@ int quic_server(const char* server_name, int server_port,
                             (int)cnx_next->nb_retransmission_total, (int)cnx_next->nb_spurious,
                             (int)cnx_next->path[0]->max_reorder_gap, (int)cnx_next->path[0]->max_spurious_rtt);
 
+                        if (qlog_fd != -1) {
+                            close(qlog_fd);
+                        }
+
                         if (cnx_next == cnx_server) {
                             cnx_server = NULL;
                         }
-
+                        write_stats(cnx_next, stats_filename);
                         picoquic_delete_cnx(cnx_next);
 
                         fflush(stdout);
-
                         break;
                     } else if (ret == 0) {
                         int peer_addr_len = 0;
@@ -582,7 +679,11 @@ int quic_server(const char* server_name, int server_port,
 
                             /* QDC: I hate having those lines here... But it is the only place to hook before sending... */
                             /* Both Linux and Windows use separate sockets for V4 and V6 */
+#ifndef NS3
                             int socket_index = (peer_addr->sa_family == AF_INET) ? 1 : 0;
+#else
+                            int socket_index = 0;
+#endif
                             picoquic_before_sending_packet(cnx_next, server_sockets.s_socket[socket_index]);
 
                             (void)picoquic_send_through_server_sockets(&server_sockets,
@@ -856,9 +957,9 @@ static void first_client_callback(picoquic_cnx_t* cnx,
 
 int quic_client(const char* ip_address_text, int server_port, const char * sni, 
     const char * root_crt,
-    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log,
+    uint32_t proposed_version, int force_zero_share, int mtu_max, FILE* F_log, FILE* F_tls_secrets,
     const char** local_plugin_fnames, int local_plugins,
-    int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path)
+    int get_size, int only_stream_4, char *qlog_filename, char *plugin_store_path, char *stats_filename)
 {
     /* Start: start the QUIC process with cert and key files */
     int ret = 0;
@@ -891,6 +992,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int new_context_created = 0;
     char buf[25];
     int waiting_transport_parameters = 1;
+    int qlog_fd = -1;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
 
@@ -903,10 +1005,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
     if (ret == 0) {
         /* Make the most possible flexible socket */
-        fd = socket(/*server_address.ss_family*/AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        fd = socket(/*server_address.ss_family*/DEFAULT_SOCK_AF, SOCK_DGRAM, IPPROTO_UDP);
         if (fd == INVALID_SOCKET) {
             ret = -1;
-        } else {
+        } else if (DEFAULT_SOCK_AF == AF_INET6) {
             int val = 1;
             ret = setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG, &val, sizeof(val));
             if (ret != 0) {
@@ -951,6 +1053,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             qclient->mtu_max = mtu_max;
 
             PICOQUIC_SET_LOG(qclient, F_log);
+            PICOQUIC_SET_TLS_SECRETS_LOG(qclient, F_tls_secrets);
 
             if (sni == NULL) {
                 /* Standard verifier would crash */
@@ -992,7 +1095,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             }
 
             if (qlog_filename) {
-                int qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
+                qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                 if (qlog_fd != -1) {
                     protoop_prepare_and_run_extern_noparam(cnx_client, &set_qlog_file, NULL, qlog_fd);
                 } else {
@@ -1062,14 +1165,10 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     /* Wait for packets */
     while (ret == 0 && picoquic_get_cnx_state(cnx_client) != picoquic_state_disconnected) {
         int bytes_recv;
-        if (picoquic_is_cnx_backlog_empty(cnx_client) && callback_ctx.nb_open_streams == 0) {
-            delay_max = 10000;
-        } else {
-            delay_max = 10000000;
-        }
 
         from_length = to_length = sizeof(struct sockaddr_storage);
 
+        uint64_t select_time = picoquic_current_time();
         bytes_recv = picoquic_select(&fd, 1, &packet_from, &from_length,
             &packet_to, &to_length, &if_index_to,
             buffer, sizeof(buffer),
@@ -1079,7 +1178,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
 
         if (bytes_recv != 0) {
             if (F_log != NULL) {
-                fprintf(F_log, "Select returns %d, from length %u\n", bytes_recv, from_length);
+                fprintf(F_log, "Select returns %d, from length %u, after %d (delta_t was %d)\n", bytes_recv, from_length, current_time - select_time, delta_t);
             }
 
             if (bytes_recv > 0 && F_log != NULL)
@@ -1253,7 +1352,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         uint8_t* ticket;
         uint16_t ticket_length;
 
-        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, picoquic_current_time(), sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length)) {
+        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, picoquic_current_time(), sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length) && F_log) {
             fprintf(F_log, "Received ticket from %s:\n", sni);
             picoquic_log_picotls_ticket(F_log, picoquic_null_connection_id, ticket, ticket_length);
         }
@@ -1261,6 +1360,12 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         if (picoquic_save_tickets(qclient->p_first_ticket, picoquic_current_time(), ticket_store_filename) != 0) {
             fprintf(stderr, "Could not store the saved session tickets.\n");
         }
+
+        if (qlog_fd != -1) {
+            close(qlog_fd);
+        }
+
+        write_stats(cnx_client, stats_filename);
         picoquic_free(qclient);
     }
 
@@ -1325,7 +1430,10 @@ void usage()
     fprintf(stderr, "  -Q file               plugin file to be injected at both side (default: NULL). Can be used several times to require several plugins. Only for server.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
     fprintf(stderr, "  -n sni                sni (default: server name)\n");
-    fprintf(stderr, "  -t file               root trust file");
+    fprintf(stderr, "  -t file               root trust file\n");
+    fprintf(stderr, "  -R                    enforce 1RTT\n");
+    fprintf(stderr, "  -X file               export the TLS secrets in the specified file\n");
+    fprintf(stderr, "  -L                    if server, preload the specified protocol plugins (avoids latency on the first connection)\n");
     fprintf(stderr, "  -1                    Once\n");
     fprintf(stderr, "  -r                    Do Reset Request\n");
     fprintf(stderr, "  -s <64b 64b>          Reset seed\n");
@@ -1339,6 +1447,7 @@ void usage()
     fprintf(stderr, "  -l file               Log file\n");
     fprintf(stderr, "  -m mtu_max            Largest mtu value that can be tried for discovery\n");
     fprintf(stderr, "  -q output.qlog        qlog output file\n");
+    fprintf(stderr, "  -S filename           if set, write plugin statistics in the specified file (- for stdout)\n");
     fprintf(stderr, "  -h                    This help message\n");
     exit(1);
 }
@@ -1375,6 +1484,7 @@ int main(int argc, char** argv)
     const char* server_cert_file = default_server_cert_file;
     const char* server_key_file = default_server_key_file;
     const char* log_file = NULL;
+    const char* tls_secrets_file = NULL;
     const char * sni = NULL;
     const char * local_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
     const char * both_plugin_fnames[PICOQUIC_DEMO_MAX_PLUGIN_FILES];
@@ -1397,6 +1507,7 @@ int main(int argc, char** argv)
     uint64_t reset_seed_x[2];
     int mtu_max = 0;
     char *plugin_store_path = NULL;
+    bool preload_plugins = false;
 
 #ifdef _WINDOWS
     WSADATA wsaData;
@@ -1408,10 +1519,11 @@ int main(int argc, char** argv)
     int only_stream_4 = 0;
 
     char *qlog_filename = NULL;
+    char *stats_filename = NULL;
 
     /* Get the parameters */
     int opt;
-    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:14rhzi:s:l:m:n:t:q:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:P:C:Q:G:p:v:L14rhzRX:S:i:s:l:m:n:t:q:")) != -1) {
         switch (opt) {
         case 'c':
             server_cert_file = optarg;
@@ -1458,6 +1570,9 @@ int main(int argc, char** argv)
         case '1':
             just_once = 1;
             break;
+        case 'L':
+            preload_plugins = true;
+            break;
         case 'r':
             do_hrr = 1;
             break;
@@ -1485,6 +1600,9 @@ int main(int argc, char** argv)
         case 'l':
             log_file = optarg;
             break;
+        case 'X':
+            tls_secrets_file = optarg;
+            break;
         case 'm':
             mtu_max = atoi(optarg);
             if (mtu_max <= 0 || mtu_max > PICOQUIC_MAX_PACKET_SIZE) {
@@ -1503,6 +1621,12 @@ int main(int argc, char** argv)
             break;
         case 'q':
             qlog_filename = optarg;
+            break;
+        case 'S':
+            stats_filename = optarg;
+            break;
+        case 'R':
+            ticket_store_filename = NULL;
             break;
         case 'h':
             usage();
@@ -1548,6 +1672,23 @@ int main(int argc, char** argv)
         }
     }
 
+
+    FILE* F_tls_secrets = NULL;
+
+    if (tls_secrets_file != NULL && strcmp(tls_secrets_file, "/dev/null") != 0) {
+#ifdef _WINDOWS
+        if (fopen_s(&F_tls_secrets, tls_secrets_file, "w") != 0) {
+                F_tls_secrets = NULL;
+            }
+#else
+        F_tls_secrets = fopen(tls_secrets_file, "w");
+#endif
+        if (F_tls_secrets == NULL) {
+            fprintf(stderr, "Could not open the log file <%s>\n", tls_secrets_file);
+        }
+    }
+
+
     if (!F_log && (!log_file || strcmp(log_file, "/dev/null") != 0)) {
         F_log = stdout;
     }
@@ -1571,8 +1712,11 @@ int main(int argc, char** argv)
             (cnx_id_mask_is_set == 0) ? NULL : cnx_id_callback,
             (cnx_id_mask_is_set == 0) ? NULL : (void*)&cnx_id_cbdata,
             (uint8_t*)reset_seed, mtu_max, local_plugin_fnames, local_plugins,
-            both_plugin_fnames, both_plugins, F_log, qlog_filename);
+            both_plugin_fnames, both_plugins, F_log, F_tls_secrets, qlog_filename, stats_filename, preload_plugins);
         printf("Server exit with code = %d\n", ret);
+        if (F_tls_secrets != NULL && F_tls_secrets != stdout) {
+            fclose(F_tls_secrets);
+        }
     } else {
         if (F_log != NULL) {
             debug_printf_push_stream(F_log);
@@ -1586,12 +1730,15 @@ int main(int argc, char** argv)
         if (local_plugins > 0) {
             fprintf(stderr, "WARNING: direct plugin insertion at client might interfere with remote plugin injection...\n");
         }
-        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path);
+        ret = quic_client(server_name, server_port, sni, root_trust_file, proposed_version, force_zero_share, mtu_max, F_log, F_tls_secrets, local_plugin_fnames, local_plugins, get_size, only_stream_4, qlog_filename, plugin_store_path, stats_filename);
 
         printf("Client exit with code = %d\n", ret);
 
         if (F_log != NULL && F_log != stdout) {
             fclose(F_log);
+        }
+        if (F_tls_secrets != NULL && F_tls_secrets != stdout) {
+            fclose(F_tls_secrets);
         }
     }
 }

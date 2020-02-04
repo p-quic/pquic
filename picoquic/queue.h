@@ -68,6 +68,15 @@ void *queue_dequeue(queue_t *q);
 void *queue_peek(const queue_t *q);
 
 /**
+ * Peek the first element in any of the queues in \p q. \p q is not modified.
+ * \param[in] q An array of queues.
+ * \param[in] nq The number of queues in q. Must be positive.
+ *
+ * \return The data contained in the first non-null element of the queue.
+ */
+void *queue_peek_any(const queue_t **q, int nq);
+
+/**
  * Get the number of elements in the queue.
  * \param[in] q The queue to get the size.
  *

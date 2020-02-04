@@ -124,6 +124,7 @@ int random_tester_test();
 int cubic_test();
 int datagram_test();
 int microbench_plugin_run_test();
+int split_stream_frame_test();
 
 #ifdef __cplusplus
 }

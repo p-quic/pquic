@@ -96,6 +96,8 @@ typedef struct pluglet {
 	void *vm;
 	ubpf_jit_fn fn;
 	protoop_plugin_t *p;
+	uint64_t count;
+	uint64_t total_execution_time;
 } pluglet_t;
 
 pluglet_t *load_elf(void *code, size_t code_len, uint64_t memory_ptr, uint32_t memory_size);

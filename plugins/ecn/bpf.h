@@ -39,11 +39,11 @@ static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 
 static bpf_data *get_bpf_data(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_data **bpfd_ptr = (bpf_data **) get_opaque_data(cnx, ECN_OPAQUE_ID, sizeof(bpf_data *), &allocated);
-    if (!bpfd_ptr) return NULL;
-    if (allocated) {
-        *bpfd_ptr = initialize_bpf_data(cnx);
+    bpf_data *bpfd_ptr = (bpf_data *) get_cnx_metadata(cnx, ECN_OPAQUE_ID);
+    if (!bpfd_ptr) {
+        bpfd_ptr = initialize_bpf_data(cnx);
+        // Save pointer for future use
+        set_cnx_metadata(cnx, ECN_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
     return *bpfd_ptr;
 }

@@ -32,6 +32,7 @@
 
 #include "string.h"
 #include <stdint.h>
+#include <stdio.h>
 
 /*
  * sizeof(word) MUST BE A POWER OF TWO
@@ -161,4 +162,14 @@ void * __attribute__((weak)) my_memset(void * dest, int c, size_t n)
     for (; n; n--, ws++) *ws = wc;
 
     return dest;
+}
+
+void *my_memcpy_dbg(void *dest, const void *src, size_t count, char *file, int line) {
+    printf("MY MEMCPY %s:%d -- %p -> %p (%zu bytes)\n", file, line, src, dest, count);
+    return my_memcpy(dest, src, count);
+}
+
+void *my_memset_dbg(void *dest, int c, size_t count, char *file, int line) {
+    printf("MY MEMSET %s:%d -- '%d' -> %p (%zu bytes)\n", file, line, c, dest, count);
+    return my_memset(dest, c, count);
 }

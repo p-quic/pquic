@@ -694,6 +694,22 @@ static int picoquic_update_traffic_key_callback(ptls_update_traffic_key_t * self
     debug_dump(secret, (int)cipher->hash->digest_size);
 #endif
 
+    if (cnx->quic->F_tls_secrets) {
+        static const char *log_labels[2][4] = {
+                {NULL, "QUIC_CLIENT_EARLY_TRAFFIC_SECRET", "QUIC_CLIENT_HANDSHAKE_TRAFFIC_SECRET", "QUIC_CLIENT_TRAFFIC_SECRET_0"},
+                {NULL, NULL, "QUIC_SERVER_HANDSHAKE_TRAFFIC_SECRET", "QUIC_SERVER_TRAFFIC_SECRET_0"}};
+
+        fprintf(cnx->quic->F_tls_secrets, "%s ", log_labels[ptls_is_server(tls) == is_enc][epoch]);
+        ptls_iovec_t crandom = ptls_get_client_random(tls);
+        for (int i = 0 ; i < crandom.len ; i++) {
+            fprintf(cnx->quic->F_tls_secrets, "%02hhx", crandom.base[i]);
+        }
+        fprintf(cnx->quic->F_tls_secrets, " ");
+        for (int i = 0 ; i < cipher->hash->digest_size ; i++) {
+            fprintf(cnx->quic->F_tls_secrets, "%02hhx", ((uint8_t *) secret)[i]);
+        }
+        fprintf(cnx->quic->F_tls_secrets, "\n");
+    }
     int ret = picoquic_set_key_from_secret(cnx, cipher, is_enc, epoch, secret);
 
     return ret;

@@ -12,7 +12,8 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
         /* Again, still checking */
         /* Try to send two CIDs for 2 paths IDS */
         bpf_data *bpfd = get_bpf_data(cnx);
-        if (bpfd->nb_proposed_snt == 0) {
+        if (bpfd->nb_receive_proposed == 0) {
+            /* TODO do something smarter than this... */
             /* Prepare MP_NEW_CONNECTION_IDs */
             for (uint64_t i = 1; i < MAX_PATHS + 1; i++) {
                 reserve_mp_new_connection_id_frame(cnx, i);

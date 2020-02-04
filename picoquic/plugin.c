@@ -358,32 +358,66 @@ bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_pl
     return plugin_plug_elf(cnx, p, inserted_pid, *param, *pte, abs_path) == 0;
 }
 
-char* plugin_parse_first_plugin_line(char *first_line) {
-    char *token = strsep(&first_line, " ");
-    if (token == NULL) {
+int plugin_parse_parameter(char *param_token, plugin_parameters_t *params) {
+    if (strcmp(param_token, "rate_unlimited") == 0) {
+        params->rate_unlimited = true;
+        return 0;
+    } else if (strcmp(param_token, "dynamic_memory") == 0) {
+        params->plugin_memory_manager_type = plugin_memory_manager_dynamic;
+        return 0;
+    }
+    printf("Unrecognized plugin option: \"%s\"\n", param_token);
+    return 1;
+}
+
+// returns a pointer to the plugin id (i.e. the first token of the line, where the separator can be ' ', '\r', or '\n')
+// A '\0' is inserted in first_line at the place of the first separator
+char *get_plugin_id(char **first_line) {
+    char **line_to_parse = first_line;
+    char *token = strsep(line_to_parse, " \r\n");
+    if (line_to_parse == NULL) {
         printf("No token for protocol operation id extracted!\n");
         return false;
     }
 
-    /* Handle end of line  FIXME Move me later when parameters are present */
-    token[strcspn(token, "\r\n")] = 0;
-
-    if (strchr(token, '.') == token + strlen(token)) {
+    char *plugin_name = token;
+    if (strchr(plugin_name, '.') == plugin_name + strlen(plugin_name)) {
         /* No hierarchical name found, refuse it! */
         printf("The name of the plugin is not hierarchical; discard it!\n");
         return NULL;
     }
+    return plugin_name;
+}
 
-    return token;
+char* plugin_parse_first_plugin_line(char *first_line, plugin_parameters_t *params) {
+    char *line_to_parse = first_line;
+    char *plugin_name = NULL;
+    if (!(plugin_name = get_plugin_id(&line_to_parse))) {
+        return NULL;
+    }
+    char *token = NULL;
+
+    while((token = strsep(&line_to_parse, " \r\n")), line_to_parse) {
+        if (strlen(token) > 0 && plugin_parse_parameter(token, params)) {
+            printf("Impossible to parse first plugin line\n");
+            return NULL;
+        }
+    }
+
+    return plugin_name;
 }
 
 protoop_plugin_t* plugin_initialize(char *first_line) {
-    /* Part one: extract plugin id */
-    char *plugin_id = plugin_parse_first_plugin_line(first_line);
 
     protoop_plugin_t *p = calloc(1, sizeof(protoop_plugin_t));
     if (!p) {
         printf("Cannot allocate memory for plugin!\n");
+        return NULL;
+    }
+    /* Part one: extract plugin id */
+    char *plugin_id = plugin_parse_first_plugin_line(first_line, &p->params);
+    if (!plugin_id) {
+        free(p);
         return NULL;
     }
 
@@ -526,8 +560,10 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
     }
 
     free(buf);
+#ifndef NS3
     if (line)
         free(line);
+#endif
     fclose(file);
     return 0;
 }
@@ -557,13 +593,29 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         if (preprocessed) free(preprocessed);
         return -1;
     }
+#ifndef NS3
     FILE *file = fmemopen(preprocessed, strlen(preprocessed)+1, "r");
 
     if (file == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
         return 1;
     }
+#else
+    FILE *file = tmpfile();
+    if (!file) {
+        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
+        return 1;
+    }
+    size_t preprocessed_len = strlen(preprocessed) + 1;
+    size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
+    if (written != 1) {
+        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
+        return 1;
+    }
+    int ret = fseek(file, 0L, SEEK_SET);
+#endif
 
+    // reading the first line
     read = getline(&line, &len, file);
     if (read == -1) {
         printf("Error in the file %s\n", plugin_fname);
@@ -632,9 +684,11 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
 
     free(preprocessed);
 
+#ifndef NS3
     if (line) {
         free(line);
     }
+#endif
 
     fclose(file);
 
@@ -649,7 +703,7 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
         return 1;
     }
 
-    char *first_line = NULL;
+    char *first_line = NULL;    // will be allocated by getline
     size_t len = 0;
     ssize_t read = getline(&first_line, &len, file);
     if (read == -1) {
@@ -657,8 +711,9 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
         fclose(file);
         return 1;
     }
+    char *line_to_parse = first_line;
 
-    char* pid_tmp = plugin_parse_first_plugin_line(first_line);
+    char* pid_tmp = get_plugin_id(&line_to_parse);
     if (pid_tmp == NULL) {
         printf("Cannot extract plugin id\n");
         fclose(file);
@@ -668,6 +723,10 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
 
     /* FIXME It's bad, I know... */
     strcpy(plugin_id, pid_tmp);
+#ifndef NS3
+    if (first_line)
+        free(first_line);
+#endif
 
     return 0;
 }
@@ -786,7 +845,26 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
     }
 
     size_t preprocessed_len = strlen(preprocessed);
-    FILE *file = fmemopen(preprocessed, preprocessed_len, "r");
+#ifndef NS3
+    FILE *file = fmemopen(preprocessed, preprocessed_len + 1, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return 1;
+    }
+#else
+    FILE *file = tmpfile();
+    if (!file) {
+        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
+        return 1;
+    }
+    size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
+    if (written != preprocessed_len) {
+        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
+        return 1;
+    }
+    int ret = fseek(file, 0L, SEEK_SET);
+#endif
 
     if (file == NULL) {
         fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
@@ -995,38 +1073,6 @@ int plugin_process_plugin_data_exchange(picoquic_cnx_t *cnx, const char* plugin_
     return 0;
 }
 
-void *get_opaque_data(picoquic_cnx_t *cnx, opaque_id_t oid, size_t size, int *allocated) {
-    if (!cnx->current_plugin) {
-        printf("ERROR: get_opaque_data can only be called by pluglets with plugins!\n");
-        return NULL;
-    }
-    picoquic_opaque_meta_t *ometas = cnx->current_plugin->opaque_metas;
-    if (oid >= OPAQUE_ID_MAX) {
-        printf("ERROR: pluglet from plugin %s ask for opaque id %u >= max opaque id %d\n", cnx->current_plugin->name, oid, OPAQUE_ID_MAX);
-        /* Invalid ID */
-        return NULL;
-    }
-    if (ometas[oid].start_ptr) {
-        if (ometas[oid].size != size) {
-            /* The size requested is not correct */
-            return NULL;
-        }
-        *allocated = 0;
-        return ometas[oid].start_ptr;
-    }
-    /* Try to allocate memory with my_malloc */
-    ometas[oid].start_ptr = my_malloc(cnx, size);
-    if (!ometas[oid].start_ptr) {
-        /* No space left... */
-        return NULL;
-    }
-
-    /* Keep track of some meta data and returns the pointer */
-    ometas[oid].size = size;
-    *allocated = 1;
-    return ometas[oid].start_ptr;
-}
-
 protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_params_t *pp) {
     if (pp->inputc > PROTOOPARGS_MAX) {
         printf("Too many arguments for protocol operation with id %s : %d > %d\n",
@@ -1199,12 +1245,20 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     return status;
 }
 
-protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str)
+protoop_arg_t plugin_run_protoop(picoquic_cnx_t *cnx, protoop_params_t *pp, char *pid_str, protoop_id_t *pid)
 {
-    protoop_id_t pid;
-    pid.id = pid_str;
-    pid.hash = hash_value_str(pid.id);
-    pp->pid = &pid;
+    protoop_id_t tmp_pid;
+    if (pid) {
+        if (pid->hash == 0) {
+            pid->id = pid_str;
+            pid->hash = hash_value_str(pid->id);
+        }
+        pp->pid = pid;
+    } else {
+        tmp_pid.id = pid_str;
+        tmp_pid.hash = hash_value_str(tmp_pid.id);
+        pp->pid = &tmp_pid;
+    }
     return plugin_run_protoop_internal(cnx, pp);
 }
 
@@ -1238,6 +1292,65 @@ bool plugin_pluglet_exists(picoquic_cnx_t *cnx, protoop_id_t *pid, param_id_t pa
         default:
             return false;
     }
+}
+
+
+int set_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t val) {
+    if (!plugin) {
+        printf("ERROR: set_plugin_metadata called with an undefined plugin\n");
+        return -1;
+    }
+    if (idx >= STRUCT_METADATA_MAX) {
+        printf("ERROR: set_plugin_metadata called with an index out of bound\n");
+        return -1;
+    }
+    if (plugin->hash == 0) {
+        plugin->hash = hash_value_str(plugin->name);
+    }
+    plugin_struct_metadata_t *md = NULL;
+    HASH_FIND_PLUGIN(*metadata, &(plugin->hash), md);
+    if (md == NULL) {
+        md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        if (!md) {
+            printf("ERROR: out of memory !\n");
+            return -1;
+        }
+        md->plugin_hash = plugin->hash;
+        HASH_ADD_PLUGIN(*metadata, plugin_hash, md);
+    }
+    md->metadata[idx] = val;
+    return 0;
+}
+
+// gets the metadata attached to a plugin
+// (creates the metadata structure if it is not already there)
+int get_plugin_metadata(protoop_plugin_t *plugin, plugin_struct_metadata_t **metadata, int idx, uint64_t *out) {
+    if (!plugin) {
+        printf("ERROR: set_plugin_metadata called with an undefined plugin\n");
+        return -1;
+    }
+    if (idx >= STRUCT_METADATA_MAX) {
+        printf("ERROR: set_plugin_metadata called with an index out of bound\n");
+        return -1;
+    }
+    if (plugin->hash == 0) {
+        plugin->hash = hash_value_str(plugin->name);
+    }
+    plugin_struct_metadata_t *md = NULL;
+    // try to find the metadata
+    HASH_FIND_PLUGIN(*metadata, &(plugin->hash), md);
+    if (md == NULL) {
+        // the metadata were not already allocated, so create it
+        md = (plugin_struct_metadata_t *) calloc(1, sizeof(plugin_struct_metadata_t));
+        if (!md) {
+            printf("ERROR: out of memory !\n");
+            return -1;
+        }
+        md->plugin_hash = plugin->hash;
+        HASH_ADD_PLUGIN((*metadata), plugin_hash, md);
+    }
+    *out = md->metadata[idx];
+    return 0;
 }
 
 int get_errno() {

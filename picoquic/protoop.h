@@ -108,17 +108,6 @@ extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
 /* @{ */
 
 /**
- * Decode the STREAM frame and process its content.
- * \param[in] bytes \b uint8_t* Pointer to the start of the frame in binary format to decode
- * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to decode
- * \param[in] current_time \b uint64_t Time of reception of the frame
- * \param[in] path \b picoquic_path_t* The path on which the frame was received
- *
- * \return \b uint8_t* Pointer to the first byte after the decoded frame in the packet, or NULL if an error occurred
- */
-#define PROTOOPID_NOPARAM_DECODE_STREAM_FRAME "decode_stream_frame"
-extern protoop_id_t PROTOOP_NOPARAM_DECODE_STREAM_FRAME;
-/**
  * Update the estimation of the perceived latency on the path \p path_x with the received packet.
  * \param[in] largest \b uint64_t The "largest" field of the received ACK frame
  * \param[in] current_time \b uint64_t Time of reception of the ACK frame
@@ -410,6 +399,7 @@ extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED;
  * \return \int Iff non-zero, the packet should be retransmitted
  * \param[out] timer_based \b int Iff non-zero, indicates that the retransmission is due to RTO
  * \param[out] reason \b extern protoop_id_t Iff the return value is non-zero, this indicates which mechanism triggered the retransmission
+ * \param[out] retransmit_time \b uint64_t The time computed for retransmission of the packet
  */
 #define PROTOOPID_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET "retransmit_needed_by_packet"
 extern protoop_id_t PROTOOP_NOPARAM_RETRANSMIT_NEEDED_BY_PACKET;
@@ -642,13 +632,23 @@ extern protoop_id_t PROTOOP_NOPARAM_RECEIVED_SEGMENT;
 /**
  * \todo
  */
-#define PROTOOPID_NOPARAM_BEFORE_SENDING_SEGMENT "before_sending_segment"
-extern protoop_id_t PROTOOP_NOPARAM_BEFORE_SENDING_SEGMENT;
+#define PROTOOPID_NOPARAM_SEGMENT_PREPARED "segment_prepared"
+extern protoop_id_t PROTOOP_NOPARAM_SEGMENT_PREPARED;
 /**
  * \todo
  */
-#define PROTOOPID_NOPARAM_AFTER_DECODING_FRAMES "after_decoding_frames"
-extern protoop_id_t PROTOOP_NOPARAM_AFTER_DECODING_FRAMES;
+#define PROTOOPID_NOPARAM_SEGMENT_ABORTED "segment_aborted"
+extern protoop_id_t PROTOOP_NOPARAM_SEGMENT_ABORTED;
+/**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_HEADER_PARSED "header_parsed"
+extern protoop_id_t PROTOOP_NOPARAM_HEADER_PARSED;
+/**
+ * \todo
+ */
+#define PROTOOPID_NOPARAM_HEADER_PREPARED "header_prepared"
+extern protoop_id_t PROTOOP_NOPARAM_HEADER_PREPARED;
 /**
  * Finalize the packet and encrypt it.
  * \param[in] packet \b picoquic_packet_t* The packet to protect
@@ -781,6 +781,13 @@ extern protoop_id_t PROTOOP_NOPARAM_UPDATE_ACK_DELAY;
  */
 #define PROTOOPID_NOPARAM_LOG_EVENT "log_event"
 extern protoop_id_t PROTOOP_NOPARAM_LOG_EVENT;
+
+/**
+ * Log a frame as part of the current packet
+ * \param[in] frame \b char* The JSON object representing the frame
+ */
+#define PROTOOPID_NOPARAM_LOG_FRAME "log_frame"
+extern protoop_id_t PROTOOP_NOPARAM_LOG_FRAME;
 
 /**
  * Push context information to qlog

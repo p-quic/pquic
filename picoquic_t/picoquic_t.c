@@ -131,7 +131,8 @@ static const picoquic_test_def_t test_table[] = {
     { "stress", stress_test },
     { "fuzz", fuzz_test },
     { "datagram_test", datagram_test },
-    { "microbench_plugin_run_test", microbench_plugin_run_test }
+    { "microbench_plugin_run_test", microbench_plugin_run_test },
+    { "split_stream_frame_test", split_stream_frame_test}
 };
 
 static size_t const nb_tests = sizeof(test_table) / sizeof(picoquic_test_def_t);

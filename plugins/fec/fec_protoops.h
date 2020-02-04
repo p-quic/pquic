@@ -81,13 +81,12 @@ static __attribute__((always_inline)) bpf_state *initialize_bpf_state(picoquic_c
 
 static __attribute__((always_inline)) bpf_state *get_bpf_state(picoquic_cnx_t *cnx)
 {
-    int allocated = 0;
-    bpf_state **state_ptr = (bpf_state **) get_opaque_data(cnx, FEC_OPAQUE_ID, sizeof(bpf_state *), &allocated);
-    if (!state_ptr) return NULL;
-    if (allocated) {
-        *state_ptr = initialize_bpf_state(cnx);
+    bpf_state *state_ptr = (bpf_state *) get_cnx_metadata(cnx, FEC_OPAQUE_ID);
+    if (!state_ptr) {
+        state_ptr = initialize_bpf_state(cnx);
+        set_cnx_metadata(cnx, FEC_OPAQUE_ID, (protoop_arg_t) state_ptr);
     }
-    return *state_ptr;
+    return state_ptr;
 }
 
 static __attribute__((always_inline)) int helper_write_source_fpid_frame(picoquic_cnx_t *cnx, source_fpid_frame_t *f, uint8_t *bytes, size_t bytes_max, size_t *consumed) {
@@ -159,7 +158,7 @@ static __attribute__((always_inline)) void maybe_notify_recovered_packets_to_cc(
         uint64_t current_pn64 = get_pkt(current_packet, AK_PKT_SEQUENCE_NUMBER);
         if (current_pn64 == peek_first_recovered_packet_in_buffer(b)) {
             int timer_based = 0;
-            if (!helper_retransmit_needed_by_packet(cnx, current_packet, current_time, &timer_based, NULL)) {
+            if (!helper_retransmit_needed_by_packet(cnx, current_packet, current_time, &timer_based, NULL, NULL)) {
                 // we don't need to notify it now: the packet is not considered as lost
                 // don't try any subsequenc packets as they have been sent later
                 break;
