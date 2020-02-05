@@ -13,7 +13,6 @@ write_frame param 0x2b replace protoops/write_simple_recovered_frame.o
 notify_frame param 0x2b replace protoops/notify_recovered_frame.o
 write_frame param 0x29 replace protoops/write_fpid_frame.o
 notify_frame param 0x29 replace protoops/notify_fpid_frame.o
-is_frame_congestion_controlled param 0x29 replace protoops/is_sfpid_frame_congestion_controlled.o
 schedule_frames_on_path pre protoops/pre_schedule_frames_on_path.o
 schedule_frames_on_path post protoops/schedule_frames_on_path.o
 skip_frame pre protoops/skip_frame_pre.o

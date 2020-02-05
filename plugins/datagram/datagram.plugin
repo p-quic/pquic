@@ -3,10 +3,6 @@ parse_frame param 0x2c replace parse_datagram_frame.o
 parse_frame param 0x2d replace parse_datagram_frame.o
 parse_frame param 0x2e replace parse_datagram_frame.o
 parse_frame param 0x2f replace parse_datagram_frame.o
-is_frame_congestion_controlled param 0x2c replace is_datagram_frame_congestion_controlled.o
-is_frame_congestion_controlled param 0x2d replace is_datagram_frame_congestion_controlled.o
-is_frame_congestion_controlled param 0x2e replace is_datagram_frame_congestion_controlled.o
-is_frame_congestion_controlled param 0x2f replace is_datagram_frame_congestion_controlled.o
 write_frame param 0x2c replace write_datagram_frame.o
 write_frame param 0x2d replace write_datagram_frame.o
 write_frame param 0x2e replace write_datagram_frame.o
