@@ -103,7 +103,6 @@ SET(PLUGINS_DATAGRAM
     plugins/datagram/parse_datagram_frame.c
     plugins/datagram/send_datagram.c
     plugins/datagram/process_datagram_frame.c
-    plugins/datagram/is_datagram_frame_congestion_controlled.c
     plugins/datagram/write_datagram_frame.c
     plugins/datagram/get_datagram_socket.c
     plugins/datagram/cnx_state_changed.c

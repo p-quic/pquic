@@ -22,7 +22,6 @@ predict_packet_header_length replace predict_packet_header_length.o
 connection_state_changed post connection_state_changed.o
 write_frame param 0x42 replace write_rtt_probe.o
 notify_frame param 0x42 replace notify_rtt_probe.o
-is_frame_congestion_controlled param 0x27 replace is_mp_ack_frame_congestion_controlled.o
 schedule_frames_on_path replace path_schedulers/schedule_frames.o
 manage_paths replace path_manager.o
 update_rtt replace update_rtt.o
