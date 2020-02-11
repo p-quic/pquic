@@ -32,6 +32,9 @@
 #include <Ws2def.h>
 #include <winsock2.h>
 #else
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE
+#endif
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -323,8 +326,8 @@ typedef struct {
 #define NO_PARAM (param_id_t) -1
 #define PROTOOPARGS_MAX 16 /* Minimum required value... */
 
-/** 
- * Frame structures 
+/**
+ * Frame structures
  */
 #define REASONPHRASELENGTH_MAX 200
 
@@ -491,13 +494,13 @@ typedef struct plugin_stat {
 #define PICOQUIC_STREAM_ID_CLIENT_MAX_INITIAL_UNIDIR (PICOQUIC_STREAM_ID_CLIENT_INITIATED_UNIDIR + ((65535-1)*4))
 #define PICOQUIC_STREAM_ID_SERVER_MAX_INITIAL_UNIDIR (PICOQUIC_STREAM_ID_SERVER_INITIATED_UNIDIR + ((65535-1)*4))
 
-/* 
+/*
 * Time management. Internally, picoquic works in "virtual time", updated via the "current time" parameter
 * passed through picoquic_create(), picoquic_create_cnx(), picoquic_incoming_packet(), and picoquic_prepare_packet().
 *
 * There are two supported modes of operation, "wall time" synchronized with the system's current time function,
 * and "simulated time". Production services are expected to use wall time, tests and simulation use the
-* simulated time. The simulated time is held in a 64 bit counter, the address of which is passed as 
+* simulated time. The simulated time is held in a 64 bit counter, the address of which is passed as
 * the "p_simulated_time" parameter to picoquic_create().
 *
 * The time management needs to be consistent with the functions used internally by the TLS package "picotls".
@@ -507,7 +510,7 @@ typedef struct plugin_stat {
 *
 * The function "picoquic_current_time()" reads the wall time in microseconds, using the same system calls
 * as picotls. The default socket code in "picosock.[ch]" uses that time function, and returns the time
-* at which messages arrived. 
+* at which messages arrived.
 *
 * The function "picoquic_get_quic_time()" returns the "virtual time" used by the specified quic
 * context, which can be either the current wall time or the simulated time, depending on how the
@@ -533,7 +536,7 @@ typedef void (*cnx_id_cb_fn)(picoquic_connection_id_t cnx_id_local,
  * It is called just prior to sending a packet, and can randomly
  * change the content or length of the packet.
  */
-typedef uint32_t(*picoquic_fuzz_fn)(void * fuzz_ctx, picoquic_cnx_t* cnx, uint8_t * bytes, 
+typedef uint32_t(*picoquic_fuzz_fn)(void * fuzz_ctx, picoquic_cnx_t* cnx, uint8_t * bytes,
     size_t bytes_max, size_t length, uint32_t header_length);
 void picoquic_set_fuzz(picoquic_quic_t* quic, picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx);
 
@@ -754,7 +757,7 @@ void picoquic_congestion_algorithm_notify_func(picoquic_cnx_t *cnx, picoquic_pat
  * \param[in] cnx The context of the connection
  * \param[in] nb_frames The number of frames concerned by the booking
  * \param[in] slots Information about the frames' booking
- * 
+ *
  * \return The number of bytes reserved, or 0 if an error occurred
  */
 size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot_t* slots);

@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 CMAKE_POLICY(SET CMP0003 NEW)
 
-PROJECT(picoquic)
+PROJECT(picoquic C)
 SET(CMAKE_C_STANDARD 11)
 
 # FIND_PACKAGE(PkgConfig REQUIRED)
@@ -10,6 +10,12 @@ if((NOT DEFINED ENV{NS3}) OR !$ENV{NS3})
     SET(CMAKE_C_FLAGS "-std=gnu99 -Wall -O2 -g ${CC_WARNING_FLAGS} ${CMAKE_C_FLAGS}")
     SET(GCC_COVERAGE_LINK_FLAGS    "-Wl,--no-as-needed,-lprofiler,--as-needed")
     SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+endif()
+
+if(DEFINED OSX_SYSROOT)
+    MESSAGE("Before, CMAKE_OSX_SYSROOT set at: ${CMAKE_OSX_SYSROOT}")
+    SET(CMAKE_OSX_SYSROOT ${OSX_SYSROOT})
+    MESSAGE("CMAKE_OSX_SYSROOT now set at: ${CMAKE_OSX_SYSROOT}")
 endif()
 
 if($ENV{DISABLE_DEBUG_PRINTF})
@@ -248,61 +254,63 @@ if($ENV{COMPILE_CLION})
     )
 endif()
 
-ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
-                            picoquicfirst/getopt.c )
-TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
-    ${PTLS_CORE}
-    ${PTLS_OPENSSL}    
-    ${PTLS_MINICRYPTO}
-    ${OPENSSL_LIBRARIES}
-    ${UBPF}
-    ${CMAKE_DL_LIBS}
-    ${LibArchive_LIBRARIES}
-    ${MICHELFRALLOC_STATIC_LIBS}
-)
+if(NOT DEFINED ONLY_LIB)
+    ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
+                                picoquicfirst/getopt.c )
+    TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
+        ${PTLS_CORE}
+        ${PTLS_OPENSSL}
+        ${PTLS_MINICRYPTO}
+        ${OPENSSL_LIBRARIES}
+        ${UBPF}
+        ${CMAKE_DL_LIBS}
+        #${LibArchive_LIBRARIES}
+        ${MICHELFRALLOC_STATIC_LIBS}
+    )
 
-ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
-                            picoquicfirst/getopt.c )
-TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
-    ${PTLS_CORE}
-    ${PTLS_OPENSSL}
-    ${PTLS_MINICRYPTO}
-    ${OPENSSL_LIBRARIES}
-    ${UBPF}
-    ${CMAKE_DL_LIBS}
-    ${LibArchive_LIBRARIES}
-    ${MICHELFRALLOC_STATIC_LIBS}
-)
+    ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
+                                picoquicfirst/getopt.c )
+    TARGET_LINK_LIBRARIES(picoquicvpn picoquic-core
+        ${PTLS_CORE}
+        ${PTLS_OPENSSL}
+        ${PTLS_MINICRYPTO}
+        ${OPENSSL_LIBRARIES}
+        ${UBPF}
+        ${CMAKE_DL_LIBS}
+        #${LibArchive_LIBRARIES}
+        ${MICHELFRALLOC_STATIC_LIBS}
+    )
 
-ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
-                            picoquicfirst/getopt.c )
-TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
-    ${PTLS_CORE}
-    ${PTLS_OPENSSL}
-    ${PTLS_MINICRYPTO}
-    ${OPENSSL_LIBRARIES}
-    ${UBPF}
-    ${CMAKE_DL_LIBS}
-    ${LibArchive_LIBRARIES}
-    ${MICHELFRALLOC_STATIC_LIBS}
-)
+    ADD_EXECUTABLE(picoquicdemobench picoquicfirst/picoquicdemobench.c
+                                picoquicfirst/getopt.c )
+    TARGET_LINK_LIBRARIES(picoquicdemobench picoquic-core
+        ${PTLS_CORE}
+        ${PTLS_OPENSSL}
+        ${PTLS_MINICRYPTO}
+        ${OPENSSL_LIBRARIES}
+        ${UBPF}
+        ${CMAKE_DL_LIBS}
+        #${LibArchive_LIBRARIES}
+        ${MICHELFRALLOC_STATIC_LIBS}
+    )
 
-ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
- ${PICOQUIC_TEST_LIBRARY_FILES} )
-TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
-    ${PTLS_CORE}
-    ${PTLS_OPENSSL}    
-    ${PTLS_MINICRYPTO}
-    ${PTLS_OPENSSL}
-    ${PTLS_CORE}
-    ${OPENSSL_LIBRARIES}
-    ${UBPF}
-    ${CMAKE_DL_LIBS}
-    ${LibArchive_LIBRARIES}
-    ${MICHELFRALLOC_STATIC_LIBS}
-)
+    ADD_EXECUTABLE(picoquic_ct picoquic_t/picoquic_t.c
+     ${PICOQUIC_TEST_LIBRARY_FILES} )
+    TARGET_LINK_LIBRARIES(picoquic_ct picoquic-core
+        ${PTLS_CORE}
+        ${PTLS_OPENSSL}
+        ${PTLS_MINICRYPTO}
+        ${PTLS_OPENSSL}
+        ${PTLS_CORE}
+        ${OPENSSL_LIBRARIES}
+        ${UBPF}
+        ${CMAKE_DL_LIBS}
+        #${LibArchive_LIBRARIES}
+        ${MICHELFRALLOC_STATIC_LIBS}
+    )
 
-SET(TEST_EXES picoquic_ct)
+    SET(TEST_EXES picoquic_ct)
+endif()
 
 # get all project files for formatting
 file(GLOB_RECURSE CLANG_FORMAT_SOURCE_FILES *.c *.h)

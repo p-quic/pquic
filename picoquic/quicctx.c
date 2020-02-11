@@ -532,7 +532,7 @@ int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     char const* cert_file_name,
-    char const* key_file_name, 
+    char const* key_file_name,
     char const * cert_root_file_name,
     char const* default_alpn,
     picoquic_stream_data_cb_fn default_callback_fn,
@@ -596,7 +596,7 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
         }
         else if (picoquic_master_tlscontext(quic, cert_file_name, key_file_name, cert_root_file_name, ticket_encryption_key, ticket_encryption_key_length) != 0) {
                 ret = -1;
-                DBG_PRINTF("%s", "Cannot create TLS context \n");     
+                DBG_PRINTF("%s", "Cannot create TLS context \n");
         } else {
             /* the random generator was initialized as part of the TLS context.
              * Use it to create the seed for generating the per context stateless
@@ -941,7 +941,7 @@ static void picoquic_remove_cnx_from_wake_list(picoquic_cnx_t* cnx)
     } else {
         cnx->next_by_wake_time->previous_by_wake_time = cnx->previous_by_wake_time;
     }
-    
+
     if (cnx->previous_by_wake_time == NULL) {
         cnx->quic->cnx_wake_first = cnx->next_by_wake_time;
     } else {
@@ -957,7 +957,7 @@ static void picoquic_insert_cnx_by_wake_time(picoquic_quic_t* quic, picoquic_cnx
         previous = cnx_next;
         cnx_next = cnx_next->next_by_wake_time;
     }
-    
+
     cnx->previous_by_wake_time = previous;
     if (previous == NULL) {
         quic->cnx_wake_first = cnx;
@@ -965,12 +965,12 @@ static void picoquic_insert_cnx_by_wake_time(picoquic_quic_t* quic, picoquic_cnx
     } else {
         previous->next_by_wake_time = cnx;
     }
-    
+
     cnx->next_by_wake_time = cnx_next;
 
     if (cnx_next == NULL) {
         quic->cnx_wake_last = cnx;
-    } else { 
+    } else {
         cnx_next->previous_by_wake_time = cnx;
     }
 }
@@ -1007,7 +1007,7 @@ int64_t picoquic_get_next_wake_delay(picoquic_quic_t* quic,
     if (quic->cnx_wake_first != NULL) {
         if (quic->cnx_wake_first->next_wake_time > current_time) {
             wake_delay = quic->cnx_wake_first->next_wake_time - current_time;
-            
+
             if (wake_delay > delay_max) {
                 wake_delay = delay_max;
             }
@@ -1105,7 +1105,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
             path_x->remote_cnxid = picoquic_null_connection_id;
             /* Initialize the reset secret to a random value. This
 			 * will prevent spurious matches to an all zero value, for example.
-			 * The real value will be set when receiving the transport parameters. 
+			 * The real value will be set when receiving the transport parameters.
 			 */
             picoquic_public_random(path_x->reset_secret, PICOQUIC_RESET_SECRET_SIZE);
 
@@ -1174,7 +1174,7 @@ void picoquic_create_random_cnx_id_for_cnx(picoquic_cnx_t* cnx, picoquic_connect
 
 
 picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
-    picoquic_connection_id_t initial_cnx_id, picoquic_connection_id_t remote_cnx_id, 
+    picoquic_connection_id_t initial_cnx_id, picoquic_connection_id_t remote_cnx_id,
     struct sockaddr* addr, uint64_t start_time, uint32_t preferred_version,
     char const* sni, char const* alpn, char client_mode)
 {
@@ -1217,7 +1217,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         cnx->max_stream_id_bidir_local = cnx->local_parameters.initial_max_stream_id_bidir;
         cnx->max_stream_id_unidir_local = cnx->local_parameters.initial_max_stream_id_unidir;
 
-        /* Initialize remote variables to some plausible value. 
+        /* Initialize remote variables to some plausible value.
 		 * Hopefully, this will be overwritten by the parameters received in
 		 * the TLS transport parameter extension */
         cnx->maxdata_remote = PICOQUIC_DEFAULT_0RTT_WINDOW;
@@ -1755,7 +1755,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     while (pkt_ctx->retransmit_newest != NULL) {
         picoquic_dequeue_retransmit_packet(cnx, pkt_ctx->retransmit_newest, 1);
     }
-    
+
     while (pkt_ctx->retransmitted_newest != NULL) {
         picoquic_dequeue_retransmitted_packet(cnx, pkt_ctx->retransmitted_newest);
     }
@@ -1961,7 +1961,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
                 picohash_item_delete(cnx->quic->table_cnx_by_net, item, 1);
             }
         }
-        
+
         picoquic_remove_cnx_from_list(cnx);
         picoquic_remove_cnx_from_wake_list(cnx);
 
@@ -2341,7 +2341,8 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
                 struct sockaddr_storage *sai = (struct sockaddr_storage *) ifa->ifa_addr;
                 if (family == AF_INET6) {
                     struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *) ifa->ifa_addr;
-                    if (sai6->sin6_addr.__in6_u.__u6_addr16[0] == 0x80fe) {
+                    // Using sai6->sin6_addr.__in6_u.__u6_addr16[0] is not portable...
+                    if (sai6->sin6_addr.s6_addr[0] == 0xfe && sai6->sin6_addr.s6_addr[1] == 0x80) {
                         continue;
                     }
                 }
@@ -2352,7 +2353,7 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
                     memcpy(&start_ptr[count++], sai, sockaddr_size);
                 }
             }
-        }   
+        }
     }
 
     freeifaddrs(ifaddr);
@@ -2430,7 +2431,7 @@ protoop_arg_t protoop_false(picoquic_cnx_t *cnx)
 }
 
 
-protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op) 
+protocol_operation_param_struct_t *create_protocol_operation_param(param_id_t param, protocol_operation op)
 {
     protocol_operation_param_struct_t *popst = malloc(sizeof(protocol_operation_param_struct_t));
     if (!popst) {
@@ -2462,7 +2463,7 @@ int register_noparam_protoop(picoquic_cnx_t* cnx, protoop_id_t *pid, protocol_op
         printf("ERROR: trying to register twice the non-parametrable protocol operation %s\n", pid->id);
         return 1;
     }
-    
+
     post = malloc(sizeof(protocol_operation_struct_t));
     if (!post) {
         printf("ERROR: failed to allocate memory to register non-parametrable protocol operation %s\n", pid->id);

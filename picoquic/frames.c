@@ -25,7 +25,6 @@
 #include <string.h>
 #include "plugin.h"
 #include "memory.h"
-#include <endian.h>
 
 /* ****************************************************
  * Frames private declarations
@@ -547,7 +546,7 @@ protoop_arg_t parse_new_connection_id_frame(picoquic_cnx_t* cnx)
 }
 
 /*
- * New Retry Token frame 
+ * New Retry Token frame
  */
 uint8_t* picoquic_skip_new_token_frame(uint8_t* bytes, const uint8_t* bytes_max)
 {
@@ -1886,7 +1885,7 @@ int picoquic_process_ack_of_ack_frame(
     }
 
     ret = picoquic_parse_ack_header(bytes, bytes_max,
-        &num_block, (is_ecn)? ecnx3 : NULL, 
+        &num_block, (is_ecn)? ecnx3 : NULL,
         &largest, &ack_delay, consumed, 0);
 
     if (ret == 0) {
@@ -2769,7 +2768,7 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
         bytes[byte_index++] = picoquic_frame_type_connection_close;
         picoformat_16(bytes + byte_index, (uint16_t)cnx->local_error);
         byte_index += 2;
-        l1 = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index, 
+        l1 = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index,
             cnx->offending_frame_type);
         byte_index += l1;
         l2 = picoquic_varint_encode(bytes + byte_index, bytes_max - byte_index, 0);
@@ -2814,7 +2813,7 @@ protoop_arg_t parse_connection_close_frame(picoquic_cnx_t* cnx)
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->reason_phrase_length)) == NULL ||
         (bytes = (bytes + frame->reason_phrase_length <= bytes_max) ? bytes : NULL) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_connection_close);
         free(frame);
         frame = NULL;
@@ -2907,7 +2906,7 @@ protoop_arg_t parse_application_close_frame(picoquic_cnx_t* cnx)
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->reason_phrase_length)) == NULL ||
         (bytes = (bytes + frame->reason_phrase_length <= bytes_max) ? bytes : NULL) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_application_close);
         free(frame);
         frame = NULL;
@@ -2955,7 +2954,7 @@ protoop_arg_t prepare_max_data_frame(picoquic_cnx_t *cnx)
     uint64_t maxdata_increase = (uint64_t) cnx->protoop_inputv[0];
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
     size_t bytes_max = (size_t) cnx->protoop_inputv[2];
-    
+
     size_t consumed = 0;
 
     int ret = 0;
@@ -3012,7 +3011,7 @@ protoop_arg_t parse_max_data_frame(picoquic_cnx_t* cnx)
 
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->maximum_data)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_max_data);
         free(frame);
         frame = NULL;
@@ -3080,7 +3079,7 @@ protoop_arg_t parse_max_stream_data_frame(picoquic_cnx_t* cnx)
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->stream_id)) == NULL ||
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->maximum_stream_data)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_max_stream_data);
         free(frame);
         frame = NULL;
@@ -3119,7 +3118,7 @@ protoop_arg_t prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx)
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
 
     size_t consumed = 0;
- 
+
     int ret = 0;
     size_t byte_index = 0;
     picoquic_stream_head* stream = cnx->first_stream;
@@ -3187,7 +3186,7 @@ protoop_arg_t parse_max_stream_id_frame(picoquic_cnx_t* cnx)
 
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->maximum_stream_id)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_max_stream_id);
         free(frame);
         frame = NULL;
@@ -3230,7 +3229,7 @@ protoop_arg_t prepare_first_misc_frame(picoquic_cnx_t* cnx)
     size_t bytes_max = (size_t) cnx->protoop_inputv[1];
 
     size_t consumed = 0;
- 
+
     int ret = picoquic_prepare_misc_frame(cnx, cnx->first_misc_frame, bytes, bytes_max, &consumed);
 
     if (ret == 0) {
@@ -3300,7 +3299,7 @@ int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_
  * cnx->protoop_inputv[1] = size_t bytes_max
  * cnx->protoop_inputv[2] = size_t consumed
  * cnx->protoop_inputv[3] = picoquic_path_t * path
- * 
+ *
  * Output: error code (int)
  * cnx->protoop_outputv[0] = size_t consumed
  */
@@ -3504,7 +3503,7 @@ protoop_arg_t parse_blocked_frame(picoquic_cnx_t* cnx)
 
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->offset)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_blocked);
         free(frame);
         frame = NULL;
@@ -3535,7 +3534,7 @@ protoop_arg_t parse_stream_blocked_frame(picoquic_cnx_t* cnx)
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->stream_id)) == NULL ||
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->offset)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_stream_blocked);
         free(frame);
         frame = NULL;
@@ -3560,7 +3559,7 @@ protoop_arg_t decode_stream_blocked_frame(picoquic_cnx_t* cnx)
     if ((bytes = picoquic_frames_varint_skip(bytes+1, bytes_max)) == NULL ||
         (bytes = picoquic_frames_varint_skip(bytes,   bytes_max)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_stream_blocked);
     }
 
@@ -3588,7 +3587,7 @@ protoop_arg_t parse_stream_id_blocked_frame(picoquic_cnx_t* cnx)
 
     if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->stream_id)) == NULL)
     {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_stream_id_blocked);
         free(frame);
         frame = NULL;
@@ -3610,7 +3609,7 @@ protoop_arg_t decode_stream_id_blocked_frame(picoquic_cnx_t* cnx)
     ack_needed = 1;
 
     if ((bytes = picoquic_frames_varint_skip(bytes+1, bytes_max)) == NULL) {
-        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, 
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             picoquic_frame_type_stream_id_blocked);
     }
 
@@ -4333,4 +4332,3 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH, &stream_always_encode_length);
 }
-
