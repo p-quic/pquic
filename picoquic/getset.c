@@ -871,14 +871,14 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_TYPE:
         if (val >= picoquic_packet_type_max) {
-            printf("ERROR: setting type %lu but max value is %u\n", val, picoquic_packet_type_max);
+            printf("ERROR: setting type %llu but max value is %u\n", val, picoquic_packet_type_max);
             break;
         }
         pkt->ptype = (picoquic_packet_type_enum) val;
         break;
     case AK_PKT_CONTEXT:
         if (val >= picoquic_nb_packet_context) {
-            printf("ERROR: setting context %lu but max value is %u\n", val, picoquic_nb_packet_context);
+            printf("ERROR: setting context %llu but max value is %u\n", val, picoquic_nb_packet_context);
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;
@@ -1059,7 +1059,7 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
         return 0;
-    }   
+    }
 }
 
 void set_ph(picoquic_packet_header *ph, access_key_t ak, protoop_arg_t val)
@@ -1082,7 +1082,7 @@ protoop_arg_t get_preq(plugin_req_pid_t *preq, access_key_t ak)
     case AK_PIDREQ_PLUGIN_NAME:
         return (protoop_arg_t) preq->plugin_name;
     case AK_PIDREQ_REQUESTED:
-        return preq->requested;   
+        return preq->requested;
     default:
         printf("ERROR: unknown pid req access key %u\n", ak);
         return 0;
@@ -1100,7 +1100,7 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PIDREQ_REQUESTED:
         preq->requested = val;
-        break;    
+        break;
     default:
         printf("ERROR: unknown pid req access key %u\n", ak);
         break;

@@ -67,7 +67,7 @@ int picoquic_parse_packet_header(
             ph->vn = PICOPARSE_32(bytes + 1);
             /* Obtain the connection ID lengths from the byte following the version */
             picoquic_parse_packet_header_cnxid_lengths(bytes[5], &l_dest_id, &l_srce_id);
-            /* Required length: 
+            /* Required length:
              * (packet type(1) + version number(4) + cid_lengths(1) = 6,
              * cid lengths,
              * sequence number (4) */
@@ -83,7 +83,7 @@ int picoquic_parse_packet_header(
                 /* Not applicable for long packets. */
                 ph->has_spin_bit = 0;
                 ph->spin = 0;
-                
+
                 if (ph->vn == 0) {
                     /* VN = zero identifies a version negotiation packet */
                     ph->ptype = picoquic_packet_version_negotiation;
@@ -107,8 +107,8 @@ int picoquic_parse_packet_header(
                 else {
                     char context_by_addr = 0;
                     uint64_t payload_length = 0;
-                    uint64_t pn_length_clear = 0;  
-                    uint32_t var_length = 0; 
+                    uint64_t pn_length_clear = 0;
+                    uint32_t var_length = 0;
 
                     ph->version_index = picoquic_get_version_index(ph->vn);
 
@@ -118,7 +118,7 @@ int picoquic_parse_packet_header(
                         switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
                         case picoquic_version_header_13:
                             switch (bytes[0]) {
-                            case 0xFF: 
+                            case 0xFF:
                             {
                                 /* special case of the initial packets. They contain a retry token between the header
                                 * and the encrypted payload */
@@ -200,7 +200,7 @@ int picoquic_parse_packet_header(
                             ph->payload_length = (uint16_t)((length > ph->offset) ? length - ph->offset : 0);
                         }
                     }
-                    
+
                     if (ph->ptype != picoquic_packet_error)
                     {
                         ph->payload_length = (uint16_t)payload_length;
@@ -264,7 +264,7 @@ int picoquic_parse_packet_header(
              ph->offset = length;
              ph->payload_length = 0;
          }
-         
+
          if (*pcnx != NULL) {
              ph->epoch = 3;
              ph->version_index = (*pcnx)->version_index;
@@ -336,11 +336,11 @@ uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t 
 
 /*
  * Decrypt the incoming packet.
- * Apply packet number decryption. This may require updating the 
- * sequence number and the offset 
+ * Apply packet number decryption. This may require updating the
+ * sequence number and the offset
  */
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
-    uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph, 
+    uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph,
     void * pn_enc, void* aead_context, int * already_received, picoquic_path_t* path_from)
 {
     size_t decoded;
@@ -354,7 +354,7 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     if (already_received != NULL) {
         *already_received = 0;
     }
-    
+
     if (pn_enc != NULL)
     {
         /* The header length is not yet known, will only be known after the sequence number is decrypted */
@@ -433,11 +433,11 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
         char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
         snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
         if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
-            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
+            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %llu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
         } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
             char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
             snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
-            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %lu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
+            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %llu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
         } else {
             // TODO: vneg
         }
@@ -448,8 +448,8 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     if (already_received != NULL && picoquic_is_pn_already_received(path_from, ph->pc, ph->pn64) != 0) {
         /* Set error type: already received */
         *already_received = 1;
-    } 
-    
+    }
+
     /* by conventions, values larger than input indicate error */
     decoded = picoquic_aead_decrypt_generic(bytes + ph->offset,
                 bytes + ph->offset, ph->payload_length, ph->pn64, bytes, ph->offset, aead_context);
@@ -601,7 +601,7 @@ int picoquic_parse_header_and_decrypt(
 /*
  * Processing of a version renegotiation packet.
  *
- * From the specification: When the client receives a Version Negotiation packet 
+ * From the specification: When the client receives a Version Negotiation packet
  * from the server, it should select an acceptable protocol version. If the server
  * lists an acceptable version, the client selects that version and reattempts to
  * create a connection using that version. Though the contents of a packet might
@@ -664,7 +664,7 @@ int picoquic_prepare_version_negotiation(
         /* Copy the incoming connection ID */
         byte_index += picoquic_format_connection_id(bytes + byte_index, PICOQUIC_MAX_PACKET_SIZE - byte_index, ph->srce_cnx_id);
         byte_index += picoquic_format_connection_id(bytes + byte_index, PICOQUIC_MAX_PACKET_SIZE - byte_index, ph->dest_cnx_id);
-        
+
         /* Set the payload to the list of versions */
         for (size_t i = 0; i < picoquic_nb_supported_versions; i++) {
             picoformat_32(bytes + byte_index, picoquic_supported_versions[i].version);
@@ -686,7 +686,7 @@ int picoquic_prepare_version_negotiation(
 }
 
 /*
- * Process an unexpected connection ID. This could be an old packet from a 
+ * Process an unexpected connection ID. This could be an old packet from a
  * previous connection. If the packet type correspond to an encrypted value,
  * the server can respond with a public reset.
  *
@@ -702,8 +702,8 @@ void picoquic_process_unexpected_cnxid(
     unsigned long if_index_to,
     picoquic_packet_header* ph)
 {
-    if (length > PICOQUIC_RESET_PACKET_MIN_SIZE && 
-        (ph->ptype == picoquic_packet_1rtt_protected_phi0 || 
+    if (length > PICOQUIC_RESET_PACKET_MIN_SIZE &&
+        (ph->ptype == picoquic_packet_1rtt_protected_phi0 ||
             ph->ptype == picoquic_packet_1rtt_protected_phi1)) {
         picoquic_stateless_packet_t* sp = picoquic_create_stateless_packet(quic);
         if (sp != NULL) {
@@ -768,7 +768,7 @@ void picoquic_queue_stateless_retry(picoquic_cnx_t* cnx,
             cnx->path[0],
             0, bytes, &pn_offset, &pn_length);
 
-        
+
         /* use same encoding as packet header */
         bytes[byte_index++] = odcil_random|picoquic_create_packet_header_cnxid_lengths(0, cnx->initial_cnxid.id_len);
 
@@ -879,15 +879,15 @@ int picoquic_incoming_initial(
 /*
  * Processing of a server retry
  *
- * The packet number and connection ID fields echo the corresponding fields from the 
+ * The packet number and connection ID fields echo the corresponding fields from the
  * triggering client packet. This allows a client to verify that the server received its packet.
  *
  * A Server Stateless Retry packet is never explicitly acknowledged in an ACK frame by a client.
  * Receiving another Client Initial packet implicitly acknowledges a Server Stateless Retry packet.
  *
- * After receiving a Server Stateless Retry packet, the client uses a new Client Initial packet 
+ * After receiving a Server Stateless Retry packet, the client uses a new Client Initial packet
  * containing the next token. In effect, the next cryptographic
- * handshake message is sent on a new connection. 
+ * handshake message is sent on a new connection.
  */
 
 int picoquic_incoming_retry(
@@ -1078,7 +1078,7 @@ int picoquic_incoming_stateless_reset(
 }
 
 /*
- * Processing of 0-RTT packet 
+ * Processing of 0-RTT packet
  */
 
 int picoquic_incoming_0rtt(
@@ -1150,7 +1150,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
         if (ph->pn64 > path_x->pkt_ctx[pc].first_sack_item.end_of_sack_range) {
             cnx->current_spin = ph->spin ^ cnx->client_mode;
             if (ph->has_spin_bit && cnx->current_spin != cnx->prev_spin) {
-                // got an edge 
+                // got an edge
                 cnx->prev_spin = cnx->current_spin;
                 cnx->spin_edge = 1;
                 cnx->spin_vec = (ph->spin_vec == 3) ? 3 : (ph->spin_vec + 1);
@@ -1278,7 +1278,7 @@ int picoquic_incoming_segment(
     }
 
     if (cnx != NULL) LOG {
-        PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %lu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
+        PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %llu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
     }
 
     /* Verify that the segment coalescing is for the same destination ID */
@@ -1470,7 +1470,7 @@ int picoquic_incoming_packet(
     while (consumed_index < length) {
         uint32_t consumed = 0;
 
-        ret = picoquic_incoming_segment(quic, bytes + consumed_index, 
+        ret = picoquic_incoming_segment(quic, bytes + consumed_index,
             length - consumed_index, length,
             &consumed, addr_from, addr_to, if_index_to, current_time, &previous_destid, new_context_created);
 

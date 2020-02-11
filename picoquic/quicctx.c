@@ -1903,7 +1903,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
     cnx->offending_frame_type = frame_type;
 
-    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %d, \"frame_type\": %lu}", local_error, frame_type);
+    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %d, \"frame_type\": %llu}", local_error, frame_type);
 
     return (protoop_arg_t) PICOQUIC_ERROR_DETECTED;
 }
@@ -2405,7 +2405,7 @@ protoop_arg_t protoop_snprintf(picoquic_cnx_t *cnx)
         case 9: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8]);
         case 10: return snprintf(buf, buf_len, fmt, fmt_args[0], fmt_args[1], fmt_args[2], fmt_args[3], fmt_args[4], fmt_args[5], fmt_args[6], fmt_args[7], fmt_args[8], fmt_args[9]);
         default:
-            printf("protoop snprintf cannot handle more than 10 arguments, %lu were given\n", cnx->protoop_inputv[4]);
+            printf("protoop snprintf cannot handle more than 10 arguments, %llu were given\n", cnx->protoop_inputv[4]);
     }
     fflush(stdout);
     return 0;
@@ -2604,7 +2604,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < nb_frames; i++) {
-            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
+            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%llu%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
         }
         ftypes_str[ftypes_ofs] = 0;
         LOG_EVENT(cnx, "PLUGINS", "RESERVE_FRAMES", "", "{\"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
@@ -2634,7 +2634,7 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
         char ftypes_str[250];
         size_t ftypes_ofs = 0;
         for (int i = 0; i < *nb_frames; i++) {
-            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%lu%s", block->frames[i].frame_type, i < *nb_frames - 1 ? ", " : "");
+            ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%llu%s", block->frames[i].frame_type, i < *nb_frames - 1 ? ", " : "");
         }
         ftypes_str[ftypes_ofs] = 0;
 

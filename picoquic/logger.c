@@ -153,34 +153,34 @@ char const* picoquic_log_state_name(picoquic_state_enum state)
     char const* state_name = "unknown";
 
     switch (state) {
-    case picoquic_state_client_init: 
-        state_name = "client_init"; 
+    case picoquic_state_client_init:
+        state_name = "client_init";
         break;
-    case picoquic_state_client_init_sent: 
-        state_name = "client_init_sent"; 
+    case picoquic_state_client_init_sent:
+        state_name = "client_init_sent";
         break;
-    case picoquic_state_client_renegotiate: 
-        state_name = "client_renegotiate"; 
+    case picoquic_state_client_renegotiate:
+        state_name = "client_renegotiate";
         break;
-    case picoquic_state_client_retry_received: 
-        state_name = "client_retry_received"; 
+    case picoquic_state_client_retry_received:
+        state_name = "client_retry_received";
         break;
-    case picoquic_state_client_init_resent: 
-        state_name = "client_init_resent"; 
+    case picoquic_state_client_init_resent:
+        state_name = "client_init_resent";
         break;
-    case picoquic_state_server_init: 
-        state_name = "server_init"; 
+    case picoquic_state_server_init:
+        state_name = "server_init";
         break;
     case picoquic_state_server_handshake:
         state_name = "server_handshake";
         break;
-    case picoquic_state_client_handshake_start: 
-        state_name = "client_handshake_start"; 
+    case picoquic_state_client_handshake_start:
+        state_name = "client_handshake_start";
         break;
-    case picoquic_state_client_handshake_progress: 
-        state_name = "client_handshake_progress"; 
+    case picoquic_state_client_handshake_progress:
+        state_name = "client_handshake_progress";
         break;
-    case picoquic_state_client_almost_ready: 
+    case picoquic_state_client_almost_ready:
         state_name = "client_almost_ready";
         break;
     case picoquic_state_handshake_failure:
@@ -202,13 +202,13 @@ char const* picoquic_log_state_name(picoquic_state_enum state)
         state_name = "closing_received";
         break;
     case picoquic_state_closing:
-        state_name = "closing"; 
+        state_name = "closing";
         break;
     case picoquic_state_draining:
-        state_name = "draining"; 
+        state_name = "draining";
         break;
     case picoquic_state_disconnected:
-        state_name = "disconnected"; 
+        state_name = "disconnected";
         break;
     default:
         break;
@@ -255,7 +255,7 @@ char const* picoquic_log_ptype_name(picoquic_packet_type_enum ptype)
 char const* picoquic_log_frame_names(uint8_t frame_type)
 {
     char const * frame_name = "unknown";
-    
+
     switch ((picoquic_frame_type_enum_t)frame_type) {
     case picoquic_frame_type_padding:
         frame_name = "padding";
@@ -413,7 +413,7 @@ void picoquic_log_retry_packet(FILE* F, uint64_t log_cnxid64,
     picoquic_parse_packet_header_cnxid_lengths(bytes[byte_index++], &unused_cil, &odcil);
 
     if ((int)odcil > payload_length) {
-        fprintf(F, "%" PRIx64 ": packet too short, ODCIL: %x (%d), only %d bytes available.\n", 
+        fprintf(F, "%" PRIx64 ": packet too short, ODCIL: %x (%d), only %d bytes available.\n",
             log_cnxid64, bytes[byte_index - 1], odcil, payload_length);
     } else {
         /* Dump the old connection ID */
@@ -662,7 +662,7 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
 
     if (l1 == 0) {
         fprintf(F, "    Malformed %s, requires %d bytes out of %d\n",
-            picoquic_log_frame_names(ftype), 
+            picoquic_log_frame_names(ftype),
             (int)(byte_index + picoquic_varint_skip(bytes + 3)), (int)bytes_max);
         byte_index = bytes_max;
     }
@@ -670,7 +670,7 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
         byte_index += l1;
 
         fprintf(F, "    %s, Error 0x%04x, ", picoquic_log_frame_names(ftype), error_code);
-        if (ftype == picoquic_frame_type_connection_close && 
+        if (ftype == picoquic_frame_type_connection_close &&
             offending_frame_type != 0) {
             fprintf(F, "Offending frame %llx\n",
                 (unsigned long long)offending_frame_type);
@@ -972,7 +972,7 @@ size_t picoquic_log_plugin_validate_frame(FILE* F, uint8_t* bytes, size_t bytes_
     memcpy(pid, bytes + byte_index, pid_len);
     byte_index += pid_len;
 
-    fprintf(F, "    PLUGIN VALIDATE: ID %lx for %s.\n", pid_id, pid);
+    fprintf(F, "    PLUGIN VALIDATE: ID %llx for %s.\n", pid_id, pid);
 
     return byte_index;
 }
@@ -1059,7 +1059,7 @@ size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
             byte_index += 2;
         }
         x = inet_ntop(AF_INET6, &sa6.sin6_addr, hostname, sizeof(hostname));
-        
+
     } else {
         fprintf(F, "    Malformed ADD ADDRESS, unknown IP version %d\n", (int)ip_vers);
         return bytes_max;
@@ -1121,7 +1121,7 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
         fprintf(F, "    MP NEW CONNECTION ID for Path 0x");
-        fprintf(F, "%02lx", path_id);
+        fprintf(F, "%02llx", path_id);
         fprintf(F, " CID: 0x");
         for (int x = 0; x < new_cnx_id.id_len; x++) {
             fprintf(F, "%02x", new_cnx_id.id[x]);
@@ -1212,7 +1212,7 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
         return bytes_max;
 
     /* Now that the size is good, print it */
-    fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+    fprintf(F, "    MP ACK for path 0x%02llx (nb=%u)", path_id, (int)num_block);
 
     /* decoding the acks */
 
@@ -1313,16 +1313,16 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
             break;
         case 0x2d:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
-            fprintf(F, "    DATAGRAM (len=%lu)\n", len);
+            fprintf(F, "    DATAGRAM (len=%llu)\n", len);
             break;
         case 0x2e:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
             len = bytes_max - byte_index;
-            fprintf(F, "    DATAGRAM (id=%lu)\n", datagram_id);
+            fprintf(F, "    DATAGRAM (id=%llu)\n", datagram_id);
         case 0x2f:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
-            fprintf(F, "    DATAGRAM (id=%lu, len=%lu)\n", datagram_id, len);
+            fprintf(F, "    DATAGRAM (id=%llu, len=%llu)\n", datagram_id, len);
             break;
     }
     byte_index += len;
@@ -1534,7 +1534,7 @@ void picoquic_log_decrypted_segment(void* F_log, int log_cnxid, picoquic_cnx_t* 
         }
         fprintf(F, "    %s %d bytes\n", (receiving)?"Decrypted": "Prepared",
             (int)ph->payload_length);
-        picoquic_log_frames(F, log_cnxid64, bytes + ph->offset, 
+        picoquic_log_frames(F, log_cnxid64, bytes + ph->offset,
             ph->payload_length);
     }
     fprintf(F, "\n");
@@ -1550,7 +1550,7 @@ void picoquic_log_outgoing_segment(void* F_log, int log_cnxid, picoquic_cnx_t* c
     picoquic_packet_header ph;
     uint32_t checksum_length = (cnx != NULL)? picoquic_get_checksum_length(cnx, 0):16;
     struct sockaddr_in default_addr;
-    int ret;  
+    int ret;
 
     if (F_log == NULL) {
         return;
@@ -1560,7 +1560,7 @@ void picoquic_log_outgoing_segment(void* F_log, int log_cnxid, picoquic_cnx_t* c
     default_addr.sin_family = AF_INET;
 
     ret = picoquic_parse_packet_header((cnx == NULL) ? NULL : cnx->quic, send_buffer, send_length,
-        ((cnx==NULL || cnx->path[0] == NULL)?(struct sockaddr *)&default_addr: 
+        ((cnx==NULL || cnx->path[0] == NULL)?(struct sockaddr *)&default_addr:
         (struct sockaddr *)&cnx->path[0]->local_addr), &ph, &pcnx, 0);
 
     ph.pn64 = sequence_number;
@@ -1590,8 +1590,8 @@ void picoquic_log_processing(FILE* F, picoquic_cnx_t* cnx, size_t length, int re
         ret);
 }
 
-void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t cnx_id_64, 
-    uint8_t * bytes, size_t bytes_max, int client_mode, 
+void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t cnx_id_64,
+    uint8_t * bytes, size_t bytes_max, int client_mode,
     uint32_t initial_version, uint32_t final_version)
 {
     int ret = 0;

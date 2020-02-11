@@ -1122,7 +1122,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     }
     HASH_FIND_PID(cnx->ops, &(pp->pid->hash), post);
     if (!post) {
-        printf("FATAL ERROR: no protocol operation with id %s and hash %lu\n", pp->pid->id, pp->pid->hash);
+        printf("FATAL ERROR: no protocol operation with id %s and hash %llu\n", pp->pid->id, pp->pid->hash);
         exit(-1);
     }
 
