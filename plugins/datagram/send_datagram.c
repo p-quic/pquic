@@ -28,6 +28,7 @@ protoop_arg_t send_datagram_frame(picoquic_cnx_t* cnx)
     slot->frame_type = FT_DATAGRAM | FT_DATAGRAM_LEN;
     slot->nb_bytes = 1 + varint_len(len) + len;  // Unfortunately we are always forced to account for the length field
 #endif
+    slot->is_congestion_controlled = DCC;
 
     datagram_frame_t* frame = my_malloc_on_sending_buffer(m, cnx, sizeof(datagram_frame_t));
     if (frame == NULL) {
