@@ -115,7 +115,6 @@ static __attribute__((always_inline)) protoop_arg_t send_datagram_to_application
     slot->frame_type = 0x60;
     slot->nb_bytes = 1;
     slot->frame_ctx = NULL;
-    slot->is_congestion_controlled = DCC;
     reserve_frames(cnx, 1, slot);
     if (frame->datagram_id != 0) {
         m->expected_datagram_id = frame->datagram_id + 1;
