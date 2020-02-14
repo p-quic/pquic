@@ -275,6 +275,9 @@ typedef struct st_picoquic_packet_t {
     struct st_picoquic_path_t * send_path;
     uint64_t sequence_number;
     uint64_t send_time;
+    uint64_t delivered_prior;
+    uint64_t delivered_time_prior;
+    uint64_t delivered_sent_prior;
     uint32_t length;
     uint32_t send_length;
     uint32_t checksum_overhead;
@@ -286,6 +289,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
     unsigned int has_plugin_frames : 1;
     unsigned int is_mtu_probe : 1;
+    unsigned int delivered_app_limited : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 

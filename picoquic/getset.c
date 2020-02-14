@@ -538,6 +538,10 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
         return (protoop_arg_t) &path->pkt_ctx[param];
     case AK_PATH_NB_PKT_SENT:
         return path->nb_pkt_sent;
+    case AK_PATH_DELIVERED:
+        return path->delivered;
+    case AK_PATH_DELIVERED_LIMITED_INDEX:
+        return path->delivered_limited_index;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
         return 0;
@@ -651,6 +655,9 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
         break;
     case AK_PATH_NB_PKT_SENT:
         path->nb_pkt_sent = val;
+        break;
+    case AK_PATH_DELIVERED_LIMITED_INDEX:
+        path->delivered_limited_index = val;
         break;
     default:
         printf("ERROR: unknown path access key %u\n", ak);

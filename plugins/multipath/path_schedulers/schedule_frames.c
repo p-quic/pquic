@@ -387,6 +387,11 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 break;
                             }
                         }
+
+                        if (length <= header_length) {
+                            /* Mark the bandwidth estimation as application limited */
+                            set_path(sending_path, AK_PATH_DELIVERED_LIMITED_INDEX, 0, get_path(sending_path, AK_PATH_DELIVERED, 0));
+                        }
                     }
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */

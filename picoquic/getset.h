@@ -517,6 +517,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_PKT_CTX 0x21
 /** The number of packets sent on the path, in uint64_t */
 #define AK_PATH_NB_PKT_SENT 0x22
+#define AK_PATH_DELIVERED 0x23
+#define AK_PATH_DELIVERED_LIMITED_INDEX 0x24
 
 /**
  * @}

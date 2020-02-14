@@ -78,6 +78,9 @@ extern "C" {
 #define PICOQUIC_ACK_DELAY_MAX 25000 /* 25 ms */
 #define PICOQUIC_RACK_DELAY 10000 /* 10 ms */
 
+#define PICOQUIC_BANDWIDTH_ESTIMATE_MAX 10000000000ull /* 10 GB per second */
+#define PICOQUIC_BANDWIDTH_TIME_INTERVAL_MIN 1000
+
 #define PICOQUIC_SPURIOUS_RETRANSMIT_DELAY_MAX 1000000 /* one second */
 
 #define PICOQUIC_MICROSEC_SILENCE_MAX 120000000 /* 120 seconds for now */
@@ -475,6 +478,20 @@ typedef struct st_picoquic_path_t {
 
     /* Statistics */
     uint64_t nb_pkt_sent;
+
+    /* Bandwidth measurement */
+    uint64_t delivered; /* The total amount of data delivered so far on the path */
+    uint64_t delivered_last;
+    uint64_t delivered_time_last;
+    uint64_t delivered_sent_last;
+    uint64_t delivered_limited_index;
+    uint64_t bandwidth_estimate; /* In bytes per second */
+
+    uint64_t received; /* Total amount of bytes received from the path */
+    uint64_t receive_rate_epoch; /* Time of last receive rate measurement */
+    uint64_t received_prior; /* Total amount received at start of epoch */
+    uint64_t receive_rate_estimate; /* In bytes per second */
+    uint64_t receive_rate_max; /* In bytes per second */
 
     /* QDC: Moved from the ctx */
     /* Connection IDs */

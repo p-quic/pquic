@@ -1719,6 +1719,52 @@ static void picoquic_update_ack_delay(picoquic_cnx_t *cnx, picoquic_packet_conte
     protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_UPDATE_ACK_DELAY, NULL, pkt_ctx, old_path, rtt_estimate, first_estimate);
 }
 
+static void picoquic_estimate_path_bandwidth(picoquic_path_t* path_x, uint64_t send_time, uint64_t delivered_prior, uint64_t delivered_time_prior, uint64_t delivered_sent_prior,
+                                             uint64_t delivery_time, uint64_t current_time, int rs_is_path_limited)
+{
+    if (send_time >= path_x->delivered_sent_last) {
+        if (path_x->delivered_time_last == 0) {
+            /* No estimate yet, need to initialize the variables */
+            path_x->delivered_last = current_time;
+            path_x->delivered_time_last = path_x->delivered;
+            path_x->delivered_sent_last = send_time;
+        }
+        else {
+            uint64_t receive_interval = delivery_time - delivered_time_prior;
+
+            if (receive_interval > PICOQUIC_BANDWIDTH_TIME_INTERVAL_MIN) {
+                uint64_t delivered = path_x->delivered - delivered_prior;
+                uint64_t send_interval = send_time - delivered_sent_prior;
+                uint64_t bw_estimate;
+
+                if (send_interval > receive_interval) {
+                    receive_interval = send_interval;
+                }
+
+                if (receive_interval == 0) {
+                    bw_estimate = PICOQUIC_BANDWIDTH_ESTIMATE_MAX;
+                }
+                else {
+                    bw_estimate = delivered * 1000000;
+                    bw_estimate /= receive_interval;
+                }
+
+                if (!rs_is_path_limited || bw_estimate > path_x->bandwidth_estimate) {
+                    path_x->bandwidth_estimate = bw_estimate;
+                }
+
+                /* Bandwidth was estimated, update the references */
+                path_x->delivered_last = path_x->delivered;
+                path_x->delivered_time_last = delivery_time;
+                path_x->delivered_sent_last = send_time;
+                if (path_x->delivered > path_x->delivered_limited_index) {
+                    path_x->delivered_limited_index = 0;
+                }
+            }
+        }
+    }
+}
+
 /**
  * See PROTOOP_NOPARAM_UPDATE_RTT
  */
@@ -2128,6 +2174,7 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 picoquic_packet_t* next = p->next_packet;
                 picoquic_path_t * old_path = p->send_path;
 
+                old_path->delivered += p->length;
                 if (cnx->congestion_alg != NULL) {
                     picoquic_congestion_algorithm_notify_func(cnx, old_path,
                         picoquic_congestion_notification_acknowledgement,
@@ -2291,6 +2338,21 @@ protoop_arg_t process_ack_frame_maybe_ecn(picoquic_cnx_t* cnx)
 
         /* Attempt to update the RTT */
         picoquic_packet_t* top_packet = picoquic_update_rtt(cnx, frame->largest_acknowledged, current_time, frame->ack_delay, pc, path_x);
+        uint64_t largest_sent_time = 0;
+        uint64_t delivered_prior = 0;
+        uint64_t delivered_time_prior = 0;
+        uint64_t delivered_sent_prior = 0;
+        picoquic_path_t* old_path = NULL;
+        int rs_is_path_limited = 0;
+
+        if (top_packet != NULL) {
+            old_path = top_packet->send_path;
+            largest_sent_time = top_packet->send_time;
+            delivered_prior = top_packet->delivered_prior;
+            delivered_time_prior = top_packet->delivered_time_prior;
+            delivered_sent_prior = top_packet->delivered_sent_prior;
+            rs_is_path_limited = top_packet->delivered_app_limited;
+        }
 
         uint64_t range = frame->first_ack_block;
         uint64_t block_to_block;
@@ -2343,6 +2405,12 @@ protoop_arg_t process_ack_frame_maybe_ecn(picoquic_cnx_t* cnx)
             if (range > 0) {
                 picoquic_check_spurious_retransmission(cnx, largest + 1 - range, largest, current_time, pc, path_x);
             }
+        }
+
+        if (old_path != NULL) {
+            picoquic_estimate_path_bandwidth(old_path, largest_sent_time,
+                                             delivered_prior, delivered_time_prior, delivered_sent_prior,
+                                             current_time, current_time, rs_is_path_limited);
         }
     }
 

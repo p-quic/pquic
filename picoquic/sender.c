@@ -845,6 +845,10 @@ protoop_arg_t finalize_and_protect_packet(picoquic_cnx_t *cnx)
     if (ret == 0 && length > 0) {
         packet->length = length;
         path_x->pkt_ctx[packet->pc].send_sequence++;
+        packet->delivered_prior = path_x->delivered_last;
+        packet->delivered_time_prior = path_x->delivered_time_last;
+        packet->delivered_sent_prior = path_x->delivered_sent_last;
+        packet->delivered_app_limited = (path_x->delivered_limited_index != 0);
 
         switch (packet->ptype) {
         case picoquic_packet_version_negotiation:
@@ -3179,6 +3183,11 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 break;
                             }
                         }
+
+                         if (length <= header_length) {
+                             /* Mark the bandwidth estimation as application limited */
+                             path_x->delivered_limited_index = path_x->delivered;
+                         }
                     }
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */
