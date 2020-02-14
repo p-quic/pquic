@@ -392,6 +392,8 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                             /* Mark the bandwidth estimation as application limited */
                             set_path(sending_path, AK_PATH_DELIVERED_LIMITED_INDEX, 0, get_path(sending_path, AK_PATH_DELIVERED, 0));
                         }
+                    } else if ((void *) get_cnx(cnx, AK_CNX_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
+                        helper_congestion_algorithm_notify(cnx, sending_path, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                     }
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */

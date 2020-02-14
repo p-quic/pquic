@@ -29,7 +29,7 @@ typedef struct {
     int64_t bytes_acknowledged_during_previous_round;
     int64_t last_rtt_timestamp;
     int64_t last_rtt_value;
-
+    uint64_t last_sequence_blocked
 } westwood_state_t;
 
 

@@ -21,6 +21,7 @@
 #include "endianness.h"
 #include "getset.h"
 #include "picoquic_logger.h"
+#include "cc_common.h"
 
 #if defined(NS3)
 #define JIT false
@@ -118,6 +119,8 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "picoquic_set_cnx_state", picoquic_set_cnx_state);
     ubpf_register(vm, current_idx++, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
     ubpf_register(vm, current_idx++, "picoquic_record_pn_received", picoquic_record_pn_received);
+    ubpf_register(vm, current_idx++, "picoquic_cc_get_sequence_number", picoquic_cc_get_sequence_number);
+    ubpf_register(vm, current_idx++, "picoquic_cc_was_cwin_blocked", picoquic_cc_was_cwin_blocked);
 
     ubpf_register(vm, current_idx++, "queue_peek", queue_peek);
     /* FIXME remove this function */

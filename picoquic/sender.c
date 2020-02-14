@@ -3200,6 +3200,10 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                         }
                     }
                 }
+
+                if (path_x->cwin <= path_x->bytes_in_transit + length) {
+                    picoquic_congestion_algorithm_notify_func(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
+                }
             }
 
         }
