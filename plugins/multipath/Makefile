@@ -2,8 +2,9 @@ SRC=$(shell find -name "*.c")
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DPACING -DDISABLE_PROTOOP_PRINTF -DDISABLE_QLOG
 SUBDIRS=path_schedulers
-CLANG=clang-6.0
-LLC=llc-6.0
+CLANG?=clang-6.0
+LLC?=llc-6.0
+export CLANG LLC
 
 all: $(SRC) $(OBJ) $(SUBDIRS)
 
