@@ -21,6 +21,7 @@
 #include "endianness.h"
 #include "getset.h"
 #include "picoquic_logger.h"
+#include "red_black_tree.h"
 
 #if defined(NS3)
 #define JIT false
@@ -148,6 +149,27 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "recv", recv);
 
     ubpf_register(vm, current_idx++, "strcmp", strncmp);
+
+    /* red black tree */
+    ubpf_register(vm, current_idx++, "rbt_init", rbt_init);
+    ubpf_register(vm, current_idx++, "rbt_is_empty", rbt_is_empty);
+    ubpf_register(vm, current_idx++, "rbt_size", rbt_size);
+    ubpf_register(vm, current_idx++, "rbt_put", rbt_put);
+    ubpf_register(vm, current_idx++, "rbt_get", rbt_get);
+    ubpf_register(vm, current_idx++, "rbt_contains", rbt_contains);
+    ubpf_register(vm, current_idx++, "rbt_min_val", rbt_min_val);
+    ubpf_register(vm, current_idx++, "rbt_min_key", rbt_min_key);
+    ubpf_register(vm, current_idx++, "rbt_min", rbt_min);
+    ubpf_register(vm, current_idx++, "rbt_max_key", rbt_max_key);
+    ubpf_register(vm, current_idx++, "rbt_max_val", rbt_max_val);
+    ubpf_register(vm, current_idx++, "rbt_ceiling_val", rbt_ceiling_val);
+    ubpf_register(vm, current_idx++, "rbt_ceiling_key", rbt_ceiling_key);
+    ubpf_register(vm, current_idx++, "rbt_ceiling", rbt_ceiling);
+    ubpf_register(vm, current_idx++, "rbt_delete", rbt_delete);
+    ubpf_register(vm, current_idx++, "rbt_delete_min", rbt_delete_min);
+    ubpf_register(vm, current_idx++, "rbt_delete_max", rbt_delete_max);
+    ubpf_register(vm, current_idx++, "rbt_delete_and_get_min", rbt_delete_and_get_min);
+    ubpf_register(vm, current_idx++, "rbt_delete_and_get_max", rbt_delete_and_get_max);
 
     /* This value is reserved. DO NOT OVERRIDE IT! */
     ubpf_register(vm, 0x7f, "picoquic_memory_bound_error", picoquic_memory_bound_error);

@@ -74,6 +74,7 @@ SET(PICOQUIC_LIBRARY_FILES
     picoquic/transport.c
     picoquic/ubpf.c
     picoquic/util.c
+    picoquic/red_black_tree.c
         picoquic/michelfralloc/sbrk.c
         picoquic/michelfralloc/sbrk.h
         picoquic/michelfralloc/michelfralloc.c

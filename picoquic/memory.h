@@ -19,6 +19,10 @@ int destroy_memory_management(protoop_plugin_t *p);
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 
+#ifndef IS_IN_PLUGIN_MEMORY
+#define IS_IN_PLUGIN_MEMORY(plugin, ptr) (((ptr) == NULL) || ((void *) (&(plugin)->memory[0]) < ((void *) ptr) && ((void *) ptr) < (void *) (&(plugin)->memory[PLUGIN_MEMORY])))
+#endif
+
 #ifdef DEBUG_MEMORY_PRINTF
 
 #define DBG_MEMORY_PRINTF_FILENAME_MAX 24
