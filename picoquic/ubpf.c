@@ -22,12 +22,12 @@
 #include "getset.h"
 #include "picoquic_logger.h"
 
-#ifdef NS3
+#if defined(NS3)
 #define JIT false
-#elseifdef __APPLE__
+#elif defined(__APPLE__)
 #define JIT false
 #else
-#define JIT true /* putting to false show out of memory access */
+#define JIT true  /* putting to false show out of memory access */
 #endif
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
