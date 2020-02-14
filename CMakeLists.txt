@@ -264,7 +264,7 @@ if(NOT DEFINED ONLY_LIB)
         ${OPENSSL_LIBRARIES}
         ${UBPF}
         ${CMAKE_DL_LIBS}
-        #${LibArchive_LIBRARIES}
+        ${LibArchive_LIBRARIES}
         ${MICHELFRALLOC_STATIC_LIBS}
     )
 
@@ -277,7 +277,7 @@ if(NOT DEFINED ONLY_LIB)
         ${OPENSSL_LIBRARIES}
         ${UBPF}
         ${CMAKE_DL_LIBS}
-        #${LibArchive_LIBRARIES}
+        ${LibArchive_LIBRARIES}
         ${MICHELFRALLOC_STATIC_LIBS}
     )
 
@@ -290,7 +290,7 @@ if(NOT DEFINED ONLY_LIB)
         ${OPENSSL_LIBRARIES}
         ${UBPF}
         ${CMAKE_DL_LIBS}
-        #${LibArchive_LIBRARIES}
+        ${LibArchive_LIBRARIES}
         ${MICHELFRALLOC_STATIC_LIBS}
     )
 
@@ -305,7 +305,7 @@ if(NOT DEFINED ONLY_LIB)
         ${OPENSSL_LIBRARIES}
         ${UBPF}
         ${CMAKE_DL_LIBS}
-        #${LibArchive_LIBRARIES}
+        ${LibArchive_LIBRARIES}
         ${MICHELFRALLOC_STATIC_LIBS}
     )
 
