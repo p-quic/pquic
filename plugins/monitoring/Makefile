@@ -1,8 +1,8 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -Werror -DDISABLE_PROTOOP_PRINTF
-CLANG=clang-6.0
-LLC=llc-6.0
+CLANG?=clang-6.0
+LLC?=llc-6.0
 
 all: $(SRC) $(OBJ)
 
