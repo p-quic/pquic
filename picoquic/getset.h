@@ -499,14 +499,14 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_BYTES_IN_TRANSIT 0x18
 /** The pointer to the congestion control algorithm state */
 #define AK_PATH_CONGESTION_ALGORITHM_STATE 0x19
-/** The pacing packet time in nano second, as uint64_t */
-#define AK_PATH_PACKET_TIME_NANO_SEC 0x1a
-/** The pacing reminder in nano second, as uint64_t */
-#define AK_PATH_PACING_REMINDER_NANO_SEC 0x1b
-/** The pacing margin in micro second, as uint64_t */
-#define AK_PATH_PACING_MARGIN_MICROS 0x1c
-/** The next pacing time, as uint64_t */
-#define AK_PATH_NEXT_PACING_TIME 0x1d
+/** last time the path was evaluated */
+#define AK_PATH_PACKET_EVALUATION_TIME 0x1a
+/** number of nanoseconds of transmission time that are allowed */
+#define AK_PATH_PACING_BUCKET_NANO_SEC 0x1b
+/** maximum value (capacity) of the leaky bucket */
+#define AK_PATH_PACING_BUCKET_MAX 0x1c
+/** number of nanoseconds required to send a full size packet. */
+#define AK_PATH_PACING_PACKET_TIME_NANOSEC 0x1d
 /** The pointer to the local connection ID */
 #define AK_PATH_LOCAL_CID 0x1e
 /** The pointer to the remote connection ID */
@@ -519,7 +519,7 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_NB_PKT_SENT 0x22
 #define AK_PATH_DELIVERED 0x23
 #define AK_PATH_DELIVERED_LIMITED_INDEX 0x24
-
+#define AK_PATH_PACING_PACKET_TIME_MICROSEC 0x25
 /**
  * @}
  * 

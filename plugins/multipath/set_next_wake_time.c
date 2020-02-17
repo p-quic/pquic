@@ -98,9 +98,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                         helper_is_tls_stream_ready(cnx) ||
                         (crypto_context_1_aead_encrypt != NULL && (helper_find_ready_stream(cnx)) != NULL)) {
 #ifdef PACING
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
+                        if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
 #endif
                             blocked = 0;
 #ifdef PACING
@@ -116,11 +114,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
         if (blocked == 0) {
             next_time = current_time;
-        }
-        else if (pacing != 0) {
-            next_time = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-        }
-        else {
+        } else if (pacing == 0) {
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 for (int i = 0; i < nb_paths; i++) {
                     path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
@@ -341,9 +335,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                         ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
 #ifdef PACING
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
+                        if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
 #endif
                             PROTOOP_PRINTF(cnx, "Not blocked because path %p has should max data %d tls ready %d cnx_state %d stream %p has_cc %d cwin %d BIF %d\n", (protoop_arg_t) path_x, should_send_max_data, is_tls_stream_ready, cnx_state, (protoop_arg_t) stream, has_cc_to_send, cwin_x, bytes_in_transit_x);
                             blocked = 0;
@@ -362,10 +354,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     if (blocked == 0 || (wake_now && pacing == 0)) {
         next_time = current_time;
         PROTOOP_PRINTF(cnx, "%s", (protoop_arg_t) "I wake now\n");
-    } else if (pacing != 0) {
-        next_time = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-        PROTOOP_PRINTF(cnx, "I set pace timer to %lu", next_time);
-    } else {
+    } else if (pacing == 0) {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             /* First consider receive paths */
             for (int i = 0; i < nb_rcv_paths; i++) {

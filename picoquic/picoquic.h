@@ -801,6 +801,12 @@ int picoquic_get_remote_error(picoquic_cnx_t* cnx);
 /* Create a path */
 int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr);
 
+/* Check pacing to see whether the next transmission is authorized. If it is not, update the next wait time to reflect pacing. */
+int picoquic_is_sending_authorized_by_pacing(picoquic_path_t * path_x, uint64_t current_time, uint64_t * next_time);
+
+/* Reset the pacing data after CWIN is updated */
+void picoquic_update_pacing_data(picoquic_path_t * path_x);
+
 /* Integer formatting functions */
 size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
 size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);

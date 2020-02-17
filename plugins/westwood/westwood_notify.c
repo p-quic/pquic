@@ -133,7 +133,7 @@ protoop_arg_t congestion_algorithm_notify(picoquic_cnx_t *cnx)
     }
 
     /* Compute pacing data */
-    update_pacing_data(path_x);
+    picoquic_update_pacing_data(path_x);
     set_path(path_x, AK_PATH_CWIN, 0, cwin);
     set_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0, bytes_in_transit);
     return 0;

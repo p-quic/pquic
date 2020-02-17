@@ -470,11 +470,19 @@ typedef struct st_picoquic_path_t {
     uint64_t bytes_in_transit;
     void* congestion_alg_state;
 
-    /* Pacing */
-    uint64_t packet_time_nano_sec;
-    uint64_t pacing_reminder_nano_sec;
-    uint64_t pacing_margin_micros;
-    uint64_t next_pacing_time;
+    /*
+     * Pacing uses a set of per path variables:
+     * - pacing_evaluation_time: last time the path was evaluated.
+     * - pacing_bucket_nanosec: number of nanoseconds of transmission time that are allowed.
+     * - pacing_bucket_max: maximum value (capacity) of the leaky bucket.
+     * - pacing_packet_time_nanosec: number of nanoseconds required to send a full size packet.
+     * - pacing_packet_time_microsec: max of (packet_time_nano_sec/1024, 1) microsec.
+     */
+    uint64_t pacing_evaluation_time;
+    uint64_t pacing_bucket_nanosec;
+    uint64_t pacing_bucket_max;
+    uint64_t pacing_packet_time_nanosec;
+    uint64_t pacing_packet_time_microsec;
 
     /* Statistics */
     uint64_t nb_pkt_sent;
@@ -920,9 +928,6 @@ void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp)
 /* Connection context retrieval functions */
 picoquic_cnx_t* picoquic_cnx_by_id(picoquic_quic_t* quic, picoquic_connection_id_t cnx_id);
 picoquic_cnx_t* picoquic_cnx_by_net(picoquic_quic_t* quic, struct sockaddr* addr);
-
-/* Reset the pacing data after CWIN is updated */
-void picoquic_update_pacing_data(picoquic_path_t * path_x);
 
 /* Next time is used to order the list of available connections,
      * so ready connections are polled first */
