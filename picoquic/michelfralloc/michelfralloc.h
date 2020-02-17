@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "sbrk.h"
+#include "sbrk-public.h"
 
 typedef sbrk_memory_context_t plugin_dynamic_memory_pool_t;
 

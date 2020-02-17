@@ -1,12 +1,18 @@
 
 #include <stdio.h>
-#include "sbrk.h"
+#include "sbrk-public.h"
+
+
+struct malloc_state *_gm_;  // the global state of dlmalloc
+
+
 // TODO: check compatibility of sbrk with ptmalloc3
 
 static sbrk_memory_context_t *current_context;
 
 int set_current_context(sbrk_memory_context_t *p) {
     current_context = p;
+    _gm_ = &current_context->dlmalloc_state;
     return 0;
 }
 
@@ -24,7 +30,6 @@ void *context_sbrk(intptr_t increment) {
         fflush(stderr);
         return NULL;
     }
-    fflush(stdout);
     if (increment == 0) return NULL;
 
     void *previous_end = current_context->memory_current_end;
