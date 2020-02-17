@@ -33,7 +33,7 @@ typedef struct rbt_node {
     int size;          // subtree count
 } rbt_node_t;
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     rbt_node_t *root;
 } red_black_tree_t;
 
@@ -56,7 +56,7 @@ int rbt_size(picoquic_cnx_t *cnx, red_black_tree_t *tree);
   * Is this symbol table empty?
   * @return {@code true} if this symbol table is empty and {@code false} otherwise
   */
-bool rbt_is_empty(picoquic_cnx_t *cnx, red_black_tree_t *tree);
+uint64_t rbt_is_empty(picoquic_cnx_t *cnx, red_black_tree_t *tree);
 
 
 /***************************************************************************
@@ -68,7 +68,7 @@ bool rbt_is_empty(picoquic_cnx_t *cnx, red_black_tree_t *tree);
  * @param key the key
  * @return true if the key was present, false otherwise
  */
-bool rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out);
+uint64_t rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out);
 
 
 /**
@@ -77,7 +77,7 @@ bool rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *
  * @return {@code true} if this symbol table contains {@code key} and
  *     {@code false} otherwise
  */
-bool rbt_contains(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key);
+uint64_t rbt_contains(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key);
 
 
 /***************************************************************************
@@ -105,7 +105,7 @@ void rbt_put(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val v
  * Sets the smallest key and its associated val in the symbol table.
  * @return true if found, false if the tree was empty
  */
-bool rbt_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *retkey, rbt_val *retval);
+uint64_t rbt_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *retkey, rbt_val *retval);
 /**
  * pre: tree not empty
  * Returns the smallest key in the symbol table.
@@ -145,27 +145,27 @@ rbt_val rbt_max_val(picoquic_cnx_t *cnx, red_black_tree_t *tree);
  * Removes the smallest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_min(picoquic_cnx_t *cnx, red_black_tree_t *tree);
+uint64_t rbt_delete_min(picoquic_cnx_t *cnx, red_black_tree_t *tree);
 
 
 /**
  * Removes the smallest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_and_get_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val);
+uint64_t rbt_delete_and_get_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val);
 
 
 /**
  * Removes the largest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_and_get_max(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val);
+uint64_t rbt_delete_and_get_max(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val);
 
 /**
  * Removes the largest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_max(picoquic_cnx_t *cnx, red_black_tree_t *tree);
+uint64_t rbt_delete_max(picoquic_cnx_t *cnx, red_black_tree_t *tree);
 
 
 /**
@@ -174,7 +174,7 @@ bool rbt_delete_max(picoquic_cnx_t *cnx, red_black_tree_t *tree);
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key, rbt_val *out_val);
+uint64_t rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key, rbt_val *out_val);
 
 /**
      * @pre: the tree must not be empty
@@ -182,7 +182,7 @@ bool rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_k
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key);
+uint64_t rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key);
 
 /**
      * @pre: the tree must not be empty
@@ -190,7 +190,7 @@ bool rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, r
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling_val(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out_val);
+uint64_t rbt_ceiling_val(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out_val);
 
 /**
  * Removes the specified key and its associated value from this symbol table

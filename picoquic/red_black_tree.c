@@ -26,6 +26,8 @@ rbt_node_t *rbt_new_node(picoquic_cnx_t *cnx, rbt_key key, rbt_val val, bool col
     newnode->val = val;
     newnode->color = color;
     newnode->size = size;
+    newnode->left = NULL;
+    newnode->right = NULL;
     return newnode;
 }
 
@@ -78,7 +80,7 @@ int rbt_size(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
   * Is this symbol table empty?
   * @return {@code true} if this symbol table is empty and {@code false} otherwise
   */
-bool rbt_is_empty(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
+uint64_t rbt_is_empty(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
     if (!tree)
         return true;   // should not happen due to the pre
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
@@ -102,7 +104,7 @@ int key_compare(rbt_key a, rbt_key b) {
 
 
 // value associated with the given key in subtree rooted at x; null if no such key
-bool _rbt_get(picoquic_cnx_t *cnx, rbt_node_t *x, rbt_key key, rbt_val *out) {
+uint64_t _rbt_get(picoquic_cnx_t *cnx, rbt_node_t *x, rbt_key key, rbt_val *out) {
     while (x != NULL) {
         if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, x)) {
             printf("Error: tried to access to node out of plugin memory: %p\n", x);
@@ -126,7 +128,7 @@ bool _rbt_get(picoquic_cnx_t *cnx, rbt_node_t *x, rbt_key key, rbt_val *out) {
  * @param key the key
  * @return true if the key was present, false otherwise
  */
-bool rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out) {
+uint64_t rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out) {
     return _rbt_get(cnx, tree->root, key, out);
 }
 
@@ -137,7 +139,7 @@ bool rbt_get(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *
  * @return {@code true} if this symbol table contains {@code key} and
  *     {@code false} otherwise
  */
-bool rbt_contains(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key) {
+uint64_t rbt_contains(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key) {
     return rbt_get(cnx, tree, key, NULL);
 }
 
@@ -389,7 +391,7 @@ rbt_node_t *rbt_node_min(picoquic_cnx_t *cnx, rbt_node_t *node) {
  * Sets the smallest key and its associated val in the symbol table.
  * @return true if found, false if the tree was empty
  */
-bool rbt_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *retkey, rbt_val *retval) {
+uint64_t rbt_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *retkey, rbt_val *retval) {
     if (tree == NULL) {
         return false;
     }
@@ -527,7 +529,7 @@ rbt_node_t *rbt_node_delete_and_get_min(picoquic_cnx_t *cnx, rbt_node_t *node,
  * Removes the smallest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_and_get_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val) {
+uint64_t rbt_delete_and_get_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val) {
     if (!tree)
         return false;
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
@@ -555,7 +557,7 @@ bool rbt_delete_and_get_min(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key
  * Removes the smallest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-inline bool rbt_delete_min(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
+inline uint64_t rbt_delete_min(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
     return rbt_delete_and_get_min(cnx, tree, NULL, NULL);
 }
 
@@ -603,7 +605,7 @@ rbt_node_t *rbt_node_delete_and_get_max(picoquic_cnx_t *cnx, rbt_node_t *node,
  * Removes the largest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_and_get_max(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val) {
+uint64_t rbt_delete_and_get_max(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key *res, rbt_val *val) {
     if (!tree)
         return false;
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
@@ -632,7 +634,7 @@ bool rbt_delete_and_get_max(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key
  * Removes the largest key and associated value from the symbol table.
  * returns false if the tree is empty
  */
-bool rbt_delete_max(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
+uint64_t rbt_delete_max(picoquic_cnx_t *cnx, red_black_tree_t *tree) {
     return rbt_delete_and_get_max(cnx, tree, NULL, NULL);
 }
 
@@ -724,7 +726,7 @@ rbt_node_t *rbt_node_ceiling(picoquic_cnx_t *cnx, rbt_node_t *node, rbt_key key,
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key, rbt_val *out_val) {
+uint64_t rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key, rbt_val *out_val) {
     if (!tree)
         return false;
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
@@ -742,7 +744,7 @@ bool rbt_ceiling(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_k
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key) {
+uint64_t rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_key *out_key) {
     if (!tree)
         return false;
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
@@ -759,7 +761,7 @@ bool rbt_ceiling_key(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, r
      * @param key the key
      * @return the smallest key in the symbol table greater than or equal to {@code key}
      */
-bool rbt_ceiling_val(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out_val) {
+uint64_t rbt_ceiling_val(picoquic_cnx_t *cnx, red_black_tree_t *tree, rbt_key key, rbt_val *out_val) {
     if (!tree)
         return false;
     if (!IS_IN_PLUGIN_MEMORY(cnx->current_plugin, tree)) {
