@@ -579,9 +579,9 @@ static void manage_paths(picoquic_cnx_t *cnx) {
     run_noparam(cnx, "manage_paths", 0, NULL, NULL);
 }
 
-static picoquic_packet_t* mp_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
+static __attribute__((always_inline)) picoquic_packet_t* mp_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
     uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc,
-    picoquic_path_t* sending_path, picoquic_path_t* receive_path)
+    picoquic_path_t* sending_path, picoquic_path_t* receive_path, int *is_new_ack)
 {
     protoop_arg_t args[6];
     args[0] = (protoop_arg_t) largest;
@@ -590,5 +590,10 @@ static picoquic_packet_t* mp_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
     args[3] = (protoop_arg_t) pc;
     args[4] = (protoop_arg_t) sending_path;
     args[5] = (protoop_arg_t) receive_path;
-    return (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 6, args, NULL);
+    protoop_arg_t outs[1];
+    picoquic_packet_t *p = (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 6, args, outs);
+    if (is_new_ack) {
+        *is_new_ack = outs[0];
+    }
+    return p;
 }

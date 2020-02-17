@@ -726,7 +726,8 @@ typedef enum {
     picoquic_congestion_notification_timeout,
     picoquic_congestion_notification_spurious_repeat,
     picoquic_congestion_notification_rtt_measurement,
-    picoquic_congestion_notification_cwin_blocked
+    picoquic_congestion_notification_cwin_blocked,
+    picoquic_congestion_notification_bw_measurement
 } picoquic_congestion_notification_t;
 
 typedef void (*picoquic_congestion_algorithm_init)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
@@ -747,8 +748,9 @@ typedef struct st_picoquic_congestion_algorithm_t {
 
 extern picoquic_congestion_algorithm_t* picoquic_newreno_algorithm;
 extern picoquic_congestion_algorithm_t* picoquic_cubic_algorithm;
+extern picoquic_congestion_algorithm_t* picoquic_bbr_algorithm;
 
-#define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_cubic_algorithm;
+#define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_bbr_algorithm;
 
 void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_congestion_algorithm_t const* algo);
 
@@ -806,6 +808,10 @@ int picoquic_is_sending_authorized_by_pacing(picoquic_path_t * path_x, uint64_t 
 
 /* Reset the pacing data after CWIN is updated */
 void picoquic_update_pacing_data(picoquic_path_t * path_x);
+void picoquic_update_pacing_rate(picoquic_path_t* path_x, double pacing_rate, uint64_t quantum);
+
+void picoquic_estimate_path_bandwidth(picoquic_cnx_t *cnx, picoquic_path_t* path_x, uint64_t send_time, uint64_t delivered_prior, uint64_t delivered_time_prior, uint64_t delivered_sent_prior,
+                                      uint64_t delivery_time, uint64_t current_time, int rs_is_path_limited);
 
 /* Integer formatting functions */
 size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);

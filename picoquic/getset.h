@@ -520,6 +520,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_DELIVERED 0x23
 #define AK_PATH_DELIVERED_LIMITED_INDEX 0x24
 #define AK_PATH_PACING_PACKET_TIME_MICROSEC 0x25
+#define AK_PATH_RTT_SAMPLE 0x26
+#define AK_PATH_DELIVERED_PRIOR 0x27
 /**
  * @}
  * 
@@ -605,6 +607,10 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PKT_BYTES 0x0e
 /** Flag stating that the packet is a MTU probe */
 #define AK_PKT_IS_MTU_PROBE 0x10
+#define AK_PKT_DELIVERED_PRIOR 0x11
+#define AK_PKT_DELIVERED_TIME_PRIOR 0x12
+#define AK_PKT_DELIVERED_SENT_PRIOR 0x13
+#define AK_PKT_DELIVERED_APP_LIMITED 0x14
 
 /**
  * @}

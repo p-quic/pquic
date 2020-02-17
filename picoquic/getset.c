@@ -542,8 +542,12 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
         return path->nb_pkt_sent;
     case AK_PATH_DELIVERED:
         return path->delivered;
+    case AK_PATH_DELIVERED_PRIOR:
+        return path->delivered;
     case AK_PATH_DELIVERED_LIMITED_INDEX:
         return path->delivered_limited_index;
+    case AK_PATH_RTT_SAMPLE:
+        return path->rtt_sample;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
         return 0;
@@ -663,6 +667,9 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
         break;
     case AK_PATH_DELIVERED_LIMITED_INDEX:
         path->delivered_limited_index = val;
+        break;
+    case AK_PATH_RTT_SAMPLE:
+        path->rtt_sample = val;
         break;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
@@ -847,6 +854,14 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return (protoop_arg_t) pkt->bytes;
     case AK_PKT_IS_MTU_PROBE:
         return pkt->is_mtu_probe;
+    case AK_PKT_DELIVERED_PRIOR:
+        return pkt->delivered_prior;
+    case AK_PKT_DELIVERED_TIME_PRIOR:
+        return pkt->delivered_time_prior;
+    case AK_PKT_DELIVERED_SENT_PRIOR:
+        return pkt->delivered_sent_prior;
+    case AK_PKT_DELIVERED_APP_LIMITED:
+        return pkt->delivered_app_limited;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;

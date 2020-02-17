@@ -450,9 +450,11 @@ typedef struct st_picoquic_path_t {
     unsigned int challenge_verified : 1;
     unsigned int challenge_response_to_send : 1;
     unsigned int ping_received : 1;
+    unsigned int last_bw_estimate_path_limited : 1;
 
     /* Time measurement */
     uint64_t max_ack_delay;
+    uint64_t rtt_sample;
     uint64_t smoothed_rtt;
     uint64_t rtt_variant;
     uint64_t retransmit_timer;
@@ -493,6 +495,7 @@ typedef struct st_picoquic_path_t {
     uint64_t delivered_time_last;
     uint64_t delivered_sent_last;
     uint64_t delivered_limited_index;
+    uint64_t delivered_last_packet;
     uint64_t bandwidth_estimate; /* In bytes per second */
 
     uint64_t received; /* Total amount of bytes received from the path */
