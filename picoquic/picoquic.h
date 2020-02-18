@@ -750,7 +750,7 @@ extern picoquic_congestion_algorithm_t* picoquic_newreno_algorithm;
 extern picoquic_congestion_algorithm_t* picoquic_cubic_algorithm;
 extern picoquic_congestion_algorithm_t* picoquic_bbr_algorithm;
 
-#define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_bbr_algorithm;
+#define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_cubic_algorithm;
 
 void picoquic_set_default_congestion_algorithm(picoquic_quic_t* quic, picoquic_congestion_algorithm_t const* algo);
 
