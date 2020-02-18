@@ -516,14 +516,16 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
         return path->bytes_in_transit;
     case AK_PATH_CONGESTION_ALGORITHM_STATE:
         return (protoop_arg_t) path->congestion_alg_state;
-    case AK_PATH_PACKET_TIME_NANO_SEC:
-        return path->packet_time_nano_sec;
-    case AK_PATH_PACING_REMINDER_NANO_SEC:
-        return path->pacing_reminder_nano_sec;
-    case AK_PATH_PACING_MARGIN_MICROS:
-        return path->pacing_margin_micros;
-    case AK_PATH_NEXT_PACING_TIME:
-        return path->next_pacing_time;
+    case AK_PATH_PACKET_EVALUATION_TIME:
+        return path->pacing_evaluation_time;
+    case AK_PATH_PACING_BUCKET_NANO_SEC:
+        return path->pacing_bucket_nanosec;
+    case AK_PATH_PACING_BUCKET_MAX:
+        return path->pacing_bucket_max;
+    case AK_PATH_PACING_PACKET_TIME_NANOSEC:
+        return path->pacing_packet_time_nanosec;
+    case AK_PATH_PACING_PACKET_TIME_MICROSEC:
+        return path->pacing_packet_time_nanosec;
     case AK_PATH_LOCAL_CID:
         return (protoop_arg_t) &path->local_cnxid;
     case AK_PATH_REMOTE_CID:
@@ -538,6 +540,14 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
         return (protoop_arg_t) &path->pkt_ctx[param];
     case AK_PATH_NB_PKT_SENT:
         return path->nb_pkt_sent;
+    case AK_PATH_DELIVERED:
+        return path->delivered;
+    case AK_PATH_DELIVERED_PRIOR:
+        return path->delivered;
+    case AK_PATH_DELIVERED_LIMITED_INDEX:
+        return path->delivered_limited_index;
+    case AK_PATH_RTT_SAMPLE:
+        return path->rtt_sample;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
         return 0;
@@ -625,17 +635,20 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
     case AK_PATH_CONGESTION_ALGORITHM_STATE:
         printf("ERROR: setting the congestion algorithm state is not implemented!\n");
         break;
-    case AK_PATH_PACKET_TIME_NANO_SEC:
-        path->packet_time_nano_sec = val;
+    case AK_PATH_PACKET_EVALUATION_TIME:
+        path->pacing_evaluation_time = val;
         break;
-    case AK_PATH_PACING_REMINDER_NANO_SEC:
-        path->pacing_reminder_nano_sec = val;
+    case AK_PATH_PACING_BUCKET_NANO_SEC:
+        path->pacing_bucket_nanosec = val;
         break;
-    case AK_PATH_PACING_MARGIN_MICROS:
-        path->pacing_margin_micros = val;
+    case AK_PATH_PACING_BUCKET_MAX:
+        path->pacing_bucket_max = val;
         break;
-    case AK_PATH_NEXT_PACING_TIME:
-        path->next_pacing_time = val;
+    case AK_PATH_PACING_PACKET_TIME_NANOSEC:
+        path->pacing_packet_time_nanosec = val;
+        break;
+    case AK_PATH_PACING_PACKET_TIME_MICROSEC:
+        path->pacing_packet_time_nanosec = val;
         break;
     case AK_PATH_LOCAL_CID:
         printf("ERROR: setting the local CID is not implemented!\n");
@@ -651,6 +664,12 @@ void set_path(picoquic_path_t *path, access_key_t ak, uint16_t param, protoop_ar
         break;
     case AK_PATH_NB_PKT_SENT:
         path->nb_pkt_sent = val;
+        break;
+    case AK_PATH_DELIVERED_LIMITED_INDEX:
+        path->delivered_limited_index = val;
+        break;
+    case AK_PATH_RTT_SAMPLE:
+        path->rtt_sample = val;
         break;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
@@ -835,6 +854,14 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return (protoop_arg_t) pkt->bytes;
     case AK_PKT_IS_MTU_PROBE:
         return pkt->is_mtu_probe;
+    case AK_PKT_DELIVERED_PRIOR:
+        return pkt->delivered_prior;
+    case AK_PKT_DELIVERED_TIME_PRIOR:
+        return pkt->delivered_time_prior;
+    case AK_PKT_DELIVERED_SENT_PRIOR:
+        return pkt->delivered_sent_prior;
+    case AK_PKT_DELIVERED_APP_LIMITED:
+        return pkt->delivered_app_limited;
     default:
         printf("ERROR: unknown pkt access key %u\n", ak);
         return 0;

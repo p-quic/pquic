@@ -115,7 +115,8 @@ extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ACK frame
  * \param[in] path_x \b picoquic_path_t* The path acked by the ACK frame
  *
- * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.
+ * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.µ
+ * \param[out] is_new_ack \b bool Returns whether the ACK is new or not
  */
 #define PROTOOPID_NOPARAM_UPDATE_RTT "update_rtt"
 extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
@@ -301,6 +302,9 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_INCOMING_PATH;
  */
 #define PROTOOPID_NOPARAM_CONGESTION_ALGORITHM_NOTIFY "congestion_algorithm_notify"
 extern protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY;
+
+#define PROTOOPID_NOPARAM_ESTIMATE_PATH_BANDWIDTH "estimate_path_bandwidth"
+extern protoop_id_t PROTOOP_NOPARAM_ESTIMATE_PATH_BANDWIDTH;
 
 /**
  * Call back a function registered in the connection context to process incoming data.

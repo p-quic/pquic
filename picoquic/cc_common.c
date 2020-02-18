@@ -1,0 +1,143 @@
+/*
+* Author: Christian Huitema
+* Copyright (c) 2019, Private Octopus, Inc.
+* All rights reserved.
+*
+* Permission to use, copy, modify, and distribute this software for any
+* purpose with or without fee is hereby granted, provided that the above
+* copyright notice and this permission notice appear in all copies.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+* ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+* DISCLAIMED. IN NO EVENT SHALL Private Octopus, Inc. BE LIABLE FOR ANY
+* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#include "picoquic_internal.h"
+#include <stdlib.h>
+#include <string.h>
+#include "cc_common.h"
+
+
+uint64_t picoquic_cc_get_sequence_number(picoquic_path_t* path)
+{
+    return path->pkt_ctx[picoquic_packet_context_application].send_sequence;
+}
+
+uint64_t picoquic_cc_get_ack_number(picoquic_path_t* path)
+{
+    return path->pkt_ctx[picoquic_packet_context_application].highest_acknowledged;
+}
+
+int picoquic_cc_was_cwin_blocked(picoquic_path_t* path, uint64_t last_sequence_blocked)
+{
+    return (last_sequence_blocked == 0 || picoquic_cc_get_ack_number(path) <= last_sequence_blocked);
+}
+
+void picoquic_filter_rtt_min_max(picoquic_min_max_rtt_t * rtt_track, uint64_t rtt)
+{
+    int x = rtt_track->sample_current;
+    int x_max;
+
+
+    rtt_track->samples[x] = rtt;
+
+    rtt_track->sample_current = x + 1;
+    if (rtt_track->sample_current >= PICOQUIC_MIN_MAX_RTT_SCOPE) {
+        rtt_track->is_init = 1;
+        rtt_track->sample_current = 0;
+    }
+
+    x_max = (rtt_track->is_init) ? PICOQUIC_MIN_MAX_RTT_SCOPE : x + 1;
+
+    rtt_track->sample_min = rtt_track->samples[0];
+    rtt_track->sample_max = rtt_track->samples[0];
+
+    for (int i = 1; i < x_max; i++) {
+        if (rtt_track->samples[i] < rtt_track->sample_min) {
+            rtt_track->sample_min = rtt_track->samples[i];
+        } else if (rtt_track->samples[i] > rtt_track->sample_max) {
+            rtt_track->sample_max = rtt_track->samples[i];
+        }
+    }
+}
+
+int picoquic_hystart_test(picoquic_min_max_rtt_t* rtt_track, uint64_t rtt_measurement, uint64_t packet_time, uint64_t current_time, int is_one_way_delay_enabled)
+{
+    int ret = 0;
+
+    if(current_time > rtt_track->last_rtt_sample_time + 1000) {
+        picoquic_filter_rtt_min_max(rtt_track, rtt_measurement);
+        rtt_track->last_rtt_sample_time = current_time;
+
+        if (rtt_track->is_init) {
+            uint64_t delta_max;
+
+            if (rtt_track->rtt_filtered_min == 0 ||
+                rtt_track->rtt_filtered_min > rtt_track->sample_max) {
+                rtt_track->rtt_filtered_min = rtt_track->sample_max;
+            }
+            delta_max = rtt_track->rtt_filtered_min / 4;
+
+            if (is_one_way_delay_enabled && delta_max > PICOQUIC_TARGET_RENO_RTT / 2) {
+                delta_max = PICOQUIC_TARGET_RENO_RTT / 2;
+            }
+
+            if (rtt_track->sample_min > rtt_track->rtt_filtered_min) {
+                if (rtt_track->sample_min > rtt_track->rtt_filtered_min + delta_max) {
+                    rtt_track->past_threshold = 1;
+                    rtt_track->nb_rtt_excess++;
+                    if (rtt_track->nb_rtt_excess >= PICOQUIC_MIN_MAX_RTT_SCOPE) {
+                        /* RTT increased too much, get out of slow start! */
+                        ret = 1;
+                    }
+                }
+                else {
+                    rtt_track->threshold_count++;
+                    if (rtt_track->threshold_count >= PICOQUIC_MIN_MAX_RTT_SCOPE) {
+                        rtt_track->past_threshold = 1;
+                    }
+                }
+            }
+            else {
+                rtt_track->nb_rtt_excess = 0;
+                rtt_track->threshold_count = 0;
+            }
+        }
+    }
+
+    return ret;
+}
+
+void picoquic_hystart_increase(picoquic_path_t * path_x, picoquic_min_max_rtt_t* rtt_filter, uint64_t nb_delivered)
+{
+    if (path_x->smoothed_rtt <= PICOQUIC_TARGET_RENO_RTT || rtt_filter->past_threshold) {
+        path_x->cwin += nb_delivered;
+    }
+    else {
+        double delta = ((double)path_x->smoothed_rtt) / ((double)PICOQUIC_TARGET_RENO_RTT);
+        delta *= (double)nb_delivered;
+        path_x->cwin += (uint64_t)delta;
+    }
+}
+
+uint64_t picoquic_cc_increased_window(picoquic_path_t* path, uint64_t previous_window)
+{
+    uint64_t new_window;
+    if (path->rtt_min <= PICOQUIC_TARGET_RENO_RTT) {
+        new_window = previous_window * 2;
+    }
+    else {
+        double w = (double)previous_window;
+        w /= (double)PICOQUIC_TARGET_RENO_RTT;
+        w *= path->rtt_min;
+        new_window = (uint64_t)w;
+    }
+    return new_window;
+}

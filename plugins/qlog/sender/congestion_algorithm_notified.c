@@ -24,6 +24,12 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
         case picoquic_congestion_notification_timeout:
             LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_acknowledgment", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
             break;
+        case picoquic_congestion_notification_cwin_blocked:
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_cwin_blocked", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
+            break;
+        case picoquic_congestion_notification_bw_measurement:
+            LOG_EVENT(cnx, "recovery", "metrics_updated", "congestion_notification_bw_measurement", "{\"cc_path\": \"%p\", \"congestion_window\": \"%lu\", \"bytes_in_flight\": \"%lu\"}", (protoop_arg_t) path_x, get_path(path_x, AK_PATH_CWIN, 0), get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0));
+            break;
         default:
             break;
     }

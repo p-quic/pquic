@@ -275,6 +275,9 @@ typedef struct st_picoquic_packet_t {
     struct st_picoquic_path_t * send_path;
     uint64_t sequence_number;
     uint64_t send_time;
+    uint64_t delivered_prior;
+    uint64_t delivered_time_prior;
+    uint64_t delivered_sent_prior;
     uint32_t length;
     uint32_t send_length;
     uint32_t checksum_overhead;
@@ -286,6 +289,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int is_congestion_controlled : 1;  // This flag can be set independently of the is_evaluated flag, but either before or at the same time.
     unsigned int has_plugin_frames : 1;
     unsigned int is_mtu_probe : 1;
+    unsigned int delivered_app_limited : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 
@@ -721,7 +725,9 @@ typedef enum {
     picoquic_congestion_notification_repeat,
     picoquic_congestion_notification_timeout,
     picoquic_congestion_notification_spurious_repeat,
-    picoquic_congestion_notification_rtt_measurement
+    picoquic_congestion_notification_rtt_measurement,
+    picoquic_congestion_notification_cwin_blocked,
+    picoquic_congestion_notification_bw_measurement
 } picoquic_congestion_notification_t;
 
 typedef void (*picoquic_congestion_algorithm_init)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);
@@ -742,6 +748,7 @@ typedef struct st_picoquic_congestion_algorithm_t {
 
 extern picoquic_congestion_algorithm_t* picoquic_newreno_algorithm;
 extern picoquic_congestion_algorithm_t* picoquic_cubic_algorithm;
+extern picoquic_congestion_algorithm_t* picoquic_bbr_algorithm;
 
 #define PICOQUIC_DEFAULT_CONGESTION_ALGORITHM picoquic_cubic_algorithm;
 
@@ -795,6 +802,16 @@ int picoquic_get_remote_error(picoquic_cnx_t* cnx);
 
 /* Create a path */
 int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr);
+
+/* Check pacing to see whether the next transmission is authorized. If it is not, update the next wait time to reflect pacing. */
+int picoquic_is_sending_authorized_by_pacing(picoquic_path_t * path_x, uint64_t current_time, uint64_t * next_time);
+
+/* Reset the pacing data after CWIN is updated */
+void picoquic_update_pacing_data(picoquic_path_t * path_x);
+void picoquic_update_pacing_rate(picoquic_path_t* path_x, double pacing_rate, uint64_t quantum);
+
+void picoquic_estimate_path_bandwidth(picoquic_cnx_t *cnx, picoquic_path_t* path_x, uint64_t send_time, uint64_t delivered_prior, uint64_t delivered_time_prior, uint64_t delivered_sent_prior,
+                                      uint64_t delivery_time, uint64_t current_time, int rs_is_path_limited);
 
 /* Integer formatting functions */
 size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);

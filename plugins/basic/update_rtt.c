@@ -16,11 +16,14 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
     picoquic_packet_t* packet = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_NEWEST);
 
+    int is_new_ack = 0;
+
     /* Check whether this is a new acknowledgement */
     uint64_t highest_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED);
     picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
     if (highest_acknowledged || (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE) == (uint64_t)((int64_t)-1)) {
         set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED, largest);
+        is_new_ack = 1;
 
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {
             /* if the ACK is reasonably recent, use it to update the RTT */
@@ -126,5 +129,6 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
         }
     }
 
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) is_new_ack);
     return (protoop_arg_t) packet;
 }

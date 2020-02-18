@@ -12,6 +12,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     picoquic_path_t *sending_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 4);
     picoquic_path_t *receive_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 5);
     int receive_path_index = -1;
+    int is_new_ack = 0;
 
     bpf_data *bpfd = get_bpf_data(cnx);
     bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
@@ -28,6 +29,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
     if (highest_acknowledged || (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE) == (uint64_t)((int64_t)-1)) {
         set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED, largest);
+        is_new_ack = 1;
 
         if (ack_delay < PICOQUIC_ACK_DELAY_MAX) {
             /* if the ACK is reasonably recent, use it to update the RTT */
@@ -162,6 +164,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                         /* FIXME adapt the retransmit timer computation to the asymmetric paths */
                         set_path(old_sending_path, AK_PATH_RETRANSMIT_TIMER, 0, old_smoothed_rtt + 4 * old_rtt_variant + old_max_ack_delay);
                     }
+                    set_path(old_sending_path, AK_PATH_RTT_SAMPLE, 0, rtt_estimate);
 
                     uint64_t old_retransmit_timer = (uint64_t) get_path(old_sending_path, AK_PATH_RETRANSMIT_TIMER, 0);
                     if (PICOQUIC_MIN_RETRANSMIT_TIMER > old_retransmit_timer) {
@@ -179,5 +182,6 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
         }
     }
 
+    set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) is_new_ack);
     return (protoop_arg_t) packet;
 }

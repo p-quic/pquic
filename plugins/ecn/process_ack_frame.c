@@ -80,7 +80,7 @@ protoop_arg_t process_ack_frame(picoquic_cnx_t *cnx)
         }
 
         /* Attempt to update the RTT */
-        picoquic_packet_t* top_packet = helper_update_rtt(cnx, frame->largest_acknowledged, current_time, frame->ack_delay, pc, path_x);
+        picoquic_packet_t* top_packet = helper_update_rtt(cnx, frame->largest_acknowledged, current_time, frame->ack_delay, pc, path_x, NULL);
 
         uint64_t range = frame->first_ack_block;
         uint64_t block_to_block;

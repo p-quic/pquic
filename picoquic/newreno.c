@@ -21,6 +21,7 @@
 
 #include "picoquic_internal.h"
 #include "memory.h"
+#include "cc_common.h"
 #include <stdlib.h>
 
 typedef enum {
@@ -38,6 +39,7 @@ typedef struct st_picoquic_newreno_state_t {
     uint64_t min_rtt;
     uint64_t last_rtt[NB_RTT_RENO];
     int nb_rtt;
+    uint64_t last_sequence_blocked;
 } picoquic_newreno_state_t;
 
 void picoquic_newreno_init(picoquic_cnx_t* cnx, picoquic_path_t* path_x)
@@ -106,7 +108,7 @@ void picoquic_newreno_notify(picoquic_path_t* path_x,
             switch (nr_state->alg_state) {
             case picoquic_newreno_alg_slow_start:
                 /* Only increase when the app is CWIN limited */
-                if (path_x->cwin <= path_x->bytes_in_transit + nb_bytes_acknowledged) {
+                if (picoquic_cc_was_cwin_blocked(path_x, nr_state->last_sequence_blocked)) {
                     path_x->cwin += nb_bytes_acknowledged;
                     /* if cnx->cwin exceeds SSTHRESH, exit and go to CA */
                     if (path_x->cwin >= nr_state->ssthresh) {
@@ -177,6 +179,9 @@ void picoquic_newreno_notify(picoquic_path_t* path_x,
                     nr_state->alg_state = picoquic_newreno_alg_congestion_avoidance;
                 }
             }
+            break;
+        case picoquic_congestion_notification_cwin_blocked:
+            nr_state->last_sequence_blocked = picoquic_cc_get_sequence_number(path_x);
             break;
         default:
             /* ignore */

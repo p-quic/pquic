@@ -7,6 +7,7 @@
 #include "../../picoquic/memory.h"
 #include "../helpers.h"
 #include "../../picoquic/picoquic.h"
+#include "cc_common.h"
 
 #define WESTWOOD_OPAQUE_ID 0x0F
 #define NB_RTT_WESTWOOD 4
@@ -29,7 +30,7 @@ typedef struct {
     int64_t bytes_acknowledged_during_previous_round;
     int64_t last_rtt_timestamp;
     int64_t last_rtt_value;
-
+    uint64_t last_sequence_blocked;
 } westwood_state_t;
 
 
@@ -55,37 +56,6 @@ static __attribute__((always_inline)) westwood_state_t *get_westwood_state_t(pic
     }
     return state_ptr;
 }
-
-
-/*
- * Reset the pacing data after CWIN is updated
- */
-
-static __attribute__((always_inline)) void update_pacing_data(picoquic_path_t * path_x)
-{
-
-    int64_t cwin = get_path(path_x, AK_PATH_CWIN, 0);
-    int64_t send_mtu = get_path(path_x, AK_PATH_SEND_MTU, 0);
-    int64_t smoothed_rtt = get_path(path_x, AK_PATH_SMOOTHED_RTT, 0);
-    int64_t rtt_min = get_path(path_x, AK_PATH_RTT_MIN, 0);
-
-
-    int64_t packet_time_nano_sec = smoothed_rtt * 1000ull * send_mtu;
-    packet_time_nano_sec /= (uint64_t) cwin;
-    set_path(path_x, AK_PATH_PACKET_TIME_NANO_SEC, 0, packet_time_nano_sec);
-
-    int64_t pacing_margin_micros = 16 * packet_time_nano_sec;
-    if (pacing_margin_micros > (rtt_min / 8)) {
-        pacing_margin_micros = (rtt_min / 8);
-    }
-    if (pacing_margin_micros < 1000) {
-        pacing_margin_micros = 1000;
-    }
-
-    set_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0, pacing_margin_micros);
-
-}
-
 
 static __attribute__((always_inline)) void westwood_enter_recovery(picoquic_cnx_t *cnx, picoquic_path_t* path_x,
                                             picoquic_congestion_notification_t notification,

@@ -1211,6 +1211,24 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                     }
                 }
             }
+
+            /* Compute receive bandwidth */
+            path_x->received += ph->offset + ph->payload_length + picoquic_get_checksum_length(cnx, 0);
+            if (path_x->receive_rate_epoch == 0) {
+                path_x->received_prior = path_x->received;
+                path_x->receive_rate_epoch = current_time;
+            } else {
+                uint64_t delta = current_time - path_x->receive_rate_epoch;
+                if (delta > path_x->smoothed_rtt && delta > PICOQUIC_BANDWIDTH_TIME_INTERVAL_MIN) {
+                    path_x->receive_rate_estimate = ((path_x->received - path_x->received_prior)*1000000) / delta;
+                    path_x->received_prior = path_x->received;
+                    path_x->receive_rate_epoch = current_time;
+                    if (path_x->receive_rate_estimate > path_x->receive_rate_max) {
+                        path_x->receive_rate_max = path_x->receive_rate_estimate;
+                    }
+                }
+            }
+
             /* Accept the incoming frames */
             ret = picoquic_decode_frames(cnx,
                 bytes + ph->offset, ph->payload_length, ph->epoch, current_time, path_x);
