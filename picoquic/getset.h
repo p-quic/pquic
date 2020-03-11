@@ -348,13 +348,13 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_INITIAL_CID 0x0f
 /** The start time of the connection, as uint64_t */
 #define AK_CNX_START_TIME 0x10
-/** The application error code, as uint16_t */
+/** The application error code, as uint64_t */
 #define AK_CNX_APPLICATION_ERROR 0x11
-/** The local error code, as uint16_t */
+/** The local error code, as uint64_t */
 #define AK_CNX_LOCAL_ERROR 0x12
-/** The remote application error code, as uint16_t */
+/** The remote application error code, as uint64_t */
 #define AK_CNX_REMOTE_APPLICATION_ERROR 0x13
-/** The remote error code, as uint16_t */
+/** The remote error code, as uint64_t */
 #define AK_CNX_REMOTE_ERROR 0x14
 /** The offending frame type causing the error, as uint64_t */
 #define AK_CNX_OFFENDING_FRAME_TYPE 0x15

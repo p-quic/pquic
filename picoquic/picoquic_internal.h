@@ -356,10 +356,10 @@ typedef struct _picoquic_stream_head {
     uint64_t maxdata_local;
     uint64_t maxdata_remote;
     uint32_t stream_flags;
-    uint32_t local_error;
-    uint32_t remote_error;
-    uint32_t local_stop_error;
-    uint32_t remote_stop_error;
+    uint64_t local_error;
+    uint64_t remote_error;
+    uint64_t local_stop_error;
+    uint64_t remote_stop_error;
     picoquic_stream_data* stream_data;
     uint64_t sent_offset;
     uint64_t sending_offset;
@@ -674,10 +674,10 @@ typedef struct st_picoquic_cnx_t {
     picoquic_state_enum cnx_state;
     picoquic_connection_id_t initial_cnxid;
     uint64_t start_time;
-    uint16_t application_error;
-    uint16_t local_error;
-    uint16_t remote_application_error;
-    uint16_t remote_error;
+    uint64_t application_error;
+    uint64_t local_error;
+    uint64_t remote_application_error;
+    uint64_t remote_error;
     uint64_t offending_frame_type;
     uint32_t retry_token_length;
     uint8_t * retry_token;
@@ -923,7 +923,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc, picoquic_path_t* path_x);
 
 /* Notify error on connection */
-int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type);
+int picoquic_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type);
 
 /* Set the transport parameters */
 void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp);

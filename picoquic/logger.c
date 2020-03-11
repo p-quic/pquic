@@ -584,27 +584,25 @@ size_t picoquic_log_reset_stream_frame(FILE* F, uint8_t* bytes, size_t bytes_max
 {
     size_t byte_index = 1;
     uint64_t stream_id = 0;
-    uint32_t error_code = 0;
+    uint64_t error_code = 0;
     uint64_t offset = 0;
 
-    size_t l1 = 0, l2 = 0;
+    size_t l1 = 0, l2 = 0, l3 = 0;
     if (bytes_max > 2) {
         l1 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &stream_id);
         byte_index += l1;
-        if (l1 > 0 && bytes_max >= byte_index + 3) {
-            error_code = PICOPARSE_16(bytes + byte_index);
-            byte_index += 2;
-            l2 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offset);
-            byte_index += l2;
-        }
+        l2 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &error_code);
+        byte_index += l2;
+        l3 = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offset);
+        byte_index += l3;
     }
 
-    if (l1 == 0 || l2 == 0) {
+    if (l1 == 0 || l2 == 0 || l3 == 0) {
         fprintf(F, "    Malformed RESET STREAM, requires %d bytes out of %d\n", (int)(byte_index + ((l1 == 0) ? (picoquic_varint_skip(bytes + 1) + 3) : picoquic_varint_skip(bytes + byte_index))),
             (int)bytes_max);
         byte_index = bytes_max;
     } else {
-        fprintf(F, "    RESET STREAM %llu, Error 0x%08x, Offset 0x%llx.\n",
+        fprintf(F, "    RESET STREAM %llu, Error 0x%lx, Offset 0x%llx.\n",
             (unsigned long long)stream_id, error_code, (unsigned long long)offset);
     }
 
@@ -614,9 +612,9 @@ size_t picoquic_log_reset_stream_frame(FILE* F, uint8_t* bytes, size_t bytes_max
 size_t picoquic_log_stop_sending_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
-    const size_t min_size = 1 + picoquic_varint_skip(bytes + 1) + 2;
+    const size_t min_size = 1 + picoquic_varint_skip(bytes + 1) + 1;
     uint64_t stream_id;
-    uint32_t error_code;
+    uint64_t error_code;
 
     if (min_size > bytes_max) {
         fprintf(F, "    Malformed STOP SENDING, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
@@ -625,10 +623,9 @@ size_t picoquic_log_stop_sending_frame(FILE* F, uint8_t* bytes, size_t bytes_max
 
     /* Now that the size is good, parse and print it */
     byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &stream_id);
-    error_code = PICOPARSE_16(bytes + byte_index);
-    byte_index += 2;
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &error_code);
 
-    fprintf(F, "    STOP SENDING %d (0x%08x), Error 0x%x.\n",
+    fprintf(F, "    STOP SENDING %d (0x%08x), Error 0x%lx.\n",
         (uint32_t)stream_id, (uint32_t)stream_id, error_code);
 
     return byte_index;
@@ -637,15 +634,14 @@ size_t picoquic_log_stop_sending_frame(FILE* F, uint8_t* bytes, size_t bytes_max
 size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_max, uint8_t ftype)
 {
     size_t byte_index = 1;
-    uint32_t error_code = 0;
+    uint64_t error_code = 0;
     uint64_t string_length = 0;
     uint64_t offending_frame_type = 0;
     size_t lf = 0;
     size_t l1 = 0;
 
-    if (bytes_max >= 4) {
-        error_code = PICOPARSE_16(bytes + byte_index);
-        byte_index += 2;
+    if (bytes_max >= 3) {
+        byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &error_code);
         if (ftype == picoquic_frame_type_connection_close) {
             lf = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &offending_frame_type);
             if (lf == 0) {
@@ -669,7 +665,7 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
     else {
         byte_index += l1;
 
-        fprintf(F, "    %s, Error 0x%04x, ", picoquic_log_frame_names(ftype), error_code);
+        fprintf(F, "    %s, Error 0x%lx, ", picoquic_log_frame_names(ftype), error_code);
         if (ftype == picoquic_frame_type_connection_close &&
             offending_frame_type != 0) {
             fprintf(F, "Offending frame %llx\n",

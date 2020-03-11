@@ -586,7 +586,7 @@ static picoquic_packet_context_enum helper_context_from_epoch(int epoch)
     return (epoch >= 0 && epoch < 4) ? pc[epoch] : 0;
 }
 
-static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+static int helper_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type)
 {
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) local_error;

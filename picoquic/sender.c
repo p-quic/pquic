@@ -132,7 +132,7 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
 }
 
 int picoquic_reset_stream(picoquic_cnx_t* cnx,
-    uint64_t stream_id, uint16_t local_stream_error)
+    uint64_t stream_id, uint64_t local_stream_error)
 {
     int ret = 0;
     picoquic_stream_head* stream = NULL;
@@ -148,7 +148,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_reset_requested) == 0) {
         stream->local_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_requested);
-        LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %d}", stream, stream_id, local_stream_error);
+        LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %llu}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -157,7 +157,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
 }
 
 int picoquic_stop_sending(picoquic_cnx_t* cnx,
-    uint64_t stream_id, uint16_t local_stream_error)
+    uint64_t stream_id, uint64_t local_stream_error)
 {
     int ret = 0;
     picoquic_stream_head* stream = NULL;
@@ -173,7 +173,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) == 0) {
         stream->local_stop_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_requested);
-        LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %d}", stream, stream_id, local_stream_error);
+        LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %llu}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -3600,7 +3600,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     return ret;
 }
 
-int picoquic_close(picoquic_cnx_t* cnx, uint16_t reason_code)
+int picoquic_close(picoquic_cnx_t* cnx, uint64_t reason_code)
 {
     int ret = 0;
 

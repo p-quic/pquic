@@ -1655,7 +1655,7 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
                 ret = 0;
             }
             else {
-                uint16_t error_code = PICOQUIC_TLS_HANDSHAKE_FAILED;
+                uint64_t error_code = PICOQUIC_TLS_HANDSHAKE_FAILED;
 
                 if (PTLS_ERROR_GET_CLASS(ret) == PTLS_ERROR_CLASS_SELF_ALERT) {
                     error_code = PICOQUIC_TRANSPORT_CRYPTO_ERROR(ret);

@@ -1887,29 +1887,29 @@ int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t lengt
  */
 protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 {
-    uint16_t local_error = (uint16_t) cnx->protoop_inputv[0];
+    uint64_t local_error = (uint64_t) cnx->protoop_inputv[0];
     uint64_t frame_type = (uint64_t) cnx->protoop_inputv[1];
 
     if (cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) {
         cnx->local_error = local_error;
         picoquic_set_cnx_state(cnx, picoquic_state_disconnecting);
 
-        DBG_PRINTF("Protocol error (%x)", local_error);
+        DBG_PRINTF("Protocol error (%lx)", local_error);
     } else if (cnx->cnx_state < picoquic_state_client_ready) {
         cnx->local_error = local_error;
         picoquic_set_cnx_state(cnx, picoquic_state_handshake_failure);
 
-        DBG_PRINTF("Protocol error %x", local_error);
+        DBG_PRINTF("Protocol error %lx", local_error);
     }
 
     cnx->offending_frame_type = frame_type;
 
-    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %d, \"frame_type\": %llu}", local_error, frame_type);
+    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %llu, \"frame_type\": %llu}", local_error, frame_type);
 
     return (protoop_arg_t) PICOQUIC_ERROR_DETECTED;
 }
 
-int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+int picoquic_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type)
 {
     return (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, NULL,
         local_error, frame_type);
@@ -2107,7 +2107,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
     }
 }
 
-int picoquic_is_handshake_error(uint16_t error_code)
+int picoquic_is_handshake_error(uint64_t error_code)
 {
     return ((error_code & 0xFF00) == PICOQUIC_TRANSPORT_CRYPTO_ERROR(0) ||
         error_code == PICOQUIC_TLS_HANDSHAKE_FAILED);
@@ -2259,12 +2259,12 @@ int picoquic_is_client(picoquic_cnx_t* cnx)
     return cnx->client_mode;
 }
 
-int picoquic_get_local_error(picoquic_cnx_t* cnx)
+uint64_t picoquic_get_local_error(picoquic_cnx_t* cnx)
 {
     return cnx->local_error;
 }
 
-int picoquic_get_remote_error(picoquic_cnx_t* cnx)
+uint64_t picoquic_get_remote_error(picoquic_cnx_t* cnx)
 {
     return cnx->remote_error;
 }

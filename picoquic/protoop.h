@@ -344,7 +344,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SNPRINTF;
 
 /**
  * Trigger a connection error.
- * \param[in] local_error \b uint16_t QUIC error code
+ * \param[in] local_error \b uint64_t QUIC error code
  * \param[in] frame_type \b uint64_t Type of the offending frame
  * 
  * \todo Link \p local_error to the param space related

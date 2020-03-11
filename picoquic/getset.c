@@ -288,13 +288,13 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         cnx->start_time = (uint64_t) val;
         break;
     case AK_CNX_APPLICATION_ERROR:
-        cnx->application_error = (uint16_t) val;
+        cnx->application_error = (uint64_t) val;
         break;
     case AK_CNX_LOCAL_ERROR:
-        cnx->local_error = (uint16_t) val;
+        cnx->local_error = val;
         break;
     case AK_CNX_REMOTE_APPLICATION_ERROR:
-        cnx->remote_application_error = (uint16_t) val;
+        cnx->remote_application_error = (uint64_t) val;
         break;
     case AK_CNX_REMOTE_ERROR:
         cnx->remote_error = (uint16_t) val;
