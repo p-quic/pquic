@@ -23,9 +23,6 @@
 #define TLS_API_H
 #include "picoquic_internal.h"
 
-#define PICOQUIC_LABEL_HANDSHAKE_CLIENT "QUIC client hs"
-#define PICOQUIC_LABEL_HANDSHAKE_SERVER "QUIC server hs"
-
 #define PICOQUIC_LABEL_INITIAL_CLIENT "client in"
 #define PICOQUIC_LABEL_INITIAL_SERVER "server in"
 
@@ -33,7 +30,8 @@
 #define PICOQUIC_LABEL_IV "iv"
 #define PICOQUIC_LABEL_PN "pn"
 
-#define PICOQUIC_LABEL_QUIC_BASE "quic "
+#define PICOQUIC_LABEL_BASE "tls13 "
+#define PICOQUIC_LABEL_QUIC_BASE PICOQUIC_LABEL_BASE "quic "
 
 int picoquic_master_tlscontext(picoquic_quic_t* quic, char const* cert_file_name, char const* key_file_name,
     char const * cert_root_file_name, const uint8_t* ticket_key, size_t ticket_key_length);

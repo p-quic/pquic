@@ -96,14 +96,7 @@ extern "C" {
 /*
  * Supported versions
  */
-#define PICOQUIC_FIRST_INTEROP_VERSION 0xFF000005
-#define PICOQUIC_SECOND_INTEROP_VERSION 0xFF000007
-#define PICOQUIC_THIRD_INTEROP_VERSION 0xFF000008
-#define PICOQUIC_FOURTH_INTEROP_VERSION 0xFF000009
-#define PICOQUIC_FIFTH_INTEROP_VERSION 0xFF00000B
-#define PICOQUIC_SIXTH_INTEROP_VERSION 0xFF00000C
-#define PICOQUIC_SEVENTH_INTEROP_VERSION 0xFF00000D
-#define PICOQUIC_EIGHT_INTEROP_VERSION 0xFF00000E
+#define PICOQUIC_INTEROP_VERSION 0xff00001b
 #define PICOQUIC_INTERNAL_TEST_VERSION_1 0x50435130
 
 #define PICOQUIC_INTEROP_VERSION_INDEX 1
@@ -120,7 +113,7 @@ typedef enum {
  * Codes used for representing the various types of packet encodings
  */
 typedef enum {
-    picoquic_version_header_13
+    picoquic_version_header_27
 } picoquic_version_header_encoding;
 
 typedef struct st_picoquic_version_parameters_t {

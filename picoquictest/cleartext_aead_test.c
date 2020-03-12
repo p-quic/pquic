@@ -188,13 +188,15 @@ int cleartext_aead_test()
 
 static picoquic_connection_id_t clear_test_vector_cnx_id = { { 0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08 }, 8 };
 
-static uint32_t clear_test_vector_vn = 0xff00000d;
+static uint32_t clear_test_vector_vn = PICOQUIC_INTEROP_VERSION;
 static uint8_t clear_test_vector_client_iv[12] = {
-    0xab, 0x95, 0x0b, 0x01, 0x98, 0x63, 0x79, 0x78,
-    0xcf, 0x44, 0xaa, 0xb9 };
+    0x86, 0x81, 0x35, 0x94, 0x10, 0xa7, 0x0b, 0xb9,
+    0xc9, 0x2f, 0x04, 0x20
+};
 static uint8_t clear_test_vector_server_iv[12] = {
-    0x32, 0x05, 0x03, 0x5a, 0x3c, 0x93, 0x7c, 0x90,
-    0x2e, 0xe4, 0xf4, 0xd6 };
+    0x5e, 0x5a, 0xe6, 0x51, 0xfd, 0x1e, 0x84, 0x95,
+    0xaf, 0x13, 0x50, 0x8b
+};
 
 
 static int cleartext_iv_cmp(void * void_aead, uint8_t * ref_iv, size_t iv_length)
@@ -555,7 +557,7 @@ int cleartext_pn_vector_test()
         test_addr_s.sin_port = 4433;
 
         cnx_server = picoquic_create_cnx(qserver, initial_cnxid, initial_cnxid,
-            (struct sockaddr*)&test_addr_s, 0, PICOQUIC_SEVENTH_INTEROP_VERSION, NULL, NULL, 0);
+            (struct sockaddr*)&test_addr_s, 0, PICOQUIC_INTEROP_VERSION, NULL, NULL, 0);
 
         if (cnx_server == NULL) {
             DBG_PRINTF("%s", "Could not create server connection context.\n");

@@ -760,14 +760,12 @@ int picoquic_setup_initial_secrets(
 
     /* Get the client secret */
     ret = ptls_hkdf_expand_label(cipher->hash, client_secret, cipher->hash->digest_size,
-        prk, PICOQUIC_LABEL_INITIAL_CLIENT, ptls_iovec_init(NULL, 0),
-        PICOQUIC_LABEL_QUIC_BASE);
+        prk, PICOQUIC_LABEL_INITIAL_CLIENT, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_BASE);
 
     if (ret == 0) {
         /* Get the server secret */
         ret = ptls_hkdf_expand_label(cipher->hash, server_secret, cipher->hash->digest_size,
-            prk, PICOQUIC_LABEL_INITIAL_SERVER, ptls_iovec_init(NULL, 0),
-            PICOQUIC_LABEL_QUIC_BASE);
+            prk, PICOQUIC_LABEL_INITIAL_SERVER, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_BASE);
     }
 
     return ret;
@@ -878,7 +876,7 @@ int picoquic_master_tlscontext(picoquic_quic_t* quic,
 
         ctx->send_change_cipher_spec = 0;
 
-        ctx->hkdf_label_prefix = PICOQUIC_LABEL_QUIC_BASE;
+        ctx->hkdf_label_prefix = NULL;
         ctx->update_traffic_key = picoquic_set_update_traffic_key_callback();
 
         if (quic->p_simulated_time == NULL) {

@@ -137,26 +137,21 @@ static uint8_t picoquic_cleartext_internal_test_1_salt[] = {
     0x3d, 0xc1, 0xca, 0x36
 };
 
-static uint8_t picoquic_cleartext_draft_10_salt[] = {
-    0x9c, 0x10, 0x8f, 0x98, 0x52, 0x0a, 0x5c, 0x5c,
-    0x32, 0x96, 0x8e, 0x95, 0x0e, 0x8a, 0x2c, 0x5f,
-    0xe0, 0x6d, 0x6c, 0x38
+static uint8_t picoquic_cleartext_draft_27_salt[] = {
+    0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a,
+    0x11, 0xa7, 0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65,
+    0xbe, 0xf9, 0xf5, 0x02
 };
 
-/* Support for draft 13! */
 const picoquic_version_parameters_t picoquic_supported_versions[] = {
     { PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
-        picoquic_version_header_13,
+        picoquic_version_header_27,
         sizeof(picoquic_cleartext_internal_test_1_salt),
         picoquic_cleartext_internal_test_1_salt },
-    { PICOQUIC_EIGHT_INTEROP_VERSION, 0,
-        picoquic_version_header_13,
-        sizeof(picoquic_cleartext_draft_10_salt),
-        picoquic_cleartext_draft_10_salt },
-    { PICOQUIC_SEVENTH_INTEROP_VERSION, 0,
-        picoquic_version_header_13,
-        sizeof(picoquic_cleartext_draft_10_salt),
-        picoquic_cleartext_draft_10_salt }
+    { PICOQUIC_INTEROP_VERSION, 0,
+        picoquic_version_header_27,
+        sizeof(picoquic_cleartext_draft_27_salt),
+            picoquic_cleartext_draft_27_salt }
 };
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
