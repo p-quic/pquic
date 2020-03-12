@@ -1247,7 +1247,7 @@ int tls_api_one_scenario_test(test_api_stream_desc_t* scenario,
     if (ret == 0 && max_completion_microsec != 0) {
         if (simulated_time > max_completion_microsec)
         {
-            DBG_PRINTF("Scenario completes in %llu microsec, more than %llu\n", simulated_time, max_completion_microsec);
+            DBG_PRINTF("Scenario completes in %" PRIu64 " microsec, more than %" PRIu64 "\n", simulated_time, max_completion_microsec);
             ret = -1;
         }
     }
@@ -1625,8 +1625,8 @@ int keep_alive_test_impl(int keep_alive)
         if (test_ctx->cnx_client->cnx_state != picoquic_state_client_ready) {
             ret = -1;
         } else if (simulated_time < 2 * PICOQUIC_MICROSEC_SILENCE_MAX) {
-            DBG_PRINTF("Keep alive test concludes after %llu microsecs instead of %llu, ret = %d\n",
-                (unsigned long long)simulated_time, (unsigned long long)2 * PICOQUIC_MICROSEC_SILENCE_MAX, ret);
+            DBG_PRINTF("Keep alive test concludes after %" PRIu64 " microsecs instead of %" PRIu64 ", ret = %d\n",
+                simulated_time, 2 * PICOQUIC_MICROSEC_SILENCE_MAX, ret);
             ret = -1;
         } 
     } else if (keep_alive == 0) {
@@ -2824,14 +2824,14 @@ int virtual_time_test()
             test_time = picoquic_get_quic_time(qsimul);
             ptls_time = picoquic_get_tls_time(qsimul);
             if (test_time != simulated_time) {
-                DBG_PRINTF("Test time: %llu != Simulated: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)simulated_time);
+                DBG_PRINTF("Test time: %" PRIu64 " != Simulated: %" PRIu64,
+                    test_time,
+                    simulated_time);
                 ret = -1;
             } else if (ptls_time < (test_time / 1000) || ptls_time >(test_time / 1000) + 1) {
-                DBG_PRINTF("Test time: %llu does match ptls time: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)ptls_time);
+                DBG_PRINTF("Test time: %" PRIu64 " does match ptls time: %" PRIu64,
+                    test_time,
+                    ptls_time);
                 ret = -1;
             }
         }
@@ -2847,22 +2847,22 @@ int virtual_time_test()
             ptls_time = picoquic_get_tls_time(qdirect);
 
             if (test_time < current_time) {
-                DBG_PRINTF("Test time: %llu < previous current time: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)current_time);
+                DBG_PRINTF("Test time: %" PRIu64 " < previous current time: %" PRIu64,
+                    test_time,
+                    current_time);
                 ret = -1;
             }
             else {
                 current_time = picoquic_current_time();
                 if (test_time > current_time) {
-                    DBG_PRINTF("Test time: %llu > next current time: %llu",
-                        (unsigned long long)test_time,
-                        (unsigned long long)current_time);
+                    DBG_PRINTF("Test time: %" PRIu64 " > next current time: %" PRIu64,
+                        test_time,
+                        current_time);
                     ret = -1;
                 } else if (ptls_time < (test_time / 1000) || ptls_time >(test_time / 1000) + 1) {
-                    DBG_PRINTF("Test current time: %llu does match ptls time: %llu",
-                        (unsigned long long)test_time,
-                        (unsigned long long)ptls_time);
+                    DBG_PRINTF("Test current time: %" PRIu64 " does match ptls time: %" PRIu64,
+                        test_time,
+                        ptls_time);
                     ret = -1;
                 }
             }

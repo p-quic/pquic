@@ -866,7 +866,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
     args[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", args[i]);
+    DBG_PLUGIN_PRINTF("  %" PRIu64, args[i]);
   }
   va_end(ap);
   protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
@@ -882,7 +882,7 @@ static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int
   DBG_PLUGIN_PRINTF("%u saved:", n_args);
   for (i = 0; i < n_args; i++) {
     cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", cnx->protoop_outputv[i]);
+    DBG_PLUGIN_PRINTF("  %" PRIu64, cnx->protoop_outputv[i]);
   }
   cnx->protoop_outputc_callee = n_args;
   va_end(ap);

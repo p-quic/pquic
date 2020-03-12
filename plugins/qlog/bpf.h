@@ -122,7 +122,7 @@ static __attribute__((always_inline)) void append_event(qlog_t *q, uint64_t abso
         lseek(q->fd, -QLOG_N_END_CHARS, SEEK_END);
     }
     uint64_t relative_time = absolute_time - q->hdr.reference_time;
-    dprintf(q->fd, "[%lu, ", relative_time);
+    dprintf(q->fd, "[%" PRIu64 ", ", relative_time);
     for (int i = 0; i < QLOG_N_EVENT_FIELDS - 3; i++) {
         dprintf(q->fd, "\"%s\", ", fields[i]);
     }
@@ -154,7 +154,7 @@ static void write_trailer(picoquic_cnx_t *cnx, qlog_t *q) {
     }
     id_str[(q->hdr.odcid.id_len * 2)] = 0;
     dprintf(q->fd, "], \"configuration\": {\"time_offset\": 0, \"time_units\": \"us\"}, \"common_fields\": {\"group_id\": \"%s\", \"ODCID\": \"%s\", ", id_str, id_str);
-    dprintf(q->fd, "\"reference_time\": %lu}, \"event_fields\": [", q->hdr.reference_time);
+    dprintf(q->fd, "\"reference_time\": %" PRIu64 "}, \"event_fields\": [", q->hdr.reference_time);
     for (int i = 0; i < QLOG_N_EVENT_FIELDS - 1; i++) {
         dprintf(q->fd, "\"%s\", ", q->hdr.event_fields[i]);
     }
@@ -192,7 +192,7 @@ static __attribute__((always_inline)) char *sprint_header(picoquic_cnx_t *cnx, q
     snprintf_bytes(dcid_str, dcid_str_len, (const uint8_t *) &qlog->pkt_hdr.dest_cnx_id.id, qlog->pkt_hdr.dest_cnx_id.id_len);
 
     if (qlog->pkt_hdr.ptype != picoquic_packet_1rtt_protected_phi0 && qlog->pkt_hdr.ptype != picoquic_packet_1rtt_protected_phi1) {
-        char *hdr_format = "{\"packet_number\": \"%lu\", \"packet_size\": %d, \"payload_size\": %d, \"version\": \"%s\", \"dcid\": \"%s\", \"dcil\": \"%d\", \"scid\": \"%s\", \"scil\": \"%d\"}";
+        char *hdr_format = "{\"packet_number\": \"%" PRIu64 "\", \"packet_size\": %d, \"payload_size\": %d, \"version\": \"%s\", \"dcid\": \"%s\", \"dcil\": \"%d\", \"scid\": \"%s\", \"scil\": \"%d\"}";
         char *version_str = (char *) my_malloc(cnx, 9);
         if (!version_str) {
             my_free(cnx, dcid_str);
@@ -213,7 +213,7 @@ static __attribute__((always_inline)) char *sprint_header(picoquic_cnx_t *cnx, q
         my_free(cnx, scid_str);
         my_free(cnx, version_str);
     } else {
-        char *hdr_format = "{\"packet_number\": \"%lu\", \"packet_size\": %d, \"payload_size\": %d, \"dcid\": \"%s\"}";
+        char *hdr_format = "{\"packet_number\": \"%" PRIu64 "\", \"packet_size\": %d, \"payload_size\": %d, \"dcid\": \"%s\"}";
         PROTOOP_SNPRINTF(cnx, hdr_str, 300, hdr_format, qlog->pkt_hdr.pn, qlog->pkt_hdr.offset + qlog->pkt_hdr.payload_length, qlog->pkt_hdr.payload_length, (protoop_arg_t) dcid_str);
     }
 

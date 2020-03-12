@@ -123,7 +123,7 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
             }
         }
 
-        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d, \"queued_size\": %llu}", stream, stream->stream_id, data, length, set_fin, stream->sending_offset - stream->sent_offset);
+        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"data_ptr\": \"%p\", \"length\": %" PRIu64 ", \"fin\": %d, \"queued_size\": %" PRIu64 "}", stream, stream->stream_id, data, length, set_fin, stream->sending_offset - stream->sent_offset);
 
         picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
     }
@@ -148,7 +148,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_reset_requested) == 0) {
         stream->local_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_reset_requested);
-        LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %llu}", stream, stream_id, local_stream_error);
+        LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 "}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -173,7 +173,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
     else if ((stream->stream_flags & picoquic_stream_flag_stop_sending_requested) == 0) {
         stream->local_stop_error = local_stream_error;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_requested);
-        LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %llu, \"error\": %llu}", stream, stream_id, local_stream_error);
+        LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 "}", stream, stream_id, local_stream_error);
     }
 
     picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
@@ -259,7 +259,7 @@ int picoquic_add_to_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id,
             }
         }
 
-        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_PLUGIN_STREAM", "", "{\"stream\": \"%p\", \"pid_id\": %llu, \"data_ptr\": \"%p\", \"length\": %lu, \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
+        LOG_EVENT(cnx, "APPLICATION", "ADD_TO_PLUGIN_STREAM", "", "{\"stream\": \"%p\", \"pid_id\": %" PRIu64 ", \"data_ptr\": \"%p\", \"length\": %" PRIu64 ", \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
 
         picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
     }
@@ -742,7 +742,7 @@ void picoquic_queue_for_retransmit(picoquic_cnx_t* cnx, picoquic_path_t * path_x
     if (packet->is_congestion_controlled) {
         packet->send_length = length;
         path_x->bytes_in_transit += packet->send_length;
-        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "QUEUE_FOR_RETRANSMIT", "{\"path\": \"%p\", \"bytes_in_transit\": %llu}", path_x, path_x->bytes_in_transit);
+        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "QUEUE_FOR_RETRANSMIT", "{\"path\": \"%p\", \"bytes_in_transit\": %" PRIu64 "}", path_x, path_x->bytes_in_transit);
     }
 
     /* Manage the double linked packet list for retransmissions */
@@ -769,7 +769,7 @@ void remove_registered_plugin_frames(picoquic_cnx_t *cnx, int received, picoquic
         tmp = pppf;
         tmp->plugin->bytes_in_flight -= tmp->bytes;
         pppf = tmp->next;
-        LOG_EVENT(cnx, "PLUGINS", "BYTES_IN_FLIGHT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"plugin\": \"%s\", \"bytes_in_flight\": %llu}", tmp->plugin->name, tmp->plugin->bytes_in_flight);
+        LOG_EVENT(cnx, "PLUGINS", "BYTES_IN_FLIGHT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"plugin\": \"%s\", \"bytes_in_flight\": %" PRIu64 "}", tmp->plugin->name, tmp->plugin->bytes_in_flight);
         protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_NOTIFY_FRAME, tmp->rfs->frame_type, NULL, tmp->rfs, received);
         free(tmp);
     }
@@ -818,7 +818,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         } else {
             p->send_path->bytes_in_transit = 0;
         }
-        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"bytes_in_transit\": %llu}", p->send_path, p->send_path->bytes_in_transit);
+        LOG_EVENT(cnx, "CONGESTION_CONTROL", "BYTES_IN_TRANSIT_UPDATE", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"bytes_in_transit\": %" PRIu64 "}", p->send_path, p->send_path->bytes_in_transit);
     }
 
     remove_registered_plugin_frames(cnx, should_free, p);
@@ -826,7 +826,7 @@ protoop_arg_t dequeue_retransmit_packet(picoquic_cnx_t *cnx)
         picoquic_destroy_packet(p);
     }
     else {
-        LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": %d, \"pn\": %llu}", p->send_path, p->pc, p->sequence_number);
+        LOG_EVENT(cnx, "RECOVERY", "PACKET_LOSS", "DEQUEUE_RETRANSMIT_PACKET", "{\"path\": \"%p\", \"pc\": %d, \"pn\": %" PRIu64 "}", p->send_path, p->pc, p->sequence_number);
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PACKET_WAS_LOST, NULL, p, send_path);
 
         p->next_packet = NULL;
@@ -1190,7 +1190,7 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
             queue_enqueue(cnx->retry_frames, rfs);
         } else {
             if (data_bytes > rfs->nb_bytes) {
-                printf("WARNING: plugin %s reserved frame %llu for %lu bytes, but wrote %lu; erasing the frame\n",
+                printf("WARNING: plugin %s reserved frame %" PRIu64 " for %" PRIu64 " bytes, but wrote %" PRIu64 "; erasing the frame\n",
                        cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
             }
             memset(&bytes[length], 0, rfs->nb_bytes);
@@ -1239,10 +1239,10 @@ protoop_arg_t scheduler_write_new_frames(picoquic_cnx_t *cnx) {
         } else {
             if (data_bytes > rfs->nb_bytes) {
                 if (cnx->current_plugin != NULL)
-                    printf("WARNING: plugin %s reserved frame %llu for %lu bytes, but wrote %lu; erasing the frame\n",
+                    printf("WARNING: plugin %s reserved frame %" PRIu64 " for %" PRIu64 " bytes, but wrote %" PRIu64 "; erasing the frame\n",
                            cnx->current_plugin->name, rfs->frame_type, rfs->nb_bytes, data_bytes);
                 else
-                    printf("WARNING: plugin %p reserved frame %llu for %lu bytes, but wrote %lu; erasing the frame\n",
+                    printf("WARNING: plugin %p reserved frame %" PRIu64 " for %" PRIu64 " bytes, but wrote %" PRIu64 "; erasing the frame\n",
                            cnx->current_plugin, rfs->frame_type, rfs->nb_bytes, data_bytes);
             }
             memset(&bytes[length], 0, rfs->nb_bytes);
@@ -1527,9 +1527,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
                         if (should_retransmit != 0) {
                             if (p->ptype < picoquic_packet_1rtt_protected_phi0) {
-                                DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %llx, is_client = %d\n",
+                                DBG_PRINTF("Retransmit packet type %d, pc=%d, seq = %" PRIx64 ", is_client = %d\n",
                                     p->ptype, p->pc,
-                                    (unsigned long long)p->sequence_number, cnx->client_mode);
+                                    p->sequence_number, cnx->client_mode);
                             }
 
                             /* special case for the client initial */
@@ -2885,7 +2885,7 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
 
     /*
     if (stream != NULL && plugin_use >= max_plugin_cwin) {
-        printf("Fair reserve over rate! Stream %p plugin_use %lu max_plugin_cwin %lu\n", stream, plugin_use, max_plugin_cwin);
+        printf("Fair reserve over rate! Stream %p plugin_use %" PRIu64 " max_plugin_cwin %" PRIu64 "\n", stream, plugin_use, max_plugin_cwin);
         // Don't go over the guaranteed rate!
         return;
     }
@@ -2917,9 +2917,9 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
                     char ftypes_str[250];
                     size_t ftypes_ofs = 0;
                     for (int i = 0; i < block->nb_frames; i++) {
-                        ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%llu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                        ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%" PRIu64 "%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
                     }
-                    LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE_UNDER_RATED", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+                    LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE_UNDER_RATED", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
                 }
                 /* Free the block */
                 free(block);
@@ -2947,9 +2947,9 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
                 char ftypes_str[250];
                 size_t ftypes_ofs = 0;
                 for (int i = 0; i < block->nb_frames; i++) {
-                    ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%llu%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
+                    ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%" PRIu64 "%s", block->frames[i].frame_type, i < block->nb_frames - 1 ? ", " : "");
                 }
-                LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %lu, \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+                LOG_EVENT(cnx, "PLUGINS", "ENQUEUE_FRAMES", "FRAME_FAIR_RESERVE", "{\"plugin\": \"%s\", \"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", p->name, block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
             }
             /* Free the block */
             free(block);

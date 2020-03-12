@@ -435,7 +435,7 @@ int picoquic_prepare_stream_reset_frame(picoquic_cnx_t *cnx, picoquic_stream_hea
     }
 
     if (!ret) {
-        LOG_EVENT(cnx, "FRAMES", "RST_STREAM_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_ptr\": \"%p\", \"stream_id\": %llu, \"error\": %llu, \"offset\": %llu}", bytes, stream, stream->stream_id, stream->local_error, stream->sent_offset);
+        LOG_EVENT(cnx, "FRAMES", "RST_STREAM_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 ", \"offset\": %" PRIu64 "}", bytes, stream, stream->stream_id, stream->local_error, stream->sent_offset);
     }
 
     return ret;
@@ -614,7 +614,7 @@ int picoquic_prepare_stop_sending_frame(picoquic_cnx_t* cnx, picoquic_stream_hea
         *consumed = byte_index;
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_stop_sending_sent);
 
-        LOG_EVENT(cnx, "FRAMES", "STOP_SENDING_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %llu, \"error\": %d}", bytes, stream->stream_id, stream->local_stop_error);
+        LOG_EVENT(cnx, "FRAMES", "STOP_SENDING_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %d}", bytes, stream->stream_id, stream->local_stop_error);
     }
 
     return ret;
@@ -761,7 +761,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
             picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
         }
 
-        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"stream_id\": %llu, \"data_length\": %lu}", stream->stream_id, data_length);
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"stream_id\": %" PRIu64 ", \"data_length\": %" PRIu64 "}", stream->stream_id, data_length);
         cnx->callback_fn(cnx, stream->stream_id, data->bytes + start, data_length, fin_now,
             cnx->callback_ctx);
 
@@ -775,7 +775,7 @@ void picoquic_stream_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* st
 
     if (stream->consumed_offset >= stream->fin_offset && (stream->stream_flags & (picoquic_stream_flag_fin_received | picoquic_stream_flag_fin_signalled)) == picoquic_stream_flag_fin_received) {
         picoquic_add_stream_flags(cnx, stream, picoquic_stream_flag_fin_signalled);
-        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"stream_id\": %llu, \"data_length\": 0}", stream->stream_id);
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"stream_id\": %" PRIu64 ", \"data_length\": 0}", stream->stream_id);
         cnx->callback_fn(cnx, stream->stream_id, NULL, 0, picoquic_callback_stream_fin,
             cnx->callback_ctx);
     }
@@ -1160,7 +1160,7 @@ protoop_arg_t prepare_stream_frame(picoquic_cnx_t* cnx)
                     stream->send_queue = next;
                 }
 
-                LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %llu, \"offset\": %llu, \"length\": %lu, \"fin\": %d, \"queued_size\": %llu}", bytes, stream->stream_id, stream->sent_offset, length, STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0, stream->sending_offset - stream->sent_offset);
+                LOG_EVENT(cnx, "FRAMES", "STREAM_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"offset\": %" PRIu64 ", \"length\": %" PRIu64 ", \"fin\": %d, \"queued_size\": %" PRIu64 "}", bytes, stream->stream_id, stream->sent_offset, length, STREAM_FIN_NOTIFIED(stream) && stream->send_queue == 0, stream->sending_offset - stream->sent_offset);
 
                 stream->sent_offset += length;
                 /* The client does not handle this correctly, so fix this at client side... */
@@ -1296,7 +1296,7 @@ protoop_arg_t prepare_plugin_frame(picoquic_cnx_t* cnx)
                     plugin_stream->send_queue = next;
                 }
 
-                LOG_EVENT(cnx, "FRAMES", "PLUGIN_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"pid_id\": %llu, \"offset\": %llu, \"length\": %lu, \"fin\": %d}", bytes, plugin_stream->stream_id, plugin_stream->sent_offset, length, STREAM_FIN_NOTIFIED(plugin_stream) && plugin_stream->send_queue == 0);
+                LOG_EVENT(cnx, "FRAMES", "PLUGIN_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"pid_id\": %" PRIu64 ", \"offset\": %" PRIu64 ", \"length\": %" PRIu64 ", \"fin\": %d}", bytes, plugin_stream->stream_id, plugin_stream->sent_offset, length, STREAM_FIN_NOTIFIED(plugin_stream) && plugin_stream->send_queue == 0);
 
                 plugin_stream->sent_offset += length;
                 /* The client does not handle this correctly, so fix this at client side... */
@@ -1542,7 +1542,7 @@ protoop_arg_t prepare_crypto_hs_frame(picoquic_cnx_t *cnx)
                     stream->send_queue = next;
                 }
 
-                LOG_EVENT(cnx, "FRAMES", "CRYPTO_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"offset\": %llu, \"length\": %lu}", bytes, stream->sent_offset, length);
+                LOG_EVENT(cnx, "FRAMES", "CRYPTO_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"offset\": %" PRIu64 ", \"length\": %" PRIu64 "}", bytes, stream->sent_offset, length);
                 stream->sent_offset += length;
                 consumed = byte_index;
             } else if (ret == 0 && length == 0) {
@@ -2589,9 +2589,9 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                     }
 
                     if (range <= 1)
-                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%llu]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
+                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%" PRIu64 "]%s", largest, num_block == ack_block_count - 1 ? "" : ", ");
                     else
-                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%llu, %llu]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
+                        ack_ofs += snprintf(ack_str + ack_ofs, sizeof(ack_str) - ack_ofs, "[%" PRIu64 ", %" PRIu64 "]%s", largest - range + 1, largest, num_block == ack_block_count - 1 ? "" : ", ");
 
                     if (num_block == ack_block_count - 1)
                         break;
@@ -2602,7 +2602,7 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                     largest -= block_to_block;
                 }
                 ack_str[ack_ofs] = 0;
-                LOG_EVENT(cnx, "FRAMES", "ACK_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"largest\": %llu, \"blocks\": [%s]}", bytes, frame.largest_acknowledged, ack_str);
+                LOG_EVENT(cnx, "FRAMES", "ACK_FRAME_CREATED", "", "{\"data_ptr\": \"%p\", \"largest\": %" PRIu64 ", \"blocks\": [%s]}", bytes, frame.largest_acknowledged, ack_str);
             }
 
             /* When numbers are lower than 64, varint encoding fits on one byte */
@@ -2745,7 +2745,7 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
             *consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         } else {
-            LOG_EVENT(cnx, "FRAMES", "CONNECTION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"frame_type\": %llu, \"reason\": \"\"}", bytes, cnx->local_error, cnx->offending_frame_type);
+            LOG_EVENT(cnx, "FRAMES", "CONNECTION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"frame_type\": %" PRIu64 ", \"reason\": \"\"}", bytes, cnx->local_error, cnx->offending_frame_type);
         }
     }
     else {
@@ -2934,7 +2934,7 @@ protoop_arg_t prepare_max_data_frame(picoquic_cnx_t *cnx)
         }
 
         consumed = 1 + l1;
-        LOG_EVENT(cnx, "FRAMES", "MAX_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"maximum_data\": %llu}", bytes, cnx->maxdata_local);
+        LOG_EVENT(cnx, "FRAMES", "MAX_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"maximum_data\": %" PRIu64 "}", bytes, cnx->maxdata_local);
     }
 
     protoop_save_outputs(cnx, consumed);
@@ -3094,7 +3094,7 @@ protoop_arg_t prepare_required_max_stream_data_frames(picoquic_cnx_t* cnx)
                 &bytes_in_frame);
             if (ret == 0) {
                 byte_index += bytes_in_frame;
-                LOG_EVENT(cnx, "FRAMES", "MAX_STREAM_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %llu, \"maximum_data\": %llu}", bytes, stream->stream_id, stream->maxdata_local);
+                LOG_EVENT(cnx, "FRAMES", "MAX_STREAM_DATA_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"maximum_data\": %" PRIu64 "}", bytes, stream->stream_id, stream->maxdata_local);
             } else {
                 break;
             }
@@ -3281,7 +3281,7 @@ protoop_arg_t prepare_path_challenge_frame(picoquic_cnx_t *cnx)
         picoformat_64(bytes + 1, path->challenge);
         consumed = 1 + 8;
 
-        LOG_EVENT(cnx, "FRAMES", "PATH_CHALLENGE_CREATED", "", "{\"data_ptr\": \"%p\", \"data\": \"%llx\"}", bytes, path->challenge);
+        LOG_EVENT(cnx, "FRAMES", "PATH_CHALLENGE_CREATED", "", "{\"data_ptr\": \"%p\", \"data\": \"%" PRIx64 "\"}", bytes, path->challenge);
     }
 
     protoop_save_outputs(cnx, consumed);
@@ -3792,7 +3792,7 @@ void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* pl
             picoquic_add_stream_flags(cnx, plugin_stream, picoquic_stream_flag_fin_signalled);
         }
 
-        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"plugin_id\": %llu, \"data_length\": %lu}", plugin_stream->stream_id, data_length);
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"plugin_id\": %" PRIu64 ", \"data_length\": %" PRIu64 "}", plugin_stream->stream_id, data_length);
         /* FIXME not efficient */
         for (int i = 0; i < cnx->pids_to_request.size; i++) {
             preq = &cnx->pids_to_request.elems[i];
@@ -3822,7 +3822,7 @@ void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* pl
                 break;
             }
         }
-        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"plugin_id\": %llu, \"data_length\": 0}", plugin_stream->stream_id);
+        LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(picoquic_callback_stream_fin), "{\"plugin_id\": %" PRIu64 ", \"data_length\": 0}", plugin_stream->stream_id);
     }
 }
 

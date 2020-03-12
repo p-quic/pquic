@@ -29,7 +29,7 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) { // TODO: Convert to stream_stat
             break;
     }
     if (stream_state) {
-        LOG_EVENT(cnx, "transport", "stream_state_updated", "", "{\"ptr\": \"%p\", \"stream_id\": %lu, \"new\": \"%s\"}", get_cnx(cnx, AK_CNX_INPUT, 0), stream_id, (protoop_arg_t) stream_state);
+        LOG_EVENT(cnx, "transport", "stream_state_updated", "", "{\"ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"new\": \"%s\"}", get_cnx(cnx, AK_CNX_INPUT, 0), stream_id, (protoop_arg_t) stream_state);
     }
     return 0;
 }

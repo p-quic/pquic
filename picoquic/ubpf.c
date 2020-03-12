@@ -33,7 +33,7 @@
 #endif
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
-    printf("Out of bound access with val 0x%llx, start of mem is 0x%llx, top of stack is 0x%llx\n", val, mem_ptr, stack_ptr);
+    printf("Out of bound access with val 0x%" PRIx64 ", start of mem is 0x%" PRIx64 ", top of stack is 0x%" PRIx64 "\n", val, mem_ptr, stack_ptr);
 }
 
 static void

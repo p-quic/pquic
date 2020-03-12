@@ -433,11 +433,11 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
         char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
         snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
         if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
-            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %llu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
+            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %" PRIu64 ", \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
         } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
             char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
             snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
-            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %llu, \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
+            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %" PRIu64 ", \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
         } else {
             // TODO: vneg
         }
@@ -1296,7 +1296,7 @@ int picoquic_incoming_segment(
     }
 
     if (cnx != NULL) LOG {
-        PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %llu", picoquic_log_ptype_name(ph.ptype), ph.pn64);
+        PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\", \"pn\": %" PRIu64, picoquic_log_ptype_name(ph.ptype), ph.pn64);
     }
 
     /* Verify that the segment coalescing is for the same destination ID */

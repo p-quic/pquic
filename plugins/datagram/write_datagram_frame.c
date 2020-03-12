@@ -19,7 +19,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
 #endif
 
                 if (bytes_max - bytes < length_required)  {
-                    PROTOOP_PRINTF(cnx, "Not enough space in the buffer left to encode the DATAGRAM frame, expected %lu and got %lu\n", length_required, bytes_max - bytes);
+                    PROTOOP_PRINTF(cnx, "Not enough space in the buffer left to encode the DATAGRAM frame, expected %" PRIu64 " and got %" PRIu64 "\n", length_required, bytes_max - bytes);
                     my_free(cnx, frame->datagram_data_ptr);
                     my_free(cnx, frame);
                     return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
@@ -27,7 +27,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
 
                 size_t varint_len = picoquic_varint_encode(bytes, bytes_max - bytes, frame_type);
                 if (varint_len == 0) {
-                    PROTOOP_PRINTF(cnx, "Failed to encode the frame type %lu as varint\n", frame_type);
+                    PROTOOP_PRINTF(cnx, "Failed to encode the frame type %" PRIu64 " as varint\n", frame_type);
                     return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                 }
                 bytes += varint_len;
@@ -36,7 +36,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
                 if(HAS_ID(frame_type)) {
                     varint_len = picoquic_varint_encode(bytes, bytes_max - bytes, frame->datagram_id);
                     if (varint_len == 0) {
-                        PROTOOP_PRINTF(cnx, "Failed to encode the datagram id %lu as varint\n", frame->datagram_id);
+                        PROTOOP_PRINTF(cnx, "Failed to encode the datagram id %" PRIu64 " as varint\n", frame->datagram_id);
                         return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                     }
                     bytes += varint_len;
@@ -45,7 +45,7 @@ protoop_arg_t write_datagram_frame(picoquic_cnx_t* cnx)
                 if(HAS_LEN(frame_type)) {
                     varint_len = picoquic_varint_encode(bytes, bytes_max - bytes, frame->length);
                     if (varint_len == 0) {
-                        PROTOOP_PRINTF(cnx, "Failed to encode the length %lu as varint\n", frame->length);
+                        PROTOOP_PRINTF(cnx, "Failed to encode the length %" PRIu64 " as varint\n", frame->length);
                         return PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
                     }
                     bytes += varint_len;

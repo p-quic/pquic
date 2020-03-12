@@ -448,7 +448,7 @@ int test_packet_decrypt_one(
         ret = -1;
     }
     else if (received_ph.pn64 != expected_ph->pn64) {
-        DBG_PRINTF("PN64 %llx instead of %llx.\n", (unsigned long long)received_ph.pn64, (unsigned long long)expected_ph->pn64);
+        DBG_PRINTF("PN64 %" PRIx64 " instead of %" PRIx64 ".\n", received_ph.pn64, expected_ph->pn64);
         ret = -1;
     }
     else if (received_ph.payload_length != expected_ph->payload_length) {

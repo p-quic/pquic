@@ -251,7 +251,7 @@ static void write_stats(picoquic_cnx_t *cnx, char *filename) {
             }
             snprintf(buf, size-1, "%s (%s)", str, stats[i].pluglet_name);
             strncpy(str, buf, size-1);
-            snprintf(buf, size-1, "%s: %lu calls", str, stats[i].count);
+            snprintf(buf, size-1, "%s: %" PRIu64 " calls", str, stats[i].count);
             strncpy(str, buf, size-1);
             double average_execution_time = stats[i].count ? (((double) stats[i].total_execution_time)/((double) stats[i].count)) : 0;
             snprintf(buf, size-1, "%s, (avg=%fms, tot=%fms)", str, average_execution_time/1000, ((double) stats[i].total_execution_time)/1000);
@@ -412,7 +412,7 @@ static void first_server_callback(picoquic_cnx_t* cnx,
                     stream_ctx->response_length = response_length;
                 }
                 printf("%" PRIx64 ": ", picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx)));
-                printf("Server CB, Stream: %" PRIu64 ", Sending %lu-byte static response\n",
+                printf("Server CB, Stream: %" PRIu64 ", Sending %" PRIu64 "-byte static response\n",
                        stream_id, stream_ctx->response_length);
                 picoquic_add_to_stream(cnx, stream_ctx->stream_id, (const uint8_t*) response_buffer, stream_ctx->response_length, 1);
             } else {
@@ -1238,9 +1238,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 if (ret == 0 && picoquic_get_cnx_state(cnx_client) == picoquic_state_client_ready) {
                     if (established == 0) {
                         picoquic_log_transport_extension(F_log, cnx_client, 0);
-                        printf("Connection established. Version = %x, I-CID: %llx\n",
+                        printf("Connection established. Version = %x, I-CID: %" PRIx64 "\n",
                             picoquic_supported_versions[cnx_client->version_index].version,
-                            (unsigned long long)picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                            picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
                         established = 1;
 
                         if (zero_rtt_available == 0) {

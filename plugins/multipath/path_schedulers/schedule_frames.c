@@ -124,7 +124,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 set_path(sending_path, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {
-                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %lu and BIF %lu MTU needed %d stream %p tls_ready %d send_buffer_max %d path_send_mtu %d ret %d\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit, mtu_needed, (protoop_arg_t) stream, tls_ready, send_buffer_max, sending_path_mtu, ret);
+                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %" PRIu64 " and BIF %" PRIu64 " MTU needed %d stream %p tls_ready %d send_buffer_max %d path_send_mtu %d ret %d\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit, mtu_needed, (protoop_arg_t) stream, tls_ready, send_buffer_max, sending_path_mtu, ret);
                 length = header_length;
             }
         }
@@ -141,7 +141,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     challenge_repeat_count++;
                     set_path(sending_path, AK_PATH_CHALLENGE_REPEAT_COUNT, 0, challenge_repeat_count);
                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
-                    PROTOOP_PRINTF(cnx, "Sending path %p CWIN %lu BIF %lu\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit);
+                    PROTOOP_PRINTF(cnx, "Sending path %p CWIN %" PRIu64 " BIF %" PRIu64 "\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit);
                     if (challenge_repeat_count > MAX_PATHS * PICOQUIC_CHALLENGE_REPEAT_MAX) {
                         PROTOOP_PRINTF(cnx, "%s\n", (protoop_arg_t) "Too many challenge retransmits, disconnect");
                         picoquic_set_cnx_state(cnx, picoquic_state_disconnected);

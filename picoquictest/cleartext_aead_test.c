@@ -125,9 +125,9 @@ int cleartext_aead_test()
             DBG_PRINTF("%s", "Could not create server connection context.\n");
             ret = -1;
         } else if (picoquic_compare_connection_id(&cnx_client->initial_cnxid, &cnx_server->initial_cnxid) != 0) {
-            DBG_PRINTF("Server Cnx-ID= %llx, differs from Client Cnx-ID = %llx\n",
-                (unsigned long long) picoquic_val64_connection_id(cnx_client->initial_cnxid),
-                (unsigned long long) picoquic_val64_connection_id(cnx_server->initial_cnxid));
+            DBG_PRINTF("Server Cnx-ID= %" PRIx64 ", differs from Client Cnx-ID = %" PRIx64 "\n",
+                 picoquic_val64_connection_id(cnx_client->initial_cnxid),
+                 picoquic_val64_connection_id(cnx_server->initial_cnxid));
             ret = -1;
         }
         else if (picoquic_compare_cleartext_aead_contexts(cnx_client, cnx_server) != 0 ||

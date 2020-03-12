@@ -56,8 +56,8 @@ void picoquic_log_time(FILE* F, picoquic_cnx_t* cnx, uint64_t current_time,
     uint64_t time_sec = delta_t / 1000000;
     uint32_t time_usec = (uint32_t)(delta_t % 1000000);
 
-    fprintf(F, "%s%llu.%06d%s", label1,
-        (unsigned long long)time_sec, time_usec, label2);
+    fprintf(F, "%s%" PRIu64 ".%06d%s", label1,
+        time_sec, time_usec, label2);
 }
 
 const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev)
@@ -143,9 +143,9 @@ void picoquic_log_packet_address(FILE* F, uint64_t log_cnxid64, picoquic_cnx_t* 
         time_usec = (uint32_t)(delta_t % 1000000);
     }
 
-    fprintf(F, " at T=%llu.%06d (%llx)\n",
-        (unsigned long long)time_sec, time_usec,
-        (unsigned long long)current_time);
+    fprintf(F, " at T=%" PRIu64 ".%06d (%" PRIx64 ")\n",
+        time_sec, time_usec,
+        current_time);
 }
 
 char const* picoquic_log_state_name(picoquic_state_enum state)
@@ -355,7 +355,7 @@ void picoquic_log_packet_header(FILE* F, uint64_t log_cnxid64, picoquic_packet_h
             fprintf(F, "\n%" PRIx64 ":     ", log_cnxid64);
         }
         picoquic_log_connection_id(F, &ph->dest_cnx_id);
-        fprintf(F, ", Seq: %x (%llx)\n", ph->pn, (unsigned long long)ph->pn64);
+        fprintf(F, ", Seq: %x (%" PRIx64 ")\n", ph->pn, ph->pn64);
         break;
     case picoquic_packet_version_negotiation:
         /* V nego. log both CID */
@@ -489,8 +489,8 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
 
     /* Now that the size is good, print it */
     if (is_ecn) {
-        fprintf(F, "    ACK_ECN (nb=%u, ect0=%llu, ect1=%llu, ce=%llu)", (int)num_block,
-            (unsigned long long)ecnx3[0], (unsigned long long)ecnx3[1], (unsigned long long)ecnx3[2]);
+        fprintf(F, "    ACK_ECN (nb=%u, ect0=%" PRIu64 ", ect1=%" PRIu64 ", ce=%" PRIu64 ")", (int)num_block,
+            ecnx3[0], ecnx3[1], ecnx3[2]);
     }
     else {
         fprintf(F, "    ACK (nb=%u)", (int)num_block);
@@ -602,8 +602,8 @@ size_t picoquic_log_reset_stream_frame(FILE* F, uint8_t* bytes, size_t bytes_max
             (int)bytes_max);
         byte_index = bytes_max;
     } else {
-        fprintf(F, "    RESET STREAM %llu, Error 0x%lx, Offset 0x%llx.\n",
-            (unsigned long long)stream_id, error_code, (unsigned long long)offset);
+        fprintf(F, "    RESET STREAM %" PRIu64 ", Error 0x%" PRIx64 ", Offset 0x%" PRIx64 ".\n",
+            stream_id, error_code, offset);
     }
 
     return byte_index;
@@ -625,7 +625,7 @@ size_t picoquic_log_stop_sending_frame(FILE* F, uint8_t* bytes, size_t bytes_max
     byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &stream_id);
     byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &error_code);
 
-    fprintf(F, "    STOP SENDING %d (0x%08x), Error 0x%lx.\n",
+    fprintf(F, "    STOP SENDING %d (0x%08x), Error 0x%" PRIx64 ".\n",
         (uint32_t)stream_id, (uint32_t)stream_id, error_code);
 
     return byte_index;
@@ -665,17 +665,17 @@ size_t picoquic_log_generic_close_frame(FILE* F, uint8_t* bytes, size_t bytes_ma
     else {
         byte_index += l1;
 
-        fprintf(F, "    %s, Error 0x%lx, ", picoquic_log_frame_names(ftype), error_code);
+        fprintf(F, "    %s, Error 0x%" PRIx64 ", ", picoquic_log_frame_names(ftype), error_code);
         if (ftype == picoquic_frame_type_connection_close &&
             offending_frame_type != 0) {
-            fprintf(F, "Offending frame %llx\n",
-                (unsigned long long)offending_frame_type);
+            fprintf(F, "Offending frame %" PRIx64 "\n",
+                offending_frame_type);
         }
-        fprintf(F, "Reason length %llu\n", (unsigned long long)string_length);
+        fprintf(F, "Reason length %" PRIu64 "\n", string_length);
         if (byte_index + string_length > bytes_max) {
-            fprintf(F, "    Malformed %s, requires %llu bytes out of %llu\n",
+            fprintf(F, "    Malformed %s, requires %" PRIu64 " bytes out of %" PRIu64 "\n",
                 picoquic_log_frame_names(ftype),
-                (unsigned long long)(byte_index + string_length), (unsigned long long)bytes_max);
+                (byte_index + string_length), bytes_max);
             byte_index = bytes_max;
         } else {
             /* TODO: print the UTF8 string */
@@ -710,7 +710,7 @@ size_t picoquic_log_max_data_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
         byte_index = 1 + l1;
     }
 
-    fprintf(F, "    MAX DATA: 0x%llx.\n", (unsigned long long)max_data);
+    fprintf(F, "    MAX DATA: 0x%" PRIx64 ".\n", max_data);
 
     return byte_index;
 }
@@ -732,8 +732,8 @@ size_t picoquic_log_max_stream_data_frame(FILE* F, uint8_t* bytes, size_t bytes_
         byte_index = 1 + l1 + l2;
     }
 
-    fprintf(F, "    MAX STREAM DATA, Stream: %" PRIu64 ", max data: 0x%llx.\n",
-        stream_id, (unsigned long long)max_data);
+    fprintf(F, "    MAX STREAM DATA, Stream: %" PRIu64 ", max data: 0x%" PRIx64 ".\n",
+        stream_id, max_data);
 
     return byte_index;
 }
@@ -968,7 +968,7 @@ size_t picoquic_log_plugin_validate_frame(FILE* F, uint8_t* bytes, size_t bytes_
     memcpy(pid, bytes + byte_index, pid_len);
     byte_index += pid_len;
 
-    fprintf(F, "    PLUGIN VALIDATE: ID %llx for %s.\n", pid_id, pid);
+    fprintf(F, "    PLUGIN VALIDATE: ID %" PRIx64 " for %s.\n", pid_id, pid);
 
     return byte_index;
 }
@@ -1117,7 +1117,7 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
         fprintf(F, "    MP NEW CONNECTION ID for Path 0x");
-        fprintf(F, "%02llx", path_id);
+        fprintf(F, "%02lx", path_id);
         fprintf(F, " CID: 0x");
         for (int x = 0; x < new_cnx_id.id_len; x++) {
             fprintf(F, "%02x", new_cnx_id.id[x]);
@@ -1208,7 +1208,7 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
         return bytes_max;
 
     /* Now that the size is good, print it */
-    fprintf(F, "    MP ACK for path 0x%02llx (nb=%u)", path_id, (int)num_block);
+    fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
 
     /* decoding the acks */
 
@@ -1309,16 +1309,16 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
             break;
         case 0x2d:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
-            fprintf(F, "    DATAGRAM (len=%llu)\n", len);
+            fprintf(F, "    DATAGRAM (len=%" PRIu64 ")\n", len);
             break;
         case 0x2e:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
             len = bytes_max - byte_index;
-            fprintf(F, "    DATAGRAM (id=%llu)\n", datagram_id);
+            fprintf(F, "    DATAGRAM (id=%" PRIu64 ")\n", datagram_id);
         case 0x2f:
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &datagram_id);
             byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &len);
-            fprintf(F, "    DATAGRAM (id=%llu, len=%llu)\n", datagram_id, len);
+            fprintf(F, "    DATAGRAM (id=%" PRIu64 ", len=%" PRIu64 ")\n", datagram_id, len);
             break;
     }
     byte_index += len;
@@ -1463,7 +1463,7 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             /* Not implemented yet! */
             uint64_t frame_id64;
             if (picoquic_varint_decode(bytes + byte_index, length - byte_index, &frame_id64) > 0) {
-                fprintf(F, "    Unknown frame, type: %llu\n", (unsigned long long)frame_id64);
+                fprintf(F, "    Unknown frame, type: %" PRIu64 "\n", frame_id64);
             } else {
                 fprintf(F, "    Truncated frame type\n");
             }
@@ -1929,16 +1929,16 @@ static void picoquic_log_tls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
     }
 
     if (ret == -1) {
-        fprintf(F, "%llu: Malformed ticket, length = %d, at least %d required.\n",
-            (unsigned long long)picoquic_val64_connection_id(cnx_id), ticket_length, min_length);
+        fprintf(F, "%" PRIu64 ": Malformed ticket, length = %d, at least %d required.\n",
+            picoquic_val64_connection_id(cnx_id), ticket_length, min_length);
     }
-    fprintf(F, "%llu: lifetime = %d, age_add = %x, %d nonce, %d ticket, %d extensions.\n",
-        (unsigned long long)picoquic_val64_connection_id(cnx_id), lifetime, age_add, nonce_length, ticket_val_length, extension_length);
+    fprintf(F, "%" PRIu64 ": lifetime = %d, age_add = %x, %d nonce, %d ticket, %d extensions.\n",
+        picoquic_val64_connection_id(cnx_id), lifetime, age_add, nonce_length, ticket_val_length, extension_length);
 
     if (extension_ptr != NULL) {
         uint16_t x_index = 0;
 
-        fprintf(F, "%llu: ticket extensions: ", (unsigned long long)picoquic_val64_connection_id(cnx_id));
+        fprintf(F, "%" PRIu64 ": ticket extensions: ", picoquic_val64_connection_id(cnx_id));
 
         while (x_index + 4 < extension_length) {
             uint16_t x_type = PICOPARSE_16(extension_ptr + x_index);
@@ -1953,22 +1953,22 @@ static void picoquic_log_tls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
             }
 
             if (x_index > extension_length) {
-                fprintf(F, "\n%llu: malformed extensions, require %d bytes, not just %d",
-                    (unsigned long long)picoquic_val64_connection_id(cnx_id), x_index, extension_length);
+                fprintf(F, "\n%" PRIu64 ": malformed extensions, require %d bytes, not just %d",
+                    picoquic_val64_connection_id(cnx_id), x_index, extension_length);
             }
         }
 
         fprintf(F, "\n");
 
         if (x_index < extension_length) {
-            fprintf(F, "\n%llu: %d extra bytes at the end of the extensions\n",
-                (unsigned long long)picoquic_val64_connection_id(cnx_id), extension_length - x_index);
+            fprintf(F, "\n%" PRIu64 ": %d extra bytes at the end of the extensions\n",
+                picoquic_val64_connection_id(cnx_id), extension_length - x_index);
         }
     }
 
     if (ret == -2) {
-        fprintf(F, "%llu: Malformed TLS ticket, %d extra bytes.\n",
-            (unsigned long long)picoquic_val64_connection_id(cnx_id), ticket_length - min_length);
+        fprintf(F, "%" PRIu64 ": Malformed TLS ticket, %d extra bytes.\n",
+            picoquic_val64_connection_id(cnx_id), ticket_length - min_length);
     }
 }
 
@@ -2029,13 +2029,13 @@ void picoquic_log_picotls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
         }
     }
 
-    fprintf(F, "%llu: ticket time = %llu, kx = %x, suite = %x, %d ticket, %d secret.\n",
-        (unsigned long long)picoquic_val64_connection_id(cnx_id), (unsigned long long)ticket_time,
+    fprintf(F, "%" PRIu64 ": ticket time = %" PRIu64 ", kx = %x, suite = %x, %d ticket, %d secret.\n",
+        picoquic_val64_connection_id(cnx_id), ticket_time,
         kx_id, suite_id, tls_ticket_length, secret_length);
 
     if (ret == -1) {
-        fprintf(F, "%llu: Malformed PTLS ticket, length = %d, at least %d required.\n",
-            (unsigned long long)picoquic_val64_connection_id(cnx_id), ticket_length, min_length);
+        fprintf(F, "%" PRIu64 ": Malformed PTLS ticket, length = %d, at least %d required.\n",
+            picoquic_val64_connection_id(cnx_id), ticket_length, min_length);
     } else {
         if (tls_ticket_length > 0 && tls_ticket_ptr != NULL) {
             picoquic_log_tls_ticket(F, cnx_id, tls_ticket_ptr, (uint16_t) tls_ticket_length);
@@ -2043,7 +2043,7 @@ void picoquic_log_picotls_ticket(FILE* F, picoquic_connection_id_t cnx_id,
     }
 
     if (ret == -2) {
-        fprintf(F, "%llu: Malformed PTLS ticket, %d extra bytes.\n",
-            (unsigned long long)picoquic_val64_connection_id(cnx_id), ticket_length - min_length);
+        fprintf(F, "%" PRIu64 ": Malformed PTLS ticket, %d extra bytes.\n",
+            picoquic_val64_connection_id(cnx_id), ticket_length - min_length);
     }
 }

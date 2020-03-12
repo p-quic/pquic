@@ -898,14 +898,14 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_TYPE:
         if (val >= picoquic_packet_type_max) {
-            printf("ERROR: setting type %llu but max value is %u\n", val, picoquic_packet_type_max);
+            printf("ERROR: setting type %" PRIu64 " but max value is %u\n", val, picoquic_packet_type_max);
             break;
         }
         pkt->ptype = (picoquic_packet_type_enum) val;
         break;
     case AK_PKT_CONTEXT:
         if (val >= picoquic_nb_packet_context) {
-            printf("ERROR: setting context %llu but max value is %u\n", val, picoquic_nb_packet_context);
+            printf("ERROR: setting context %" PRIu64 " but max value is %u\n", val, picoquic_nb_packet_context);
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;

@@ -36,7 +36,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         args[2] = (protoop_arg_t) send_sequence;
         args[3] = (protoop_arg_t) pc;
         args[4] = (protoop_arg_t) frame->path_id;
-        helper_protoop_printf(cnx, "MP ACK frame largest is %lu for sending path %p but send_sequence is %lu with pc %lu (PID %lu)\n", args, 5);
+        helper_protoop_printf(cnx, "MP ACK frame largest is %" PRIu64 " for sending path %p but send_sequence is %" PRIu64 " with pc %" PRIu64 " (PID %" PRIu64 ")\n", args, 5);
         /* FIXME Clearly, there is a bug, but don't deal with it now... */
         if (send_sequence == 0) {
             return 0;

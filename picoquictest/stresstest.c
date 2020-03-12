@@ -931,7 +931,7 @@ static int stress_or_fuzz_test(picoquic_fuzz_fn fuzz_fn, void * fuzz_ctx)
         if (stress_ctx.simulated_time > sim_time_next_log) {
             double log_time = ((double)stress_ctx.simulated_time) / 1000000.0;
             DBG_PRINTF("T:%f. Nb cnx: %ull\n", log_time, 
-                (unsigned long long)nb_connections);
+                nb_connections);
             sim_time_next_log = stress_ctx.simulated_time + 1000000;
         }
 
@@ -1150,9 +1150,9 @@ int random_tester_test()
             /* Rotate the seed */
             uint64_t ctx = t_seed;
             /* Generate the values */
-            printf("{ 0x%llxull, \n{ ", (unsigned long long)t_seed);
+            printf("{ 0x%lxull, \n{ ", t_seed);
             for (int j = 0; j < 3; j++) {
-                printf("0x%llxull%s", (unsigned long long)picoquic_test_random(&ctx), (j < 2) ? ", " : "},\n{ ");
+                printf("0x%lxull%s", picoquic_test_random(&ctx), (j < 2) ? ", " : "},\n{ ");
             }
             for (int j = 0; j < 4; j++) {
                 printf("%d%s", (int)picoquic_test_uniform_random(&ctx, uniform_test[j]),
@@ -1168,18 +1168,18 @@ int random_tester_test()
             for (int j = 0; ret == 0 && j < 3; j++) {
                 uint64_t r = picoquic_test_random(&ctx);
                 if (r != random_cases[i].trials[j]) {
-                    DBG_PRINTF("Case %d, seed %llx, trial[%d] = %llx, expected %llx\n",
-                        i, (unsigned long long)random_cases[i].seed, j,
-                        (unsigned long long)r, (unsigned long long)random_cases[i].trials[j]);
+                    DBG_PRINTF("Case %d, seed %" PRIx64 ", trial[%d] = %" PRIx64 ", expected %" PRIx64 "\n",
+                        i, random_cases[i].seed, j,
+                        r, random_cases[i].trials[j]);
                     ret = -1;
                 }
             }
             for (int j = 0; ret == 0 && j < 4; j++) {
                 int r = (int)picoquic_test_uniform_random(&ctx, uniform_test[j]);
                 if (r != random_cases[i].uniform[j]) {
-                    DBG_PRINTF("Case %d, seed %llx, uniform(%d) = %d, expected %d\n",
-                        i, (unsigned long long)random_cases[i].seed, uniform_test[j],
-                        (unsigned long long)r, (unsigned long long)random_cases[i].uniform[j]);
+                    DBG_PRINTF("Case %d, seed %" PRIx64 ", uniform(%d) = %d, expected %d\n",
+                        i, random_cases[i].seed, uniform_test[j],
+                        r, random_cases[i].uniform[j]);
                     ret = -1;
                 }
             }
