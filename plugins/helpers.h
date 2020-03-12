@@ -613,7 +613,7 @@ static uint8_t* helper_frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_
     return bytes;
 }
 
-static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint8_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
+static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint64_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
     void **frame, int *ack_needed, int *is_retransmittable)
 {
     protoop_arg_t args[2], outs[3];

@@ -252,7 +252,7 @@ char const* picoquic_log_ptype_name(picoquic_packet_type_enum ptype)
     return ptype_name;
 }
 
-char const* picoquic_log_frame_names(uint8_t frame_type)
+char const* picoquic_log_frame_names(uint64_t frame_type)
 {
     char const * frame_name = "unknown";
 

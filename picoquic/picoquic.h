@@ -817,6 +817,7 @@ void picoquic_estimate_path_bandwidth(picoquic_cnx_t *cnx, picoquic_path_t* path
 /* Integer formatting functions */
 size_t picoquic_varint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
 size_t picoquic_varint_encode(uint8_t* bytes, size_t max_bytes, uint64_t n64);
+size_t picoquic_varint_skip(const uint8_t* bytes);
 
 /* Stream management */
 picoquic_stream_head* picoquic_find_stream(picoquic_cnx_t* cnx, uint64_t stream_id, int create);

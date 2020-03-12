@@ -107,6 +107,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, current_idx++, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, current_idx++, "picoquic_varint_encode", picoquic_varint_encode);
+    ubpf_register(vm, current_idx++, "picoquic_varint_skip", picoquic_varint_skip);
     ubpf_register(vm, current_idx++, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);

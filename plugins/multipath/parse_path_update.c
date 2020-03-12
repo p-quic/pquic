@@ -16,7 +16,7 @@ protoop_arg_t parse_path_update(picoquic_cnx_t *cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if ((bytes = picoquic_frames_varint_decode(bytes + 1, bytes_max, &frame->closed_path_id)) == NULL ||
+    if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->closed_path_id)) == NULL ||
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->proposed_path_id)) == NULL)
     {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, PATH_UPDATE_TYPE);

@@ -946,7 +946,6 @@ void picoformat_32(uint8_t* bytes, uint32_t n32);
 void picoformat_64(uint8_t* bytes, uint64_t n64);
 
 void picoquic_varint_encode_16(uint8_t* bytes, uint16_t n16);
-size_t picoquic_varint_skip(uint8_t* bytes);
 size_t picoquic_varint_len(uint64_t val);
 
 void picoquic_headint_encode_32(uint8_t* bytes, uint64_t sequence_number);
