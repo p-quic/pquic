@@ -319,6 +319,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     PROTOOP_PRINTF(cnx, "Should retransmit on path index %d pointer %p\n", i, (protoop_arg_t) path_x);
                     blocked = 0;
                 }
+                if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
+                    break;
+                }
             }
 
             /* Here, don't consider path 0 */
@@ -415,6 +418,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         next_time = retransmit_time;
                     }
                 }
+            }
+            if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
+                break;
             }
         }
 

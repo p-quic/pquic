@@ -516,6 +516,17 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH;
  */
 #define PROTOOPID_NOPARAM_PREPARE_CRYPTO_HS_FRAME "prepare_crypto_hs_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME;
+
+/**
+ * Prepare a HANDHSHAKE_DONE frame.
+ * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame
+ * \param[in] bytes_max \b size_t Max size that can be written
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] consumed \b size_t Number of bytes written
+ */
+#define PROTOOPID_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME "prepare_handshake_done"
+extern protoop_id_t PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME;
 /**
  * Prepare a ACK frame.
  * \param[in] current_time \b uint64_t The current time

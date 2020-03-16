@@ -240,6 +240,16 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 }
                             }
                         }
+
+                        if (!get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0)) {
+                            ret = helper_prepare_handshake_done_frame(cnx, bytes + length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
+                            if (ret == 0 && data_bytes > 0) {
+                                length += (uint32_t) data_bytes;
+                                set_pkt(packet, AK_PKT_HAS_HANDSHAKE_DONE, 1);
+                                set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
+                            }
+                        }
+
                         /* If present, send misc frame */
                         while (first_misc_frame != NULL) {
                             ret = helper_prepare_first_misc_frame(cnx, &bytes[length],

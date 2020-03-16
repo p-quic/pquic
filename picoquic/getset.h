@@ -436,6 +436,12 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_PIDS_TO_REQUEST 0x3B
 /** The queues of frames to be retransmitted */
 #define AK_CNX_RTX_FRAMES 0x3C
+/** Whether the handshake is done */
+#define AK_CNX_HANDSHAKE_DONE 0x3D
+/** Whether a HANDSHAKE_DONE frame was sent */
+#define AK_CNX_HANDSHAKE_DONE_SENT 0x3E
+/** Whether a HANDSHAKE_DONE frame was acked */
+#define AK_CNX_HANDSHAKE_DONE_ACKED 0x3F
 
 /**
  * @}
@@ -611,6 +617,7 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PKT_DELIVERED_TIME_PRIOR 0x12
 #define AK_PKT_DELIVERED_SENT_PRIOR 0x13
 #define AK_PKT_DELIVERED_APP_LIMITED 0x14
+#define AK_PKT_HAS_HANDSHAKE_DONE 0x15
 
 /**
  * @}

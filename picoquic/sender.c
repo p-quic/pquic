@@ -898,6 +898,37 @@ void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_
 }
 
 
+/* Empty the handshake repeat queues when transitioning to the completely ready state */
+void picoquic_implicit_handshake_ack(picoquic_cnx_t* cnx, picoquic_path_t *path, picoquic_packet_context_enum pc, uint64_t current_time)
+{
+    picoquic_packet_t* p = path->pkt_ctx[pc].retransmit_oldest;
+
+    /* Remove packets from the retransmit queue */
+    while (p != NULL) {
+        picoquic_packet_t* p_next = p->next_packet;
+        picoquic_path_t * old_path = p->send_path;
+
+        /* Update the congestion control state for the path */
+        if (old_path != NULL) {
+            if (old_path->smoothed_rtt == PICOQUIC_INITIAL_RTT && old_path->rtt_variant == 0) {
+                // TODO Update the path rtt somehow
+            }
+
+            if (p->is_congestion_controlled && cnx->congestion_alg != NULL) {
+                picoquic_congestion_algorithm_notify_func(cnx, old_path,
+                                                picoquic_congestion_notification_acknowledgement,
+                                                0, p->length, 0, current_time);
+            }
+        }
+        /* Update the number of bytes in transit and remove old packet from queue */
+        /* The packet will not be placed in the "retransmitted" queue */
+        (void)picoquic_dequeue_retransmit_packet(cnx, p, 1);
+
+        p = p_next;
+    }
+}
+
+
 /*
  * Final steps of encoding and protecting the packet before sending
  */
@@ -1603,12 +1634,15 @@ int picoquic_is_cnx_backlog_empty(picoquic_cnx_t* cnx)
             picoquic_packet_t* p = path_x->pkt_ctx[pc].retransmit_oldest;
 
             while (p != NULL && backlog_empty == 1) {
-                /* check if this is an ACK only packet */
-                if (!p->is_pure_ack) {
+                /* check if this is an ACK only packet or a MTU probe */
+                if (!p->is_pure_ack && !p->is_mtu_probe) {
                     backlog_empty = 0;
                 }
                 p = p->previous_packet;
             }
+        }
+        if (cnx->handshake_done && (cnx->client_mode || cnx->handshake_done_acked)) {
+            break;
         }
     }
 
@@ -1903,6 +1937,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 else if (picoquic_is_ack_needed(cnx, current_time, pc, path_x)) {
                     blocked = 0;
                 }
+                if (cnx->handshake_done && (cnx->client_mode || cnx->handshake_done_acked)) {
+                    break;
+                }
             }
 
             if (blocked != 0) {
@@ -1946,6 +1983,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                         next_time = retransmit_time;
                     }
                 }
+            }
+            if (cnx->handshake_done && (cnx->client_mode || cnx->handshake_done_acked)) {
+                break;
             }
         }
 
@@ -3129,6 +3169,16 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 }
                             }
                         }
+
+                        if (!cnx->client_mode && cnx->handshake_done && !cnx->handshake_done_sent) {
+                            ret = picoquic_prepare_handshake_done_frame(cnx, bytes + length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
+                            if (ret == 0 && data_bytes > 0) {
+                                length += (uint32_t) data_bytes;
+                                packet->has_handshake_done = 1;
+                                packet->is_pure_ack = 0;
+                            }
+                        }
+
                         /* if present, send path response. This ensures we send it on the right path */
                         if (path_x->challenge_response_to_send && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
                             /* This is not really clean, but it will work */
@@ -3381,7 +3431,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     /* Verify first that there is no need for retransmit or ack
      * on initial or handshake context. This does not deal with EOED packets,
      * as they are handled from within the general retransmission path */
-    for (int i = 0; ret == 0 && length == 0 && i < cnx->nb_paths; i++) {
+    for (int i = 0; (!cnx->handshake_done || (!cnx->client_mode && !cnx->handshake_done_acked)) && ret == 0 && length == 0 && i < cnx->nb_paths; i++) {
         path_x = cnx->path[i];
         checksum_overhead = picoquic_get_checksum_length(cnx, is_cleartext_mode);
         send_buffer_min_max = (send_buffer_max > path_x->send_mtu) ? path_x->send_mtu : (uint32_t)send_buffer_max;
@@ -3434,6 +3484,9 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
     if (send_length > 0) {
         path_x->ping_received = 0;
+        if (!cnx->client_mode && cnx->handshake_done && !cnx->handshake_done_sent) {
+            cnx->handshake_done_sent = packet->has_handshake_done;
+        }
     }
 
     if ((queue_peek(cnx->reserved_frames) != NULL

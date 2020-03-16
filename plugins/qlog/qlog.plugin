@@ -30,6 +30,7 @@ parse_frame param 0x16 post frames/stream_frame_parsed.o
 parse_frame param 0x17 post frames/stream_frame_parsed.o
 parse_frame param 0x18 post frames/crypto_frame_parsed.o
 parse_frame param 0x19 post frames/new_token_frame_parsed.o
+parse_frame param 0x1e post frames/handshake_done_parsed.o
 write_frame param 0x00 post frames/frame_prepared.o
 write_frame param 0x01 post frames/frame_prepared.o
 write_frame param 0x02 post frames/frame_prepared.o
@@ -52,6 +53,7 @@ write_frame param 0x16 post frames/frame_prepared.o
 write_frame param 0x17 post frames/frame_prepared.o
 write_frame param 0x18 post frames/frame_prepared.o
 write_frame param 0x19 post frames/frame_prepared.o
+write_frame param 0x1e post frames/frame_prepared.o
 #is_ack_needed post frames/is_ack_needed.o
 retransmit_needed_by_packet post sender/retransmit_needed_by_packet.o
 retransmit_needed post sender/retransmit_needed.o

@@ -681,6 +681,9 @@ typedef struct st_picoquic_cnx_t {
     uint64_t offending_frame_type;
     uint32_t retry_token_length;
     uint8_t * retry_token;
+    unsigned int handshake_done : 1;
+    unsigned int handshake_done_sent : 1;
+    unsigned int handshake_done_acked : 1;
 
 
     /* Next time sending data is expected */
@@ -911,6 +914,7 @@ int picoquic_register_cnx_id_for_cnx(picoquic_cnx_t* cnx, const picoquic_connect
 /* handling of retransmission queue */
 void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free);
 void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p);
+void picoquic_implicit_handshake_ack(picoquic_cnx_t* cnx, picoquic_path_t *path, picoquic_packet_context_enum pc, uint64_t current_time);
 
 /* Reset connection after receiving version negotiation */
 int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t length, uint64_t current_time);
@@ -1139,6 +1143,7 @@ uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     const uint8_t* bytes_max, int epoch);
 int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
+int picoquic_prepare_handshake_done_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed);
 int picoquic_prepare_ack_frame(picoquic_cnx_t* cnx, uint64_t current_time,
     picoquic_packet_context_enum pc,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);

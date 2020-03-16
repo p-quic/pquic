@@ -1429,6 +1429,10 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             byte_index += picoquic_log_new_token_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
+        case picoquic_frame_type_handshake_done:
+            fprintf(F, "    HANDSHAKE_DONE\n");
+            byte_index += 1;
+            break;
         case 0x2c: /* DATAGRAM */
         case 0x2d:
         case 0x2e:

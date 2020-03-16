@@ -176,6 +176,12 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
             return 0;
         }
         return (protoop_arg_t) cnx->rtx_frames[param];
+    case AK_CNX_HANDSHAKE_DONE:
+        return cnx->handshake_done;
+    case AK_CNX_HANDSHAKE_DONE_SENT:
+        return cnx->handshake_done_sent;
+    case AK_CNX_HANDSHAKE_DONE_ACKED:
+        return cnx->handshake_done_acked;
     case AK_CNX_FIRST_STREAM:
         return (protoop_arg_t) cnx->first_stream;
     case AK_CNX_PLUGIN_REQUESTED:
@@ -424,6 +430,15 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
     case AK_CNX_RTX_FRAMES:
         printf("ERROR: trying to modify rtx frames...\n");
         break;
+    case AK_CNX_HANDSHAKE_DONE:
+        printf("ERROR: trying to modify handshake_done...\n");
+        break;
+    case AK_CNX_HANDSHAKE_DONE_SENT:
+        printf("ERROR: trying to modify handshake_done_sent...\n");
+        break;
+    case AK_CNX_HANDSHAKE_DONE_ACKED:
+        printf("ERROR: trying to modify handshake_done_acked...\n");
+    break;
     case AK_CNX_PLUGIN_REQUESTED:
         cnx->plugin_requested = (uint8_t) val;
         break;
@@ -848,6 +863,8 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return pkt->is_pure_ack;
     case AK_PKT_CONTAINS_CRYPTO:
         return pkt->contains_crypto;
+    case AK_PKT_HAS_HANDSHAKE_DONE:
+        return pkt->has_handshake_done;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         return pkt->is_congestion_controlled;
     case AK_PKT_BYTES:
@@ -916,6 +933,8 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
     case AK_PKT_CONTAINS_CRYPTO:
         pkt->contains_crypto = val;
         break;
+    case AK_PKT_HAS_HANDSHAKE_DONE:
+        pkt->has_handshake_done = (unsigned int) val;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         pkt->is_congestion_controlled = val;
         break;

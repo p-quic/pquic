@@ -1049,8 +1049,15 @@ int picoquic_incoming_client_cleartext(
                 ret = picoquic_tls_stream_process(cnx);
             }
 
-            if (ret != 0) {
-                /* This is bad. should just delete the context, log the packet, etc */
+            /* If ClientFinished has been received, the server side handshake is done */
+            if (ret == 0 && !cnx->client_mode && !cnx->handshake_done &&
+                cnx->cnx_state == picoquic_state_server_ready && picoquic_is_tls_handshake_complete(cnx)) {
+                cnx->handshake_done = 1;
+                for (int i = 0; i < cnx->nb_paths; i++) {
+                    picoquic_path_t *path = cnx->path[i];
+                    picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_initial, current_time);
+                    picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_handshake, current_time);
+                }
             }
         }
     } else {

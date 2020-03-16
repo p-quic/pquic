@@ -1252,6 +1252,10 @@ int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx)
     return ret;
 }
 
+int picoquic_is_tls_handshake_complete(picoquic_cnx_t *cnx) {
+    return ptls_handshake_is_complete(((picoquic_tls_ctx_t *)cnx->tls_ctx)->tls);
+}
+
 
 /*
 * Sending data on the crypto stream.

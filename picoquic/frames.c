@@ -1414,6 +1414,40 @@ protoop_arg_t process_crypto_hs_frame(picoquic_cnx_t* cnx)
     return 0;
 }
 
+protoop_arg_t parse_handshake_done_frame(picoquic_cnx_t* cnx) {
+    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
+    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+
+    int ack_needed = 1;
+    int is_retransmittable = 1;
+    hanshake_done_frame_t *frame = malloc(sizeof(hanshake_done_frame_t));
+    if (!frame) {
+        printf("Failed to allocate memory for hanshake_done_frame_t\n");
+        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+        return (protoop_arg_t) NULL;
+    }
+
+    protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
+    return (protoop_arg_t) bytes + picoquic_varint_skip(bytes);
+}
+
+/**
+ * See PROTOOP_PARAM_PROCESS_FRAME
+ */
+protoop_arg_t process_handshake_done_frame(picoquic_cnx_t* cnx)
+{
+    uint64_t current_time = picoquic_current_time();
+    if (cnx->client_mode) {
+        cnx->handshake_done = 1;
+        for (int i = 0; i < cnx->nb_paths; i++) {
+            picoquic_path_t *path = cnx->path[i];
+            picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_initial, current_time);
+            picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_handshake, current_time);
+        }
+    }
+    return 0;
+}
+
 /**
  * See PROTOOP_PARAM_DECODE_FRAME
  */
@@ -1552,6 +1586,27 @@ int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME, outs,
         epoch, bytes, bytes_max);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
+protoop_arg_t prepare_handshake_done_frame(picoquic_cnx_t* cnx) {
+    uint8_t *bytes = (uint8_t *) cnx->protoop_inputv[0];
+    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
+    size_t consumed = 0;
+
+    if (bytes_max > 0) {
+        *bytes = picoquic_frame_type_handshake_done;
+        consumed++;
+    }
+
+    protoop_save_outputs(cnx, consumed);
+    return 0;
+}
+
+int picoquic_prepare_handshake_done_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME, outs, bytes, bytes_max);
     *consumed = (size_t) outs[0];
     return ret;
 }
@@ -2207,6 +2262,10 @@ protoop_arg_t process_ack_range(picoquic_cnx_t *cnx)
                 /* Any acknowledgement shows progress */
                 p->send_path->pkt_ctx[pc].nb_retransmit = 0;
                 p->send_path->pkt_ctx[pc].latest_progress_time = current_time;
+
+                if (p->has_handshake_done) {
+                    cnx->handshake_done_acked = 1;
+                }
 
                 picoquic_dequeue_retransmit_packet(cnx, p, 1);
                 p = next;
@@ -4218,6 +4277,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_crypto_hs, &parse_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_new_token, &parse_new_token_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_ack_ecn, &parse_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_handshake_done, &parse_handshake_done_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_plugin_validate, &parse_plugin_validate_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PARSE_FRAME, picoquic_frame_type_plugin, &parse_plugin_frame);
 
@@ -4244,6 +4304,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_crypto_hs, &process_crypto_hs_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_new_token, &process_ignore_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ack_ecn, &process_ack_frame_maybe_ecn);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_handshake_done, &process_handshake_done_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_plugin_validate, &process_plugin_validate_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_plugin, &process_plugin_frame);
 
@@ -4262,6 +4323,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_ACK_ECN_FRAME, &prepare_ack_ecn_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, &prepare_path_challenge_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME, &prepare_crypto_hs_frame);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME, &prepare_handshake_done_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MISC_FRAME, &prepare_misc_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MAX_DATA_FRAME, &prepare_max_data_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME, &prepare_first_misc_frame);

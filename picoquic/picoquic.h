@@ -142,8 +142,9 @@ typedef enum {
     picoquic_frame_type_crypto_hs = 0x18,
     picoquic_frame_type_new_token = 0x19,
     picoquic_frame_type_ack_ecn = 0x1a,
-    picoquic_frame_type_plugin_validate = 0x1e,
-    picoquic_frame_type_plugin = 0x1f
+    picoquic_frame_type_handshake_done = 0x1e,
+    picoquic_frame_type_plugin_validate = 0x30,
+    picoquic_frame_type_plugin = 0x31
 } picoquic_frame_type_enum_t;
 
 /*
@@ -291,6 +292,7 @@ typedef struct st_picoquic_packet_t {
     unsigned int has_plugin_frames : 1;
     unsigned int is_mtu_probe : 1;
     unsigned int delivered_app_limited : 1;
+    unsigned int has_handshake_done : 1;
 
     picoquic_packet_plugin_frame_t *plugin_frames; /* Track plugin bytes */
 
@@ -442,6 +444,8 @@ typedef struct new_token_frame {
     uint64_t token_length;
     uint8_t* token_ptr; /* Start of the data, not contained in the structure */
 } new_token_frame_t;
+
+typedef uint8_t hanshake_done_frame_t;
 
 typedef struct plugin_validate_frame {
     uint64_t pid_id;
