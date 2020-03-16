@@ -871,13 +871,8 @@ void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode)
     tp->initial_max_stream_data_bidi_remote = 65635;
     tp->initial_max_stream_data_uni = 65535;
     tp->initial_max_data = 0x100000;
-    if (client_mode) {
-        tp->initial_max_streams_bidi = 10000;
-        tp->initial_max_streams_uni = 65535;
-    } else {
-        tp->initial_max_streams_bidi = 65532;
-        tp->initial_max_streams_uni = 65534;
-    }
+    tp->initial_max_streams_bidi = 10000;
+    tp->initial_max_streams_uni = 10000;
     tp->max_idle_timeout = PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000000;
     tp->max_packet_size = PICOQUIC_PRACTICAL_MAX_MTU;
     tp->ack_delay_exponent = 3;
@@ -1031,6 +1026,23 @@ int picoquic_get_version_index(uint32_t proposed_version)
     }
 
     return ret;
+}
+
+uint32_t picoquic_transport_param_to_stream_id(uint16_t rank, int client_mode, int stream_type) {
+    uint32_t stream_id = 0;
+
+    if (rank > 0) {
+        stream_type |= (client_mode == 0) ? PICOQUIC_STREAM_ID_SERVER_INITIATED : PICOQUIC_STREAM_ID_CLIENT_INITIATED;
+
+        if (stream_type == 0) {
+            stream_id = 4 * rank;
+        }
+        else {
+            stream_id = 4 * (rank - 1) + stream_type;
+        }
+    }
+
+    return stream_id;
 }
 
 int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockaddr* addr)
@@ -1210,8 +1222,8 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         /* Initialize local flow control variables to advertised values */
 
         cnx->maxdata_local = ((uint64_t)cnx->local_parameters.initial_max_data);
-        cnx->max_stream_id_bidir_local = cnx->local_parameters.initial_max_streams_bidi;
-        cnx->max_stream_id_unidir_local = cnx->local_parameters.initial_max_streams_uni;
+        cnx->max_stream_id_bidir_local = picoquic_transport_param_to_stream_id(cnx->local_parameters.initial_max_streams_bidi, cnx->client_mode, PICOQUIC_STREAM_ID_BIDIR);
+        cnx->max_stream_id_unidir_local = picoquic_transport_param_to_stream_id(cnx->local_parameters.initial_max_streams_uni, cnx->client_mode, PICOQUIC_STREAM_ID_UNIDIR);
 
         /* Initialize remote variables to some plausible value.
 		 * Hopefully, this will be overwritten by the parameters received in
@@ -1415,8 +1427,8 @@ void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp)
     /* Initialize local flow control variables to advertised values */
 
     cnx->maxdata_local = ((uint64_t)cnx->local_parameters.initial_max_data);
-    cnx->max_stream_id_bidir_local = cnx->local_parameters.initial_max_streams_bidi;
-    cnx->max_stream_id_unidir_local = cnx->local_parameters.initial_max_streams_uni;
+    cnx->max_stream_id_bidir_local = picoquic_transport_param_to_stream_id(cnx->local_parameters.initial_max_streams_bidi, cnx->client_mode, PICOQUIC_STREAM_ID_BIDIR);
+    cnx->max_stream_id_unidir_local = picoquic_transport_param_to_stream_id(cnx->local_parameters.initial_max_streams_uni, cnx->client_mode, PICOQUIC_STREAM_ID_UNIDIR);
 }
 
 void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len)

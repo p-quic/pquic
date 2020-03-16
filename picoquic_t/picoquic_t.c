@@ -107,7 +107,6 @@ static const picoquic_test_def_t test_table[] = {
 #endif
     { "tls_zero_share", tls_zero_share_test },
     { "cleartext_aead_vector", cleartext_aead_vector_test },
-    { "transport_param_log", transport_param_log_test },
     { "bad_certificate", bad_certificate_test },
     { "set_verify_certificate_callback_test", set_verify_certificate_callback_test },
     { "virtual_time" , virtual_time_test },
