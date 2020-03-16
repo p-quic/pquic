@@ -7,10 +7,10 @@ static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16
         return t->initial_max_stream_data_bidi_local;
     case TRANSPORT_PARAMETER_INITIAL_MAX_DATA:
         return t->initial_max_data;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR:
-        return t->initial_max_stream_id_bidir;
-    case TRANSPORT_PARAMETER_IDLE_TIMEOUT:
-        return t->idle_timeout;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_BIDI:
+        return t->initial_max_streams_bidi;
+    case TRANSPORT_PARAMETER_MAX_IDLE_TIMEOUT:
+        return t->max_idle_timeout;
     case TRANSPORT_PARAMETER_PREFERRED_ADDRESS:
         /** TODO this should be documented somewhere */
         return (protoop_arg_t) &(t->preferred_address);
@@ -21,10 +21,10 @@ static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16
         return 0;
     case TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT:
         return t->ack_delay_exponent;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR:
-        return t->initial_max_stream_id_unidir;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_UNI:
+        return t->initial_max_streams_uni;
     case TRANSPORT_PARAMETER_MIGRATION_DISABLED:
-        return t->migration_disabled;
+        return t->disable_active_migration;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
         return t->initial_max_stream_data_bidi_remote;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR:
@@ -197,41 +197,41 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
 static inline void set_cnx_transport_parameter(picoquic_tp_t *t, uint16_t value, protoop_arg_t val) {
     switch (value) {
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
-        t->initial_max_stream_data_bidi_local = (uint32_t) val;
+        t->initial_max_stream_data_bidi_local = val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_DATA:
-        t->initial_max_data = (uint32_t) val;
+        t->initial_max_data = val;
         break;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR:
-        t->initial_max_stream_id_bidir = (uint32_t) val;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_BIDI:
+        t->initial_max_streams_bidi = val;
         break;
-    case TRANSPORT_PARAMETER_IDLE_TIMEOUT:
-        t->idle_timeout = (uint32_t) val;
+    case TRANSPORT_PARAMETER_MAX_IDLE_TIMEOUT:
+        t->max_idle_timeout = val;
         break;
     case TRANSPORT_PARAMETER_PREFERRED_ADDRESS:
         /** FIXME Don't touch this for now */
         printf("ERROR: setting preferred address is not implemented!\n");
         break;
     case TRANSPORT_PARAMETER_MAX_PACKET_SIZE:
-        t->max_packet_size = (uint32_t) val;
+        t->max_packet_size = val;
         break;
     case TRANSPORT_PARAMETER_STATELESS_RESET_TOKEN:
         printf("ERROR: stateless reset token is not implemented!\n");
         break;
     case TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT:
-        t->ack_delay_exponent = (uint8_t) val;
+        t->ack_delay_exponent = val;
         break;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR:
-        t->initial_max_stream_id_unidir = (uint32_t) val;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_UNI:
+        t->initial_max_streams_uni = val;
         break;
     case TRANSPORT_PARAMETER_MIGRATION_DISABLED:
-        t->migration_disabled = (uint8_t) val;
+        t->disable_active_migration = (unsigned int) val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
-        t->initial_max_stream_data_bidi_remote = (uint32_t) val;
+        t->initial_max_stream_data_bidi_remote = val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR:
-        t->initial_max_stream_data_uni = (uint32_t) val;
+        t->initial_max_stream_data_uni = val;
         break;
     default:
         printf("ERROR: unknown transport parameter value %u\n", value);

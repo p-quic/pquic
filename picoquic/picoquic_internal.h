@@ -262,42 +262,49 @@ picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
  */
 
 typedef enum {
-    picoquic_tp_initial_max_stream_data_bidi_local = 0,
-    picoquic_tp_initial_max_data = 1,
-    picoquic_tp_initial_max_bidi_streams = 2,
-    picoquic_tp_idle_timeout = 3,
-    picoquic_tp_server_preferred_address = 4,
-    picoquic_tp_max_packet_size = 5,
-    picoquic_tp_reset_secret = 6,
-    picoquic_tp_ack_delay_exponent = 7,
-    picoquic_tp_initial_max_uni_streams = 8,
-    picoquic_tp_disable_migration = 9,
-    picoquic_tp_initial_max_stream_data_bidi_remote = 10,
-    picoquic_tp_initial_max_stream_data_uni = 11,
-    picoquic_tp_supported_plugins = 32,
-    picoquic_tp_plugins_to_inject = 33
+    picoquic_tp_original_connection_id = 0x00,
+    picoquic_tp_max_idle_timeout = 0x01,
+    picoquic_tp_stateless_reset_secret = 0x02,
+    picoquic_tp_max_packet_size = 0x03,
+    picoquic_tp_initial_max_data = 0x04,
+    picoquic_tp_initial_max_stream_data_bidi_local = 0x05,
+    picoquic_tp_initial_max_stream_data_bidi_remote = 0x06,
+    picoquic_tp_initial_max_stream_data_uni = 0x07,
+    picoquic_tp_initial_max_streams_bidi = 0x08,
+    picoquic_tp_initial_max_streams_uni = 0x09,
+    picoquic_tp_ack_delay_exponent = 0x0a,
+    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-27
+    picoquic_tp_disable_active_migration = 0x0c,
+    picoquic_tp_preferred_address = 0x0d,
+    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-27
+    picoquic_tp_supported_plugins = 0x20,
+    picoquic_tp_plugins_to_inject = 0x21,
 } picoquic_tp_enum;
 
 typedef struct st_picoquic_tp_preferred_address_t {
-    uint8_t ipVersion; /* enum { IPv4(4), IPv6(6), (15) } -- 0 if no parameter specified */
-    uint8_t ipAddress[16]; /* opaque ipAddress<4..2 ^ 8 - 1> */
-    uint16_t port;
-    picoquic_connection_id_t connection_id; /*  opaque connectionId<0..18>; */
-    uint8_t statelessResetToken[16];
+    uint8_t ipv4_address[4];
+    uint16_t ipv4_port;
+    uint8_t ipv6_address[16];
+    uint16_t ipv6_port;
+    picoquic_connection_id_t connection_id;
+    uint8_t stateless_reset_token[16];
 } picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
-    uint32_t initial_max_stream_data_bidi_local;
-    uint32_t initial_max_stream_data_bidi_remote;
-    uint32_t initial_max_stream_data_uni;
-    uint32_t initial_max_data;
-    uint32_t initial_max_stream_id_bidir;
-    uint32_t initial_max_stream_id_unidir;
-    uint32_t idle_timeout;
-    uint32_t max_packet_size;
-    uint8_t ack_delay_exponent;
-    unsigned int migration_disabled;
-    picoquic_tp_preferred_address_t preferred_address;
+    picoquic_connection_id_t original_connection_id;  // TODO use TP
+    uint64_t max_idle_timeout;  // TODO use TP
+    uint64_t max_packet_size;
+    uint64_t initial_max_data;
+    uint64_t initial_max_stream_data_bidi_local;
+    uint64_t initial_max_stream_data_bidi_remote;
+    uint64_t initial_max_stream_data_uni;
+    uint64_t initial_max_streams_bidi;
+    uint64_t initial_max_streams_uni;
+    uint64_t ack_delay_exponent;
+    uint64_t max_ack_delay;  // TODO use TP
+    unsigned int disable_active_migration;
+    picoquic_tp_preferred_address_t preferred_address;  // TODO use TP
+    uint64_t active_connection_id_limit;
     char* supported_plugins;
     char* plugins_to_inject;
 } picoquic_tp_t;

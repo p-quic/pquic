@@ -207,10 +207,7 @@ static int transport_param_compare(picoquic_tp_t* param, picoquic_tp_t* ref) {
     if (param->initial_max_stream_data_bidi_local != ref->initial_max_stream_data_bidi_local) {
         ret = -1;
     }
-    else if (param->initial_max_stream_data_bidi_remote != ref->initial_max_stream_data_bidi_remote &&
-        (ref->initial_max_stream_data_bidi_remote != 0 ||
-            param->initial_max_stream_data_bidi_remote != ref->initial_max_stream_data_bidi_local)) {
-        /* TODO: remove the horrific kludge above when we align on draft 14 */
+    else if (param->initial_max_stream_data_bidi_remote != ref->initial_max_stream_data_bidi_remote) {
         ret = -1;
     }
     else if (param->initial_max_stream_data_uni != ref->initial_max_stream_data_uni) {
@@ -219,32 +216,17 @@ static int transport_param_compare(picoquic_tp_t* param, picoquic_tp_t* ref) {
     else if (param->initial_max_data != ref->initial_max_data) {
         ret = -1;
     }
-    else if (param->initial_max_stream_id_bidir != ref->initial_max_stream_id_bidir) {
+    else if (param->initial_max_streams_bidi != ref->initial_max_streams_bidi) {
         ret = -1;
     }
-    else if (param->initial_max_stream_id_unidir != ref->initial_max_stream_id_unidir) {
+    else if (param->initial_max_streams_uni != ref->initial_max_streams_uni) {
         ret = -1;
     }
-    else if (param->idle_timeout != ref->idle_timeout) {
+    else if (param->max_idle_timeout != ref->max_idle_timeout) {
         ret = -1;
     }
-    else if (param->preferred_address.ipVersion != ref->preferred_address.ipVersion) {
+    else if (memcmp(&param->preferred_address, &ref->preferred_address, sizeof(picoquic_tp_preferred_address_t)) != 0) {
         ret = -1;
-    }
-    else if (param->preferred_address.ipVersion != 0) {
-        int ip_len = (param->preferred_address.ipVersion == 4) ? 4 : 16;
-        if (memcmp(param->preferred_address.ipAddress, ref->preferred_address.ipAddress, ip_len) != 0) {
-            ret = -1;
-        }
-        else if (param->preferred_address.port != ref->preferred_address.port) {
-            ret = -1;
-        }
-        else if (picoquic_compare_connection_id(&param->preferred_address.connection_id, &ref->preferred_address.connection_id) != 0) {
-            ret = -1;
-        }
-        else if (memcmp(param->preferred_address.statelessResetToken, ref->preferred_address.statelessResetToken, 16) != 0) {
-            ret = -1;
-        }
     }
 
     return ret;
