@@ -370,6 +370,7 @@ typedef struct _picoquic_stream_head {
 #define IS_CLIENT_STREAM_ID(id) (unsigned int)(((id) & 1) == 0)
 #define IS_BIDIR_STREAM_ID(id)  (unsigned int)(((id) & 2) == 0)
 #define IS_LOCAL_STREAM_ID(id, client_mode)  (unsigned int)(((id)^(client_mode)) & 1)
+#define STREAM_ID_FROM_RANK(rank, is_server_stream, is_unidir) ((((uint64_t)(rank)-(uint64_t)1)<<2)|(((uint64_t)is_unidir)<<1)|((uint64_t)(is_server_stream)))
 
 /*
      * Frame queue. This is used for miscellaneous packets, such as the PONG

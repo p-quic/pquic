@@ -402,7 +402,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                     case picoquic_tp_initial_max_data:
                         byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &cnx->remote_parameters.initial_max_data);
                         cnx->maxdata_remote = cnx->remote_parameters.initial_max_data;
-                        cnx->max_stream_id_bidir_remote = cnx->local_parameters.initial_max_streams_bidi;
+                        cnx->max_stream_id_bidir_remote = STREAM_ID_FROM_RANK(cnx->local_parameters.initial_max_streams_bidi, !cnx->client_mode, 0);
                         break;
                     case picoquic_tp_initial_max_streams_bidi:
                     {

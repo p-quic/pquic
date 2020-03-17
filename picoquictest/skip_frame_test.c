@@ -70,23 +70,23 @@ static uint8_t test_frame_type_max_stream_data[] = {
     0x80, 0x01, 0, 0
 };
 static uint8_t test_frame_type_max_stream_id[] = {
-    picoquic_frame_type_max_stream_id,
+    picoquic_frame_type_max_streams_bidi,
     0x41, 0
 };
 static uint8_t test_frame_type_ping[] = {
     picoquic_frame_type_ping
 };
 static uint8_t test_frame_type_blocked[] = {
-    picoquic_frame_type_blocked,
+    picoquic_frame_type_data_blocked,
     0x80, 0x01, 0, 0
 };
 static uint8_t test_frame_type_stream_blocked[] = {
-    picoquic_frame_type_stream_blocked,
+    picoquic_frame_type_stream_data_blocked,
     0x80, 1, 0, 0,
     0x80, 0x01, 0, 0
 };
 static uint8_t test_frame_type_stream_id_blocked[] = {
-    picoquic_frame_type_stream_id_blocked,
+    picoquic_frame_type_bidi_streams_blocked,
     0x41, 0
 };
 static uint8_t test_frame_type_new_connection_id[] = {

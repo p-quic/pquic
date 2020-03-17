@@ -121,27 +121,30 @@ extern "C" {
  * Types of frames
  */
 typedef enum {
-    picoquic_frame_type_padding = 0,
-    picoquic_frame_type_reset_stream = 1,
-    picoquic_frame_type_connection_close = 2,
-    picoquic_frame_type_application_close = 3,
-    picoquic_frame_type_max_data = 4,
-    picoquic_frame_type_max_stream_data = 5,
-    picoquic_frame_type_max_stream_id = 6,
-    picoquic_frame_type_ping = 7,
-    picoquic_frame_type_blocked = 8,
-    picoquic_frame_type_stream_blocked = 9,
-    picoquic_frame_type_stream_id_blocked = 0x0a,
-    picoquic_frame_type_new_connection_id = 0x0b,
-    picoquic_frame_type_stop_sending = 0x0c,
-    picoquic_frame_type_ack = 0x0d,
-    picoquic_frame_type_path_challenge = 0x0e,
-    picoquic_frame_type_path_response = 0x0f,
-    picoquic_frame_type_stream_range_min = 0x10,
-    picoquic_frame_type_stream_range_max = 0x17,
-    picoquic_frame_type_crypto_hs = 0x18,
-    picoquic_frame_type_new_token = 0x19,
-    picoquic_frame_type_ack_ecn = 0x1a,
+    picoquic_frame_type_padding = 0x00,
+    picoquic_frame_type_ping = 0x01,
+    picoquic_frame_type_ack = 0x02,
+    picoquic_frame_type_ack_ecn = 0x03,
+    picoquic_frame_type_reset_stream = 0x04,
+    picoquic_frame_type_stop_sending = 0x05,
+    picoquic_frame_type_crypto_hs = 0x06,
+    picoquic_frame_type_new_token = 0x07,
+    picoquic_frame_type_stream_range_min = 0x08,
+    picoquic_frame_type_stream_range_max = 0x0f,
+    picoquic_frame_type_max_data = 0x10,
+    picoquic_frame_type_max_stream_data = 0x11,
+    picoquic_frame_type_max_streams_bidi = 0x12, // TODO send those frames
+    picoquic_frame_type_max_streams_uni = 0x13, // TODO send those frames
+    picoquic_frame_type_data_blocked = 0x14,
+    picoquic_frame_type_stream_data_blocked = 0x15,
+    picoquic_frame_type_bidi_streams_blocked = 0x16,
+    picoquic_frame_type_uni_streams_blocked = 0x17,
+    picoquic_frame_type_new_connection_id = 0x18, // TODO update
+    picoquic_frame_type_retire_connection_id = 0x19, // TODO implement
+    picoquic_frame_type_path_challenge = 0x1a,
+    picoquic_frame_type_path_response = 0x1b,
+    picoquic_frame_type_connection_close = 0x1c, // TODO merge
+    picoquic_frame_type_application_close = 0x1d, // TODO merge
     picoquic_frame_type_handshake_done = 0x1e,
     picoquic_frame_type_plugin_validate = 0x30,
     picoquic_frame_type_plugin = 0x31
@@ -373,9 +376,10 @@ typedef struct max_stream_data_frame {
     uint64_t maximum_stream_data;
 } max_stream_data_frame_t;
 
-typedef struct max_stream_id_frame {
-    uint64_t maximum_stream_id;
-} max_stream_id_frame_t;
+typedef struct max_streams_frame {
+    bool uni;
+    uint64_t maximum_streams;
+} max_streams_frame_t;
 
 typedef struct blocked_frame {
     uint64_t offset;
@@ -387,14 +391,20 @@ typedef struct stream_blocked_frame {
 } stream_blocked_frame_t;
 
 typedef struct stream_id_blocked_frame {
-    uint64_t stream_id;
-} stream_id_blocked_frame_t;
+    bool uni;
+    uint64_t stream_limit;
+} streams_blocked_frame_t;
 
 typedef struct new_connection_id_frame {
     uint64_t sequence;
+    uint64_t retire_prior_to;
     picoquic_connection_id_t connection_id;
     uint8_t stateless_reset_token[16];
 } new_connection_id_frame_t;
+
+typedef struct retire_connection_id_frame {
+    uint64_t sequence;
+} retire_connection_id_frame_t;
 
 typedef struct stop_sending_frame {
     uint64_t stream_id;
