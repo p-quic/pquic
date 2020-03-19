@@ -987,7 +987,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int64_t delay_max = 10000000;
     int64_t delta_t = 0;
     int notified_ready = 0;
-    const char* alpn = (proposed_version == 0xFF00000D)?"hq-13":"hq-14";
+    const char* alpn = "hq-27";
     int zero_rtt_available = 0;
     int new_context_created = 0;
     char buf[25];

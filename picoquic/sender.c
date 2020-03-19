@@ -1850,19 +1850,6 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
         }
     }
 
-    /* Consider path challenges */
-    for (int i = 0; i < cnx->nb_paths; i++) {
-        path_x = cnx->path[i];
-        if (blocked != 0 && path_x->challenge_verified == 0) {
-            uint64_t next_challenge_time = path_x->challenge_time + path_x->retransmit_timer;
-            if (next_challenge_time <= current_time) {
-                next_time = current_time;
-            } else if (next_challenge_time < next_time) {
-                next_time = next_challenge_time;
-            }
-        }
-    }
-
     /* reset the connection at its new logical position */
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
 }
@@ -2531,40 +2518,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         packet->send_path = path_x;
         packet->pc = pc;
 
-        if (tls_ready != 0 && path_x->cwin <= path_x->bytes_in_transit && path_x->challenge_time == 0) {
-            /* Should send a path challenge and get a reply before sending more data */
-            path_x->challenge_verified = 0;
-        }
-
-        if (path_x->challenge_verified == 0) {
-            if (path_x->challenge_time + path_x->retransmit_timer <= current_time || path_x->challenge_time == 0) {
-                /* When blocked, repeat the path challenge or wait */
-                if (picoquic_prepare_path_challenge_frame(cnx, &bytes[length],
-                    send_buffer_max - checksum_overhead - length, &data_bytes, path_x) == 0) {
-                    length += (uint32_t)data_bytes;
-                    path_x->challenge_time = current_time;
-                    path_x->challenge_repeat_count++;
-                }
-                /* add an ACK just to be nice */
-                if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
-                    send_buffer_max - checksum_overhead - length, &data_bytes)
-                    == 0) {
-                    length += (uint32_t)data_bytes;
-                }
-
-                if (path_x->challenge_repeat_count > PICOQUIC_CHALLENGE_REPEAT_MAX) {
-                    DBG_PRINTF("%s\n", "Too many challenge retransmits, disconnect");
-                    picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
-                    if (cnx->callback_fn) {
-                        (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
-                    }
-                    length = 0;
-                }
-
-                packet->length = length;
-            }
-        }
-        else if ((tls_ready != 0 && path_x->cwin > path_x->bytes_in_transit)
+        if ((tls_ready != 0 && path_x->cwin > path_x->bytes_in_transit)
             || path_x->pkt_ctx[pc].ack_needed || rtx_frame_len > 0) {
             if (picoquic_prepare_ack_frame(cnx, current_time, pc, &bytes[length],
                 send_buffer_max - checksum_overhead - length, &data_bytes)
@@ -3357,6 +3311,7 @@ int picoquic_schedule_frames_on_path(picoquic_cnx_t *cnx, picoquic_packet_t *pac
  * cnx->protoop_inputv[3] = uint8_t* send_buffer
  * cnx->protoop_inputv[4] = size_t send_buffer_max
  * cnx->protoop_inputv[5] = size_t send_length
+ * cnx->protoop_inputv[6] = int coalesced_with_initial
  *
  * Output: error code (int)
  * cnx->protoop_outputv[0] = size_t send_length
@@ -3369,6 +3324,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
     uint8_t* send_buffer = (uint8_t *) cnx->protoop_inputv[3];
     size_t send_buffer_max = (size_t) cnx->protoop_inputv[4];
+    int coalesced_with_initial = (int) cnx->protoop_inputv[6];
     /* Why do we keep this as regular int and not pointer? Because if we provide this to
      * an eBPF VM, there is no guarantee that this pointer will be part of context memory...
      */
@@ -3470,6 +3426,13 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
                 bytes[length++] = 0;
                 cnx->latest_progress_time = current_time;
             }
+
+            if (cnx->client_mode && coalesced_with_initial) {
+                // UDP packets containing an Initial must be at least 1200 bytes, so we pad the last packet
+                while (length + checksum_overhead < send_buffer_min_max) {
+                    bytes[length++] = 0;
+                }
+            }
         }
     }
 
@@ -3503,11 +3466,11 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
 
 /*  Prepare the next packet to send when in one the ready states */
 int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
-    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
+    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, int coalesced_with_initial)
 {
     protoop_arg_t outs[PROTOOPARGS_MAX];
     int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_PACKET_READY, outs,
-        *path, packet, current_time, send_buffer, send_buffer_max, *send_length);
+        *path, packet, current_time, send_buffer, send_buffer_max, *send_length, coalesced_with_initial);
     *send_length = (size_t) outs[0];
     *path = (picoquic_path_t*) outs[1];
     return ret;
@@ -3515,7 +3478,7 @@ int picoquic_prepare_packet_ready(picoquic_cnx_t* cnx, picoquic_path_t ** path, 
 
 /* Prepare next packet to send, or nothing.. */
 int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoquic_packet_t* packet,
-    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length)
+    uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, int coalesced_with_initial)
 {
     int ret = 0;
 
@@ -3551,7 +3514,7 @@ int picoquic_prepare_segment(picoquic_cnx_t* cnx, picoquic_path_t ** path, picoq
             break;
         case picoquic_state_client_ready:
         case picoquic_state_server_ready:
-            ret = picoquic_prepare_packet_ready(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length);
+            ret = picoquic_prepare_packet_ready(cnx, path, packet, current_time, send_buffer, send_buffer_max, send_length, coalesced_with_initial);
             break;
         case picoquic_state_handshake_failure:
         case picoquic_state_disconnecting:
@@ -3588,6 +3551,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
 {
     int ret = 0;
     picoquic_packet_t * packet = NULL;
+    int contains_initial = 0;
 
     *send_length = 0;
 
@@ -3617,12 +3581,15 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
         }
         else {
             ret = picoquic_prepare_segment(cnx, path, packet, current_time,
-                send_buffer + *send_length, available, &segment_length);
+                send_buffer + *send_length, available, &segment_length, contains_initial);
 
             if (ret == 0) {
                 *send_length += segment_length;
                 if (packet->length != 0) {
                     picoquic_segment_prepared(cnx, packet);
+                    if (packet->ptype == picoquic_packet_initial) {
+                        contains_initial = 1;
+                    }
                 }
                 if (packet->length == 0 ||
                     packet->ptype == picoquic_packet_1rtt_protected_phi0 ||
@@ -3645,6 +3612,12 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
                 break;
             }
         }
+    }
+
+    if (cnx->client_mode && contains_initial
+        && packet->ptype != picoquic_packet_1rtt_protected_phi0
+        && packet->ptype != picoquic_packet_1rtt_protected_phi1) {
+        // TODO: Add another QUIC packet full of padding using the best encryption level available
     }
 
     return ret;

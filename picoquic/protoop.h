@@ -626,6 +626,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SKIP_FRAME;
  * uint8_t* send_buffer,
  * size_t send_buffer_max,
  * size_t* send_length
+ * int coalesced_with_initial
  */
 #define PROTOOPID_NOPARAM_PREPARE_PACKET_READY "prepare_packet_ready"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_READY;
