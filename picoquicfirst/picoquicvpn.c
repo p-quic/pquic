@@ -122,6 +122,8 @@ static protoop_id_t get_max_message_size = { .id = "get_max_message_size" };
 static protoop_id_t send_message = { .id = "send_message" };
 static protoop_id_t get_message_socket = { .id = "get_message_socket" };
 
+#define SEC_TO_MILLIS (1000000)
+
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
     char hostname[256];

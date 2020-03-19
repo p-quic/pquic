@@ -394,8 +394,8 @@ typedef struct st_picoquic_misc_frame_header_t {
 typedef struct st_picoquic_crypto_context_t {
     void* aead_encrypt;
     void* aead_decrypt;
-    void* pn_enc; /* Used for PN encryption */
-    void* pn_dec; /* Used for PN decryption */
+    void* hp_enc; /* Used for PN encryption */
+    void* hp_dec; /* Used for PN decryption */
 } picoquic_crypto_context_t;
 
 /* Per epoch sequence/packet context.
@@ -960,8 +960,6 @@ void picoformat_64(uint8_t* bytes, uint64_t n64);
 void picoquic_varint_encode_16(uint8_t* bytes, uint16_t n16);
 size_t picoquic_varint_len(uint64_t val);
 
-void picoquic_headint_encode_32(uint8_t* bytes, uint64_t sequence_number);
-size_t picoquic_headint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
 
 /* utilities */
 char* picoquic_string_create(const char* original, size_t len);
@@ -1041,7 +1039,7 @@ uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t 
 
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph,
-    void * pn_enc, void* aead_context, int * already_received,
+    void * hp_enc, void* aead_context, int * already_received,
     picoquic_path_t* path_from);
 
 uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,

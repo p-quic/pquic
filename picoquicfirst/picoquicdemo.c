@@ -152,7 +152,7 @@ static char* strip_endofline(char* buf, size_t bufmax, char const* line)
 }
 
 #define PICOQUIC_FIRST_COMMAND_MAX 128
-#define PICOQUIC_FIRST_RESPONSE_MAX (1 << 25)
+#define PICOQUIC_FIRST_RESPONSE_MAX (1 << 28)
 #define PICOQUIC_DEMO_MAX_PLUGIN_FILES 64
 
 static protoop_id_t set_qlog_file = { .id = "set_qlog_file" };

@@ -28,7 +28,7 @@
 
 #define PICOQUIC_LABEL_KEY "key"
 #define PICOQUIC_LABEL_IV "iv"
-#define PICOQUIC_LABEL_PN "pn"
+#define PICOQUIC_LABEL_HP "hp"
 
 #define PICOQUIC_LABEL_BASE "tls13 "
 #define PICOQUIC_LABEL_QUIC_BASE PICOQUIC_LABEL_BASE "quic "
@@ -68,9 +68,9 @@ size_t picoquic_aead_decrypt_generic(uint8_t* output, uint8_t* input, size_t inp
 
 void picoquic_aead_free(void* aead_context);
 
-size_t picoquic_pn_iv_size(void *pn_enc);
+size_t picoquic_hp_iv_size(void *hp_enc);
 
-void picoquic_pn_encrypt(void *pn_enc, const void * iv, void *output, const void *input, size_t len);
+void picoquic_hp_encrypt(void *hp_enc, const void *iv, void *output, const void *input, size_t len);
 
 typedef const struct st_ptls_cipher_suite_t ptls_cipher_suite_t;
 
@@ -91,7 +91,7 @@ int picoquic_setup_initial_traffic_keys(picoquic_cnx_t* cnx);
 void picoquic_crypto_context_free(picoquic_crypto_context_t * ctx);
 
 void * picoquic_setup_test_aead_context(int is_encrypt, const uint8_t * secret);
-void * picoquic_pn_enc_create_for_test(const uint8_t * secret);
+void * picoquic_hp_enc_create_for_test(const uint8_t * secret);
 
 int picoquic_compare_cleartext_aead_contexts(picoquic_cnx_t* cnx1, picoquic_cnx_t* cnx2);
 

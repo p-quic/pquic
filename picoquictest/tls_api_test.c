@@ -2591,7 +2591,7 @@ int wrong_tls_version_test()
 * client and server produce the correct results.
 */
 
-int pn_enc_1rtt_test()
+int hp_enc_1rtt_test()
 {
     uint64_t loss_mask = 0;
     uint64_t simulated_time = 0;
@@ -2621,11 +2621,11 @@ int pn_enc_1rtt_test()
 
             for (int i = 1; i < 4; i *= 2)
             {
-                ret = test_one_pn_enc_pair(seq_num_1, 4, test_ctx->cnx_client->crypto_context[3].pn_enc, test_ctx->cnx_server->crypto_context[3].pn_dec, sample_1);
+                ret = test_one_hp_enc_pair(seq_num_1, 4, test_ctx->cnx_client->crypto_context[3].hp_enc, test_ctx->cnx_server->crypto_context[3].hp_dec, sample_1);
 
                 if (ret == 0)
                 {
-                    ret = test_one_pn_enc_pair(seq_num_2, 4, test_ctx->cnx_server->crypto_context[3].pn_enc, test_ctx->cnx_client->crypto_context[3].pn_dec, sample_2);
+                    ret = test_one_hp_enc_pair(seq_num_2, 4, test_ctx->cnx_server->crypto_context[3].hp_enc, test_ctx->cnx_client->crypto_context[3].hp_dec, sample_2);
                 }
             }
         }

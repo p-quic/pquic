@@ -188,7 +188,7 @@ typedef enum {
 /*
  * Provisional definition of the connection ID.
  */
-#define PICOQUIC_CONNECTION_ID_MAX_SIZE 18
+#define PICOQUIC_CONNECTION_ID_MAX_SIZE 20
 
 typedef struct st_picoquic_connection_id_t {
     uint8_t id[PICOQUIC_CONNECTION_ID_MAX_SIZE];
@@ -228,6 +228,13 @@ typedef enum {
     picoquic_packet_1rtt_protected_phi1,
     picoquic_packet_type_max
 } picoquic_packet_type_enum;
+
+typedef enum {
+    picoquic_long_packet_type_initial = 0x0,
+    picoquic_long_packet_type_0rtt = 0x1,
+    picoquic_long_packet_type_handshake = 0x2,
+    picoquic_long_packet_type_retry = 0x3,
+} picoquic_long_packet_type;
 
 typedef enum {
     picoquic_packet_context_application = 0,
