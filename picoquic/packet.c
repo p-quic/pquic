@@ -475,18 +475,20 @@ int picoquic_parse_header_and_decrypt(
         *consumed = length;
 
 
-        if ((*pcnx == NULL || !(*pcnx)->client_mode) && ph->ptype == picoquic_packet_initial) {
-            /* Create a connection context if the CI is acceptable */
-            if (packet_length < PICOQUIC_ENFORCED_INITIAL_MTU) {
-                /* Unexpected packet. Reject, drop and log. */
-                ret = PICOQUIC_ERROR_INITIAL_TOO_SHORT;
+        if (ph->ptype == picoquic_packet_initial) {
+            if ((*pcnx == NULL || !(*pcnx)->client_mode)) {
+                /* Create a connection context if the CI is acceptable */
+                if (packet_length < PICOQUIC_ENFORCED_INITIAL_MTU) {
+                    /* Unexpected packet. Reject, drop and log. */
+                    ret = PICOQUIC_ERROR_INITIAL_TOO_SHORT;
+                }
             }
-        }
-
-        if (ret == 0 && *pcnx == NULL) {
-            /* if listening is OK, listen */
-            *pcnx = picoquic_create_cnx(quic, ph->dest_cnx_id, ph->srce_cnx_id, addr_from, current_time, ph->vn, NULL, NULL, 0);
-            *new_context_created = (*pcnx == NULL) ? 0 : 1;
+            if (ret == 0 && *pcnx == NULL && ph->ptype == picoquic_packet_initial) {
+                /* if listening is OK, listen */
+                *pcnx = picoquic_create_cnx(quic, ph->dest_cnx_id, ph->srce_cnx_id, addr_from, current_time, ph->vn,
+                                            NULL, NULL, 0);
+                *new_context_created = (*pcnx == NULL) ? 0 : 1;
+            }
         }
 
         /* TODO: replace switch by reference to epoch */
