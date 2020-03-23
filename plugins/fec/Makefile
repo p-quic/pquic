@@ -2,8 +2,8 @@ SRC=$(wildcard *protoops/*.c)
 OBJ_SIGCOMM=$(shell sh get_protoops_sigcomm19.sh)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-I../../picoquic -DDISABLE_PROTOOP_PRINTF
-CLANG=clang-6.0
-LLC=llc-6.0
+CLANG?=clang-6.0
+LLC?=llc-6.0
 
 all: $(SRC) $(OBJ)
 
