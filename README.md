@@ -2,7 +2,7 @@
 
 The PQUIC implementation, a framework that enables QUIC clients and servers to dynamically exchange protocol plugins that extend the protocol on a per-connection basis.
 
-The current PQUIC implementation supports the draft-14 version of the QUIC specification.
+The current PQUIC implementation supports the draft-27 version of the QUIC specification.
 
 # Building PQUIC
 
