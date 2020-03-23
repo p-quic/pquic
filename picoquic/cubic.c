@@ -67,13 +67,13 @@ typedef struct st_picoquic_cubic_state_t {
 
 static int log_cubic_state(picoquic_cubic_state_t *cubic_state, char *buf, size_t buf_length) {
     int ret = snprintf(buf, buf_length, "{\"alg_state\": \"%s\", ", get_alg_state_name(cubic_state->alg_state));
-    ret += snprintf(buf + ret, buf_length - ret, "\"start_of_epoch\": %llu, ", cubic_state->start_of_epoch);
+    ret += snprintf(buf + ret, buf_length - ret, "\"start_of_epoch\": %" PRIu64 ", ", cubic_state->start_of_epoch);
     ret += snprintf(buf + ret, buf_length - ret, "\"K\": %f, ", cubic_state->K);
     ret += snprintf(buf + ret, buf_length - ret, "\"W_max\": %f, ", cubic_state->W_max);
     ret += snprintf(buf + ret, buf_length - ret, "\"W_last_max\": %f, ", cubic_state->W_last_max);
     ret += snprintf(buf + ret, buf_length - ret, "\"C\": %f, ", cubic_state->C);
     ret += snprintf(buf + ret, buf_length - ret, "\"beta\": %f, ", cubic_state->beta);
-    ret += snprintf(buf + ret, buf_length - ret, "\"ssthresh\": %llu}", cubic_state->ssthresh);
+    ret += snprintf(buf + ret, buf_length - ret, "\"ssthresh\": %" PRIu64 "}", cubic_state->ssthresh);
     return ret;
 }
 
@@ -411,19 +411,19 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
 
             switch (notification) {
                 case picoquic_congestion_notification_spurious_repeat:
-                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "SPURIOUS_REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %llu, \"bytes_in_transit\": %llu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "SPURIOUS_REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %" PRIu64 ", \"bytes_in_transit\": %" PRIu64 "}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
                     break;
                 case picoquic_congestion_notification_rtt_measurement:
-                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "RTT_ESTIMATE", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %llu, \"bytes_in_transit\": %llu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "RTT_ESTIMATE", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %" PRIu64 ", \"bytes_in_transit\": %" PRIu64 "}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
                     break;
                 case picoquic_congestion_notification_acknowledgement:
-                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "ACKNOWLEDGMENT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %llu, \"bytes_in_transit\": %llu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "ACKNOWLEDGMENT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %" PRIu64 ", \"bytes_in_transit\": %" PRIu64 "}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
                     break;
                 case picoquic_congestion_notification_repeat:
-                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %llu, \"bytes_in_transit\": %llu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED", "REPEAT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %" PRIu64 ", \"bytes_in_transit\": %" PRIu64 "}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
                     break;
                 case picoquic_congestion_notification_timeout:
-                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "TIMEOUT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %llu, \"bytes_in_transit\": %llu}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
+                    LOG_EVENT(cubic_state->cnx, "CUBIC", "NOTIFIED",  "TIMEOUT", "{\"path\": \"%p\", \"old_state\": \"%s\", \"state\": %s, \"cwin\": %" PRIu64 ", \"bytes_in_transit\": %" PRIu64 "}", path_x, get_alg_state_name(old_alg_state), state_str, path_x->cwin, path_x->bytes_in_transit);
                     break;
                 default:
                     break;

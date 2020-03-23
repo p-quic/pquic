@@ -73,7 +73,6 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* Only retransmit as 0-RTT if contains crypto data */
                     int contains_crypto = 0;
                     byte_index = poffset;
-                    uint8_t frame_type;
 
                     picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_STATE, 0);
 

@@ -609,24 +609,24 @@ static int picoquic_set_aead_from_secret(void ** v_aead,ptls_cipher_suite_t * ci
     return ret;
 }
 
-static int picoquic_set_pn_enc_from_secret(void ** v_pn_enc, ptls_cipher_suite_t * cipher, int is_enc, const void *secret)
+static int picoquic_set_hp_enc_from_secret(void ** v_hp_enc, ptls_cipher_suite_t * cipher, int is_enc, const void *secret)
 {
     uint8_t pnekey[PTLS_MAX_SECRET_SIZE];
     int ret;
 
-    if (*v_pn_enc != NULL) {
-        ptls_cipher_free((ptls_cipher_context_t *)*v_pn_enc);
-        *v_pn_enc = NULL;
+    if (*v_hp_enc != NULL) {
+        ptls_cipher_free((ptls_cipher_context_t *)*v_hp_enc);
+        *v_hp_enc = NULL;
     }
 
     if ((ret = ptls_hkdf_expand_label(cipher->hash, pnekey, 
         cipher->aead->ctr_cipher->key_size, ptls_iovec_init(secret, cipher->hash->digest_size), 
-        PICOQUIC_LABEL_PN, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_QUIC_BASE)) == 0) {
+        PICOQUIC_LABEL_HP, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_QUIC_BASE)) == 0) {
 #ifdef _DEBUG
         DBG_PRINTF("PN Encryption key (%d):\n", (int)cipher->aead->ctr_cipher->key_size);
         debug_dump(pnekey, (int)cipher->aead->ctr_cipher->key_size);
 #endif
-        if ((*v_pn_enc = ptls_cipher_new(cipher->aead->ctr_cipher, is_enc, pnekey)) == NULL) {
+        if ((*v_hp_enc = ptls_cipher_new(cipher->aead->ctr_cipher, is_enc, pnekey)) == NULL) {
             ret = PTLS_ERROR_NO_MEMORY;
         }
     }
@@ -644,13 +644,13 @@ static int picoquic_set_key_from_secret(picoquic_cnx_t* cnx, ptls_cipher_suite_t
         ret = picoquic_set_aead_from_secret(&ctx->aead_encrypt, cipher, is_enc, secret);
         
         if (ret == 0) {
-            ret = picoquic_set_pn_enc_from_secret(&ctx->pn_enc, cipher, is_enc, secret);
+            ret = picoquic_set_hp_enc_from_secret(&ctx->hp_enc, cipher, is_enc, secret);
         }
     } else {
         ret = picoquic_set_aead_from_secret(&ctx->aead_decrypt, cipher, is_enc, secret);
         
         if (ret == 0) {
-            ret = picoquic_set_pn_enc_from_secret(&ctx->pn_dec, cipher, is_enc, secret);
+            ret = picoquic_set_hp_enc_from_secret(&ctx->hp_dec, cipher, is_enc, secret);
         }
     }
 
@@ -760,14 +760,12 @@ int picoquic_setup_initial_secrets(
 
     /* Get the client secret */
     ret = ptls_hkdf_expand_label(cipher->hash, client_secret, cipher->hash->digest_size,
-        prk, PICOQUIC_LABEL_INITIAL_CLIENT, ptls_iovec_init(NULL, 0),
-        PICOQUIC_LABEL_QUIC_BASE);
+        prk, PICOQUIC_LABEL_INITIAL_CLIENT, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_BASE);
 
     if (ret == 0) {
         /* Get the server secret */
         ret = ptls_hkdf_expand_label(cipher->hash, server_secret, cipher->hash->digest_size,
-            prk, PICOQUIC_LABEL_INITIAL_SERVER, ptls_iovec_init(NULL, 0),
-            PICOQUIC_LABEL_QUIC_BASE);
+            prk, PICOQUIC_LABEL_INITIAL_SERVER, ptls_iovec_init(NULL, 0), PICOQUIC_LABEL_BASE);
     }
 
     return ret;
@@ -829,14 +827,14 @@ void picoquic_crypto_context_free(picoquic_crypto_context_t * ctx)
         ctx->aead_decrypt = NULL;
     }
 
-    if (ctx->pn_enc != NULL) {
-        ptls_cipher_free((ptls_cipher_context_t *)ctx->pn_enc);
-        ctx->pn_enc = NULL;
+    if (ctx->hp_enc != NULL) {
+        ptls_cipher_free((ptls_cipher_context_t *)ctx->hp_enc);
+        ctx->hp_enc = NULL;
     }
 
-    if (ctx->pn_dec != NULL) {
-        ptls_cipher_free((ptls_cipher_context_t *)ctx->pn_dec);
-        ctx->pn_dec = NULL;
+    if (ctx->hp_dec != NULL) {
+        ptls_cipher_free((ptls_cipher_context_t *)ctx->hp_dec);
+        ctx->hp_dec = NULL;
     }
 }
 
@@ -878,7 +876,7 @@ int picoquic_master_tlscontext(picoquic_quic_t* quic,
 
         ctx->send_change_cipher_spec = 0;
 
-        ctx->hkdf_label_prefix = PICOQUIC_LABEL_QUIC_BASE;
+        ctx->hkdf_label_prefix = NULL;
         ctx->update_traffic_key = picoquic_set_update_traffic_key_callback();
 
         if (quic->p_simulated_time == NULL) {
@@ -1254,6 +1252,10 @@ int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx)
     return ret;
 }
 
+int picoquic_is_tls_handshake_complete(picoquic_cnx_t *cnx) {
+    return ptls_handshake_is_complete(((picoquic_tls_ctx_t *)cnx->tls_ctx)->tls);
+}
+
 
 /*
 * Sending data on the crypto stream.
@@ -1347,25 +1349,25 @@ int picoquic_initialize_tls_stream(picoquic_cnx_t* cnx)
  * Packet number encryption and decryption utilities
  */
 
-void * picoquic_pn_enc_create_for_test(const uint8_t * secret)
+void * picoquic_hp_enc_create_for_test(const uint8_t * secret)
 {
     ptls_cipher_suite_t cipher = { 0, &ptls_openssl_aes128gcm, &ptls_openssl_sha256 };
-    void *v_pn_enc = NULL;
+    void *v_hp_enc = NULL;
     
-    (void)picoquic_set_pn_enc_from_secret(&v_pn_enc, &cipher, 1, secret);
+    (void)picoquic_set_hp_enc_from_secret(&v_hp_enc, &cipher, 1, secret);
 
-    return v_pn_enc;
+    return v_hp_enc;
 }
 
-size_t picoquic_pn_iv_size(void *pn_enc)
+size_t picoquic_hp_iv_size(void *hp_enc)
 {
-    return ((ptls_cipher_context_t *)pn_enc)->algo->iv_size;
+    return ((ptls_cipher_context_t *)hp_enc)->algo->iv_size;
 }
 
-void picoquic_pn_encrypt(void *pn_enc, const void * iv, void *output, const void *input, size_t len)
+void picoquic_hp_encrypt(void *hp_enc, const void * iv, void *output, const void *input, size_t len)
 {
-    ptls_cipher_init((ptls_cipher_context_t *) pn_enc, iv);
-    ptls_cipher_encrypt((ptls_cipher_context_t *) pn_enc, output, input, len);
+    ptls_cipher_init((ptls_cipher_context_t *) hp_enc, iv);
+    ptls_cipher_encrypt((ptls_cipher_context_t *) hp_enc, output, input, len);
 }
 
 /* Utility functions, so applications do not have to load picotls.h */
@@ -1655,7 +1657,7 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
                 ret = 0;
             }
             else {
-                uint16_t error_code = PICOQUIC_TLS_HANDSHAKE_FAILED;
+                uint64_t error_code = PICOQUIC_TLS_HANDSHAKE_FAILED;
 
                 if (PTLS_ERROR_GET_CLASS(ret) == PTLS_ERROR_CLASS_SELF_ALERT) {
                     error_code = PICOQUIC_TRANSPORT_CRYPTO_ERROR(ret);

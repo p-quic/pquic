@@ -7,10 +7,10 @@ static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16
         return t->initial_max_stream_data_bidi_local;
     case TRANSPORT_PARAMETER_INITIAL_MAX_DATA:
         return t->initial_max_data;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR:
-        return t->initial_max_stream_id_bidir;
-    case TRANSPORT_PARAMETER_IDLE_TIMEOUT:
-        return t->idle_timeout;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_BIDI:
+        return t->initial_max_streams_bidi;
+    case TRANSPORT_PARAMETER_MAX_IDLE_TIMEOUT:
+        return t->max_idle_timeout;
     case TRANSPORT_PARAMETER_PREFERRED_ADDRESS:
         /** TODO this should be documented somewhere */
         return (protoop_arg_t) &(t->preferred_address);
@@ -21,10 +21,10 @@ static inline protoop_arg_t get_cnx_transport_parameter(picoquic_tp_t *t, uint16
         return 0;
     case TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT:
         return t->ack_delay_exponent;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR:
-        return t->initial_max_stream_id_unidir;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_UNI:
+        return t->initial_max_streams_uni;
     case TRANSPORT_PARAMETER_MIGRATION_DISABLED:
-        return t->migration_disabled;
+        return t->disable_active_migration;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
         return t->initial_max_stream_data_bidi_remote;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR:
@@ -176,6 +176,12 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
             return 0;
         }
         return (protoop_arg_t) cnx->rtx_frames[param];
+    case AK_CNX_HANDSHAKE_DONE:
+        return cnx->handshake_done;
+    case AK_CNX_HANDSHAKE_DONE_SENT:
+        return cnx->handshake_done_sent;
+    case AK_CNX_HANDSHAKE_DONE_ACKED:
+        return cnx->handshake_done_acked;
     case AK_CNX_FIRST_STREAM:
         return (protoop_arg_t) cnx->first_stream;
     case AK_CNX_PLUGIN_REQUESTED:
@@ -197,41 +203,41 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
 static inline void set_cnx_transport_parameter(picoquic_tp_t *t, uint16_t value, protoop_arg_t val) {
     switch (value) {
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
-        t->initial_max_stream_data_bidi_local = (uint32_t) val;
+        t->initial_max_stream_data_bidi_local = val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_DATA:
-        t->initial_max_data = (uint32_t) val;
+        t->initial_max_data = val;
         break;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR:
-        t->initial_max_stream_id_bidir = (uint32_t) val;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_BIDI:
+        t->initial_max_streams_bidi = val;
         break;
-    case TRANSPORT_PARAMETER_IDLE_TIMEOUT:
-        t->idle_timeout = (uint32_t) val;
+    case TRANSPORT_PARAMETER_MAX_IDLE_TIMEOUT:
+        t->max_idle_timeout = val;
         break;
     case TRANSPORT_PARAMETER_PREFERRED_ADDRESS:
         /** FIXME Don't touch this for now */
         printf("ERROR: setting preferred address is not implemented!\n");
         break;
     case TRANSPORT_PARAMETER_MAX_PACKET_SIZE:
-        t->max_packet_size = (uint32_t) val;
+        t->max_packet_size = val;
         break;
     case TRANSPORT_PARAMETER_STATELESS_RESET_TOKEN:
         printf("ERROR: stateless reset token is not implemented!\n");
         break;
     case TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT:
-        t->ack_delay_exponent = (uint8_t) val;
+        t->ack_delay_exponent = val;
         break;
-    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR:
-        t->initial_max_stream_id_unidir = (uint32_t) val;
+    case TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_UNI:
+        t->initial_max_streams_uni = val;
         break;
     case TRANSPORT_PARAMETER_MIGRATION_DISABLED:
-        t->migration_disabled = (uint8_t) val;
+        t->disable_active_migration = (unsigned int) val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE:
-        t->initial_max_stream_data_bidi_remote = (uint32_t) val;
+        t->initial_max_stream_data_bidi_remote = val;
         break;
     case TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR:
-        t->initial_max_stream_data_uni = (uint32_t) val;
+        t->initial_max_stream_data_uni = val;
         break;
     default:
         printf("ERROR: unknown transport parameter value %u\n", value);
@@ -288,13 +294,13 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         cnx->start_time = (uint64_t) val;
         break;
     case AK_CNX_APPLICATION_ERROR:
-        cnx->application_error = (uint16_t) val;
+        cnx->application_error = (uint64_t) val;
         break;
     case AK_CNX_LOCAL_ERROR:
-        cnx->local_error = (uint16_t) val;
+        cnx->local_error = val;
         break;
     case AK_CNX_REMOTE_APPLICATION_ERROR:
-        cnx->remote_application_error = (uint16_t) val;
+        cnx->remote_application_error = (uint64_t) val;
         break;
     case AK_CNX_REMOTE_ERROR:
         cnx->remote_error = (uint16_t) val;
@@ -424,6 +430,15 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
     case AK_CNX_RTX_FRAMES:
         printf("ERROR: trying to modify rtx frames...\n");
         break;
+    case AK_CNX_HANDSHAKE_DONE:
+        printf("ERROR: trying to modify handshake_done...\n");
+        break;
+    case AK_CNX_HANDSHAKE_DONE_SENT:
+        printf("ERROR: trying to modify handshake_done_sent...\n");
+        break;
+    case AK_CNX_HANDSHAKE_DONE_ACKED:
+        printf("ERROR: trying to modify handshake_done_acked...\n");
+    break;
     case AK_CNX_PLUGIN_REQUESTED:
         cnx->plugin_requested = (uint8_t) val;
         break;
@@ -848,6 +863,8 @@ protoop_arg_t get_pkt(picoquic_packet_t *pkt, access_key_t ak)
         return pkt->is_pure_ack;
     case AK_PKT_CONTAINS_CRYPTO:
         return pkt->contains_crypto;
+    case AK_PKT_HAS_HANDSHAKE_DONE:
+        return pkt->has_handshake_done;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         return pkt->is_congestion_controlled;
     case AK_PKT_BYTES:
@@ -898,14 +915,14 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_TYPE:
         if (val >= picoquic_packet_type_max) {
-            printf("ERROR: setting type %llu but max value is %u\n", val, picoquic_packet_type_max);
+            printf("ERROR: setting type %" PRIu64 " but max value is %u\n", val, picoquic_packet_type_max);
             break;
         }
         pkt->ptype = (picoquic_packet_type_enum) val;
         break;
     case AK_PKT_CONTEXT:
         if (val >= picoquic_nb_packet_context) {
-            printf("ERROR: setting context %llu but max value is %u\n", val, picoquic_nb_packet_context);
+            printf("ERROR: setting context %" PRIu64 " but max value is %u\n", val, picoquic_nb_packet_context);
             break;
         }
         pkt->pc = (picoquic_packet_context_enum) val;
@@ -916,6 +933,8 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
     case AK_PKT_CONTAINS_CRYPTO:
         pkt->contains_crypto = val;
         break;
+    case AK_PKT_HAS_HANDSHAKE_DONE:
+        pkt->has_handshake_done = (unsigned int) val;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         pkt->is_congestion_controlled = val;
         break;

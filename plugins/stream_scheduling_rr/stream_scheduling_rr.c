@@ -19,7 +19,7 @@ protoop_arg_t schedule_next_stream(picoquic_cnx_t *cnx) {
     uint64_t *last_stream_id = get_last_drr_stream_id(cnx);
     bool wrap_around = false;
 
-    PROTOOP_PRINTF(cnx, "first_stream: %p, last_stream_id: %lu\n", (protoop_arg_t) stream, *last_stream_id);
+    PROTOOP_PRINTF(cnx, "first_stream: %p, last_stream_id: %" PRIu64 "\n", (protoop_arg_t) stream, *last_stream_id);
 
     if (cnx_maxdata_remote > cnx_data_sent) {
         while (stream && (stream = (picoquic_stream_head *) get_stream_head(stream, AK_STREAMHEAD_NEXT_STREAM))) {
@@ -56,7 +56,7 @@ protoop_arg_t schedule_next_stream(picoquic_cnx_t *cnx) {
                 }
 
                 if (candidate_stream && (get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID) > *last_stream_id || wrap_around)) {
-                    PROTOOP_PRINTF(cnx, "Chose stream %lu after %lu\n", get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID), *last_stream_id);
+                    PROTOOP_PRINTF(cnx, "Chose stream %" PRIu64 " after %" PRIu64 "\n", get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID), *last_stream_id);
                     *last_stream_id = get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID);
                     break;
                 }
@@ -81,7 +81,7 @@ protoop_arg_t schedule_next_stream(picoquic_cnx_t *cnx) {
         }
     }
 
-    PROTOOP_PRINTF(cnx, "final choice is %p (%lu)\n", (protoop_arg_t) candidate_stream, candidate_stream ? get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID) : 0);
+    PROTOOP_PRINTF(cnx, "final choice is %p (%" PRIu64 ")\n", (protoop_arg_t) candidate_stream, candidate_stream ? get_stream_head(candidate_stream, AK_STREAMHEAD_STREAM_ID) : 0);
 
     return (protoop_arg_t) candidate_stream;
 }

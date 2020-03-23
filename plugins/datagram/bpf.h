@@ -126,7 +126,7 @@ static __attribute__((always_inline)) void dump_buffer(datagram_memory_t *m, pic
     received_datagram_t *r = m->datagram_buffer;
     uint64_t now = picoquic_current_time();
     while (r != NULL) {
-        PROTOOP_PRINTF(cnx, "{%d, d=%lu, n=%p} ", r->datagram->datagram_id, r->delivery_deadline < now ? 0 : r->delivery_deadline - now, (protoop_arg_t) r->next);
+        PROTOOP_PRINTF(cnx, "{%d, d=%" PRIu64 ", n=%p} ", r->datagram->datagram_id, r->delivery_deadline < now ? 0 : r->delivery_deadline - now, (protoop_arg_t) r->next);
         r = r->next;
     }
     PROTOOP_PRINTF(cnx, "\n");

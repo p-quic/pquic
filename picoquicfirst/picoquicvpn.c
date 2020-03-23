@@ -122,6 +122,8 @@ static protoop_id_t get_max_message_size = { .id = "get_max_message_size" };
 static protoop_id_t send_message = { .id = "send_message" };
 static protoop_id_t get_message_socket = { .id = "get_message_socket" };
 
+#define SEC_TO_MILLIS (1000000)
+
 void print_address(struct sockaddr* address, char* label, picoquic_connection_id_t cnx_id)
 {
     char hostname[256];
@@ -525,9 +527,9 @@ int quic_server(const char* server_name, int server_port,
                     while(mret > 0) {
                         mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
                         if (mret > 0) {
-                            printf("Received %lu bytes as message\n", mret);
+                            printf("Received %" PRIu64 " bytes as message\n", mret);
                             ssize_t tret = write(tun_fd, buffer, (size_t) mret);
-                            printf("Write %lu bytes to the tunnel\n", tret);
+                            printf("Write %" PRIu64 " bytes to the tunnel\n", tret);
                         } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
                             printf("Error when reading the message socket: %s\n", strerror(errno));
                         }
@@ -948,9 +950,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             while(mret > 0) {
                 mret = recv(message_socket, buffer, sizeof(buffer), MSG_DONTWAIT);
                 if (mret > 0) {
-                    printf("Received %lu bytes as message\n", mret);
+                    printf("Received %" PRIu64 " bytes as message\n", mret);
                     ssize_t tret = write(tun_fd, buffer, (size_t) mret);
-                    printf("Write %lu bytes to the tunnel\n", tret);
+                    printf("Write %" PRIu64 " bytes to the tunnel\n", tret);
                 } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
                     printf("Error when reading the message socket: %s\n", strerror(errno));
                 }
@@ -969,9 +971,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 if (ret == 0 && picoquic_get_cnx_state(cnx_client) == picoquic_state_client_ready) {
                     if (established == 0) {
                         picoquic_log_transport_extension(F_log, cnx_client, 0);
-                        printf("Connection established. Version = %x, I-CID: %llx\n",
+                        printf("Connection established. Version = %x, I-CID: %" PRIx64 "\n",
                                picoquic_supported_versions[cnx_client->version_index].version,
-                               (unsigned long long)picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                               picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
                         established = 1;
 
                         if (zero_rtt_available == 0) {

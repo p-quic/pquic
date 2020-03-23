@@ -35,7 +35,7 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
         my_memset(bytes + 1, picoquic_frame_type_padding, bytes_max - (bytes + 1));
         pd->rtt_probe_ready = false;
 
-        /* PROTOOP_PRINTF(cnx, "Wrote a %lu-byte long RTT probe for path %d\n", bytes_max - bytes, selected_path); */
+        /* PROTOOP_PRINTF(cnx, "Wrote a %" PRIu64 "-byte long RTT probe for path %d\n", bytes_max - bytes, selected_path); */
         consumed = bytes_max - bytes;
     }
 

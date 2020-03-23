@@ -67,7 +67,7 @@ int microbench_plugin_run_test() {
     gettimeofday(&tv_sl_end, NULL);
 
     uint64_t sl_native = (tv_sl_end.tv_sec - tv_sl_start.tv_sec) * 1000000 + (tv_sl_end.tv_usec - tv_sl_start.tv_usec);
-    fprintf(stderr, "Native sl: %lu us, sum is %lu\n", sl_native, sum);
+    fprintf(stderr, "Native sl: %" PRIu64 " us, sum is %" PRIu64 "\n", sl_native, sum);
 
     struct timeval tv_gs_start;
     struct timeval tv_gs_end;
@@ -84,7 +84,7 @@ int microbench_plugin_run_test() {
     gettimeofday(&tv_gs_end, NULL);
 
     uint64_t gs_native = (tv_gs_end.tv_sec - tv_gs_start.tv_sec) * 1000000 + (tv_gs_end.tv_usec - tv_gs_start.tv_usec);
-    fprintf(stderr, "Native gs: %lu us, sum is %lu\n", gs_native, sum);
+    fprintf(stderr, "Native gs: %" PRIu64 " us, sum is %" PRIu64 "\n", gs_native, sum);
 
     struct timeval tv_gs_api_start;
     struct timeval tv_gs_api_end;
@@ -101,7 +101,7 @@ int microbench_plugin_run_test() {
     gettimeofday(&tv_gs_api_end, NULL);
 
     uint64_t gs_api_native = (tv_gs_api_end.tv_sec - tv_gs_api_start.tv_sec) * 1000000 + (tv_gs_api_end.tv_usec - tv_gs_api_start.tv_usec);
-    fprintf(stderr, "Native API gs: %lu us, sum is %lu\n", gs_api_native, sum);
+    fprintf(stderr, "Native API gs: %" PRIu64 " us, sum is %" PRIu64 "\n", gs_api_native, sum);
 
     ret = plugin_insert_plugin(&cnx, "plugins/microbench/microbench.plugin");
     if (ret) {
@@ -134,7 +134,7 @@ int microbench_plugin_run_test() {
 
     gettimeofday(&tv_sl_jit_end, NULL);
     uint64_t sl_jit = (tv_sl_jit_end.tv_sec - tv_sl_jit_start.tv_sec) * 1000000 + (tv_sl_jit_end.tv_usec - tv_sl_jit_start.tv_usec);
-    fprintf(stderr, "JIT sl: %lu us, sum is %lu\n", sl_jit, sum);
+    fprintf(stderr, "JIT sl: %" PRIu64 " us, sum is %" PRIu64 "\n", sl_jit, sum);
 
     /* Second execution */
     HASH_FIND_PID(cnx.ops, &GET_SET_CNX_FIELDS_LOOP.hash, post);
@@ -163,7 +163,7 @@ int microbench_plugin_run_test() {
 
     gettimeofday(&tv_gs_jit_end, NULL);
     uint64_t gs_jit = (tv_gs_jit_end.tv_sec - tv_gs_jit_start.tv_sec) * 1000000 + (tv_gs_jit_end.tv_usec - tv_gs_jit_start.tv_usec);
-    fprintf(stderr, "JIT gs: %lu us, sum is %lu\n", gs_jit, sum);
+    fprintf(stderr, "JIT gs: %" PRIu64 " us, sum is %" PRIu64 "\n", gs_jit, sum);
     
     /* Interpreted */
     HASH_FIND_PID(cnx.ops, &SIMPLE_FOR_LOOP.hash, post);
@@ -188,7 +188,7 @@ int microbench_plugin_run_test() {
 
     gettimeofday(&tv_sl_int_end, NULL);
     uint64_t sl_int = (tv_sl_int_end.tv_sec - tv_sl_int_start.tv_sec) * 1000000 + (tv_sl_int_end.tv_usec - tv_sl_int_start.tv_usec);
-    fprintf(stderr, "Interpreted sl: %lu us, sum is %lu\n", sl_int, sum);
+    fprintf(stderr, "Interpreted sl: %" PRIu64 " us, sum is %" PRIu64 "\n", sl_int, sum);
 
     /* Second execution */
     HASH_FIND_PID(cnx.ops, &GET_SET_CNX_FIELDS_LOOP.hash, post);
@@ -217,7 +217,7 @@ int microbench_plugin_run_test() {
 
     gettimeofday(&tv_gs_int_end, NULL);
     uint64_t gs_int = (tv_gs_int_end.tv_sec - tv_gs_int_start.tv_sec) * 1000000 + (tv_gs_int_end.tv_usec - tv_gs_int_start.tv_usec);
-    fprintf(stderr, "Interpreted gs: %lu us, sum is %lu\n", gs_int, sum);
+    fprintf(stderr, "Interpreted gs: %" PRIu64 " us, sum is %" PRIu64 "\n", gs_int, sum);
 
     /* TODO register functions as default ops */
     return ret;

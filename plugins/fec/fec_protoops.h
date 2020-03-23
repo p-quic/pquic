@@ -255,7 +255,7 @@ static __attribute__((always_inline)) int recover_block(picoquic_cnx_t *cnx, bpf
                 if (!ret) {
                     picoquic_path_t *path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
                     PROTOOP_PRINTF(cnx,
-                                   "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %llx, len_frames = %u, start = 0x%x\n",
+                                   "DECODING FRAMES OF RECOVERED SYMBOL (offset %d): pn = %" PRIx64 ", len_frames = %u, start = 0x%x\n",
                                    (protoop_arg_t) i, pn,
                                    payload_length, fb->source_symbols[i]->data[0]);
 

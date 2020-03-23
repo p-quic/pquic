@@ -38,7 +38,7 @@ protoop_arg_t parse_recovered_frame(picoquic_cnx_t *cnx) {
     packets[0] = first_recovered_packet;
     int currently_parsed_recovered_packets = 1;
     uint64_t last_recovered_packet = first_recovered_packet;
-    PROTOOP_PRINTF(cnx, "PACKET %lx HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
+    PROTOOP_PRINTF(cnx, "PACKET %" PRIx64 " HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
     bool range_is_gap = false;
     while(currently_parsed_recovered_packets < number_of_packets && bytes_protected < bytes_max) {
         uint8_t range;
@@ -57,7 +57,7 @@ protoop_arg_t parse_recovered_frame(picoquic_cnx_t *cnx) {
             for (int j = 0 ; j < range ; j++) { // we add each packet of the range in the recovered packets
                 last_recovered_packet++;    // the last recovered packet is now this one
                 packets[currently_parsed_recovered_packets] = last_recovered_packet;
-                PROTOOP_PRINTF(cnx, "PACKET %lx HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
+                PROTOOP_PRINTF(cnx, "PACKET %" PRIx64 " HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
                 currently_parsed_recovered_packets++;
             }
             range_is_gap = true; // after a range of recovered packets, there must be a gap or nothing
@@ -69,7 +69,7 @@ protoop_arg_t parse_recovered_frame(picoquic_cnx_t *cnx) {
             packets[currently_parsed_recovered_packets] = last_recovered_packet;
             currently_parsed_recovered_packets++;
             range_is_gap = false; // after a gap of recovered packets, there must be a range or nothing
-            PROTOOP_PRINTF(cnx, "PACKET %lx HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
+            PROTOOP_PRINTF(cnx, "PACKET %" PRIx64 " HAS BEEN RECOVERED BY THE PEER\n", last_recovered_packet);
         }
     }
     if (currently_parsed_recovered_packets != number_of_packets) {

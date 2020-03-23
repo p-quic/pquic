@@ -451,6 +451,18 @@ static int helper_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     return ret;
 }
 
+static int helper_prepare_handshake_done_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[1];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) *consumed;
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
 static int helper_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed)
 {
@@ -586,7 +598,7 @@ static picoquic_packet_context_enum helper_context_from_epoch(int epoch)
     return (epoch >= 0 && epoch < 4) ? pc[epoch] : 0;
 }
 
-static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+static int helper_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type)
 {
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) local_error;
@@ -613,7 +625,7 @@ static uint8_t* helper_frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_
     return bytes;
 }
 
-static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint8_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
+static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint64_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
     void **frame, int *ack_needed, int *is_retransmittable)
 {
     protoop_arg_t args[2], outs[3];

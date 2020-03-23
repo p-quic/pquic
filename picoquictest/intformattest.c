@@ -121,24 +121,6 @@ int intformattest()
         }
     }
 
-    /* Test of the headint routines */
-    for (size_t i = 0; ret == 0 && i < nb_test_headint; i++) {
-        decoded = picoquic_headint_decode(test_headint[i].bytes, 8, &test64);
-        if ((int)test64 != test_headint[i].val) {
-            ret = -1;
-        }
-        else if (decoded != test_headint[i].len) {
-            ret = -1;
-        }
-        else if (decoded == 4) {
-            picoquic_headint_encode_32(bytes, test64);
-
-            if (memcmp(test_headint[i].bytes, bytes, 4) != 0) {
-                ret = -1;
-            }
-        }
-    }
-
     return ret;
 }
 
@@ -253,8 +235,8 @@ int varint_test()
                 } else if (length == 0) {
                     continue;
                 } else if (n64 != test->decoded) {
-                    fprintf(stderr, "Varint: unexpected value %llu [expected %llu]", 
-                        (unsigned long long)n64, (unsigned long long)test->decoded);
+                    fprintf(stderr, "Varint: unexpected value %" PRIu64 " [expected %" PRIu64 "]",
+                        n64, test->decoded);
                     test_ret = -1;
                 } else if (test->is_canonical != 0) {
                     uint8_t encoding[8];

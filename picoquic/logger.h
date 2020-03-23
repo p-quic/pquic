@@ -27,4 +27,4 @@
 const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev);
 char const* picoquic_log_state_name(picoquic_state_enum state);
 char const* picoquic_log_ptype_name(picoquic_packet_type_enum ptype);
-char const* picoquic_log_frame_names(uint8_t frame_type);
+char const* picoquic_log_frame_names(uint64_t frame_type);

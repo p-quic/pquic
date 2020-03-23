@@ -319,6 +319,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     PROTOOP_PRINTF(cnx, "Should retransmit on path index %d pointer %p\n", i, (protoop_arg_t) path_x);
                     blocked = 0;
                 }
+                if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
+                    break;
+                }
             }
 
             /* Here, don't consider path 0 */
@@ -330,8 +333,10 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     int should_send_max_data = helper_should_send_max_data(cnx);
                     int is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
                     int has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
+                    int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
                     if (should_send_max_data ||
                         is_tls_stream_ready ||
+                        handshake_done_to_send ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                         ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
 #ifdef PACING
@@ -370,7 +375,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     uint64_t ack_time = get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL);
 
                     if (ack_time < next_time) {
-                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %lu\n", (protoop_arg_t) path_x, ack_time);
+                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, ack_time);
                         next_time = ack_time;
                     }
 
@@ -395,7 +400,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     uint64_t ack_time = get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL);
 
                     if (ack_time < next_time) {
-                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %lu\n", (protoop_arg_t) path_x, ack_time);
+                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, ack_time);
                         next_time = ack_time;
                     }
 
@@ -416,6 +421,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     }
                 }
             }
+            if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
+                break;
+            }
         }
 
         for (int i = 0; i < nb_snd_paths; i++) {
@@ -434,7 +442,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 if (current_time < next_challenge_time) {
                     if (next_time > next_challenge_time) {
                         next_time = next_challenge_time;
-                        PROTOOP_PRINTF(cnx, "Challenge time for path %p is %lu\n", (protoop_arg_t) path_x, next_time);
+                        PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
                     }
                 }
             }
@@ -443,12 +451,12 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
             uint64_t keep_alive_interval = (uint64_t) get_cnx(cnx, AK_CNX_KEEP_ALIVE_INTERVAL, 0);
             if (keep_alive_interval != 0 && next_time > (latest_progress_time + keep_alive_interval)) {
                 next_time = latest_progress_time + keep_alive_interval;
-                //PROTOOP_PRINTF(cnx, "Keep alive for path %p is %lu\n", path_x, next_time);
+                //PROTOOP_PRINTF(cnx, "Keep alive for path %p is %" PRIu64 "\n", path_x, next_time);
             }
         }
     }
 
-    PROTOOP_PRINTF(cnx, "Current time %lu, wake at %lu\n", current_time, next_time);
+    PROTOOP_PRINTF(cnx, "Current time %" PRIu64 ", wake at %" PRIu64 "\n", current_time, next_time);
     set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 0);
 
     /* reset the connection at its new logical position */

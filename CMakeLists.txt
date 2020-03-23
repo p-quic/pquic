@@ -203,7 +203,9 @@ SET(PLUGINS_QLOG
     plugins/qlog/log_frame.c
     plugins/qlog/receiver/header_parsed.c
         plugins/qlog/receiver/segment_received.c
-        plugins/qlog/frames/stream_frame_parsed.c)
+        plugins/qlog/frames/stream_frame_parsed.c
+        plugins/qlog/frames/handshake_done_parsed.c
+)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )

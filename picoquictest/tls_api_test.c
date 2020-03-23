@@ -449,9 +449,9 @@ static int verify_transport_extension(picoquic_cnx_t* cnx_client, picoquic_cnx_t
     int ret = 0;
 
     /* verify that local parameters have a sensible value */
-    if (cnx_client->local_parameters.idle_timeout == 0 || cnx_client->local_parameters.initial_max_data == 0 || cnx_client->local_parameters.initial_max_stream_data_bidi_local == 0 || cnx_client->local_parameters.max_packet_size == 0) {
+    if (cnx_client->local_parameters.max_idle_timeout == 0 || cnx_client->local_parameters.initial_max_data == 0 || cnx_client->local_parameters.initial_max_stream_data_bidi_local == 0 || cnx_client->local_parameters.max_packet_size == 0) {
         ret = -1;
-    } else if (cnx_server->local_parameters.idle_timeout == 0 || cnx_server->local_parameters.initial_max_data == 0 || cnx_server->local_parameters.initial_max_stream_data_bidi_remote == 0 || cnx_server->local_parameters.max_packet_size == 0) {
+    } else if (cnx_server->local_parameters.max_idle_timeout == 0 || cnx_server->local_parameters.initial_max_data == 0 || cnx_server->local_parameters.initial_max_stream_data_bidi_remote == 0 || cnx_server->local_parameters.max_packet_size == 0) {
         ret = -1;
     }
     /* Verify that the negotiation completed */
@@ -1247,7 +1247,7 @@ int tls_api_one_scenario_test(test_api_stream_desc_t* scenario,
     if (ret == 0 && max_completion_microsec != 0) {
         if (simulated_time > max_completion_microsec)
         {
-            DBG_PRINTF("Scenario completes in %llu microsec, more than %llu\n", simulated_time, max_completion_microsec);
+            DBG_PRINTF("Scenario completes in %" PRIu64 " microsec, more than %" PRIu64 "\n", simulated_time, max_completion_microsec);
             ret = -1;
         }
     }
@@ -1625,8 +1625,8 @@ int keep_alive_test_impl(int keep_alive)
         if (test_ctx->cnx_client->cnx_state != picoquic_state_client_ready) {
             ret = -1;
         } else if (simulated_time < 2 * PICOQUIC_MICROSEC_SILENCE_MAX) {
-            DBG_PRINTF("Keep alive test concludes after %llu microsecs instead of %llu, ret = %d\n",
-                (unsigned long long)simulated_time, (unsigned long long)2 * PICOQUIC_MICROSEC_SILENCE_MAX, ret);
+            DBG_PRINTF("Keep alive test concludes after %" PRIu64 " microsecs instead of %" PRIu64 ", ret = %d\n",
+                simulated_time, 2 * PICOQUIC_MICROSEC_SILENCE_MAX, ret);
             ret = -1;
         } 
     } else if (keep_alive == 0) {
@@ -2591,7 +2591,7 @@ int wrong_tls_version_test()
 * client and server produce the correct results.
 */
 
-int pn_enc_1rtt_test()
+int hp_enc_1rtt_test()
 {
     uint64_t loss_mask = 0;
     uint64_t simulated_time = 0;
@@ -2621,11 +2621,11 @@ int pn_enc_1rtt_test()
 
             for (int i = 1; i < 4; i *= 2)
             {
-                ret = test_one_pn_enc_pair(seq_num_1, 4, test_ctx->cnx_client->crypto_context[3].pn_enc, test_ctx->cnx_server->crypto_context[3].pn_dec, sample_1);
+                ret = test_one_hp_enc_pair(seq_num_1, 4, test_ctx->cnx_client->crypto_context[3].hp_enc, test_ctx->cnx_server->crypto_context[3].hp_dec, sample_1);
 
                 if (ret == 0)
                 {
-                    ret = test_one_pn_enc_pair(seq_num_2, 4, test_ctx->cnx_server->crypto_context[3].pn_enc, test_ctx->cnx_client->crypto_context[3].pn_dec, sample_2);
+                    ret = test_one_hp_enc_pair(seq_num_2, 4, test_ctx->cnx_server->crypto_context[3].hp_enc, test_ctx->cnx_client->crypto_context[3].hp_dec, sample_2);
                 }
             }
         }
@@ -2824,14 +2824,14 @@ int virtual_time_test()
             test_time = picoquic_get_quic_time(qsimul);
             ptls_time = picoquic_get_tls_time(qsimul);
             if (test_time != simulated_time) {
-                DBG_PRINTF("Test time: %llu != Simulated: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)simulated_time);
+                DBG_PRINTF("Test time: %" PRIu64 " != Simulated: %" PRIu64,
+                    test_time,
+                    simulated_time);
                 ret = -1;
             } else if (ptls_time < (test_time / 1000) || ptls_time >(test_time / 1000) + 1) {
-                DBG_PRINTF("Test time: %llu does match ptls time: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)ptls_time);
+                DBG_PRINTF("Test time: %" PRIu64 " does match ptls time: %" PRIu64,
+                    test_time,
+                    ptls_time);
                 ret = -1;
             }
         }
@@ -2847,22 +2847,22 @@ int virtual_time_test()
             ptls_time = picoquic_get_tls_time(qdirect);
 
             if (test_time < current_time) {
-                DBG_PRINTF("Test time: %llu < previous current time: %llu",
-                    (unsigned long long)test_time,
-                    (unsigned long long)current_time);
+                DBG_PRINTF("Test time: %" PRIu64 " < previous current time: %" PRIu64,
+                    test_time,
+                    current_time);
                 ret = -1;
             }
             else {
                 current_time = picoquic_current_time();
                 if (test_time > current_time) {
-                    DBG_PRINTF("Test time: %llu > next current time: %llu",
-                        (unsigned long long)test_time,
-                        (unsigned long long)current_time);
+                    DBG_PRINTF("Test time: %" PRIu64 " > next current time: %" PRIu64,
+                        test_time,
+                        current_time);
                     ret = -1;
                 } else if (ptls_time < (test_time / 1000) || ptls_time >(test_time / 1000) + 1) {
-                    DBG_PRINTF("Test current time: %llu does match ptls time: %llu",
-                        (unsigned long long)test_time,
-                        (unsigned long long)ptls_time);
+                    DBG_PRINTF("Test current time: %" PRIu64 " does match ptls time: %" PRIu64,
+                        test_time,
+                        ptls_time);
                     ret = -1;
                 }
             }
@@ -2896,7 +2896,7 @@ int tls_different_params_test()
 
     picoquic_init_transport_parameters(&test_parameters, 1);
 
-    test_parameters.initial_max_stream_id_bidir = 0;
+    test_parameters.initial_max_streams_bidi = 0;
 
     return tls_api_one_scenario_test(test_scenario_very_long, sizeof(test_scenario_very_long), 0, 0, 0, 0, 3510000, &test_parameters);
 }

@@ -344,7 +344,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SNPRINTF;
 
 /**
  * Trigger a connection error.
- * \param[in] local_error \b uint16_t QUIC error code
+ * \param[in] local_error \b uint64_t QUIC error code
  * \param[in] frame_type \b uint64_t Type of the offending frame
  * 
  * \todo Link \p local_error to the param space related
@@ -516,6 +516,17 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH;
  */
 #define PROTOOPID_NOPARAM_PREPARE_CRYPTO_HS_FRAME "prepare_crypto_hs_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME;
+
+/**
+ * Prepare a HANDHSHAKE_DONE frame.
+ * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame
+ * \param[in] bytes_max \b size_t Max size that can be written
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] consumed \b size_t Number of bytes written
+ */
+#define PROTOOPID_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME "prepare_handshake_done"
+extern protoop_id_t PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME;
 /**
  * Prepare a ACK frame.
  * \param[in] current_time \b uint64_t The current time
@@ -615,6 +626,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SKIP_FRAME;
  * uint8_t* send_buffer,
  * size_t send_buffer_max,
  * size_t* send_length
+ * int coalesced_with_initial
  */
 #define PROTOOPID_NOPARAM_PREPARE_PACKET_READY "prepare_packet_ready"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_READY;

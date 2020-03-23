@@ -82,11 +82,11 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     /* Only retransmit as 0-RTT if contains crypto data */
                     int contains_crypto = 0;
                     byte_index = poffset;
-                    uint8_t frame_type;
+                    uint64_t frame_type;
 
                     if (is_evaluated == 0) {
                         while (ret == 0 && byte_index < plength) {
-                            my_memcpy(&frame_type, &old_bytes[byte_index], 1);
+                            picoquic_varint_decode(old_bytes + byte_index, plength - byte_index, &frame_type);
                             if (frame_type == picoquic_frame_type_crypto_hs) {
                                 contains_crypto = 1;
                                 packet_is_pure_ack = 0;

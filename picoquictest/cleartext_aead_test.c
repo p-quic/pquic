@@ -125,9 +125,9 @@ int cleartext_aead_test()
             DBG_PRINTF("%s", "Could not create server connection context.\n");
             ret = -1;
         } else if (picoquic_compare_connection_id(&cnx_client->initial_cnxid, &cnx_server->initial_cnxid) != 0) {
-            DBG_PRINTF("Server Cnx-ID= %llx, differs from Client Cnx-ID = %llx\n",
-                (unsigned long long) picoquic_val64_connection_id(cnx_client->initial_cnxid),
-                (unsigned long long) picoquic_val64_connection_id(cnx_server->initial_cnxid));
+            DBG_PRINTF("Server Cnx-ID= %" PRIx64 ", differs from Client Cnx-ID = %" PRIx64 "\n",
+                 picoquic_val64_connection_id(cnx_client->initial_cnxid),
+                 picoquic_val64_connection_id(cnx_server->initial_cnxid));
             ret = -1;
         }
         else if (picoquic_compare_cleartext_aead_contexts(cnx_client, cnx_server) != 0 ||
@@ -188,13 +188,15 @@ int cleartext_aead_test()
 
 static picoquic_connection_id_t clear_test_vector_cnx_id = { { 0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08 }, 8 };
 
-static uint32_t clear_test_vector_vn = 0xff00000d;
+static uint32_t clear_test_vector_vn = PICOQUIC_INTEROP_VERSION;
 static uint8_t clear_test_vector_client_iv[12] = {
-    0xab, 0x95, 0x0b, 0x01, 0x98, 0x63, 0x79, 0x78,
-    0xcf, 0x44, 0xaa, 0xb9 };
+    0x86, 0x81, 0x35, 0x94, 0x10, 0xa7, 0x0b, 0xb9,
+    0xc9, 0x2f, 0x04, 0x20
+};
 static uint8_t clear_test_vector_server_iv[12] = {
-    0x32, 0x05, 0x03, 0x5a, 0x3c, 0x93, 0x7c, 0x90,
-    0x2e, 0xe4, 0xf4, 0xd6 };
+    0x5e, 0x5a, 0xe6, 0x51, 0xfd, 0x1e, 0x84, 0x95,
+    0xaf, 0x13, 0x50, 0x8b
+};
 
 
 static int cleartext_iv_cmp(void * void_aead, uint8_t * ref_iv, size_t iv_length)
@@ -310,12 +312,12 @@ int pn_ctr_test()
     uint8_t out_bytes[16];
     uint8_t decoded[16];
     ptls_aead_algorithm_t* aead = &ptls_openssl_aes128gcm;
-    ptls_cipher_context_t *pn_enc = ptls_cipher_new(aead->ctr_cipher, 1, key);
+    ptls_cipher_context_t *hp_enc = ptls_cipher_new(aead->ctr_cipher, 1, key);
 
     /* test against expected value, from PTLS test */
-    ptls_cipher_init(pn_enc, iv);
+    ptls_cipher_init(hp_enc, iv);
     memset(in_bytes, 0, 16);
-    ptls_cipher_encrypt(pn_enc, out_bytes, in_bytes, sizeof(in_bytes));
+    ptls_cipher_encrypt(hp_enc, out_bytes, in_bytes, sizeof(in_bytes));
     if (memcmp(out_bytes, expected, 16) != 0)
     {
         ret = -1;
@@ -326,8 +328,8 @@ int pn_ctr_test()
     for (size_t i = 1; ret == 0 && i <= 16; i *= 2)
     {
         memset(in_bytes, (int)i, i);
-        ptls_cipher_init(pn_enc, iv);
-        ptls_cipher_encrypt(pn_enc, out_bytes, in_bytes, i);
+        ptls_cipher_init(hp_enc, iv);
+        ptls_cipher_encrypt(hp_enc, out_bytes, in_bytes, i);
         for (size_t j = 0; j < i; j++)
         {
             if (in_bytes[j] != (out_bytes[j] ^ expected[j]))
@@ -336,15 +338,15 @@ int pn_ctr_test()
                 break;
             }
         }
-        ptls_cipher_init(pn_enc, iv);
-        ptls_cipher_encrypt(pn_enc, decoded, out_bytes, i);
+        ptls_cipher_init(hp_enc, iv);
+        ptls_cipher_encrypt(hp_enc, decoded, out_bytes, i);
         if (memcmp(in_bytes, decoded, i) != 0)
         {
             ret = -1;
         }
 
-        ptls_cipher_init(pn_enc, iv);
-        ptls_cipher_encrypt(pn_enc, out_bytes, out_bytes, i);
+        ptls_cipher_init(hp_enc, iv);
+        ptls_cipher_encrypt(hp_enc, out_bytes, out_bytes, i);
         if (memcmp(in_bytes, out_bytes, i) != 0)
         {
             ret = -1;
@@ -354,16 +356,16 @@ int pn_ctr_test()
     /* Test with the encrypted value from the packet */
     if (ret == 0)
     {
-        ptls_cipher_init(pn_enc, packet_clear_pn + 5);
-        ptls_cipher_encrypt(pn_enc, out_bytes, packet_clear_pn + 1, 4);
+        ptls_cipher_init(hp_enc, packet_clear_pn + 5);
+        ptls_cipher_encrypt(hp_enc, out_bytes, packet_clear_pn + 1, 4);
         if (memcmp(out_bytes, packet_encrypted_pn + 1, 4) != 0)
         {
             ret = -1;
         }
         else
         {
-            ptls_cipher_init(pn_enc, packet_encrypted_pn + 5);
-            ptls_cipher_encrypt(pn_enc, out_bytes, packet_encrypted_pn + 1, 4);
+            ptls_cipher_init(hp_enc, packet_encrypted_pn + 5);
+            ptls_cipher_encrypt(hp_enc, out_bytes, packet_encrypted_pn + 1, 4);
             if (memcmp(out_bytes, packet_clear_pn + 1, 4) != 0)
             {
                 ret = -1;
@@ -372,9 +374,9 @@ int pn_ctr_test()
     }
 
     // cleanup
-    if (pn_enc != NULL)
+    if (hp_enc != NULL)
     {
-        ptls_cipher_free(pn_enc);
+        ptls_cipher_free(hp_enc);
     }
 
     return ret;
@@ -385,17 +387,17 @@ int pn_ctr_test()
 * the same results.
 */
 
-int test_one_pn_enc_pair(uint8_t * seqnum, size_t seqnum_len, void * pn_enc, void * pn_dec, uint8_t * sample)
+int test_one_hp_enc_pair(uint8_t * seqnum, size_t seqnum_len, void * hp_enc, void * hp_dec, uint8_t * sample)
 {
     int ret = 0;
     uint8_t encoded[32];
     uint8_t decoded[32];
 
-    ptls_cipher_init((ptls_cipher_context_t *)pn_enc, sample);
-    ptls_cipher_encrypt((ptls_cipher_context_t *)pn_enc, encoded, seqnum, seqnum_len);
+    ptls_cipher_init((ptls_cipher_context_t *)hp_enc, sample);
+    ptls_cipher_encrypt((ptls_cipher_context_t *)hp_enc, encoded, seqnum, seqnum_len);
 
-    ptls_cipher_init((ptls_cipher_context_t *)pn_dec, sample);
-    ptls_cipher_encrypt((ptls_cipher_context_t *)pn_dec, decoded, encoded, seqnum_len);
+    ptls_cipher_init((ptls_cipher_context_t *)hp_dec, sample);
+    ptls_cipher_encrypt((ptls_cipher_context_t *)hp_dec, decoded, encoded, seqnum_len);
 
     if (memcmp(seqnum, decoded, seqnum_len) != 0)
     {
@@ -410,7 +412,7 @@ int test_one_pn_enc_pair(uint8_t * seqnum, size_t seqnum_len, void * pn_enc, voi
  * client and server produce the correct results.
  */
 
-int cleartext_pn_enc_test()
+int cleartext_hp_enc_test()
 {
     int ret = 0;
     struct sockaddr_in test_addr_c, test_addr_s;
@@ -480,14 +482,14 @@ int cleartext_pn_enc_test()
             0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
             0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96};
 
-        ret = test_one_pn_enc_pair(seq_num_1, 4, 
-            cnx_client->crypto_context[0].pn_enc, cnx_server->crypto_context[0].pn_dec, sample_1);
+        ret = test_one_hp_enc_pair(seq_num_1, 4, 
+            cnx_client->crypto_context[0].hp_enc, cnx_server->crypto_context[0].hp_dec, sample_1);
 
         if (ret != 0) {
             DBG_PRINTF("%s", "Test of encoding PN sample 1 failed.\n");
         } else {
-            ret = test_one_pn_enc_pair(seq_num_2, 4, cnx_server->crypto_context[0].pn_enc, 
-                cnx_client->crypto_context[0].pn_dec, sample_2);
+            ret = test_one_hp_enc_pair(seq_num_2, 4, cnx_server->crypto_context[0].hp_enc,
+                cnx_client->crypto_context[0].hp_dec, sample_2);
             if (ret != 0) {
                 DBG_PRINTF("%s", "Test of encoding PN sample 2 failed.\n");
             }
@@ -555,7 +557,7 @@ int cleartext_pn_vector_test()
         test_addr_s.sin_port = 4433;
 
         cnx_server = picoquic_create_cnx(qserver, initial_cnxid, initial_cnxid,
-            (struct sockaddr*)&test_addr_s, 0, PICOQUIC_SEVENTH_INTEROP_VERSION, NULL, NULL, 0);
+            (struct sockaddr*)&test_addr_s, 0, PICOQUIC_INTEROP_VERSION, NULL, NULL, 0);
 
         if (cnx_server == NULL) {
             DBG_PRINTF("%s", "Could not create server connection context.\n");
@@ -570,7 +572,7 @@ int cleartext_pn_vector_test()
 
         memset(decrypted, 0, sizeof(decrypted));
 
-        picoquic_pn_encrypt(cnx_server->crypto_context[0].pn_dec, sample, decrypted, encrypted_pn, sizeof(encrypted_pn));
+        picoquic_hp_encrypt(cnx_server->crypto_context[0].hp_dec, sample, decrypted, encrypted_pn, sizeof(encrypted_pn));
 
         if (memcmp(decrypted, expected_pn, sizeof(expected_pn)) != 0)
         {
@@ -879,7 +881,7 @@ int draft13_vector_test()
     }
 
     if (ret == 0) {
-        ret = draft13_label_expansion_test(&cipher, PICOQUIC_LABEL_PN,
+        ret = draft13_label_expansion_test(&cipher, PICOQUIC_LABEL_HP,
             draft13_test_server_initial_secret, sizeof(draft13_test_server_initial_secret),
             draft13_test_server_pn, sizeof(draft13_test_server_pn));
     }
@@ -897,7 +899,7 @@ int draft13_vector_test()
     }
 
     if (ret == 0) {
-        ret = draft13_label_expansion_test(&cipher, PICOQUIC_LABEL_PN,
+        ret = draft13_label_expansion_test(&cipher, PICOQUIC_LABEL_HP,
             draft13_test_client_initial_secret, sizeof(draft13_test_client_initial_secret),
             draft13_test_client_pn, sizeof(draft13_test_client_pn));
     }

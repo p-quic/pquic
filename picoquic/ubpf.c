@@ -33,7 +33,7 @@
 #endif
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
-    printf("Out of bound access with val 0x%llx, start of mem is 0x%llx, top of stack is 0x%llx\n", val, mem_ptr, stack_ptr);
+    printf("Out of bound access with val 0x%" PRIx64 ", start of mem is 0x%" PRIx64 ", top of stack is 0x%" PRIx64 "\n", val, mem_ptr, stack_ptr);
 }
 
 static void
@@ -107,6 +107,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, current_idx++, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, current_idx++, "picoquic_varint_encode", picoquic_varint_encode);
+    ubpf_register(vm, current_idx++, "picoquic_varint_skip", picoquic_varint_skip);
     ubpf_register(vm, current_idx++, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);

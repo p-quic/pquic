@@ -28,7 +28,7 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
     }
     else {
         /* Compute length of a long packet header */
-        header_length = 1 + /* version */ 4 + /* cnx_id prefix */ 1;
+        header_length = 1 + /* version */ 4 + /* cnx_id prefix */ 2;
 
         /* add dest-id length */
         if ((packet_type == picoquic_packet_initial ||

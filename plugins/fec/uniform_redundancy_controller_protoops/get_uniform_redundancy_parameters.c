@@ -19,6 +19,6 @@ protoop_arg_t get_constant_redundancy_parameters(picoquic_cnx_t *cnx)
     set_cnx(cnx, AK_CNX_OUTPUT, 0, flush ? MAX(DEFAULT_N, n) : n);
     // as we assume the loss rate to be uniform there is no point in sending bursts of repair symbols, so send only one repair symbol
     set_cnx(cnx, AK_CNX_OUTPUT, 1, flush ? MAX(DEFAULT_K, k) : k);
-    PROTOOP_PRINTF(cnx, "RETURN UNIFORM PARAMETERS N = %u, K = %u, TOTAL RECEIVED = %lu, TOTAL LOST = %lu\n", n, k, urc->total_acknowledged_packets, urc->total_lost_packets);
+    PROTOOP_PRINTF(cnx, "RETURN UNIFORM PARAMETERS N = %u, K = %u, TOTAL RECEIVED = %" PRIu64 ", TOTAL LOST = %" PRIu64 "\n", n, k, urc->total_acknowledged_packets, urc->total_lost_packets);
     return 0;
 }

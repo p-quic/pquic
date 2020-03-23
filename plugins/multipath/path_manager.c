@@ -36,7 +36,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                     struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
                     struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
                     LOG_EVENT(cnx, "multipath", "sending_path_unusable", "timeout",
-                              "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\", \"cooldown\": %lu}",
+                              "{\"path_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\", \"cooldown\": %" PRIu64 "}",
                               pd->path_id, (protoop_arg_t) pd->path,
                               (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
                                                                           ? (void *) &(((struct sockaddr_in *) laddr)->sin_addr)
@@ -62,7 +62,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                 struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
                 struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
                 LOG_EVENT(cnx, "multipath", "sending_path_closed", "cooldown",
-                          "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
+                          "{\"path_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
                           pd->path_id, (protoop_arg_t) pd->path,
                           (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
                                                                       ? (void *) &(((struct sockaddr_in *) laddr)->sin_addr)
@@ -104,7 +104,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                     LOG {
                         char from[48], to[48];
                         LOG_EVENT(cnx, "multipath", "path_activated", "",
-                                  "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
+                                  "{\"path_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
                                   pd->path_id, (protoop_arg_t) pd->path,
                                   (protoop_arg_t) inet_ntop(adl->sa->sa_family, (adl->sa->sa_family == AF_INET)
                                                                                 ? (void *) &(((struct sockaddr_in *) adl->sa)->sin_addr)

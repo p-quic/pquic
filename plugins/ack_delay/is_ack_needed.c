@@ -18,7 +18,7 @@ protoop_arg_t is_ack_needed(picoquic_cnx_t *cnx) {
         PROTOOP_PRINTF(cnx, "ack_threshold %d <= %d\n", get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_SENT) + ACK_THRESHOLD, get_sack_item(((picoquic_sack_item_t*) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM)), AK_SACKITEM_END_RANGE));
     }
     if (ack_time) {
-        PROTOOP_PRINTF(cnx, "ack_time %lx <= %lx\n", get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL), current_time);
+        PROTOOP_PRINTF(cnx, "ack_time %" PRIx64 " <= %" PRIx64 "\n", get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL), current_time);
     }
     if (ack_threshold || ack_time) {
         ret = (int) get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED);

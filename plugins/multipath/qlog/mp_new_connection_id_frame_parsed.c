@@ -11,7 +11,7 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
                 my_free(cnx, id_str);
                 return 0;
             }
-            PROTOOP_SNPRINTF(cnx, frame_str, 200, "{\"frame_type\": \"mp_new_connection_id\", \"path_id\": \"%lu\", \"sequence\": %lu, \"len\": %d, \"cid\": \"%s\"}", frame.path_id, frame.ncidf.sequence, frame.ncidf.connection_id.id_len, (protoop_arg_t) id_str);
+            PROTOOP_SNPRINTF(cnx, frame_str, 200, "{\"frame_type\": \"mp_new_connection_id\", \"path_id\": \"%" PRIu64 "\", \"sequence\": %" PRIu64 ", \"len\": %d, \"cid\": \"%s\"}", frame.path_id, frame.ncidf.sequence, frame.ncidf.connection_id.id_len, (protoop_arg_t) id_str);
             helper_log_frame(cnx, frame_str);
             my_free(cnx, id_str);
             my_free(cnx, frame_str);

@@ -11,10 +11,9 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     uint64_t ecnx3[3];
     picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     bpf_data *bpfd = get_bpf_data(cnx);
-    uint8_t frame_type;
+    uint64_t frame_type;
 
-    my_memcpy(&frame_type, &bytes[0], 1);
-
+    picoquic_varint_decode(bytes, bytes_max, &frame_type);
     if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn) {
         ret = helper_parse_ack_header(bytes, bytes_max,
             &num_block, (is_ecn)? ecnx3 : NULL, 
@@ -148,10 +147,10 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     uint32_t plength = (uint32_t) get_pkt(p, AK_PKT_LENGTH);
     uint8_t *pbytes = (uint8_t *) get_pkt(p, AK_PKT_BYTES);
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_pkt(p, AK_PKT_CONTEXT);
-    uint8_t frame_type;
+    uint64_t frame_type;
 
     while (ret == 0 && byte_index < plength) {
-        my_memcpy(&frame_type, &pbytes[byte_index], 1);
+        picoquic_varint_decode(pbytes + byte_index, plength - byte_index, &frame_type);
         if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn ||
             frame_type == MP_ACK_TYPE) {
             int is_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : 0;
