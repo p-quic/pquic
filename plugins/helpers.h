@@ -205,6 +205,21 @@ static __attribute__((always_inline)) void helper_congestion_algorithm_notify(pi
     run_noparam(cnx, PROTOOPID_NOPARAM_CONGESTION_ALGORITHM_NOTIFY, 6, args, NULL);
 }
 
+static __attribute__((always_inline)) void helper_estimate_path_bandwidth(picoquic_cnx_t *cnx, picoquic_path_t* path_x, uint64_t send_time,
+    uint64_t delivered_prior, uint64_t delivered_time_prior, uint64_t delivered_sent_prior, uint64_t delivery_time,
+    uint64_t current_time, int rs_is_path_limited) {
+    protoop_arg_t args[8];
+    args[0] = (protoop_arg_t) path_x;
+    args[1] = send_time;
+    args[2] = delivered_prior;
+    args[3] = delivered_time_prior;
+    args[4] = delivered_sent_prior;
+    args[5] = delivery_time;
+    args[6] = current_time;
+    args[7] = rs_is_path_limited;
+    run_noparam(cnx, PROTOOPID_NOPARAM_ESTIMATE_PATH_BANDWIDTH, 8, args, NULL);
+}
+
 static void helper_callback_function(picoquic_cnx_t* cnx, uint64_t stream_id, uint8_t* bytes,
     size_t length, picoquic_call_back_event_t fin_or_event)
 {
@@ -436,6 +451,18 @@ static int helper_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     return ret;
 }
 
+static int helper_prepare_handshake_done_frame(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed)
+{
+    protoop_arg_t outs[1];
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) *consumed;
+    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME, 3, args, outs);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
 static int helper_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
                                       size_t bytes_max, size_t* consumed)
 {
@@ -571,7 +598,7 @@ static picoquic_packet_context_enum helper_context_from_epoch(int epoch)
     return (epoch >= 0 && epoch < 4) ? pc[epoch] : 0;
 }
 
-static int helper_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type)
+static int helper_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type)
 {
     protoop_arg_t args[2];
     args[0] = (protoop_arg_t) local_error;
@@ -598,7 +625,7 @@ static uint8_t* helper_frames_uint8_decode(uint8_t* bytes, const uint8_t* bytes_
     return bytes;
 }
 
-static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint8_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
+static uint8_t *helper_parse_frame(picoquic_cnx_t *cnx, uint64_t frame_type, uint8_t *bytes, const uint8_t *bytes_max,
     void **frame, int *ack_needed, int *is_retransmittable)
 {
     protoop_arg_t args[2], outs[3];
@@ -664,7 +691,7 @@ static int helper_parse_ack_header(uint8_t const* bytes, size_t bytes_max,
 
 static picoquic_packet_t* helper_update_rtt(picoquic_cnx_t* cnx, uint64_t largest,
     uint64_t current_time, uint64_t ack_delay, picoquic_packet_context_enum pc,
-    picoquic_path_t* path_x)
+    picoquic_path_t* path_x, int *is_new_ack)
 {
     protoop_arg_t args[5];
     args[0] = (protoop_arg_t) largest;
@@ -672,7 +699,12 @@ static picoquic_packet_t* helper_update_rtt(picoquic_cnx_t* cnx, uint64_t larges
     args[2] = (protoop_arg_t) ack_delay;
     args[3] = (protoop_arg_t) pc;
     args[4] = (protoop_arg_t) path_x;
-    return (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 5, args, NULL);
+    protoop_arg_t outs[1];
+    picoquic_packet_t *p = (picoquic_packet_t *) run_noparam(cnx, PROTOOPID_NOPARAM_UPDATE_RTT, 5, args, outs);
+    if (is_new_ack) {
+        *is_new_ack = outs[0];
+    }
+    return p;
 }
 
 static int helper_process_ack_range(

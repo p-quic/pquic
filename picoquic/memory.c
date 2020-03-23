@@ -80,7 +80,7 @@ void *my_malloc_block(protoop_plugin_t *p, unsigned int size) {
         exit(1);
     }
 	if (size > mp->size_of_each_block - 8) {
-		printf("Asking for %u bytes by slots up to %lu!\n", size, mp->size_of_each_block - 8);
+		printf("Asking for %u bytes by slots up to %" PRIu64 "!\n", size, mp->size_of_each_block - 8);
 		return NULL;
 	}
 	if (mp->num_initialized < mp->num_of_blocks) {
@@ -120,7 +120,7 @@ void *my_malloc_dbg(picoquic_cnx_t *cnx, unsigned int size, char *file, int line
 void my_free_block(protoop_plugin_t *p, void *ptr) {
 	ptr -= 8;
 	if (*((uint64_t *) ptr) != MAGIC_NUMBER){
-		printf("MEMORY CORRUPTION: BAD METADATA: 0x%lx, ORIGINAL PTR: %p\n", *((uint64_t *) ptr), ptr + 8);
+		printf("MEMORY CORRUPTION: BAD METADATA: 0x%" PRIx64 ", ORIGINAL PTR: %p\n", *((uint64_t *) ptr), ptr + 8);
 	}
     memory_pool_t *mp = (memory_pool_t *) p->memory_manager.ctx;
     if (!mp) {
@@ -168,7 +168,7 @@ void *my_realloc_block(protoop_plugin_t *p, void *ptr, unsigned int size) {
 	// we cannot change the size of the block: if the new size is above the maximum, print an error,
 	// otherwise, return the same pointer
 	if (size > mp->size_of_each_block - 8) {
-		printf("Asking for %u bytes by slots up to %lu!\n", size, mp->size_of_each_block - 8);
+		printf("Asking for %u bytes by slots up to %" PRIu64 "!\n", size, mp->size_of_each_block - 8);
 		/* Don't forget to free the pointer! */
 		my_free_in_core(p, ptr);
 		return NULL;

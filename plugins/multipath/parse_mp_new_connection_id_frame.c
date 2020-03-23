@@ -16,7 +16,7 @@ protoop_arg_t parse_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if ((bytes = picoquic_frames_varint_decode(bytes+1, bytes_max, &frame->path_id))                 == NULL ||
+    if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->path_id))  == NULL ||
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->ncidf.sequence))            == NULL ||
         (bytes = helper_frames_uint8_decode(bytes, bytes_max, &frame->ncidf.connection_id.id_len)) == NULL ||
         (bytes = (bytes + frame->ncidf.connection_id.id_len + 16 <= bytes_max ? bytes : NULL))     == NULL)

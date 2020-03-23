@@ -100,7 +100,7 @@ picoquictest_sim_packet_t* picoquictest_sim_link_dequeue(picoquictest_sim_link_t
 void picoquictest_sim_link_submit(picoquictest_sim_link_t* link, picoquictest_sim_packet_t* packet,
     uint64_t current_time);
 
-int test_one_pn_enc_pair(uint8_t * seqnum, size_t seqnum_len, void * pn_enc, void * pn_dec, uint8_t * sample);
+int test_one_hp_enc_pair(uint8_t * seqnum, size_t seqnum_len, void * pn_enc, void * pn_dec, uint8_t * sample);
 
 int picoquic_test_compare_files(char const* fname1, char const* fname2);
 

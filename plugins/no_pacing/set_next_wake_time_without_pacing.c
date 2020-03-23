@@ -96,11 +96,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
 
         if (blocked == 0) {
             next_time = current_time;
-        }
-        else if (pacing != 0) {
-            next_time = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-        }
-        else {
+        } else if (pacing == 0) {
             for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
                 for (int i = 0; i < nb_paths; i++) {
                     path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
@@ -250,9 +246,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
     if (blocked == 0 || (wake_now && pacing == 0)) {
         next_time = current_time;
-    } else if (pacing != 0) {
-        next_time = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-    } else {
+    } else if (pacing == 0) {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             for (int i = 0; i < nb_paths; i++) {
                 path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);

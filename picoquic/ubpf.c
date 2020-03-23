@@ -21,15 +21,19 @@
 #include "endianness.h"
 #include "getset.h"
 #include "picoquic_logger.h"
+#include "red_black_tree.h"
+#include "cc_common.h"
 
-#ifndef NS3
-#define JIT true /* putting to false show out of memory access */
-#else
+#if defined(NS3)
 #define JIT false
+#elif defined(__APPLE__)
+#define JIT false
+#else
+#define JIT true  /* putting to false show out of memory access */
 #endif
 
 void picoquic_memory_bound_error(uint64_t val, uint64_t mem_ptr, uint64_t stack_ptr) {
-    printf("Out of bound access with val 0x%lx, start of mem is 0x%lx, top of stack is 0x%lx\n", val, mem_ptr, stack_ptr);
+    printf("Out of bound access with val 0x%" PRIx64 ", start of mem is 0x%" PRIx64 ", top of stack is 0x%" PRIx64 "\n", val, mem_ptr, stack_ptr);
 }
 
 static void
@@ -103,6 +107,7 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "picoquic_decode_frames_without_current_time", picoquic_decode_frames_without_current_time);
     ubpf_register(vm, current_idx++, "picoquic_varint_decode", picoquic_varint_decode);
     ubpf_register(vm, current_idx++, "picoquic_varint_encode", picoquic_varint_encode);
+    ubpf_register(vm, current_idx++, "picoquic_varint_skip", picoquic_varint_skip);
     ubpf_register(vm, current_idx++, "picoquic_create_random_cnx_id_for_cnx", picoquic_create_random_cnx_id_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_create_cnxid_reset_secret_for_cnx", picoquic_create_cnxid_reset_secret_for_cnx);
     ubpf_register(vm, current_idx++, "picoquic_register_cnx_id_for_cnx", picoquic_register_cnx_id_for_cnx);
@@ -116,6 +121,10 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "picoquic_set_cnx_state", picoquic_set_cnx_state);
     ubpf_register(vm, current_idx++, "picoquic_frames_varint_decode", picoquic_frames_varint_decode);
     ubpf_register(vm, current_idx++, "picoquic_record_pn_received", picoquic_record_pn_received);
+    ubpf_register(vm, current_idx++, "picoquic_cc_get_sequence_number", picoquic_cc_get_sequence_number);
+    ubpf_register(vm, current_idx++, "picoquic_cc_was_cwin_blocked", picoquic_cc_was_cwin_blocked);
+    ubpf_register(vm, current_idx++, "picoquic_is_sending_authorized_by_pacing", picoquic_is_sending_authorized_by_pacing);
+    ubpf_register(vm, current_idx++, "picoquic_update_pacing_data", picoquic_update_pacing_data);
 
     ubpf_register(vm, current_idx++, "queue_peek", queue_peek);
     /* FIXME remove this function */
@@ -146,6 +155,27 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "recv", recv);
 
     ubpf_register(vm, current_idx++, "strcmp", strncmp);
+
+    /* red black tree */
+    ubpf_register(vm, current_idx++, "rbt_init", rbt_init);
+    ubpf_register(vm, current_idx++, "rbt_is_empty", rbt_is_empty);
+    ubpf_register(vm, current_idx++, "rbt_size", rbt_size);
+    ubpf_register(vm, current_idx++, "rbt_put", rbt_put);
+    ubpf_register(vm, current_idx++, "rbt_get", rbt_get);
+    ubpf_register(vm, current_idx++, "rbt_contains", rbt_contains);
+    ubpf_register(vm, current_idx++, "rbt_min_val", rbt_min_val);
+    ubpf_register(vm, current_idx++, "rbt_min_key", rbt_min_key);
+    ubpf_register(vm, current_idx++, "rbt_min", rbt_min);
+    ubpf_register(vm, current_idx++, "rbt_max_key", rbt_max_key);
+    ubpf_register(vm, current_idx++, "rbt_max_val", rbt_max_val);
+    ubpf_register(vm, current_idx++, "rbt_ceiling_val", rbt_ceiling_val);
+    ubpf_register(vm, current_idx++, "rbt_ceiling_key", rbt_ceiling_key);
+    ubpf_register(vm, current_idx++, "rbt_ceiling", rbt_ceiling);
+    ubpf_register(vm, current_idx++, "rbt_delete", rbt_delete);
+    ubpf_register(vm, current_idx++, "rbt_delete_min", rbt_delete_min);
+    ubpf_register(vm, current_idx++, "rbt_delete_max", rbt_delete_max);
+    ubpf_register(vm, current_idx++, "rbt_delete_and_get_min", rbt_delete_and_get_min);
+    ubpf_register(vm, current_idx++, "rbt_delete_and_get_max", rbt_delete_and_get_max);
 
     /* This value is reserved. DO NOT OVERRIDE IT! */
     ubpf_register(vm, 0x7f, "picoquic_memory_bound_error", picoquic_memory_bound_error);

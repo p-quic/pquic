@@ -1,5 +1,5 @@
 #include "michelfralloc.h"
-#include "sbrk.h"
+#include "sbrk-public.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -61,7 +61,6 @@ void* dlrealloc(void*, size_t);
 
 
 void *michelfralloc(plugin_dynamic_memory_pool_t *context, size_t size) {
-    fflush(stdout);
     set_current_context(context);
     return dlmalloc(size);
 }

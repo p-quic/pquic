@@ -33,6 +33,28 @@
 #include "uthash.h"
 #include "plugin.h"
 
+#ifdef __APPLE__
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+#else
+#include <endian.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -56,6 +78,9 @@ extern "C" {
 #define PICOQUIC_ACK_DELAY_MAX 25000 /* 25 ms */
 #define PICOQUIC_RACK_DELAY 10000 /* 10 ms */
 
+#define PICOQUIC_BANDWIDTH_ESTIMATE_MAX 10000000000ull /* 10 GB per second */
+#define PICOQUIC_BANDWIDTH_TIME_INTERVAL_MIN 1000
+
 #define PICOQUIC_SPURIOUS_RETRANSMIT_DELAY_MAX 1000000 /* one second */
 
 #define PICOQUIC_MICROSEC_SILENCE_MAX 120000000 /* 120 seconds for now */
@@ -71,14 +96,7 @@ extern "C" {
 /*
  * Supported versions
  */
-#define PICOQUIC_FIRST_INTEROP_VERSION 0xFF000005
-#define PICOQUIC_SECOND_INTEROP_VERSION 0xFF000007
-#define PICOQUIC_THIRD_INTEROP_VERSION 0xFF000008
-#define PICOQUIC_FOURTH_INTEROP_VERSION 0xFF000009
-#define PICOQUIC_FIFTH_INTEROP_VERSION 0xFF00000B
-#define PICOQUIC_SIXTH_INTEROP_VERSION 0xFF00000C
-#define PICOQUIC_SEVENTH_INTEROP_VERSION 0xFF00000D
-#define PICOQUIC_EIGHT_INTEROP_VERSION 0xFF00000E
+#define PICOQUIC_INTEROP_VERSION 0xff00001b
 #define PICOQUIC_INTERNAL_TEST_VERSION_1 0x50435130
 
 #define PICOQUIC_INTEROP_VERSION_INDEX 1
@@ -91,11 +109,11 @@ typedef enum {
     picoquic_version_no_flag = 0
 } picoquic_version_feature_flags;
 
-/* 
+/*
  * Codes used for representing the various types of packet encodings
  */
 typedef enum {
-    picoquic_version_header_13
+    picoquic_version_header_27
 } picoquic_version_header_encoding;
 
 typedef struct st_picoquic_version_parameters_t {
@@ -111,7 +129,7 @@ extern const size_t picoquic_nb_supported_versions;
 int picoquic_get_version_index(uint32_t proposed_version);
 
 /*
-     * Definition of the session ticket store that can be associated with a 
+     * Definition of the session ticket store that can be associated with a
      * client context.
      */
 typedef struct st_picoquic_stored_ticket_t {
@@ -244,42 +262,49 @@ picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
  */
 
 typedef enum {
-    picoquic_tp_initial_max_stream_data_bidi_local = 0,
-    picoquic_tp_initial_max_data = 1,
-    picoquic_tp_initial_max_bidi_streams = 2,
-    picoquic_tp_idle_timeout = 3,
-    picoquic_tp_server_preferred_address = 4,
-    picoquic_tp_max_packet_size = 5,
-    picoquic_tp_reset_secret = 6,
-    picoquic_tp_ack_delay_exponent = 7,
-    picoquic_tp_initial_max_uni_streams = 8,
-    picoquic_tp_disable_migration = 9,
-    picoquic_tp_initial_max_stream_data_bidi_remote = 10,
-    picoquic_tp_initial_max_stream_data_uni = 11,
-    picoquic_tp_supported_plugins = 32,
-    picoquic_tp_plugins_to_inject = 33
+    picoquic_tp_original_connection_id = 0x00,
+    picoquic_tp_max_idle_timeout = 0x01,
+    picoquic_tp_stateless_reset_secret = 0x02,
+    picoquic_tp_max_packet_size = 0x03,
+    picoquic_tp_initial_max_data = 0x04,
+    picoquic_tp_initial_max_stream_data_bidi_local = 0x05,
+    picoquic_tp_initial_max_stream_data_bidi_remote = 0x06,
+    picoquic_tp_initial_max_stream_data_uni = 0x07,
+    picoquic_tp_initial_max_streams_bidi = 0x08,
+    picoquic_tp_initial_max_streams_uni = 0x09,
+    picoquic_tp_ack_delay_exponent = 0x0a,
+    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-27
+    picoquic_tp_disable_active_migration = 0x0c,
+    picoquic_tp_preferred_address = 0x0d,
+    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-27
+    picoquic_tp_supported_plugins = 0x20,
+    picoquic_tp_plugins_to_inject = 0x21,
 } picoquic_tp_enum;
 
 typedef struct st_picoquic_tp_preferred_address_t {
-    uint8_t ipVersion; /* enum { IPv4(4), IPv6(6), (15) } -- 0 if no parameter specified */
-    uint8_t ipAddress[16]; /* opaque ipAddress<4..2 ^ 8 - 1> */
-    uint16_t port;
-    picoquic_connection_id_t connection_id; /*  opaque connectionId<0..18>; */
-    uint8_t statelessResetToken[16];
+    uint8_t ipv4_address[4];
+    uint16_t ipv4_port;
+    uint8_t ipv6_address[16];
+    uint16_t ipv6_port;
+    picoquic_connection_id_t connection_id;
+    uint8_t stateless_reset_token[16];
 } picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
-    uint32_t initial_max_stream_data_bidi_local;
-    uint32_t initial_max_stream_data_bidi_remote;
-    uint32_t initial_max_stream_data_uni;
-    uint32_t initial_max_data;
-    uint32_t initial_max_stream_id_bidir;
-    uint32_t initial_max_stream_id_unidir;
-    uint32_t idle_timeout;
-    uint32_t max_packet_size;
-    uint8_t ack_delay_exponent;
-    unsigned int migration_disabled; 
-    picoquic_tp_preferred_address_t preferred_address;
+    picoquic_connection_id_t original_connection_id;  // TODO use TP
+    uint64_t max_idle_timeout;  // TODO use TP
+    uint64_t max_packet_size;
+    uint64_t initial_max_data;
+    uint64_t initial_max_stream_data_bidi_local;
+    uint64_t initial_max_stream_data_bidi_remote;
+    uint64_t initial_max_stream_data_uni;
+    uint64_t initial_max_streams_bidi;
+    uint64_t initial_max_streams_uni;
+    uint64_t ack_delay_exponent;
+    uint64_t max_ack_delay;  // TODO use TP
+    unsigned int disable_active_migration;
+    picoquic_tp_preferred_address_t preferred_address;  // TODO use TP
+    uint64_t active_connection_id_limit;
     char* supported_plugins;
     char* plugins_to_inject;
 } picoquic_tp_t;
@@ -331,10 +356,10 @@ typedef struct _picoquic_stream_head {
     uint64_t maxdata_local;
     uint64_t maxdata_remote;
     uint32_t stream_flags;
-    uint32_t local_error;
-    uint32_t remote_error;
-    uint32_t local_stop_error;
-    uint32_t remote_stop_error;
+    uint64_t local_error;
+    uint64_t remote_error;
+    uint64_t local_stop_error;
+    uint64_t remote_stop_error;
     picoquic_stream_data* stream_data;
     uint64_t sent_offset;
     uint64_t sending_offset;
@@ -345,6 +370,7 @@ typedef struct _picoquic_stream_head {
 #define IS_CLIENT_STREAM_ID(id) (unsigned int)(((id) & 1) == 0)
 #define IS_BIDIR_STREAM_ID(id)  (unsigned int)(((id) & 2) == 0)
 #define IS_LOCAL_STREAM_ID(id, client_mode)  (unsigned int)(((id)^(client_mode)) & 1)
+#define STREAM_ID_FROM_RANK(rank, is_server_stream, is_unidir) ((((uint64_t)(rank)-(uint64_t)1)<<2)|(((uint64_t)is_unidir)<<1)|((uint64_t)(is_server_stream)))
 
 /*
      * Frame queue. This is used for miscellaneous packets, such as the PONG
@@ -368,8 +394,8 @@ typedef struct st_picoquic_misc_frame_header_t {
 typedef struct st_picoquic_crypto_context_t {
     void* aead_encrypt;
     void* aead_decrypt;
-    void* pn_enc; /* Used for PN encryption */
-    void* pn_dec; /* Used for PN decryption */
+    void* hp_enc; /* Used for PN encryption */
+    void* hp_dec; /* Used for PN decryption */
 } picoquic_crypto_context_t;
 
 /* Per epoch sequence/packet context.
@@ -425,9 +451,11 @@ typedef struct st_picoquic_path_t {
     unsigned int challenge_verified : 1;
     unsigned int challenge_response_to_send : 1;
     unsigned int ping_received : 1;
+    unsigned int last_bw_estimate_path_limited : 1;
 
     /* Time measurement */
     uint64_t max_ack_delay;
+    uint64_t rtt_sample;
     uint64_t smoothed_rtt;
     uint64_t rtt_variant;
     uint64_t retransmit_timer;
@@ -445,14 +473,37 @@ typedef struct st_picoquic_path_t {
     uint64_t bytes_in_transit;
     void* congestion_alg_state;
 
-    /* Pacing */
-    uint64_t packet_time_nano_sec;
-    uint64_t pacing_reminder_nano_sec;
-    uint64_t pacing_margin_micros;
-    uint64_t next_pacing_time;
+    /*
+     * Pacing uses a set of per path variables:
+     * - pacing_evaluation_time: last time the path was evaluated.
+     * - pacing_bucket_nanosec: number of nanoseconds of transmission time that are allowed.
+     * - pacing_bucket_max: maximum value (capacity) of the leaky bucket.
+     * - pacing_packet_time_nanosec: number of nanoseconds required to send a full size packet.
+     * - pacing_packet_time_microsec: max of (packet_time_nano_sec/1024, 1) microsec.
+     */
+    uint64_t pacing_evaluation_time;
+    uint64_t pacing_bucket_nanosec;
+    uint64_t pacing_bucket_max;
+    uint64_t pacing_packet_time_nanosec;
+    uint64_t pacing_packet_time_microsec;
 
     /* Statistics */
     uint64_t nb_pkt_sent;
+
+    /* Bandwidth measurement */
+    uint64_t delivered; /* The total amount of data delivered so far on the path */
+    uint64_t delivered_last;
+    uint64_t delivered_time_last;
+    uint64_t delivered_sent_last;
+    uint64_t delivered_limited_index;
+    uint64_t delivered_last_packet;
+    uint64_t bandwidth_estimate; /* In bytes per second */
+
+    uint64_t received; /* Total amount of bytes received from the path */
+    uint64_t receive_rate_epoch; /* Time of last receive rate measurement */
+    uint64_t received_prior; /* Total amount received at start of epoch */
+    uint64_t receive_rate_estimate; /* In bytes per second */
+    uint64_t receive_rate_max; /* In bytes per second */
 
     /* QDC: Moved from the ctx */
     /* Connection IDs */
@@ -537,7 +588,7 @@ typedef struct {
     bool intern;  /* intern operations can only be called by pluglets and have observers,
                    * extern operations can only be called by the application and have no observers */
     bool running; /* Indicates if the protocol operation is in the current call stack or not.
-                   * Efficient way to figure out if there are loops in protocol operation calls */ 
+                   * Efficient way to figure out if there are loops in protocol operation calls */
     observer_node_t *pre; /* List of observers, probing just before function invocation */
     observer_node_t *post; /* List of observers, probing just after function returns */
     UT_hash_handle hh; /* Make the structure hashable */
@@ -579,7 +630,7 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx);
 
 #define MAX_PLUGIN_DATA_LEN (1024 * 1000) /* In bytes */
 
-/* 
+/*
  * Per connection context.
  * This is the structure that will be passed to pluglets.
  */
@@ -599,7 +650,7 @@ typedef struct st_picoquic_cnx_t {
     /* Series of flags showing the state or choices of the connection */
     unsigned int is_0RTT_accepted : 1; /* whether 0-RTT is accepted */
     unsigned int remote_parameters_received : 1; /* whether remote parameters where received */
-    unsigned int current_spin : 1; /* Current value of the spin bit */             
+    unsigned int current_spin : 1; /* Current value of the spin bit */
     unsigned int client_mode : 1; /* Is this connection the client side? */
     unsigned int prev_spin : 1;  /* previous Spin bit */
     unsigned int spin_vec : 2;   /* Valid Edge Counter, makes spin bit RTT measurements more reliable */
@@ -624,13 +675,16 @@ typedef struct st_picoquic_cnx_t {
     picoquic_state_enum cnx_state;
     picoquic_connection_id_t initial_cnxid;
     uint64_t start_time;
-    uint16_t application_error;
-    uint16_t local_error;
-    uint16_t remote_application_error;
-    uint16_t remote_error;
+    uint64_t application_error;
+    uint64_t local_error;
+    uint64_t remote_application_error;
+    uint64_t remote_error;
     uint64_t offending_frame_type;
     uint32_t retry_token_length;
     uint8_t * retry_token;
+    unsigned int handshake_done : 1;
+    unsigned int handshake_done_sent : 1;
+    unsigned int handshake_done_acked : 1;
 
 
     /* Next time sending data is expected */
@@ -823,7 +877,7 @@ static inline protoop_arg_t protoop_prepare_and_run_helper(picoquic_cnx_t *cnx, 
   DBG_PLUGIN_PRINTF("%u argument(s):", n_args);
   for (i = 0; i < n_args; i++) {
     args[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", args[i]);
+    DBG_PLUGIN_PRINTF("  %" PRIu64, args[i]);
   }
   va_end(ap);
   protoop_params_t pp = { .pid = pid, .param = param, .inputc = n_args, .inputv = args, .outputv = outputv, .caller_is_intern = caller };
@@ -839,7 +893,7 @@ static inline void protoop_save_outputs_helper(picoquic_cnx_t *cnx, unsigned int
   DBG_PLUGIN_PRINTF("%u saved:", n_args);
   for (i = 0; i < n_args; i++) {
     cnx->protoop_outputv[i] = va_arg(ap, protoop_arg_t);
-    DBG_PLUGIN_PRINTF("  %lu", cnx->protoop_outputv[i]);
+    DBG_PLUGIN_PRINTF("  %" PRIu64, cnx->protoop_outputv[i]);
   }
   cnx->protoop_outputc_callee = n_args;
   va_end(ap);
@@ -861,6 +915,7 @@ int picoquic_register_cnx_id_for_cnx(picoquic_cnx_t* cnx, const picoquic_connect
 /* handling of retransmission queue */
 void picoquic_dequeue_retransmit_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p, int should_free);
 void picoquic_dequeue_retransmitted_packet(picoquic_cnx_t* cnx, picoquic_packet_t* p);
+void picoquic_implicit_handshake_ack(picoquic_cnx_t* cnx, picoquic_path_t *path, picoquic_packet_context_enum pc, uint64_t current_time);
 
 /* Reset connection after receiving version negotiation */
 int picoquic_reset_cnx_version(picoquic_cnx_t* cnx, uint8_t* bytes, size_t length, uint64_t current_time);
@@ -873,7 +928,7 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
     picoquic_packet_context_enum pc, picoquic_path_t* path_x);
 
 /* Notify error on connection */
-int picoquic_connection_error(picoquic_cnx_t* cnx, uint16_t local_error, uint64_t frame_type);
+int picoquic_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_t frame_type);
 
 /* Set the transport parameters */
 void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp);
@@ -881,9 +936,6 @@ void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp)
 /* Connection context retrieval functions */
 picoquic_cnx_t* picoquic_cnx_by_id(picoquic_quic_t* quic, picoquic_connection_id_t cnx_id);
 picoquic_cnx_t* picoquic_cnx_by_net(picoquic_quic_t* quic, struct sockaddr* addr);
-
-/* Reset the pacing data after CWIN is updated */
-void picoquic_update_pacing_data(picoquic_path_t * path_x);
 
 /* Next time is used to order the list of available connections,
      * so ready connections are polled first */
@@ -906,11 +958,8 @@ void picoformat_32(uint8_t* bytes, uint32_t n32);
 void picoformat_64(uint8_t* bytes, uint64_t n64);
 
 void picoquic_varint_encode_16(uint8_t* bytes, uint16_t n16);
-size_t picoquic_varint_skip(uint8_t* bytes);
 size_t picoquic_varint_len(uint64_t val);
 
-void picoquic_headint_encode_32(uint8_t* bytes, uint64_t sequence_number);
-size_t picoquic_headint_decode(const uint8_t* bytes, size_t max_bytes, uint64_t* n64);
 
 /* utilities */
 char* picoquic_string_create(const char* original, size_t len);
@@ -990,12 +1039,12 @@ uint64_t picoquic_get_packet_number64(uint64_t highest, uint64_t mask, uint32_t 
 
 size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
     uint8_t* bytes, size_t packet_length, picoquic_packet_header* ph,
-    void * pn_enc, void* aead_context, int * already_received,
+    void * hp_enc, void* aead_context, int * already_received,
     picoquic_path_t* path_from);
 
 uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     picoquic_packet_type_enum ptype,
-    uint8_t * bytes, 
+    uint8_t * bytes,
     picoquic_path_t* path_x,
     uint64_t sequence_number,
     uint32_t length, uint32_t header_length,
@@ -1051,10 +1100,10 @@ char const* picoquic_log_state_name(picoquic_state_enum state);
 #define PICOQUIC_SET_TLS_SECRETS_LOG(quic, F) (quic)->F_tls_secrets = (void*)(F)
 
 /* handling of ACK logic */
-int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc, 
+int picoquic_is_ack_needed(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_packet_context_enum pc,
     picoquic_path_t* path_x);
 
-int picoquic_is_pn_already_received(picoquic_path_t* path_x, 
+int picoquic_is_pn_already_received(picoquic_path_t* path_x,
     picoquic_packet_context_enum pc, uint64_t pn64);
 int picoquic_record_pn_received(picoquic_cnx_t* cnx, picoquic_path_t* path_x,
     picoquic_packet_context_enum pc, uint64_t pn64, uint64_t current_microsec);
@@ -1093,6 +1142,7 @@ uint8_t* picoquic_decode_crypto_hs_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     const uint8_t* bytes_max, int epoch);
 int picoquic_prepare_crypto_hs_frame(picoquic_cnx_t* cnx, int epoch,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
+int picoquic_prepare_handshake_done_frame(picoquic_cnx_t *cnx, uint8_t* bytes, size_t bytes_max, size_t* consumed);
 int picoquic_prepare_ack_frame(picoquic_cnx_t* cnx, uint64_t current_time,
     picoquic_packet_context_enum pc,
     uint8_t* bytes, size_t bytes_max, size_t* consumed);

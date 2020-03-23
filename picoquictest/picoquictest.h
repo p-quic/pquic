@@ -90,8 +90,8 @@ int spurious_retransmit_test();
 int wrong_keyshare_test();
 #endif
 int pn_ctr_test();
-int cleartext_pn_enc_test();
-int pn_enc_1rtt_test();
+int cleartext_hp_enc_test();
+int hp_enc_1rtt_test();
 int tls_zero_share_test();
 int cleartext_aead_vector_test();
 int transport_param_log_test();

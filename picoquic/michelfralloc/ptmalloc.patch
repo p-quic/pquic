@@ -1,80 +1,92 @@
 diff -ru ptmalloc3-current/ptmalloc3/Makefile ptmalloc3/Makefile
---- ptmalloc3-current/ptmalloc3/Makefile	2006-03-31 18:25:23.000000000 +0200
-+++ ptmalloc3/Makefile	2019-10-14 14:55:06.373420661 +0200
+--- ptmalloc3-current/ptmalloc3/Makefile	2020-02-17 16:34:32.426924025 +0100
++++ ptmalloc3/Makefile	2020-02-17 16:48:45.933830003 +0100
 @@ -24,13 +24,14 @@
  WARN_FLAGS = -Wall -Wstrict-prototypes
  SH_FLAGS   = -shared -fpic
- 
+
 -INC_FLAGS  = -Isysdeps/generic
 +INC_FLAGS  = -Isysdeps/generic -I.
- 
+
  # Flags for the test programs
 -T_FLAGS   = -DUSE_MALLOC=1 -DTEST=1
 +T_FLAGS   =  -DUSE_DL_PREFIX=1 -DUSE_MALLOC=1 -DTEST=1
- 
+
  # Flags for the compilation of malloc.c
 -M_FLAGS   = -DTHREAD_STATS=1 #-DMALLOC_DEBUG=1 -DDEBUG=1
 +M_FLAGS   = -DTHREAD_STATS=1 -DHAVE_MMAP=0 -DHAVE_MORECORE=1 -include "../sbrk.h" -DMORECORE=context_sbrk #-DMALLOC_DEBUG=1 -DDEBUG=1
 +M_LIBS   =  -static -l:libsbrk.a
- 
+
  # Thread flags.
  # See the platform-specific targets below.
 @@ -41,8 +42,8 @@
  AR        = ar
  RANLIB    = ranlib
- 
+
 -MALLOC_OBJ = ptmalloc3.o malloc.o
 -LIB_MALLOC = libptmalloc3.a
 +MALLOC_OBJ = malloc.o #ptmalloc3.o malloc.o
 +LIB_MALLOC = libptmalloc3.a libsbrk.a
- 
+
  T_SUF =
  TESTS = t-test1$(T_SUF) t-test2$(T_SUF) \
 @@ -57,20 +58,20 @@
  all: $(LIB_MALLOC) $(TESTS)
- 
+
  ptmalloc3.o: ptmalloc3.c malloc-2.8.3.h
 -	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=1 $<
 +	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 $< $(M_LIBS) -fPIC
- 
+
  malloc.o: malloc.c
 -	$(CC) -c $(CFLAGS) $(M_FLAGS) -DONLY_MSPACES -DUSE_LOCKS=0 $<
 +	$(CC) -c $(CFLAGS) $(M_FLAGS) -DMSPACES=0 -DUSE_DL_PREFIX=1 -DUSE_LOCKS=0 $< $(M_LIBS) -fPIC
- 
+
  #malloc-stats.o: malloc-stats.c malloc.h
 -#	$(CC) -c $(CFLAGS) $(M_FLAGS) $<
 +#	$(CC) -c $(CFLAGS) $(M_FLAGS) $< $(M_LIBS) -fPIC
- 
+
  libptmalloc3.a: $(MALLOC_OBJ)
  	$(AR) cr $@ $(MALLOC_OBJ)
  	$(RANLIB) $@
- 
+
  libptmalloc3.so: $(MALLOC_OBJ)
 -	$(CC) $(SH_FLAGS) $(CFLAGS) $(M_FLAGS) $(MALLOC_OBJ) -o $@
 +	$(CC) $(SH_FLAGS) $(CFLAGS) $(M_FLAGS) $(MALLOC_OBJ) -o $@ $(M_LIBS)
- 
+
  again:
  	$(RM) $(TESTS)
 diff -ru ptmalloc3-current/ptmalloc3/malloc-2.8.3.h ptmalloc3/malloc-2.8.3.h
---- ptmalloc3-current/ptmalloc3/malloc-2.8.3.h	2006-01-01 22:11:03.000000000 +0100
-+++ ptmalloc3/malloc-2.8.3.h	2019-10-11 18:31:58.835824599 +0200
+--- ptmalloc3-current/ptmalloc3/malloc-2.8.3.h	2020-02-17 16:34:32.427924019 +0100
++++ ptmalloc3/malloc-2.8.3.h	2020-02-17 16:48:45.934829997 +0100
 @@ -51,7 +51,6 @@
  #define dlindependent_comalloc independent_comalloc
  #endif /* USE_DL_PREFIX */
- 
+
 -
  /*
    malloc(size_t n)
    Returns a pointer to a newly allocated chunk of at least n bytes, or
 diff -ru ptmalloc3-current/ptmalloc3/malloc.c ptmalloc3/malloc.c
---- ptmalloc3-current/ptmalloc3/malloc.c	2006-03-30 18:47:29.000000000 +0200
-+++ ptmalloc3/malloc.c	2019-10-14 13:49:35.369454818 +0200
+--- ptmalloc3-current/ptmalloc3/malloc.c	2020-02-17 16:34:32.428924014 +0100
++++ ptmalloc3/malloc.c	2020-02-17 16:52:26.340655418 +0100
 @@ -586,7 +586,7 @@
  #define MORECORE_CONTIGUOUS 0
  #else   /* !HAVE_MORECORE */
  #ifndef MORECORE
 -#define MORECORE sbrk
-+#define MORECORE contexte_sbrk
++#define MORECORE context_sbrk
  #endif  /* MORECORE */
  #ifndef MORECORE_CONTIGUOUS
  #define MORECORE_CONTIGUOUS 1
+@@ -2377,9 +2377,9 @@
+ #if !ONLY_MSPACES
+
+ /* The global malloc_state used for all non-"mspace" calls */
+-static struct malloc_state _gm_;
+-#define gm                 (&_gm_)
+-#define is_global(M)       ((M) == &_gm_)
++extern struct malloc_state *_gm_;
++#define gm                 (_gm_)
++#define is_global(M)       ((M) == _gm_)
+
+ #endif /* !ONLY_MSPACES */

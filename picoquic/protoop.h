@@ -115,7 +115,8 @@ extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
  * \param[in] pc \b picoquic_packet_context_enum The packet context acked by the ACK frame
  * \param[in] path_x \b picoquic_path_t* The path acked by the ACK frame
  *
- * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.
+ * \return \b picoquic_packet_t* Pointer to the packet that updated the latency estimation, or NULL if none was used.µ
+ * \param[out] is_new_ack \b bool Returns whether the ACK is new or not
  */
 #define PROTOOPID_NOPARAM_UPDATE_RTT "update_rtt"
 extern protoop_id_t PROTOOP_NOPARAM_UPDATE_RTT;
@@ -302,6 +303,9 @@ extern protoop_id_t PROTOOP_NOPARAM_GET_INCOMING_PATH;
 #define PROTOOPID_NOPARAM_CONGESTION_ALGORITHM_NOTIFY "congestion_algorithm_notify"
 extern protoop_id_t PROTOOP_NOPARAM_CONGESTION_ALGORITHM_NOTIFY;
 
+#define PROTOOPID_NOPARAM_ESTIMATE_PATH_BANDWIDTH "estimate_path_bandwidth"
+extern protoop_id_t PROTOOP_NOPARAM_ESTIMATE_PATH_BANDWIDTH;
+
 /**
  * Call back a function registered in the connection context to process incoming data.
  * \param[in] stream_id \b uint64_t The ID of the stream on which data arrived
@@ -340,7 +344,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SNPRINTF;
 
 /**
  * Trigger a connection error.
- * \param[in] local_error \b uint16_t QUIC error code
+ * \param[in] local_error \b uint64_t QUIC error code
  * \param[in] frame_type \b uint64_t Type of the offending frame
  * 
  * \todo Link \p local_error to the param space related
@@ -512,6 +516,17 @@ extern protoop_id_t PROTOOP_NOPARAM_STREAM_ALWAYS_ENCODE_LENGTH;
  */
 #define PROTOOPID_NOPARAM_PREPARE_CRYPTO_HS_FRAME "prepare_crypto_hs_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME;
+
+/**
+ * Prepare a HANDHSHAKE_DONE frame.
+ * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame
+ * \param[in] bytes_max \b size_t Max size that can be written
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] consumed \b size_t Number of bytes written
+ */
+#define PROTOOPID_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME "prepare_handshake_done"
+extern protoop_id_t PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME;
 /**
  * Prepare a ACK frame.
  * \param[in] current_time \b uint64_t The current time
@@ -611,6 +626,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SKIP_FRAME;
  * uint8_t* send_buffer,
  * size_t send_buffer_max,
  * size_t* send_length
+ * int coalesced_with_initial
  */
 #define PROTOOPID_NOPARAM_PREPARE_PACKET_READY "prepare_packet_ready"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_PACKET_READY;

@@ -87,6 +87,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         set_pkt(packet, AK_PKT_SEND_PATH, (protoop_arg_t) sending_path);
 
         int mtu_needed = helper_is_mtu_probe_needed(cnx, sending_path);
+        int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
         bpf_data *bpfd = get_bpf_data(cnx);
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */
@@ -111,6 +112,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             && any_receive_require_ack == 0
             && any_path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
+            && !handshake_done_to_send
             && mtu_needed
             && queue_peek(retry_frames) == NULL
             && queue_peek(rtx_frames) == NULL) {
@@ -124,7 +126,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 set_path(sending_path, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {
-                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %lu and BIF %lu MTU needed %d stream %p tls_ready %d send_buffer_max %d path_send_mtu %d ret %d\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit, mtu_needed, (protoop_arg_t) stream, tls_ready, send_buffer_max, sending_path_mtu, ret);
+                PROTOOP_PRINTF(cnx, "Trying to send MTU probe on path %p, but blocked by CWIN %" PRIu64 " and BIF %" PRIu64 " MTU needed %d stream %p tls_ready %d send_buffer_max %d path_send_mtu %d ret %d\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit, mtu_needed, (protoop_arg_t) stream, tls_ready, send_buffer_max, sending_path_mtu, ret);
                 length = header_length;
             }
         }
@@ -141,7 +143,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     challenge_repeat_count++;
                     set_path(sending_path, AK_PATH_CHALLENGE_REPEAT_COUNT, 0, challenge_repeat_count);
                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
-                    PROTOOP_PRINTF(cnx, "Sending path %p CWIN %lu BIF %lu\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit);
+                    PROTOOP_PRINTF(cnx, "Sending path %p CWIN %" PRIu64 " BIF %" PRIu64 "\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit);
                     if (challenge_repeat_count > MAX_PATHS * PICOQUIC_CHALLENGE_REPEAT_MAX) {
                         PROTOOP_PRINTF(cnx, "%s\n", (protoop_arg_t) "Too many challenge retransmits, disconnect");
                         picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
@@ -240,6 +242,16 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 }
                             }
                         }
+
+                        if (handshake_done_to_send) {
+                            ret = helper_prepare_handshake_done_frame(cnx, bytes + length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
+                            if (ret == 0 && data_bytes > 0) {
+                                length += (uint32_t) data_bytes;
+                                set_pkt(packet, AK_PKT_HAS_HANDSHAKE_DONE, 1);
+                                set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
+                            }
+                        }
+
                         /* If present, send misc frame */
                         while (first_misc_frame != NULL) {
                             ret = helper_prepare_first_misc_frame(cnx, &bytes[length],
@@ -387,6 +399,13 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 break;
                             }
                         }
+
+                        if (length <= header_length) {
+                            /* Mark the bandwidth estimation as application limited */
+                            set_path(sending_path, AK_PATH_DELIVERED_LIMITED_INDEX, 0, get_path(sending_path, AK_PATH_DELIVERED, 0));
+                        }
+                    } else if ((void *) get_cnx(cnx, AK_CNX_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
+                        helper_congestion_algorithm_notify(cnx, sending_path, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                     }
                     if (length == 0 || length == header_length) {
                         /* Don't flood the network with packets! */

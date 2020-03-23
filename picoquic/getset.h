@@ -294,13 +294,13 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
  */
 #define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL 0x00
 #define TRANSPORT_PARAMETER_INITIAL_MAX_DATA 0x01
-#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_BIDIR 0x02
-#define TRANSPORT_PARAMETER_IDLE_TIMEOUT 0x03
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_BIDI 0x02
+#define TRANSPORT_PARAMETER_MAX_IDLE_TIMEOUT 0x03
 #define TRANSPORT_PARAMETER_PREFERRED_ADDRESS 0x04
 #define TRANSPORT_PARAMETER_MAX_PACKET_SIZE 0x05
 #define TRANSPORT_PARAMETER_STATELESS_RESET_TOKEN 0x06
 #define TRANSPORT_PARAMETER_ACK_DELAY_EXPONENT 0x07
-#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_ID_UNIDIR 0x08
+#define TRANSPORT_PARAMETER_INITIAL_MAX_STREAMS_UNI 0x08
 #define TRANSPORT_PARAMETER_MIGRATION_DISABLED 0x09
 #define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE 0x0a
 #define TRANSPORT_PARAMETER_INITIAL_MAX_STREAM_DATA_UNIDIR 0x0b
@@ -348,13 +348,13 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_INITIAL_CID 0x0f
 /** The start time of the connection, as uint64_t */
 #define AK_CNX_START_TIME 0x10
-/** The application error code, as uint16_t */
+/** The application error code, as uint64_t */
 #define AK_CNX_APPLICATION_ERROR 0x11
-/** The local error code, as uint16_t */
+/** The local error code, as uint64_t */
 #define AK_CNX_LOCAL_ERROR 0x12
-/** The remote application error code, as uint16_t */
+/** The remote application error code, as uint64_t */
 #define AK_CNX_REMOTE_APPLICATION_ERROR 0x13
-/** The remote error code, as uint16_t */
+/** The remote error code, as uint64_t */
 #define AK_CNX_REMOTE_ERROR 0x14
 /** The offending frame type causing the error, as uint64_t */
 #define AK_CNX_OFFENDING_FRAME_TYPE 0x15
@@ -436,6 +436,12 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_PIDS_TO_REQUEST 0x3B
 /** The queues of frames to be retransmitted */
 #define AK_CNX_RTX_FRAMES 0x3C
+/** Whether the handshake is done */
+#define AK_CNX_HANDSHAKE_DONE 0x3D
+/** Whether a HANDSHAKE_DONE frame was sent */
+#define AK_CNX_HANDSHAKE_DONE_SENT 0x3E
+/** Whether a HANDSHAKE_DONE frame was acked */
+#define AK_CNX_HANDSHAKE_DONE_ACKED 0x3F
 
 /**
  * @}
@@ -499,14 +505,14 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_BYTES_IN_TRANSIT 0x18
 /** The pointer to the congestion control algorithm state */
 #define AK_PATH_CONGESTION_ALGORITHM_STATE 0x19
-/** The pacing packet time in nano second, as uint64_t */
-#define AK_PATH_PACKET_TIME_NANO_SEC 0x1a
-/** The pacing reminder in nano second, as uint64_t */
-#define AK_PATH_PACING_REMINDER_NANO_SEC 0x1b
-/** The pacing margin in micro second, as uint64_t */
-#define AK_PATH_PACING_MARGIN_MICROS 0x1c
-/** The next pacing time, as uint64_t */
-#define AK_PATH_NEXT_PACING_TIME 0x1d
+/** last time the path was evaluated */
+#define AK_PATH_PACKET_EVALUATION_TIME 0x1a
+/** number of nanoseconds of transmission time that are allowed */
+#define AK_PATH_PACING_BUCKET_NANO_SEC 0x1b
+/** maximum value (capacity) of the leaky bucket */
+#define AK_PATH_PACING_BUCKET_MAX 0x1c
+/** number of nanoseconds required to send a full size packet. */
+#define AK_PATH_PACING_PACKET_TIME_NANOSEC 0x1d
 /** The pointer to the local connection ID */
 #define AK_PATH_LOCAL_CID 0x1e
 /** The pointer to the remote connection ID */
@@ -517,7 +523,11 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_PKT_CTX 0x21
 /** The number of packets sent on the path, in uint64_t */
 #define AK_PATH_NB_PKT_SENT 0x22
-
+#define AK_PATH_DELIVERED 0x23
+#define AK_PATH_DELIVERED_LIMITED_INDEX 0x24
+#define AK_PATH_PACING_PACKET_TIME_MICROSEC 0x25
+#define AK_PATH_RTT_SAMPLE 0x26
+#define AK_PATH_DELIVERED_PRIOR 0x27
 /**
  * @}
  * 
@@ -603,6 +613,11 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PKT_BYTES 0x0e
 /** Flag stating that the packet is a MTU probe */
 #define AK_PKT_IS_MTU_PROBE 0x10
+#define AK_PKT_DELIVERED_PRIOR 0x11
+#define AK_PKT_DELIVERED_TIME_PRIOR 0x12
+#define AK_PKT_DELIVERED_SENT_PRIOR 0x13
+#define AK_PKT_DELIVERED_APP_LIMITED 0x14
+#define AK_PKT_HAS_HANDSHAKE_DONE 0x15
 
 /**
  * @}

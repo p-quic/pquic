@@ -1049,9 +1049,9 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                 if (ret == 0 && picoquic_get_cnx_state(cnx_client) == picoquic_state_client_ready) {
                     if (established == 0) {
                         picoquic_log_transport_extension(F_log, cnx_client, 0);
-                        printf("Connection established. Version = %x, I-CID: %llx\n",
+                        printf("Connection established. Version = %x, I-CID: %" PRIx64 "\n",
                             picoquic_supported_versions[cnx_client->version_index].version,
-                            (unsigned long long)picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
+                            picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
                         established = 1;
 
                         if (zero_rtt_available == 0) {

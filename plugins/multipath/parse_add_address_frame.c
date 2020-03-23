@@ -21,7 +21,7 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    size_t byte_index = 1;
+    size_t byte_index = picoquic_varint_skip(bytes);
     uint8_t flags_and_ip_ver;
 
     if (bytes_max - bytes <= 3) {

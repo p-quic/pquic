@@ -34,7 +34,7 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
                 LOG {
                     char from[48], to[48];
                     LOG_EVENT(cnx, "multipath", "path_activated", "",
-                                "{\"path_id\": %lu, \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
+                                "{\"path_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
                                 pd->path_id, (protoop_arg_t) pd->path,
                                 (protoop_arg_t) inet_ntop(laddr->ss_family, (laddr->ss_family == AF_INET)
                                                                             ? (void *) &(((struct sockaddr_in *) &laddr)->sin_addr)
