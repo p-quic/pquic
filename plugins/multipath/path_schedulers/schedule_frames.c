@@ -87,6 +87,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         set_pkt(packet, AK_PKT_SEND_PATH, (protoop_arg_t) sending_path);
 
         int mtu_needed = helper_is_mtu_probe_needed(cnx, sending_path);
+        int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
         bpf_data *bpfd = get_bpf_data(cnx);
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */
@@ -111,6 +112,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             && any_receive_require_ack == 0
             && any_path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
+            && !handshake_done_to_send
             && mtu_needed
             && queue_peek(retry_frames) == NULL
             && queue_peek(rtx_frames) == NULL) {
@@ -241,7 +243,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                             }
                         }
 
-                        if (!get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0)) {
+                        if (handshake_done_to_send) {
                             ret = helper_prepare_handshake_done_frame(cnx, bytes + length, send_buffer_min_max - checksum_overhead - length, &data_bytes);
                             if (ret == 0 && data_bytes > 0) {
                                 length += (uint32_t) data_bytes;

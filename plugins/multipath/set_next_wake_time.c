@@ -333,8 +333,10 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     int should_send_max_data = helper_should_send_max_data(cnx);
                     int is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
                     int has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
+                    int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
                     if (should_send_max_data ||
                         is_tls_stream_ready ||
+                        handshake_done_to_send ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                         ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
 #ifdef PACING

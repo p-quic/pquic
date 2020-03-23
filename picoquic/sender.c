@@ -1930,6 +1930,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
                     if (picoquic_should_send_max_data(cnx) ||
                         picoquic_is_tls_stream_ready(cnx) ||
+                        (!cnx->client_mode && cnx->handshake_done && !cnx->handshake_done_sent) ||
                         ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
                                 ((stream = picoquic_find_ready_stream(cnx)) != NULL || picoquic_has_congestion_controlled_plugin_frames_to_send(cnx)))) {
                         if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
@@ -3045,6 +3046,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                 path_x->cwin <= path_x->bytes_in_transit)
             && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
             && path_x->challenge_response_to_send == 0
+            && (cnx->client_mode || !cnx->handshake_done || cnx->handshake_done_sent)
             && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)
             && queue_peek(cnx->reserved_frames) == NULL
             && queue_peek(cnx->retry_frames) == NULL
@@ -3428,7 +3430,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
             }
 
             if (cnx->client_mode && coalesced_with_initial) {
-                // UDP packets containing an Initial must be at least 1200 bytes, so we pad the last packet
+                // UDP packets containing an Initial must be at least 1200, so we pad the last packet
                 while (length + checksum_overhead < send_buffer_min_max) {
                     bytes[length++] = 0;
                 }

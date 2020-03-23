@@ -483,7 +483,7 @@ int picoquic_parse_header_and_decrypt(
                     ret = PICOQUIC_ERROR_INITIAL_TOO_SHORT;
                 }
             }
-            if (ret == 0 && *pcnx == NULL && ph->ptype == picoquic_packet_initial) {
+            if (ret == 0 && *pcnx == NULL) {
                 /* if listening is OK, listen */
                 *pcnx = picoquic_create_cnx(quic, ph->dest_cnx_id, ph->srce_cnx_id, addr_from, current_time, ph->vn,
                                             NULL, NULL, 0);
