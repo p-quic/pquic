@@ -51,11 +51,14 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         }
 
         size_t byte_index = 0;
+        size_t frame_id_l = 0;
         size_t path_id_l = 0;
         size_t seq_l = 0;
 
-        /* Encode the first byte */
-        my_memset(&bytes[byte_index++], MP_NEW_CONNECTION_ID_TYPE, 1);
+        /* Frame ID */
+        frame_id_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
+            MP_NEW_CONNECTION_ID_TYPE);
+        byte_index += frame_id_l;
 
         if (byte_index < bytes_max - bytes) {
             /* Path ID */

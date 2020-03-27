@@ -18,6 +18,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     int ret = 0;
     size_t byte_index = 0;
     uint64_t num_block = 0;
+    size_t l_frame_id = 0;
     size_t l_path_id = 0;
     size_t l_largest = 0;
     size_t l_delay = 0;
@@ -30,7 +31,6 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     uint64_t ack_gap = 0;
     uint64_t lowest_acknowledged = 0;
     size_t num_block_index = 0;
-    uint8_t mp_ack_type_byte = MP_ACK_TYPE;
     bpf_data *bpfd = get_bpf_data(cnx);
     path_data_t *pd = mp_get_receive_path_data(bpfd, path_x);
     
@@ -46,8 +46,10 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         consumed = 0;
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
     } else {
-        /* Encode the first byte */
-        my_memset(&bytes[byte_index++], mp_ack_type_byte, 1);
+        /* Encode the frame ID */
+        l_frame_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
+                MP_ACK_TYPE);
+        byte_index += l_frame_id;
         /* Encode the path ID */
         if (byte_index < bytes_max - bytes) {
             l_path_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,

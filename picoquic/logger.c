@@ -1021,7 +1021,7 @@ size_t picoquic_log_plugin_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 
 size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
-    size_t byte_index = 1;
+    size_t byte_index = 2;
 
     uint8_t has_port = 0;
     uint8_t ip_vers;
@@ -1076,8 +1076,8 @@ size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 
 size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
-    size_t byte_index = 1;
-    size_t min_size = 1 + 8 + 16;
+    size_t byte_index = 2;
+    size_t min_size = 2 + 8 + 16;
     picoquic_connection_id_t new_cnx_id;
     size_t l_seq = 0;
     uint8_t l_cid = 0;
@@ -1138,7 +1138,7 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
     uint8_t ack_delay_exponent)
 {
     int ret = 0;
-    size_t byte_index = 1;
+    size_t byte_index = 2;
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_blocks = 0;
@@ -1448,22 +1448,22 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             byte_index += picoquic_log_plugin_frame(F, bytes + byte_index,
                 length - byte_index);
             break;
-        case 0x22: /* ADD_ADDRESS */
-            byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
-                length - byte_index);
-            break;
-        case 0x26: /* MP_NEW_CONNECTION_ID */
-            byte_index += picoquic_log_mp_new_connection_id_frame(F, bytes + byte_index,
-                length - byte_index);
-            break;
-        case 0x27: /* MP ACK */
-            byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
-                length - byte_index);
-            break;
         case 0x29: /* FEC SFPID */
             byte_index += picoquic_log_sfpid_frame(F, cnx_id64, bytes + byte_index,
                                                     length - byte_index);
                 break;
+        case 0x40: /* MP_NEW_CONNECTION_ID */
+            byte_index += picoquic_log_mp_new_connection_id_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
+        case 0x42: /* MP ACK */
+            byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
+                length - byte_index);
+            break;
+        case 0x44: /* ADD_ADDRESS */
+            byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
+                length - byte_index);
+            break;
         default: {
             /* Not implemented yet! */
             uint64_t frame_id64;
