@@ -1334,9 +1334,10 @@ size_t picoquic_log_sfpid_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size
 void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t length)
 {
     size_t byte_index = 0;
+    uint64_t frame_id;
 
     while (byte_index < length) {
-        uint8_t frame_id = bytes[byte_index];
+        picoquic_varint_decode(bytes + byte_index, length - byte_index, &frame_id);
 
         if (cnx_id64 != 0) {
             fprintf(F, "%" PRIx64 ": ", cnx_id64);
