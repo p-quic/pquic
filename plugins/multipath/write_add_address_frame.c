@@ -37,6 +37,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     else {
         /* Create local address IDs. */
         size_t byte_index = 0;
+        size_t l_frame_id = 0;
         int addr_index = 0;
         int addr_id = 0;
         struct sockaddr_storage *sa;
@@ -70,8 +71,10 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
             }
 
-            /* Encode the first byte */
-            my_memset(&bytes[byte_index++], ADD_ADDRESS_TYPE, 1);
+            /* Encode the frame ID */
+            l_frame_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
+                ADD_ADDRESS_TYPE);
+            byte_index += l_frame_id;
             my_memset(&bytes[byte_index++], (port ? 0x10 : 0x00) | ((sa->ss_family == AF_INET6) ? 0x06 : 0x04), 1);
             /* Encode address ID */
             my_memset(&bytes[byte_index++], addr_id, 1);

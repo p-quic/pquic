@@ -1,27 +1,27 @@
-parse_frame param 0x26 replace parse_mp_new_connection_id_frame.o
-process_frame param 0x26 replace process_mp_new_connection_id_frame.o
-write_frame param 0x26 replace write_mp_new_connection_id_frame.o
-notify_frame param 0x26 replace notify_mp_new_connection_id_frame.o
-parse_frame param 0x27 replace parse_mp_ack_frame.o
-process_frame param 0x27 replace process_mp_ack_frame.o
-write_frame param 0x27 replace write_mp_ack_frame.o
-notify_frame param 0x27 replace notify_mp_ack_frame.o
+parse_frame param 0x40 replace parse_mp_new_connection_id_frame.o
+process_frame param 0x40 replace process_mp_new_connection_id_frame.o
+write_frame param 0x40 replace write_mp_new_connection_id_frame.o
+notify_frame param 0x40 replace notify_mp_new_connection_id_frame.o
+parse_frame param 0x42 replace parse_mp_ack_frame.o
+process_frame param 0x42 replace process_mp_ack_frame.o
+write_frame param 0x42 replace write_mp_ack_frame.o
+notify_frame param 0x42 replace notify_mp_ack_frame.o
+parse_frame param 0x44 replace parse_add_address_frame.o
+process_frame param 0x44 replace process_add_address_frame.o
+write_frame param 0x44 replace write_add_address_frame.o
+notify_frame param 0x44 replace notify_add_address_frame.o
 parse_frame param 0x21 replace parse_path_update.o
 process_frame param 0x21 replace process_path_update.o
 write_frame param 0x21 replace write_path_update.o
 notify_frame param 0x21 replace notify_path_update.o
-parse_frame param 0x22 replace parse_add_address_frame.o
-process_frame param 0x22 replace process_add_address_frame.o
-write_frame param 0x22 replace write_add_address_frame.o
-notify_frame param 0x22 replace notify_add_address_frame.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
 get_incoming_path replace get_incoming_path.o
 set_next_wake_time replace set_next_wake_time.o
 get_destination_connection_id replace get_destination_connection_id.o
 predict_packet_header_length replace predict_packet_header_length.o
 connection_state_changed post connection_state_changed.o
-write_frame param 0x42 replace write_rtt_probe.o
-notify_frame param 0x42 replace notify_rtt_probe.o
+write_frame param 0x49 replace write_rtt_probe.o
+notify_frame param 0x49 replace notify_rtt_probe.o
 schedule_frames_on_path replace path_schedulers/schedule_frames.o
 manage_paths replace path_manager.o
 update_rtt replace update_rtt.o
