@@ -9,18 +9,18 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
     mp_ack_frame_t *frame = (mp_ack_frame_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 1);
     int epoch = (int) get_cnx(cnx, AK_CNX_INPUT, 2);
-    picoquic_path_t *receive_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 3);
+    picoquic_path_t *receiving_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 3);
 
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    int path_index = mp_get_path_index(cnx, bpfd, true, frame->path_id, NULL);
-    if (path_index < 0) {
-        helper_protoop_printf(cnx, "No path index found...", NULL, 0);
+    int uniflow_index = mp_get_uniflow_index(cnx, bpfd, true, frame->uniflow_id, NULL);
+    if (uniflow_index < 0) {
+        helper_protoop_printf(cnx, "No uniflow index found...", NULL, 0);
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     }
 
-    picoquic_path_t *sending_path = bpfd->sending_paths[path_index]->path;
+    picoquic_path_t *sending_path = bpfd->sending_uniflows[uniflow_index]->path;
     picoquic_packet_context_enum pc = helper_context_from_epoch(epoch);
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(sending_path, AK_PATH_PKT_CTX, pc);
     uint64_t send_sequence = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_SEND_SEQUENCE);
@@ -35,7 +35,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         args[1] = (protoop_arg_t) sending_path;
         args[2] = (protoop_arg_t) send_sequence;
         args[3] = (protoop_arg_t) pc;
-        args[4] = (protoop_arg_t) frame->path_id;
+        args[4] = (protoop_arg_t) frame->uniflow_id;
         helper_protoop_printf(cnx, "MP ACK frame largest is %" PRIu64 " for sending path %p but send_sequence is %" PRIu64 " with pc %" PRIu64 " (PID %" PRIu64 ")\n", args, 5);
         /* FIXME Clearly, there is a bug, but don't deal with it now... */
         if (send_sequence == 0) {
@@ -46,7 +46,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
     } else {
         /* Attempt to update the RTT */
         int is_new_ack = 0;
-        picoquic_packet_t* top_packet = mp_update_rtt(cnx, frame->ack.largest_acknowledged, current_time, frame->ack.ack_delay, pc, sending_path, receive_path, &is_new_ack);
+        picoquic_packet_t* top_packet = mp_update_rtt(cnx, frame->ack.largest_acknowledged, current_time, frame->ack.ack_delay, pc, sending_path, receiving_path, &is_new_ack);
         uint64_t largest_sent_time = 0;
         uint64_t delivered_prior = 0;
         uint64_t delivered_time_prior = 0;

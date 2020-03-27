@@ -16,7 +16,7 @@ protoop_arg_t notify_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
 
     if (!received) {
         PROTOOP_PRINTF(cnx, "Should handle a lost mp new connection id!\n");
-        reserve_mp_new_connection_id_frame(cnx, mncic->path_id);
+        reserve_mp_new_connection_id_frame(cnx, mncic->uniflow_id);
     } else {
         PROTOOP_PRINTF(cnx, "mp new connection id: ok!\n");
         /* Actually, not much to do! */

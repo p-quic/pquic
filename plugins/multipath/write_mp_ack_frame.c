@@ -19,7 +19,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     size_t byte_index = 0;
     uint64_t num_block = 0;
     size_t l_frame_id = 0;
-    size_t l_path_id = 0;
+    size_t l_uniflow_id = 0;
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_first_range = 0;
@@ -32,7 +32,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
     uint64_t lowest_acknowledged = 0;
     size_t num_block_index = 0;
     bpf_data *bpfd = get_bpf_data(cnx);
-    path_data_t *pd = mp_get_receive_path_data(bpfd, path_x);
+    uniflow_data_t *ud = mp_get_receiving_uniflow_data(bpfd, path_x);
     
 
     /* Check that there is enough room in the packet, and something to acknowledge */
@@ -50,11 +50,11 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         l_frame_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 MP_ACK_TYPE);
         byte_index += l_frame_id;
-        /* Encode the path ID */
+        /* Encode the uniflow ID */
         if (byte_index < bytes_max - bytes) {
-            l_path_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
-                pd->path_id);
-            byte_index += l_path_id;
+            l_uniflow_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
+                ud->uniflow_id);
+            byte_index += l_uniflow_id;
         }
         /* Encode the largest seen */
         uint64_t first_sack_end_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_END_RANGE);
@@ -88,7 +88,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             }
         }
 
-        if (l_path_id == 0 || l_delay == 0 || l_largest == 0 || l_first_range == 0 || byte_index > (size_t) (bytes_max - bytes)) {
+        if (l_uniflow_id == 0 || l_delay == 0 || l_largest == 0 || l_first_range == 0 || byte_index > (size_t) (bytes_max - bytes)) {
             /* not enough space */
             consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;

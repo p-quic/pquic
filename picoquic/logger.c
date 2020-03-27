@@ -1116,7 +1116,7 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     }
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
-        fprintf(F, "    MP NEW CONNECTION ID for Path 0x");
+        fprintf(F, "    MP NEW CONNECTION ID for Uniflow 0x");
         fprintf(F, "%02lx", path_id);
         fprintf(F, " CID: 0x");
         for (int x = 0; x < new_cnx_id.id_len; x++) {
@@ -1208,7 +1208,7 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
         return bytes_max;
 
     /* Now that the size is good, print it */
-    fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+    fprintf(F, "    MP ACK for uniflow 0x%02lx (nb=%u)", path_id, (int)num_block);
 
     /* decoding the acks */
 

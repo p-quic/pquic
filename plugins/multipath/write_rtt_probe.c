@@ -12,17 +12,17 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
     size_t consumed = 0;
 
     bpf_data *bpfd = get_bpf_data(cnx);
-    if (bpfd->last_path_index_sent != selected_path) {
-        path_data_t *pd = bpfd->sending_paths[selected_path];
-        if (pd->rtt_probe_ready) {
-            pd->rtt_probe_tries++;
+    if (bpfd->last_uniflow_index_sent != selected_path) {
+        uniflow_data_t *ud = bpfd->sending_uniflows[selected_path];
+        if (ud->rtt_probe_ready) {
+            ud->rtt_probe_tries++;
         } else {
-            pd->rtt_probe_ready = true;
+            ud->rtt_probe_ready = true;
         }
-        PROTOOP_PRINTF(cnx, "RTT probe ready to be sent for sending path %d, try %d\n", selected_path, pd->rtt_probe_tries);
-        if (pd->rtt_probe_tries >= 3) {
-            PROTOOP_PRINTF(cnx, "Too many tries for the probe for sending path %d, drop it\n", selected_path);
-            pd->rtt_probe_ready = false;
+        PROTOOP_PRINTF(cnx, "RTT probe ready to be sent for sending uniflow %d, try %d\n", selected_path, ud->rtt_probe_tries);
+        if (ud->rtt_probe_tries >= 3) {
+            PROTOOP_PRINTF(cnx, "Too many tries for the probe for sending uniflow %d, drop it\n", selected_path);
+            ud->rtt_probe_ready = false;
             ret = 0;
             consumed = 0;
         } else {
@@ -30,10 +30,10 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
             helper_cnx_set_next_wake_time(cnx, picoquic_current_time(), 1);
         }
     } else {
-        path_data_t *pd = bpfd->sending_paths[selected_path];
+        uniflow_data_t *ud = bpfd->sending_uniflows[selected_path];
         my_memset(bytes, picoquic_frame_type_ping, 1);
         my_memset(bytes + 1, picoquic_frame_type_padding, bytes_max - (bytes + 1));
-        pd->rtt_probe_ready = false;
+        ud->rtt_probe_ready = false;
 
         /* PROTOOP_PRINTF(cnx, "Wrote a %" PRIu64 "-byte long RTT probe for path %d\n", bytes_max - bytes, selected_path); */
         consumed = bytes_max - bytes;
