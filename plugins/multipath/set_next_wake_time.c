@@ -287,22 +287,6 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_snd_paths; i++) {
-        path_x = get_sending_path(cnx, bpfd, nb_snd_paths, i, &pd);
-        /* If the path is not active, don't expect anything! */
-        if ((pd != NULL && pd->state != path_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
-            continue;
-        }
-        uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
-        uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
-        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
-            blocked = 0;
-        }
-        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
-            blocked = 0;
-        }
-    }
-
     picoquic_packet_context_t *pkt_ctx;
     if (blocked != 0) {
         for (int i = 0; blocked != 0 && pacing == 0 && i < nb_snd_paths; i++) {
@@ -353,6 +337,22 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     }
                 }
             }
+        }
+    }
+
+    for (int i = 0; last_pkt_length > 0 && blocked != 0 && pacing == 0 && i < nb_snd_paths; i++) {
+        path_x = get_sending_path(cnx, bpfd, nb_snd_paths, i, &pd);
+        /* If the path is not active, don't expect anything! */
+        if ((pd != NULL && pd->state != path_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
+            continue;
+        }
+        uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
+        uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
+        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
+            blocked = 0;
+        }
+        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
+            blocked = 0;
         }
     }
 

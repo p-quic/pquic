@@ -1898,16 +1898,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         blocked = 0;
     }
 
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < cnx->nb_paths; i++) {
-        picoquic_path_t * path_x = cnx->path[i];
-        if (path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
-            blocked = 0;
-        }
-        if (path_x->cwin > path_x->bytes_in_transit && picoquic_has_booked_plugin_frames(cnx)) {
-            blocked = 0;
-        }
-    }
-
     picoquic_path_t * path_x = cnx->path[0];
     if (blocked != 0) {
         for (int i = 0; blocked != 0 && pacing == 0 && i < cnx->nb_paths; i++) {
@@ -1941,6 +1931,16 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     }
                 }
             }
+        }
+    }
+
+    for (int i = 0; last_pkt_length > 0 && blocked != 0 && pacing == 0 && i < cnx->nb_paths; i++) {
+        picoquic_path_t *path_x = cnx->path[i];
+        if (path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
+            blocked = 0;
+        }
+        if (path_x->cwin > path_x->bytes_in_transit && picoquic_has_booked_plugin_frames(cnx)) {
+            blocked = 0;
         }
     }
 

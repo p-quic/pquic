@@ -203,18 +203,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
     int nb_paths = (int) get_cnx(cnx, AK_CNX_NB_PATHS, 0);
 
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_paths; i++) {
-        picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
-        uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
-        uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
-        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
-            blocked = 0;
-        }
-        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
-            blocked = 0;
-        }
-    }
-
     picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_t *pkt_ctx;
     if (blocked != 0) {
@@ -248,6 +236,18 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                     }
                 }
             }
+        }
+    }
+
+    for (int i = 0; last_pkt_length > 0 && blocked != 0 && pacing == 0 && i < nb_paths; i++) {
+        picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
+        uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
+        uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
+        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
+            blocked = 0;
+        }
+        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
+            blocked = 0;
         }
     }
 
