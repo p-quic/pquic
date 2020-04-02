@@ -6,11 +6,17 @@
 #define MP_DUPLICATE_ID 0x01
 #define MP_TUPLE_ID 0x02
 
-#ifndef N_PATHS
-#define N_PATHS 2
+#ifndef N_SENDING_UNIFLOWS
+#define N_SENDING_UNIFLOWS 2
 #endif
-#ifndef MAX_PATHS
-#define MAX_PATHS 4
+#ifndef N_RECEIVING_UNIFLOWS
+#define N_RECEIVING_UNIFLOWS 2
+#endif
+#ifndef MAX_SENDING_UNIFLOWS
+#define MAX_SENDING_UNIFLOWS 2
+#endif
+#ifndef MAX_RECEIVING_UNIFLOWS
+#define MAX_RECEIVING_UNIFLOWS 2
 #endif
 #ifndef MAX_ADDRS
 #define MAX_ADDRS 4
@@ -99,8 +105,8 @@ typedef struct {
     /* Just for simple rr scheduling */
     uint8_t last_uniflow_index_sent;
 
-    uniflow_data_t *sending_uniflows[MAX_PATHS];
-    uniflow_data_t *receiving_uniflows[MAX_PATHS];
+    uniflow_data_t *sending_uniflows[MAX_SENDING_UNIFLOWS];
+    uniflow_data_t *receiving_uniflows[MAX_RECEIVING_UNIFLOWS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
 
@@ -108,7 +114,7 @@ typedef struct {
 } bpf_data;
 
 typedef struct {
-    stats_t tuple_stats[MAX_PATHS][MAX_PATHS]; /* [receive index][sending index] */
+    stats_t tuple_stats[MAX_RECEIVING_UNIFLOWS][MAX_SENDING_UNIFLOWS]; /* [receive index][sending index] */
 } bpf_tuple_data;
 
 typedef struct {
@@ -213,12 +219,13 @@ static int mp_find_uniflow_index_internal(picoquic_cnx_t *cnx, uint8_t max_count
 static int mp_get_uniflow_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_uniflow, uint64_t uniflow_id, int *new_uniflow_index) {
     uniflow_data_t **uniflows = for_sending_uniflow ? bpfd->sending_uniflows : bpfd->receiving_uniflows;
     uint8_t max_count = for_sending_uniflow ? bpfd->nb_sending_proposed : bpfd->nb_receiving_proposed;
+    uint8_t max_val = for_sending_uniflow ? MAX_SENDING_UNIFLOWS : MAX_RECEIVING_UNIFLOWS;
     int uniflow_index = mp_find_uniflow_index_internal(cnx, max_count, uniflows, uniflow_id);
     if (new_uniflow_index) {
         *new_uniflow_index = false;
     }
 
-    if (uniflow_index < 0 && max_count < MAX_PATHS) {
+    if (uniflow_index < 0 && max_count < max_val) {
         uniflow_index = max_count;
         uniflows[uniflow_index] = my_malloc(cnx, sizeof(uniflow_data_t));
         if (!uniflows[uniflow_index]) {

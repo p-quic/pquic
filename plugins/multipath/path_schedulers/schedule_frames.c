@@ -92,9 +92,9 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */
         int any_receiving_require_ack = 0;
-        int receiving_require_ack[MAX_PATHS];
+        int receiving_require_ack[MAX_RECEIVING_UNIFLOWS];
         int any_path_challenge_response_to_send = 0;
-        int path_challenge_response_to_send[MAX_PATHS];
+        int path_challenge_response_to_send[MAX_RECEIVING_UNIFLOWS];
         for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
             picoquic_path_t *receiving_path = bpfd->receiving_uniflows[i]->path;
             if (receiving_path != NULL) {
@@ -144,7 +144,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     set_path(sending_path, AK_PATH_CHALLENGE_REPEAT_COUNT, 0, challenge_repeat_count);
                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                     PROTOOP_PRINTF(cnx, "Sending path %p CWIN %" PRIu64 " BIF %" PRIu64 "\n", (protoop_arg_t) sending_path, cwin, bytes_in_transit);
-                    if (challenge_repeat_count > MAX_PATHS * PICOQUIC_CHALLENGE_REPEAT_MAX) {
+                    if (challenge_repeat_count > MAX_RECEIVING_UNIFLOWS * PICOQUIC_CHALLENGE_REPEAT_MAX) {
                         PROTOOP_PRINTF(cnx, "%s\n", (protoop_arg_t) "Too many challenge retransmits, disconnect");
                         picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
                         helper_callback_function(cnx, 0, NULL, 0, picoquic_callback_close);
