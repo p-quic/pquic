@@ -17,7 +17,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
     /* FIXME this is not really an issue per-se, but we need to prioritize then on which addresses we will create paths */
     if (bpfd->nb_loc_addrs * bpfd->nb_rem_addrs > MAX_SENDING_UNIFLOWS) {
         PROTOOP_PRINTF(cnx, "%d max paths is not enough for a full mesh between %d loc and %d rem addrs\n", MAX_SENDING_UNIFLOWS, bpfd->nb_loc_addrs, bpfd->nb_rem_addrs);
-        return 0;
+        // Do not return, it will never use uniflows otherwise...
     }
 
     if (bpfd->nb_sending_active >= N_SENDING_UNIFLOWS) {
