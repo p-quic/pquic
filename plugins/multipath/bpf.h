@@ -30,17 +30,13 @@
 #define MP_ACK_TYPE 0x42
 #define ADD_ADDRESS_TYPE 0x44
 
-#define PATH_UPDATE_TYPE 0x21
-
 #define RTT_PROBE_TYPE 0x42
 #define RTT_PROBE_INTERVAL 100000
 
-typedef enum mp_uniflow_state_e {
-    uniflow_ready = 0,
+typedef enum mp_sending_uniflow_state_e {
+    uniflow_unused = 0,
     uniflow_active = 1,
-    uniflow_unusable = 2, /* XXX: (QDC) Not sure this is needed anymore */
-    uniflow_closed = 3,
-} mp_uniflow_state;
+} mp_sending_uniflow_state;
 
 typedef struct {
     uint64_t uniflow_id;
@@ -61,9 +57,8 @@ typedef struct {
 typedef struct {
     picoquic_path_t *path;
     /* FIXME find a proper way to distinguish sending vs. receive path */
-    bool is_sending_uniflow;
     uint64_t uniflow_id;
-    mp_uniflow_state state; /* 0: ready, 1: active, 2: closed */
+    mp_sending_uniflow_state state; /* 0: ready, 1: active */
     uint8_t loc_addr_id;
     uint8_t rem_addr_id;
     /* For receive paths, it is local cnxid / reset secret, for sending paths it is remote */
@@ -283,8 +278,7 @@ static int mp_get_uniflow_index_from_path(bpf_data *bpfd, bool for_sending_unifl
 
 static __attribute__((always_inline)) void mp_sending_uniflow_ready(picoquic_cnx_t *cnx, uniflow_data_t *ud, uint64_t current_time)
 {
-    ud->state = uniflow_ready;
-    ud->is_sending_uniflow = true;
+    ud->state = uniflow_unused;
     /* By default, create the path with the current peer address of path 0 */
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
@@ -296,13 +290,12 @@ static __attribute__((always_inline)) void mp_sending_uniflow_ready(picoquic_cnx
     my_memcpy(remote_cnxid, &ud->cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(ud->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, ud->reset_secret, 16);
-    LOG_EVENT(cnx, "multipath", "sending_path_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
+    LOG_EVENT(cnx, "multipath", "sending_uniflow_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
 }
 
 static __attribute__((always_inline)) void mp_receiving_uniflow_active(picoquic_cnx_t *cnx, uniflow_data_t *ud, uint64_t current_time)
 {
     ud->state = uniflow_active;
-    ud->is_sending_uniflow = false;
     /* By default, create the path with the current peer address of path 0 */
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
@@ -436,23 +429,6 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
     /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
     set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
-}
-
-static __attribute__((always_inline)) void reserve_path_update(picoquic_cnx_t *cnx, uint64_t closed_path_id, uint64_t proposed_path_id) {
-    path_update_t *update = (path_update_t *) my_malloc(cnx, sizeof(path_update_t));
-    update->closed_path_id = closed_path_id;
-    update->proposed_path_id = proposed_path_id;
-
-    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
-    if (!rfs) {
-        my_free(cnx, update);
-        return;
-    }
-    my_memset(rfs, 0, sizeof(reserve_frame_slot_t));
-    rfs->frame_type = PATH_UPDATE_TYPE;
-    rfs->frame_ctx = update;
-    rfs->nb_bytes = 1 + varint_len(update->closed_path_id) + varint_len(update->proposed_path_id);
-    reserve_frames(cnx, 1, rfs);
 }
 
 /* Other multipath functions */

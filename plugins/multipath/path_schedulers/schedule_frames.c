@@ -171,15 +171,13 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 if (any_receiving_require_ack) {
                     for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
                         uniflow_data_t *udtmp = bpfd->receiving_uniflows[i];
-                        if (udtmp->state == uniflow_active || udtmp->state == uniflow_unusable) {
-                            picoquic_packet_context_t *pc = (picoquic_packet_context_t *) get_path(udtmp->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
-                            picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pc, AK_PKTCTX_FIRST_SACK_ITEM);
-                            uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE);
-                            if (first_sack_start_range != (uint64_t)((int64_t)-1)) {  // Don't reserve for path without activity
-                                reserve_mp_ack_frame(cnx, udtmp->path, picoquic_packet_context_application);
-                                /* Consider here that the ping have been processed */
-                                set_path(udtmp->path, AK_PATH_PING_RECEIVED, 0, 0);
-                            }
+                        picoquic_packet_context_t *pc = (picoquic_packet_context_t *) get_path(udtmp->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
+                        picoquic_sack_item_t* first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pc, AK_PKTCTX_FIRST_SACK_ITEM);
+                        uint64_t first_sack_start_range = (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE);
+                        if (first_sack_start_range != (uint64_t)((int64_t)-1)) {  // Don't reserve for receiving uniflow without activity
+                            reserve_mp_ack_frame(cnx, udtmp->path, picoquic_packet_context_application);
+                            /* Consider here that the ping have been processed */
+                            set_path(udtmp->path, AK_PATH_PING_RECEIVED, 0, 0);
                         }
                     }
                 }

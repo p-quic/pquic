@@ -10,10 +10,6 @@ parse_frame param 0x44 replace parse_add_address_frame.o
 process_frame param 0x44 replace process_add_address_frame.o
 write_frame param 0x44 replace write_add_address_frame.o
 notify_frame param 0x44 replace notify_add_address_frame.o
-parse_frame param 0x21 replace parse_path_update.o
-process_frame param 0x21 replace process_path_update.o
-write_frame param 0x21 replace write_path_update.o
-notify_frame param 0x21 replace notify_path_update.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
 get_incoming_path replace get_incoming_path.o
 set_next_wake_time replace set_next_wake_time.o

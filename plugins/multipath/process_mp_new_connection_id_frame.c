@@ -17,7 +17,6 @@ protoop_arg_t process_mp_new_connection_id_frame(picoquic_cnx_t *cnx)
 
     /* TODO: handle CIDs updates properly */
     uniflow_data_t *sending_uniflow = bpfd->sending_uniflows[uniflow_index];
-    sending_uniflow->is_sending_uniflow = true;
     sending_uniflow->uniflow_id = frame->uniflow_id;
     sending_uniflow->cnxid.id_len = frame->ncidf.connection_id.id_len;
     my_memcpy(sending_uniflow->cnxid.id, frame->ncidf.connection_id.id, frame->ncidf.connection_id.id_len);

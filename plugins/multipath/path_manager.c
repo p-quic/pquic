@@ -20,66 +20,6 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         return 0;
     }
 
-#ifdef PATH_MONITORING
-    uint64_t now = picoquic_current_time();
-    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
-        ud = bpfd->sending_uniflows[i];
-        if (ud->state == uniflow_active) {
-            picoquic_packet_context_t *ctx = (picoquic_packet_context_t *) get_path(ud->path, AK_PATH_PKT_CTX, picoquic_packet_context_application);
-            if (get_pkt_ctx(ctx, AK_PKTCTX_LATEST_PROGRESS_TIME) < get_pkt_ctx(ctx, AK_PKTCTX_LATEST_RETRANSMIT_TIME) && get_pkt_ctx(ctx, AK_PKTCTX_LATEST_RETRANSMIT_TIME) + (UNUSABLE_RTT_COEF * get_path(pd->path, AK_PATH_SMOOTHED_RTT, 0)) < now) {
-                ud->state = uniflow_unusable;
-                ud->failure_count++;
-                ud->cooldown_time = now + ((COOLDOWN_RTT_COEF * get_path(ud->path, AK_PATH_SMOOTHED_RTT, 0)) << ud->failure_count);
-                bpfd->nb_sending_active--;
-
-                LOG {
-                    char from[48], to[48];
-                    struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
-                    struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
-                    LOG_EVENT(cnx, "multipath", "sending_uniflow_unusable", "timeout",
-                              "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\", \"cooldown\": %" PRIu64 "}",
-                              ud->uniflow_id, (protoop_arg_t) ud->path,
-                              (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
-                                                                          ? (void *) &(((struct sockaddr_in *) laddr)->sin_addr)
-                                                                          : (void *) &(((struct sockaddr_in6 *) laddr)->sin6_addr),
-                                                        from, sizeof(from)),
-                              (protoop_arg_t) inet_ntop(raddr->sa_family, (raddr->sa_family == AF_INET)
-                                                                          ? (void *) &(((struct sockaddr_in *) raddr)->sin_addr)
-                                                                          : (void *) &(((struct sockaddr_in6 *) raddr)->sin6_addr),
-                                                        to, sizeof(to)),
-                              ud->cooldown_time);
-                }
-            }
-        }
-    }
-
-    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
-        ud = bpfd->uniflows[i];
-        if (ud->state == uniflow_unusable && ud->cooldown_time < now) {
-            ud->state = uniflow_closed;
-
-            LOG {
-                char from[48], to[48];
-                struct sockaddr *laddr = bpfd->loc_addrs[pd->loc_addr_id - 1].sa;
-                struct sockaddr *raddr = bpfd->rem_addrs[pd->rem_addr_id - 1].sa;
-                LOG_EVENT(cnx, "multipath", "sending_uniflow_closed", "cooldown",
-                          "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
-                          ud->uniflow_id, (protoop_arg_t) ud->path,
-                          (protoop_arg_t) inet_ntop(laddr->sa_family, (laddr->sa_family == AF_INET)
-                                                                      ? (void *) &(((struct sockaddr_in *) laddr)->sin_addr)
-                                                                      : (void *) &(((struct sockaddr_in6 *) laddr)->sin6_addr),
-                                                    from, sizeof(from)),
-                          (protoop_arg_t) inet_ntop(raddr->sa_family, (raddr->sa_family == AF_INET)
-                                                                      ? (void *) &(((struct sockaddr_in *) raddr)->sin_addr)
-                                                                      : (void *) &(((struct sockaddr_in6 *) raddr)->sin6_addr),
-                                                    to, sizeof(to)),
-                );
-            }
-            reserve_path_update(cnx, ud->uniflow_id, 0);
-        }
-    }
-#endif
-
     if (bpfd->nb_sending_active >= N_SENDING_UNIFLOWS) {
         return 0;
     }
@@ -91,7 +31,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
 
             for (int uniflow_idx = 0; adr->sa && uniflow_idx < bpfd->nb_sending_proposed; uniflow_idx++) {
                 ud = bpfd->sending_uniflows[uniflow_idx];
-                if (ud->state == uniflow_ready && bpfd->nb_sending_active < N_SENDING_UNIFLOWS) {
+                if (ud->state == uniflow_unused && bpfd->nb_sending_active < N_SENDING_UNIFLOWS) {
                     ud->state = uniflow_active;
                     ud->loc_addr_id = (uint8_t) (loc + 1);
                     ud->rem_addr_id = (uint8_t) (rem + 1);
@@ -118,7 +58,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                         );
                     }
                     break;
-                } else if ((ud->state == uniflow_active || ud->state == uniflow_unusable) &&
+                } else if ((ud->state == uniflow_active) &&
                            (picoquic_compare_addr((struct sockaddr *) get_path(ud->path, AK_PATH_PEER_ADDR, 0), bpfd->rem_addrs[rem].sa) == 0 &&
                             picoquic_compare_addr((struct sockaddr *) get_path(ud->path, AK_PATH_LOCAL_ADDR, 0), bpfd->loc_addrs[loc].sa) == 0)) {
                     break;

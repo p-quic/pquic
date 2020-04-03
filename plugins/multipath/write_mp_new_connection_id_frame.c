@@ -36,12 +36,6 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
 
         uniflow_data_t *u = bpfd->receiving_uniflows[uniflow_index];
 
-        if (u->state >= uniflow_closed) {
-            /* Don't complicate stuff now... */
-            set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
-            return 0;
-        }
-
         /* Create the connection ID and the related reset token */
         if (!u->proposed_cid) {
             picoquic_create_random_cnx_id_for_cnx(cnx, &u->cnxid, 8);
