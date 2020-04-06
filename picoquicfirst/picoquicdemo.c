@@ -1069,6 +1069,11 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             PICOQUIC_SET_LOG(qclient, F_log);
             PICOQUIC_SET_TLS_SECRETS_LOG(qclient, F_tls_secrets);
 
+            /* As we currently do not modify plugins to inject yet, we can store it in the quic structure */
+            if (ret == 0 && (ret = picoquic_set_local_plugins(qclient, local_plugin_fnames, local_plugins)) != 0) {
+                printf("Error when setting local plugins to inject\n");
+            }
+
             if (sni == NULL) {
                 /* Standard verifier would crash */
                 fprintf(stdout, "No server name specified, certificate will not be verified.\n");
@@ -1102,12 +1107,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
             ret = -1;
         }
         else {
-            if (local_plugins > 0) {
-                printf("%" PRIx64 ": ",
-                        picoquic_val64_connection_id(picoquic_get_logging_cnxid(cnx_client)));
-                plugin_insert_plugins_from_fnames(cnx_client, local_plugins, (char **) local_plugin_fnames);
-            }
-
             if (qlog_filename) {
                 qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
                 if (qlog_fd != -1) {

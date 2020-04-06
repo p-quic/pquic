@@ -485,6 +485,7 @@ typedef struct plugin_frame {
 typedef struct st_plugin_fname_t {
     char* plugin_name;
     char* plugin_path;
+    bool require_negotiation;
 } plugin_fname_t;
 
 
