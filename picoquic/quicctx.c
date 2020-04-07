@@ -1407,10 +1407,12 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
 
     /* Only initialize TLS after all parameters have been set */
 
-    if (picoquic_tlscontext_create(quic, cnx, start_time) != 0) {
-        /* Cannot just do partial creation! */
-        picoquic_delete_cnx(cnx);
-        cnx = NULL;
+    if (cnx != NULL) {
+        if (picoquic_tlscontext_create(quic, cnx, start_time) != 0) {
+            /* Cannot just do partial creation! */
+            picoquic_delete_cnx(cnx);
+            cnx = NULL;
+        }
     }
 
     if (cnx != NULL) {
@@ -2183,9 +2185,13 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         /* Delete pending reserved frames, if any */
-        queue_free(cnx->reserved_frames);
+        if (cnx->reserved_frames != NULL) {
+            queue_free(cnx->reserved_frames);
+        }
         /* And also the retry frames */
-        queue_free(cnx->retry_frames);
+        if (cnx->retry_frames != NULL) {
+            queue_free(cnx->retry_frames);
+        }
 
         free(cnx);
     }
