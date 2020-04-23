@@ -1460,6 +1460,12 @@ void picoquic_set_transport_parameters(picoquic_cnx_t * cnx, picoquic_tp_t * tp)
     cnx->max_stream_id_unidir_local = picoquic_transport_param_to_stream_id(cnx->local_parameters.initial_max_streams_uni, cnx->client_mode, PICOQUIC_STREAM_ID_UNIDIR);
 }
 
+picoquic_path_t* picoquic_get_connection_path(picoquic_cnx_t* cnx)
+{
+    /* Return the initial path */
+    return cnx->path[0];
+}
+
 void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len)
 {
     *addr = (struct sockaddr*)&path_x->peer_addr;

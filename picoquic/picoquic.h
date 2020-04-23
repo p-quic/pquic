@@ -685,6 +685,9 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state);
 
 int picoquic_tls_is_psk_handshake(picoquic_cnx_t* cnx);
 
+/* Needed for bridging */
+picoquic_path_t* picoquic_get_connection_path(picoquic_cnx_t* cnx);
+
 void picoquic_get_peer_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len);
 void picoquic_get_local_addr(picoquic_path_t* path_x, struct sockaddr** addr, int* addr_len);
 unsigned long picoquic_get_local_if_index(picoquic_path_t* path_x);
