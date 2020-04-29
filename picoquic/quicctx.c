@@ -540,7 +540,7 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
     char const* ticket_file_name,
     const uint8_t* ticket_encryption_key,
     size_t ticket_encryption_key_length,
-    char* plugin_store_path)
+    const char* plugin_store_path)
 {
     picoquic_quic_t* quic = (picoquic_quic_t*)malloc(sizeof(picoquic_quic_t));
     int ret = 0;
@@ -612,7 +612,8 @@ picoquic_quic_t* picoquic_create(uint32_t nb_connections,
                 if (picoquic_check_or_create_directory(plugin_store_path)) {
                     fprintf(stderr, "Cannot use plugin cache %s; continue without it.\n", plugin_store_path);
                 } else {
-                    quic->plugin_store_path = plugin_store_path;
+                    quic->plugin_store_path = malloc(sizeof(char) * (strlen(plugin_store_path) + 1));
+                    strcpy(quic->plugin_store_path, plugin_store_path);
                 }
             }
             picoquic_get_supported_plugins(quic);
@@ -735,6 +736,10 @@ void picoquic_free(picoquic_quic_t* quic)
                 free(quic->plugins_to_inject.elems[i].plugin_name);
                 free(quic->plugins_to_inject.elems[i].plugin_path);
             }
+        }
+
+        if (quic->plugin_store_path != NULL) {
+            free(quic->plugin_store_path);
         }
 
         free(quic);
