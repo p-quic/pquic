@@ -1450,6 +1450,14 @@ int picoquic_incoming_segment(
     if (cnx != NULL) LOG {
         POP_LOG_CTX(cnx);
     }
+
+    if (cnx != NULL) {
+        if (!cnx->processed_transport_parameter && cnx->remote_parameters_received) {
+            picoquic_handle_plugin_negotiation(cnx);
+            cnx->processed_transport_parameter = 1;
+        }
+    }
+
     return ret;
 }
 

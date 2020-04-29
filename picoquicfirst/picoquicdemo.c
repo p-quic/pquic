@@ -600,7 +600,6 @@ int quic_server(const char* server_name, int server_port,
 
                 if (new_context_created) {
                     cnx_server = picoquic_get_first_cnx(qserver);
-                    picoquic_handle_plugin_negotiation(cnx_server);
 
                     if (qlog_filename) {
                         qlog_fd = open(qlog_filename, O_WRONLY | O_CREAT | O_TRUNC, 00755);
@@ -1007,7 +1006,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int zero_rtt_available = 0;
     int new_context_created = 0;
     char buf[25];
-    int waiting_transport_parameters = 1;
     int qlog_fd = -1;
 
     memset(&callback_ctx, 0, sizeof(picoquic_first_client_callback_ctx_t));
@@ -1231,11 +1229,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
                     }
                     fprintf(stdout, "Almost ready!\n\n");
                     notified_ready = 1;
-                }
-
-                if (waiting_transport_parameters && cnx_client->remote_parameters_received) {
-                    picoquic_handle_plugin_negotiation(cnx_client);
-                    waiting_transport_parameters = 0;
                 }
 
                 if (ret != 0) {

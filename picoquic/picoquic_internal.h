@@ -661,6 +661,7 @@ typedef struct st_picoquic_cnx_t {
     unsigned int key_phase_dec : 1; /* Key phase expected in incoming packets */
     unsigned int zero_rtt_data_accepted : 1; /* Peer confirmed acceptance of zero rtt data */
     unsigned int one_rtt_data_acknowledged : 1; /* 1RTT data acknowledged by peer */
+    unsigned int processed_transport_parameter: 1; /* Indicate if transport parameters are processed or not */
 
 
     /* Local and remote parameters */
