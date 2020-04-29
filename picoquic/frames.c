@@ -625,7 +625,7 @@ int picoquic_prepare_stop_sending_frame(picoquic_cnx_t* cnx, picoquic_stream_hea
         *consumed = byte_index;
         stream->stop_sending_sent = 1;
 
-        LOG_EVENT(cnx, "FRAMES", "STOP_SENDING_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %d}", bytes, stream->stream_id, stream->local_stop_error);
+        LOG_EVENT(cnx, "FRAMES", "STOP_SENDING_CREATED", "", "{\"data_ptr\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %zu}", bytes, stream->stream_id, stream->local_stop_error);
     }
 
     return ret;
@@ -1575,7 +1575,7 @@ protoop_arg_t process_crypto_hs_frame(picoquic_cnx_t* cnx)
 
 protoop_arg_t parse_handshake_done_frame(picoquic_cnx_t* cnx) {
     uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[0];
-    const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1];
+    /* const uint8_t* bytes_max = (const uint8_t *) cnx->protoop_inputv[1]; */ // Unused
 
     int ack_needed = 1;
     int is_retransmittable = 1;
@@ -1904,7 +1904,7 @@ void picoquic_check_spurious_retransmission(picoquic_cnx_t* cnx,
 protoop_arg_t update_ack_delay(picoquic_cnx_t* cnx) {
     picoquic_packet_context_t* pkt_ctx = (picoquic_packet_context_t *) cnx->protoop_inputv[0];
     picoquic_path_t* old_path = (picoquic_path_t *) cnx->protoop_inputv[1];
-    int64_t rtt_estimate = (int64_t) cnx->protoop_inputv[2];
+    /* int64_t rtt_estimate = (int64_t) cnx->protoop_inputv[2]; */ // Unused
     bool first_estimate = (bool) cnx->protoop_inputv[3];
     pkt_ctx->ack_delay_local = old_path->rtt_min / 4;
     if (pkt_ctx->ack_delay_local < 1000) {
@@ -2467,7 +2467,7 @@ protoop_arg_t parse_ack_frame_maybe_ecn(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    uint64_t frame_type;
+    uint64_t frame_type = 0; // To keep the compiler happy
     bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame_type);
     frame->is_ack_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : 0;
 
@@ -2953,7 +2953,7 @@ int picoquic_prepare_connection_close_frame(picoquic_cnx_t* cnx,
             *consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         } else {
-            LOG_EVENT(cnx, "FRAMES", "CONNECTION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"frame_type\": %" PRIu64 ", \"reason\": \"\"}", bytes, cnx->local_error, cnx->offending_frame_type);
+            LOG_EVENT(cnx, "FRAMES", "CONNECTION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %" PRIu64 ", \"frame_type\": %" PRIu64 ", \"reason\": \"\"}", bytes, cnx->local_error, cnx->offending_frame_type);
         }
     }
     else {
@@ -3042,7 +3042,7 @@ int picoquic_prepare_application_close_frame(picoquic_cnx_t* cnx,
             *consumed = 0;
             ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
         } else {
-            LOG_EVENT(cnx, "FRAMES", "APPLICATION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %d, \"reason\": \"\"}", bytes, cnx->application_error);
+            LOG_EVENT(cnx, "FRAMES", "APPLICATION_CLOSE_CREATED", "", "{\"data_ptr\": \"%p\", \"error\": %" PRIu64 ", \"reason\": \"\"}", bytes, cnx->application_error);
         }
     }
     else {
@@ -3353,7 +3353,7 @@ protoop_arg_t parse_max_streams_frame(picoquic_cnx_t *cnx)
         return (protoop_arg_t) NULL;
     }
 
-    uint64_t frame_type;
+    uint64_t frame_type = 0; // To keep the compiler happy
     bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame_type);
     frame->uni = frame_type == picoquic_frame_type_max_streams_uni;
     if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->maximum_streams)) == NULL)
@@ -3773,7 +3773,7 @@ protoop_arg_t parse_streams_blocked_frame(picoquic_cnx_t *cnx)
         return (protoop_arg_t) NULL;
     }
 
-    uint64_t frame_type;
+    uint64_t frame_type = 0; // To keep the compiler happy
     bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame_type);
     frame->uni = frame_type == picoquic_frame_type_uni_streams_blocked;
     if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->stream_limit)) == NULL)

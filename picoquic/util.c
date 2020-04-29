@@ -361,7 +361,7 @@ int picoquic_split_stream_frame(uint8_t *bytes, size_t bytes_max, uint8_t *buf1,
 }
 
 /* Returns 0 if ok */
-int picoquic_check_or_create_directory(char* path) {
+int picoquic_check_or_create_directory(const char* path) {
     struct stat sb;
 
     int err = stat(path, &sb);

@@ -1183,8 +1183,9 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 (struct sockaddr *)addr_from) != 0 &&
                 (((addr_from->sa_family != AF_INET) || ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0))) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
             { // TODO: Handle equivalent IPv4 encoded in IPv6
-                uint8_t buffer[16];
-                size_t challenge_length;
+                /* uint8_t buffer[16]; */ // Unused
+                /* size_t challenge_length; */ // Unused
+
                 /* Address origin different than expected. Update */
                 path_x->peer_addr_len = (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
                 memcpy(&path_x->peer_addr, addr_from, path_x->peer_addr_len);

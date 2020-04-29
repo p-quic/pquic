@@ -3021,8 +3021,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     picoquic_packet_t* packet = (picoquic_packet_t*) cnx->protoop_inputv[0];
     size_t send_buffer_max = (size_t) cnx->protoop_inputv[1];
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[2];
-    picoquic_packet_t* retransmit_p = (picoquic_packet_t*) cnx->protoop_inputv[3];
-    picoquic_path_t* from_path = (picoquic_path_t*) cnx->protoop_inputv[4];
+    /* picoquic_packet_t* retransmit_p = (picoquic_packet_t*) cnx->protoop_inputv[3]; */ // Unused
+    /* picoquic_path_t* from_path = (picoquic_path_t*) cnx->protoop_inputv[4]; */ // Unused
     char* reason = (char*) cnx->protoop_inputv[5];
 
     int ret = 0;

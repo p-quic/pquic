@@ -1304,7 +1304,7 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
     size_t byte_index = 0;
     uint64_t len = 0;
     uint64_t datagram_id = 0;
-    uint8_t *payload = NULL;
+    /* uint8_t *payload = NULL; */ // Unused
 
     uint8_t type_byte = *bytes;
     byte_index++;
