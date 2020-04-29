@@ -3045,7 +3045,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     if (!cnx->ready_notified &&
         ((cnx->cnx_state == picoquic_state_server_ready &&
         cnx->crypto_context[3].aead_decrypt != NULL) ||
-        (cnx->cnx_state == picoquic_state_server_ready &&
+        (cnx->cnx_state == picoquic_state_client_ready &&
             cnx->one_rtt_data_acknowledged))) {
         /* Transition to server ready state.
          * The handshake is complete, all the handshake packets are implicitly acknowledged */
