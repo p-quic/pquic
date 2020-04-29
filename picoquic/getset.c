@@ -784,6 +784,7 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         break;
     case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         pkt_ctx->latest_retransmit_time = val;
+        break;
     case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
         pkt_ctx->latest_retransmit_cc_notification_time = val;
         break;
@@ -935,6 +936,7 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_HAS_HANDSHAKE_DONE:
         pkt->has_handshake_done = (unsigned int) val;
+        break;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         pkt->is_congestion_controlled = val;
         break;
