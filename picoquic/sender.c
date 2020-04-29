@@ -210,7 +210,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
     }
     else if (!stream->stop_sending_requested) {
         stream->local_stop_error = local_stream_error;
-        stream->stop_sending_requested;
+        stream->stop_sending_requested = 1;
         LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 "}", stream, stream_id, local_stream_error);
     }
 
@@ -3043,10 +3043,10 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
     picoquic_packet_type_enum packet_type = picoquic_packet_1rtt_protected_phi0;
 
     if (!cnx->ready_notified &&
-        (cnx->cnx_state == picoquic_state_server_ready &&
+        ((cnx->cnx_state == picoquic_state_server_ready &&
         cnx->crypto_context[3].aead_decrypt != NULL) ||
         (cnx->cnx_state == picoquic_state_server_ready &&
-            cnx->one_rtt_data_acknowledged)) {
+            cnx->one_rtt_data_acknowledged))) {
         /* Transition to server ready state.
          * The handshake is complete, all the handshake packets are implicitly acknowledged */
         picoquic_implicit_handshake_ack(cnx, path_x, picoquic_packet_context_initial, current_time);

@@ -4018,7 +4018,7 @@ void picoquic_plugin_data_callback(picoquic_cnx_t* cnx, picoquic_stream_head* pl
 
         if (plugin_stream->consumed_offset >= plugin_stream->fin_offset && plugin_stream->fin_received && !plugin_stream->fin_signalled) {
             fin_now = picoquic_callback_stream_fin;
-            plugin_stream->fin_signalled;
+            plugin_stream->fin_signalled = 1;
         }
 
         LOG_EVENT(cnx, "APPLICATION", "CALLBACK", picoquic_log_fin_or_event_name(fin_now), "{\"plugin_id\": %" PRIu64 ", \"data_length\": %" PRIu64 "}", plugin_stream->stream_id, data_length);
