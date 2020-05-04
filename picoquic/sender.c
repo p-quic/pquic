@@ -3095,6 +3095,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) ||
                 path_x->cwin <= path_x->bytes_in_transit)
             && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
+            && picoquic_should_send_max_data(cnx) == 0
             && path_x->challenge_response_to_send == 0
             && (cnx->client_mode || !cnx->handshake_done || cnx->handshake_done_sent)
             && (path_x->challenge_verified == 1 || current_time < path_x->challenge_time + path_x->retransmit_timer)
