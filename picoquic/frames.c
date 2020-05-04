@@ -1084,32 +1084,47 @@ picoquic_stream_head* picoquic_schedule_next_stream(picoquic_cnx_t* cnx, size_t 
  */
 protoop_arg_t find_ready_plugin_stream(picoquic_cnx_t *cnx)
 {
-    picoquic_stream_head* stream = cnx->first_plugin_stream;
+    picoquic_stream_head *plugin_stream = NULL;
 
-    if (cnx->maxdata_remote > cnx->data_sent) {
-        while (stream) {
-            if ((stream->send_queue != NULL && stream->send_queue->length > stream->send_queue->offset &&
-                  stream->sent_offset < stream->maxdata_remote) ||
-                 (stream->fin_sent && (stream->sent_offset < stream->maxdata_remote)) ||
-                stream->reset_sent) {
-                /* Consider it is always ok */
+    for (int nb_pass = 0; nb_pass < 2; nb_pass++) {
+        plugin_stream = cnx->first_plugin_stream;
+        if (nb_pass == 0) {
+            /* Skip to the first non visited stream */
+            while (plugin_stream && plugin_stream->stream_id <= cnx->last_visited_plugin_stream_id) {
+                plugin_stream = plugin_stream->next_stream;
+            }
+        }
+        while (plugin_stream) {
+            if ((cnx->maxdata_remote > cnx->data_sent && plugin_stream->sent_offset < plugin_stream->maxdata_remote &&
+                (plugin_stream->is_active ||
+                (plugin_stream->send_queue != NULL && plugin_stream->send_queue->length > plugin_stream->send_queue->offset) ||
+                (plugin_stream->fin_requested && !plugin_stream->fin_sent))) ||
+                    (plugin_stream->reset_requested && !plugin_stream->reset_sent) ||
+                (plugin_stream->stop_sending_requested && !plugin_stream->stop_sending_sent)) {
+                /* if the stream is not active yet, verify that it fits under
+                 * the max stream id limit */
+                /* Check parity */
                 break;
             }
 
-            stream = stream->next_stream;
+            plugin_stream = plugin_stream->next_stream;
 
-        } ;
-    } else {
-        if (stream &&
-            (stream->send_queue == NULL || stream->send_queue->length <= stream->send_queue->offset) &&
-            (!stream->fin_requested || stream->fin_requested) &&
-            (!stream->reset_requested || stream->reset_sent) &&
-            (!stream->stop_sending_requested || stream->stop_sending_sent)) {
-            stream = NULL;
+            if (nb_pass > 0) {
+                /* Dont do the loop twice */
+                if (plugin_stream && plugin_stream->stream_id > cnx->last_visited_plugin_stream_id) {
+                    plugin_stream = NULL;
+                    break;
+                }
+            }
+        };
+
+        /* Do only one pass if we found a stream */
+        if (plugin_stream != NULL) {
+            break;
         }
     }
 
-    return (protoop_arg_t) stream;
+    return (protoop_arg_t) plugin_stream;
 }
 
 picoquic_stream_head* picoquic_find_ready_plugin_stream(picoquic_cnx_t* cnx)
@@ -1463,6 +1478,11 @@ protoop_arg_t prepare_plugin_frame(picoquic_cnx_t* cnx)
                 ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
             }
         }
+    }
+
+    if (ret == 0) {
+        /* remember the last stream on which data is sent so each stream is visited in turn. */
+        cnx->last_visited_plugin_stream_id = plugin_stream->stream_id;
     }
 
     protoop_save_outputs(cnx, consumed);
