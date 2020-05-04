@@ -1561,6 +1561,10 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
     if (!cnx->remote_parameters.plugins_to_inject) {
         return 0;
     }
+    /* If we don't have any plugin store, don't request any plugin! */
+    if (cnx->quic->plugin_store_path == NULL) {
+        return 0;
+    }
     /* The client can inject all plugins required that it already supports. */
     char **pids_to_inject = picoquic_string_split(cnx->remote_parameters.plugins_to_inject, ',');
     char *pid_to_inject;
