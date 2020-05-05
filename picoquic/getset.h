@@ -528,6 +528,7 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PATH_PACING_PACKET_TIME_MICROSEC 0x25
 #define AK_PATH_RTT_SAMPLE 0x26
 #define AK_PATH_DELIVERED_PRIOR 0x27
+#define AK_PATH_BANDWIDTH_ESTIMATE 0x28
 /**
  * @}
  * 

@@ -563,6 +563,8 @@ protoop_arg_t get_path(picoquic_path_t *path, access_key_t ak, uint16_t param)
         return path->delivered_limited_index;
     case AK_PATH_RTT_SAMPLE:
         return path->rtt_sample;
+    case AK_PATH_BANDWIDTH_ESTIMATE:
+        return path->bandwidth_estimate;
     default:
         printf("ERROR: unknown path access key %u\n", ak);
         return 0;
