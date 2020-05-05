@@ -13,7 +13,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     size_t consumed = 0;
 
     int ret = 0;
-    int new_path_index = 0;
+    int new_uniflow_index = 0;
     bpf_data *bpfd = get_bpf_data(cnx);
 
     if (bytes_max - bytes < 28) {
@@ -27,32 +27,26 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         /* First find the corresponding path_id in the bpfd
          * Create it if it is not present yet.
          */
-        int path_index = mp_get_path_index(cnx, bpfd, false, mncic->path_id, &new_path_index);
-        if (path_index < 0) {
+        int uniflow_index = mp_get_uniflow_index(cnx, bpfd, false, mncic->uniflow_id, &new_uniflow_index);
+        if (uniflow_index < 0) {
             /* Stop sending NEW_CONNECTION_ID frames */
             set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
             return 0;
         }
 
-        path_data_t *p = bpfd->receive_paths[path_index];
-
-        if (p->state >= path_closed) {
-            /* Don't complicate stuff now... */
-            set_cnx(cnx, AK_CNX_OUTPUT, 0, 0);
-            return 0;
-        }
+        uniflow_data_t *u = bpfd->receiving_uniflows[uniflow_index];
 
         /* Create the connection ID and the related reset token */
-        if (!p->proposed_cid) {
-            picoquic_create_random_cnx_id_for_cnx(cnx, &p->cnxid, 8);
-            picoquic_create_cnxid_reset_secret_for_cnx(cnx, &p->cnxid, (uint8_t *) &p->reset_secret[0]);
-            picoquic_register_cnx_id_for_cnx(cnx, &p->cnxid);
-            p->proposed_cid = true;
+        if (!u->proposed_cid) {
+            picoquic_create_random_cnx_id_for_cnx(cnx, &u->cnxid, 8);
+            picoquic_create_cnxid_reset_secret_for_cnx(cnx, &u->cnxid, (uint8_t *) &u->reset_secret[0]);
+            picoquic_register_cnx_id_for_cnx(cnx, &u->cnxid);
+            u->proposed_cid = true;
         }
 
         size_t byte_index = 0;
         size_t frame_id_l = 0;
-        size_t path_id_l = 0;
+        size_t uniflow_id_l = 0;
         size_t seq_l = 0;
 
         /* Frame ID */
@@ -61,10 +55,10 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         byte_index += frame_id_l;
 
         if (byte_index < bytes_max - bytes) {
-            /* Path ID */
-            path_id_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
-                mncic->path_id);
-            byte_index += path_id_l;
+            /* Uniflow ID */
+            uniflow_id_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
+                mncic->uniflow_id);
+            byte_index += uniflow_id_l;
         }
         if (byte_index < bytes_max - bytes) {
             /* Seq */
@@ -73,16 +67,16 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
             byte_index += seq_l;
         }
         my_memset(&bytes[byte_index++], 8, 1);
-        my_memcpy(bytes + byte_index, p->cnxid.id, p->cnxid.id_len);
-        byte_index += p->cnxid.id_len;
-        my_memcpy(bytes + byte_index, p->reset_secret, 16);
+        my_memcpy(bytes + byte_index, u->cnxid.id, u->cnxid.id_len);
+        byte_index += u->cnxid.id_len;
+        my_memcpy(bytes + byte_index, u->reset_secret, 16);
         byte_index += 16;
 
         consumed = byte_index;
 
-        if (p->state < path_active) {
+        if (u->state < uniflow_active) {
             /* Now that we sent the MP NEW CONNECTION ID frame, we should be active to receive packets */
-            mp_receive_path_active(cnx, p, picoquic_current_time());
+            mp_receiving_uniflow_active(cnx, u, picoquic_current_time());
         }
     }
 

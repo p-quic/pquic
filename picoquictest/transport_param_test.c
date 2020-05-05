@@ -75,6 +75,34 @@ static uint8_t transport_param_reset_secret[PICOQUIC_RESET_SECRET_SIZE] = {
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
 };
 
+/*
+ * Before testing the transport parameters, test the encoding of stream_id
+ */
+
+int stream_id_to_rank_test()
+{
+    int ret = 0;
+    uint16_t test_rank[5] = { 0, 1, 2, 13833, 65535 };
+
+    for (int stream_type = 0; stream_type < 4; stream_type += 2) {
+        for (int extension_mode = 0; extension_mode < 2; extension_mode ++) {
+            for (int rank_id = 0; rank_id < 5; rank_id++) {
+                uint32_t stream_id = picoquic_decode_transport_param_stream_id(test_rank[rank_id], extension_mode, stream_type);
+                uint16_t decoded_rank = picoquic_prepare_transport_param_stream_id(stream_id, extension_mode, stream_type); 
+                uint32_t decoded_stream_id = picoquic_decode_transport_param_stream_id(decoded_rank, extension_mode, stream_type);
+
+                if (decoded_rank != test_rank[rank_id] || decoded_stream_id != stream_id) {
+                    ret = -1;
+                    DBG_PRINTF("Extension mode %d, stream type %d, rank %d -> stream %d -> rank %d\n",
+                        extension_mode, stream_type, test_rank[rank_id], stream_id, decoded_rank, decoded_stream_id);
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
 static int transport_param_compare(picoquic_tp_t* param, picoquic_tp_t* ref) {
     int ret = 0;
 
@@ -219,12 +247,12 @@ typedef struct st_transport_param_stream_id_test_t {
 } transport_param_stream_id_test_t;
 
 transport_param_stream_id_test_t const transport_param_stream_id_test_table[] = {
-    { 0, PICOQUIC_STREAM_ID_BIDIR, 0, 0 },
-    { 1, PICOQUIC_STREAM_ID_BIDIR, 0, 0 },
-    { 0, PICOQUIC_STREAM_ID_UNIDIR, 0, 0 },
-    { 1, PICOQUIC_STREAM_ID_UNIDIR, 0, 0 },
+    { 0, PICOQUIC_STREAM_ID_BIDIR, 0, 0xFFFFFFFF },
+    { 1, PICOQUIC_STREAM_ID_BIDIR, 0, 0xFFFFFFFF },
+    { 0, PICOQUIC_STREAM_ID_UNIDIR, 0, 0xFFFFFFFF },
+    { 1, PICOQUIC_STREAM_ID_UNIDIR, 0, 0xFFFFFFFF },
     { 0, PICOQUIC_STREAM_ID_BIDIR,  1, PICOQUIC_STREAM_ID_SERVER_INITIATED_BIDIR },
-    { 1, PICOQUIC_STREAM_ID_BIDIR, 1, PICOQUIC_STREAM_ID_CLIENT_INITIATED_BIDIR + 4},
+    { 1, PICOQUIC_STREAM_ID_BIDIR, 1, PICOQUIC_STREAM_ID_CLIENT_INITIATED_BIDIR },
     { 0, PICOQUIC_STREAM_ID_UNIDIR, 1, PICOQUIC_STREAM_ID_SERVER_INITIATED_UNIDIR },
     { 1, PICOQUIC_STREAM_ID_UNIDIR, 1, PICOQUIC_STREAM_ID_CLIENT_INITIATED_UNIDIR },
     { 0, PICOQUIC_STREAM_ID_BIDIR, 65535, PICOQUIC_STREAM_ID_SERVER_MAX_INITIAL_BIDIR },
@@ -232,7 +260,7 @@ transport_param_stream_id_test_t const transport_param_stream_id_test_table[] = 
     { 0, PICOQUIC_STREAM_ID_UNIDIR, 65535, PICOQUIC_STREAM_ID_SERVER_MAX_INITIAL_UNIDIR },
     { 1, PICOQUIC_STREAM_ID_UNIDIR, 65535, PICOQUIC_STREAM_ID_CLIENT_MAX_INITIAL_UNIDIR },
     { 0, PICOQUIC_STREAM_ID_BIDIR, 5, 17},
-    { 1, PICOQUIC_STREAM_ID_BIDIR, 5, 20 }
+    { 1, PICOQUIC_STREAM_ID_BIDIR, 6, 20 }
 };
 
 static size_t const nb_transport_param_stream_id_test_table =
@@ -252,7 +280,7 @@ int transport_param_stream_id_test() {
             transport_param_stream_id_test_table[i].stream_id_type);
 
         if (rank != transport_param_stream_id_test_table[i].rank) {
-            DBG_PRINTF("TP Stream prepare ID [%d] fails. Rank= 0x%x, expected 0x%x, got 0x%x\n", i,
+            DBG_PRINTF("TP Stream prepare ID [%d] fails. Stream= 0x%x, expected rank 0x%x, got 0x%x\n", i,
                 transport_param_stream_id_test_table[i].stream_id,
                 transport_param_stream_id_test_table[i].rank,
                 rank);
@@ -268,7 +296,7 @@ int transport_param_stream_id_test() {
                 transport_param_stream_id_test_table[i].stream_id_type);
 
         if (stream_id != transport_param_stream_id_test_table[i].stream_id) {
-            DBG_PRINTF("TP Stream decode ID [%d] fails. Rank= 0x%x, expected 0x%x, got 0x%x\n", i,
+            DBG_PRINTF("TP Stream decode ID [%d] fails. Rank= 0x%x, expected stream 0x%x, got 0x%x\n", i,
                 transport_param_stream_id_test_table[i].rank,
                 transport_param_stream_id_test_table[i].stream_id,
                 stream_id);

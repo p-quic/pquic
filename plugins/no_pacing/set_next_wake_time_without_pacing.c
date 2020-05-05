@@ -232,9 +232,11 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 int challenge_verified = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
+                int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
                 if (cwin_x > bytes_in_transit_x && challenge_verified == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
+                        handshake_done_to_send ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                          (stream = helper_find_ready_stream(cnx)) != NULL)) {
                         blocked = 0;
@@ -271,6 +273,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                         next_time = retransmit_time;
                     }
                 }
+            }
+            if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
+                break;
             }
         }
 

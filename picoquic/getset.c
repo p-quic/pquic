@@ -194,6 +194,8 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
             return 0;
         }
         return (protoop_arg_t) &cnx->pids_to_request.elems[param];
+    case AK_CNX_READY_NOTIFIED:
+        return cnx->ready_notified;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;
@@ -447,6 +449,9 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_PIDS_TO_REQUEST:
         printf("ERROR: trying to modify pids to request...\n");
+        break;
+    case AK_CNX_READY_NOTIFIED:
+        cnx->ready_notified = val;
         break;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
@@ -786,6 +791,7 @@ void set_pkt_ctx(picoquic_packet_context_t *pkt_ctx, access_key_t ak, protoop_ar
         break;
     case AK_PKTCTX_LATEST_RETRANSMIT_TIME:
         pkt_ctx->latest_retransmit_time = val;
+        break;
     case AK_PKTCTX_LATEST_RETRANSMIT_CC_NOTIFICATION_TIME:
         pkt_ctx->latest_retransmit_cc_notification_time = val;
         break;
@@ -937,6 +943,7 @@ void set_pkt(picoquic_packet_t *pkt, access_key_t ak, protoop_arg_t val)
         break;
     case AK_PKT_HAS_HANDSHAKE_DONE:
         pkt->has_handshake_done = (unsigned int) val;
+        break;
     case AK_PKT_IS_CONGESTION_CONTROLLED:
         pkt->is_congestion_controlled = val;
         break;
@@ -1028,8 +1035,6 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
         return stream_head->maxdata_remote;
     case AK_STREAMHEAD_SENT_OFFSET:
         return stream_head->sent_offset;
-    case AK_STREAMHEAD_STREAM_FLAGS:
-        return stream_head->stream_flags;
     case AK_STREAMHEAD_SENDING_OFFSET:
         return stream_head->sending_offset;
     default:

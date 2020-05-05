@@ -630,8 +630,6 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
-    int nodes = 0;
-    pid_node_t *inserted_nodes[1024];
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
         if (read <= 1) {

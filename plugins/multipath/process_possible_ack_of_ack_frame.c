@@ -4,7 +4,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     uint8_t* bytes, size_t bytes_max, size_t* consumed, int is_ecn)
 {
     int ret;
-    uint64_t path_id = 0;
+    uint64_t uniflow_id = 0;
     uint64_t largest;
     uint64_t ack_delay;
     uint64_t num_block;
@@ -20,21 +20,21 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
             &largest, &ack_delay, consumed, 0);
     } else { /* MP_ACK_FRAME */
         ret = parse_mp_ack_header(bytes, bytes_max,
-            &num_block, (is_ecn)? ecnx3 : NULL, &path_id,
+            &num_block, (is_ecn)? ecnx3 : NULL, &uniflow_id,
             &largest, &ack_delay, consumed, 0);
     }
 
     /* Here, we receive an ACK for an ACK of our receive path! */
 
-    int path_index = 0;
-    if (ret == 0 && path_id != 0) {
-        path_index = mp_get_path_index(cnx, bpfd, false, path_id, NULL);
+    int uniflow_index = 0;
+    if (ret == 0 && uniflow_id != 0) {
+        uniflow_index = mp_get_uniflow_index(cnx, bpfd, false, uniflow_id, NULL);
     }
 
-    if (path_index < 0) {
+    if (uniflow_index < 0) {
         ret = -1;
-    } else if (path_id != 0) {
-        path_x = bpfd->receive_paths[path_index]->path;
+    } else if (uniflow_id != 0) {
+        path_x = bpfd->receiving_uniflows[uniflow_index]->path;
     }
 
     /* Find the oldest ACK range, in order to calibrate the

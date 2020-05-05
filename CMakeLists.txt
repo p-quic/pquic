@@ -160,6 +160,7 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/process_path_update.c
     plugins/multipath/write_path_update.c
     plugins/multipath/addresses_filters/no_v6_no_10.c
+    plugins/multipath/update_rtt.c
 )
 
 SET(PLUGINS_STREAM_SCHEDULER

@@ -82,11 +82,17 @@ const char * picoquic_log_fin_or_event_name(picoquic_call_back_event_t ev)
     case picoquic_callback_application_close:
         text = "application close";
         break;
-    case picoquic_callback_challenge_response:
-        text = "challenge response";
-        break;
     case picoquic_callback_stream_gap:
         text = "stream gap";
+        break;
+    case picoquic_callback_prepare_to_send:
+        text = "ready to send";
+        break;
+    case picoquic_callback_almost_ready:
+        text = "almost ready";
+        break;
+    case picoquic_callback_ready:
+        text = "ready";
         break;
     default:
         break;
@@ -1116,7 +1122,7 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     }
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
-        fprintf(F, "    MP NEW CONNECTION ID for Path 0x");
+        fprintf(F, "    MP NEW CONNECTION ID for Uniflow 0x");
         fprintf(F, "%02lx", path_id);
         fprintf(F, " CID: 0x");
         for (int x = 0; x < new_cnx_id.id_len; x++) {
@@ -1208,7 +1214,7 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
         return bytes_max;
 
     /* Now that the size is good, print it */
-    fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+    fprintf(F, "    MP ACK for uniflow 0x%02lx (nb=%u)", path_id, (int)num_block);
 
     /* decoding the acks */
 
@@ -1298,7 +1304,7 @@ size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, s
     size_t byte_index = 0;
     uint64_t len = 0;
     uint64_t datagram_id = 0;
-    uint8_t *payload = NULL;
+    /* uint8_t *payload = NULL; */ // Unused
 
     uint8_t type_byte = *bytes;
     byte_index++;

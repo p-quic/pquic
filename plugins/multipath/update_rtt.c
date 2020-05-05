@@ -10,15 +10,15 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     uint64_t ack_delay = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 2);
     picoquic_packet_context_enum pc = (picoquic_packet_context_enum) get_cnx(cnx, AK_CNX_INPUT, 3);
     picoquic_path_t *sending_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 4);
-    picoquic_path_t *receive_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 5);
-    int receive_path_index = -1;
+    picoquic_path_t *receiving_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 5);
+    int receiving_uniflow_index = -1;
     int is_new_ack = 0;
 
     bpf_data *bpfd = get_bpf_data(cnx);
     bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
 
-    if (receive_path != NULL) {
-        receive_path_index = mp_get_path_index_from_path(bpfd, false, receive_path);
+    if (receiving_path != NULL) {
+        receiving_uniflow_index = mp_get_uniflow_index_from_path(bpfd, false, receiving_path);
     }
 
     picoquic_packet_context_t * pkt_ctx = (picoquic_packet_context_t *) get_path(sending_path, AK_PATH_PKT_CTX, pc);
@@ -63,7 +63,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
 
                 if (rtt_estimate > 0) {
                     picoquic_path_t * old_sending_path = (picoquic_path_t *) get_pkt(packet, AK_PKT_SEND_PATH);
-                    int old_sending_path_index = mp_get_path_index_from_path(bpfd, true, old_sending_path);
+                    int old_sending_uniflow_index = mp_get_uniflow_index_from_path(bpfd, true, old_sending_path);
                     uint64_t old_max_ack_delay = (uint64_t) get_path(old_sending_path, AK_PATH_MAX_ACK_DELAY, 0);
 
                     if (ack_delay > old_max_ack_delay) {
@@ -71,8 +71,8 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
                     }
 
                     /* First compute for the tuples */
-                    if (receive_path_index >= 0 && old_sending_path_index >= 0) {
-                        stats_t *stats = &bpftd->tuple_stats[receive_path_index][old_sending_path_index];
+                    if (receiving_uniflow_index >= 0 && old_sending_uniflow_index >= 0) {
+                        stats_t *stats = &bpftd->tuple_stats[receiving_uniflow_index][old_sending_uniflow_index];
                         stats->nb_updates++;
                         if (stats->smoothed_rtt == 0 && stats->rtt_variant == 0) {
                             stats->smoothed_rtt = rtt_estimate;

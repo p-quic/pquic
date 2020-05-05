@@ -984,6 +984,15 @@ int picoquic_incoming_server_cleartext(
     /* processing of initial packet */
     if (ret == 0 && restricted == 0) {
         ret = picoquic_tls_stream_process(cnx);
+
+        /* If the handshake keys have been received there is no need to
+         * repeat the initial packet any more */
+
+        if (ret == 0 && cnx->crypto_context[2].aead_decrypt != NULL &&
+            cnx->crypto_context[2].aead_encrypt != NULL)
+        {
+            picoquic_implicit_handshake_ack(cnx, cnx->path[0], picoquic_packet_context_initial, current_time);
+        }
     }
 
     if (ret != 0) {
@@ -1053,7 +1062,7 @@ int picoquic_incoming_stateless_reset(
     picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
 
     if (cnx->callback_fn) {
-        (cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
+        (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
     }
 
     return PICOQUIC_ERROR_AEAD_CHECK;
@@ -1174,8 +1183,9 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 (struct sockaddr *)addr_from) != 0 &&
                 (((addr_from->sa_family != AF_INET) || ((struct sockaddr_in *) addr_from)->sin_addr.s_addr != 0))) /* This line is a pure hotfix for UDP src address being 0.0.0.0 */
             { // TODO: Handle equivalent IPv4 encoded in IPv6
-                uint8_t buffer[16];
-                size_t challenge_length;
+                /* uint8_t buffer[16]; */ // Unused
+                /* size_t challenge_length; */ // Unused
+
                 /* Address origin different than expected. Update */
                 path_x->peer_addr_len = (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
                 memcpy(&path_x->peer_addr, addr_from, path_x->peer_addr_len);
@@ -1441,6 +1451,14 @@ int picoquic_incoming_segment(
     if (cnx != NULL) LOG {
         POP_LOG_CTX(cnx);
     }
+
+    if (cnx != NULL) {
+        if (!cnx->processed_transport_parameter && cnx->remote_parameters_received) {
+            picoquic_handle_plugin_negotiation(cnx);
+            cnx->processed_transport_parameter = 1;
+        }
+    }
+
     return ret;
 }
 

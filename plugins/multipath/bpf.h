@@ -6,11 +6,17 @@
 #define MP_DUPLICATE_ID 0x01
 #define MP_TUPLE_ID 0x02
 
-#ifndef N_PATHS
-#define N_PATHS 2
+#ifndef N_SENDING_UNIFLOWS
+#define N_SENDING_UNIFLOWS 2
 #endif
-#ifndef MAX_PATHS
-#define MAX_PATHS 4
+#ifndef N_RECEIVING_UNIFLOWS
+#define N_RECEIVING_UNIFLOWS 2
+#endif
+#ifndef MAX_SENDING_UNIFLOWS
+#define MAX_SENDING_UNIFLOWS 2
+#endif
+#ifndef MAX_RECEIVING_UNIFLOWS
+#define MAX_RECEIVING_UNIFLOWS 2
 #endif
 #ifndef MAX_ADDRS
 #define MAX_ADDRS 4
@@ -24,20 +30,16 @@
 #define MP_ACK_TYPE 0x42
 #define ADD_ADDRESS_TYPE 0x44
 
-#define PATH_UPDATE_TYPE 0x21
-
 #define RTT_PROBE_TYPE 0x42
 #define RTT_PROBE_INTERVAL 100000
 
-typedef enum mp_path_state_e {
-    path_ready = 0,
-    path_active = 1,
-    path_unusable = 2, /* XXX: (QDC) Not sure this is needed anymore */
-    path_closed = 3,
-} mp_path_state;
+typedef enum mp_sending_uniflow_state_e {
+    uniflow_unused = 0,
+    uniflow_active = 1,
+} mp_sending_uniflow_state;
 
 typedef struct {
-    uint64_t path_id;
+    uint64_t uniflow_id;
 } mp_new_connection_id_ctx_t;
 
 typedef struct {
@@ -55,9 +57,8 @@ typedef struct {
 typedef struct {
     picoquic_path_t *path;
     /* FIXME find a proper way to distinguish sending vs. receive path */
-    bool is_sending_path;
-    uint64_t path_id;
-    mp_path_state state; /* 0: ready, 1: active, 2: closed */
+    uint64_t uniflow_id;
+    mp_sending_uniflow_state state; /* 0: ready, 1: active */
     uint8_t loc_addr_id;
     uint8_t rem_addr_id;
     /* For receive paths, it is local cnxid / reset secret, for sending paths it is remote */
@@ -72,7 +73,7 @@ typedef struct {
 
     uint64_t failure_count;
     uint64_t cooldown_time;
-} path_data_t;
+} uniflow_data_t;
 
 typedef struct {
     uint8_t id;
@@ -92,15 +93,15 @@ typedef struct {
 typedef struct {
     uint8_t nb_sending_active;
     uint8_t nb_sending_proposed;
-    uint8_t nb_receive_proposed;
+    uint8_t nb_receiving_proposed;
     uint8_t nb_loc_addrs;
     uint8_t nb_rem_addrs;
 
     /* Just for simple rr scheduling */
-    uint8_t last_path_index_sent;
+    uint8_t last_uniflow_index_sent;
 
-    path_data_t *sending_paths[MAX_PATHS];
-    path_data_t *receive_paths[MAX_PATHS];
+    uniflow_data_t *sending_uniflows[MAX_SENDING_UNIFLOWS];
+    uniflow_data_t *receiving_uniflows[MAX_RECEIVING_UNIFLOWS];
     addr_data_t loc_addrs[MAX_ADDRS];
     addr_data_t rem_addrs[MAX_ADDRS];
 
@@ -108,7 +109,7 @@ typedef struct {
 } bpf_data;
 
 typedef struct {
-    stats_t tuple_stats[MAX_PATHS][MAX_PATHS]; /* [receive index][sending index] */
+    stats_t tuple_stats[MAX_RECEIVING_UNIFLOWS][MAX_SENDING_UNIFLOWS]; /* [receive index][sending index] */
 } bpf_tuple_data;
 
 typedef struct {
@@ -126,12 +127,12 @@ typedef struct add_address_frame {
 } add_address_frame_t;
 
 typedef struct mp_new_connection_id_frame {
-    uint64_t path_id;
+    uint64_t uniflow_id;
     new_connection_id_frame_t ncidf;
 } mp_new_connection_id_frame_t;
 
 typedef struct mp_ack_frame {
-    uint64_t path_id;
+    uint64_t uniflow_id;
     ack_frame_t ack;
 } mp_ack_frame_t;
 
@@ -195,120 +196,119 @@ static bpf_duplicate_data *get_bpf_duplicate_data(picoquic_cnx_t *cnx)
 }
 
 /* Returns -1 if not found */
-static int mp_find_path_index_internal(picoquic_cnx_t *cnx, uint8_t max_count, path_data_t **paths, uint64_t path_id) {
-    int path_index;
-    path_data_t *pd = NULL;
-    for (path_index = 0; path_index < max_count; path_index++) {
-        pd = paths[path_index];
-        if (!pd || pd->path_id == path_id) {
+static int mp_find_uniflow_index_internal(picoquic_cnx_t *cnx, uint8_t max_count, uniflow_data_t **uniflows, uint64_t uniflow_id) {
+    int uniflow_index;
+    uniflow_data_t *ud = NULL;
+    for (uniflow_index = 0; uniflow_index < max_count; uniflow_index++) {
+        ud = uniflows[uniflow_index];
+        if (!ud || ud->uniflow_id == uniflow_id) {
             break;
         }
     }
-    if (path_index == max_count || !pd) {
-        path_index = -1;
+    if (uniflow_index == max_count || !ud) {
+        uniflow_index = -1;
     }
-    return path_index;
+    return uniflow_index;
 }
 
-static int mp_get_path_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_path, uint64_t path_id, int *new_path_index) {
-    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
-    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
-    int path_index = mp_find_path_index_internal(cnx, max_count, paths, path_id);
-    if (new_path_index) {
-        *new_path_index = false;
+static int mp_get_uniflow_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_uniflow, uint64_t uniflow_id, int *new_uniflow_index) {
+    uniflow_data_t **uniflows = for_sending_uniflow ? bpfd->sending_uniflows : bpfd->receiving_uniflows;
+    uint8_t max_count = for_sending_uniflow ? bpfd->nb_sending_proposed : bpfd->nb_receiving_proposed;
+    uint8_t max_val = for_sending_uniflow ? MAX_SENDING_UNIFLOWS : MAX_RECEIVING_UNIFLOWS;
+    int uniflow_index = mp_find_uniflow_index_internal(cnx, max_count, uniflows, uniflow_id);
+    if (new_uniflow_index) {
+        *new_uniflow_index = false;
     }
 
-    if (path_index < 0 && max_count < MAX_PATHS) {
-        path_index = max_count;
-        paths[path_index] = my_malloc(cnx, sizeof(path_data_t));
-        if (!paths[path_index]) {
-            helper_protoop_printf(cnx, "Cannot allocate path_data...\n", NULL, 0);
+    if (uniflow_index < 0 && max_count < max_val) {
+        uniflow_index = max_count;
+        uniflows[uniflow_index] = my_malloc(cnx, sizeof(uniflow_data_t));
+        if (!uniflows[uniflow_index]) {
+            helper_protoop_printf(cnx, "Cannot allocate uniflow_data...\n", NULL, 0);
             return -1;
         }
-        my_memset(paths[path_index], 0, sizeof(path_data_t));
-        paths[path_index]->path_id = path_id;
-        if (for_sending_path) {
+        my_memset(uniflows[uniflow_index], 0, sizeof(uniflow_data_t));
+        uniflows[uniflow_index]->uniflow_id = uniflow_id;
+        if (for_sending_uniflow) {
             bpfd->nb_sending_proposed++;
         } else {
-            bpfd->nb_receive_proposed++;
+            bpfd->nb_receiving_proposed++;
         }
-        if (new_path_index) {
-            *new_path_index = true;
+        if (new_uniflow_index) {
+            *new_uniflow_index = true;
         }
     }
 
-    return path_index;
+    return uniflow_index;
 }
 
-static path_data_t *mp_get_path_data(bpf_data *bpfd, bool for_sending_path, picoquic_path_t *path_x) {
-    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
-    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
-    path_data_t *pd = NULL;
-    for (int path_index = 0; path_index < max_count; path_index++) {
-        pd = paths[path_index];
-        if (pd && pd->path == path_x) {
-            return pd;
+static uniflow_data_t *mp_get_uniflow_data(bpf_data *bpfd, bool for_sending_uniflow, picoquic_path_t *path_x) {
+    uniflow_data_t **uniflows = for_sending_uniflow ? bpfd->sending_uniflows : bpfd->receiving_uniflows;
+    uint8_t max_count = for_sending_uniflow ? bpfd->nb_sending_proposed : bpfd->nb_receiving_proposed;
+    uniflow_data_t *ud = NULL;
+    for (int uniflow_index = 0; uniflow_index < max_count; uniflow_index++) {
+        ud = uniflows[uniflow_index];
+        if (ud && ud->path == path_x) {
+            return ud;
         }
     }
     return NULL;
 }
 
-static path_data_t *mp_get_sending_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
-    return mp_get_path_data(bpfd, true, path_x);
+static uniflow_data_t *mp_get_sending_uniflow_data(bpf_data *bpfd, picoquic_path_t *path_x) {
+    return mp_get_uniflow_data(bpfd, true, path_x);
 }
 
-static path_data_t *mp_get_receive_path_data(bpf_data *bpfd, picoquic_path_t *path_x) {
-    return mp_get_path_data(bpfd, false, path_x);
+static uniflow_data_t *mp_get_receiving_uniflow_data(bpf_data *bpfd, picoquic_path_t *path_x) {
+    return mp_get_uniflow_data(bpfd, false, path_x);
 }
 
-static int mp_get_path_index_from_path(bpf_data *bpfd, bool for_sending_path, picoquic_path_t *path_x) {
-    path_data_t **paths = for_sending_path ? bpfd->sending_paths : bpfd->receive_paths;
-    uint8_t max_count = for_sending_path ? bpfd->nb_sending_proposed : bpfd->nb_receive_proposed;
-    path_data_t *pd = NULL;
-    for (int path_index = 0; path_index < max_count; path_index++) {
-        pd = paths[path_index];
-        if (pd && pd->path == path_x) {
-            return path_index;
+static int mp_get_uniflow_index_from_path(bpf_data *bpfd, bool for_sending_uniflow, picoquic_path_t *path_x) {
+    uniflow_data_t **uniflows = for_sending_uniflow ? bpfd->sending_uniflows : bpfd->receiving_uniflows;
+    uint8_t max_count = for_sending_uniflow ? bpfd->nb_sending_proposed : bpfd->nb_receiving_proposed;
+    uniflow_data_t *ud = NULL;
+    for (int uniflow_index = 0; uniflow_index < max_count; uniflow_index++) {
+        ud = uniflows[uniflow_index];
+        if (ud && ud->path == path_x) {
+            return uniflow_index;
         }
     }
     return -1;
 }
 
-static __attribute__((always_inline)) void mp_sending_path_ready(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+static __attribute__((always_inline)) void mp_sending_uniflow_ready(picoquic_cnx_t *cnx, uniflow_data_t *ud, uint64_t current_time)
 {
-    pd->state = path_ready;
-    pd->is_sending_path = true;
+    ud->state = uniflow_unused;
     /* By default, create the path with the current peer address of path 0 */
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
     int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
-    pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
+    ud->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
     /* Also insert the remote CID */
-    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_REMOTE_CID, 0);
-    my_memcpy(remote_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
-    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
-    my_memcpy(reset_secret, pd->reset_secret, 16);
-    LOG_EVENT(cnx, "multipath", "sending_path_ready", "", "{\"path_id\": %" PRIu64 ", \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+    picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(ud->path, AK_PATH_REMOTE_CID, 0);
+    my_memcpy(remote_cnxid, &ud->cnxid, sizeof(picoquic_connection_id_t));
+    uint8_t *reset_secret = (uint8_t *) get_path(ud->path, AK_PATH_RESET_SECRET, 0);
+    my_memcpy(reset_secret, ud->reset_secret, 16);
+    LOG_EVENT(cnx, "multipath", "sending_uniflow_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
 }
 
-static __attribute__((always_inline)) void mp_receive_path_active(picoquic_cnx_t *cnx, path_data_t *pd, uint64_t current_time)
+static __attribute__((always_inline)) void mp_receiving_uniflow_active(picoquic_cnx_t *cnx, uniflow_data_t *ud, uint64_t current_time)
 {
-    pd->state = path_active;
-    pd->is_sending_path = false;
+    ud->state = uniflow_active;
     /* By default, create the path with the current peer address of path 0 */
     picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     struct sockaddr *peer_addr_0 = (struct sockaddr *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
     int cnx_path_index = picoquic_create_path(cnx, current_time, peer_addr_0);
     /* TODO cope with possible errors */
-    pd->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
-    set_path(pd->path, AK_PATH_CHALLENGE_VERIFIED, 0, 1);  // Don't validate receive path
+    ud->path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, cnx_path_index);
+    set_path(ud->path, AK_PATH_CHALLENGE_VERIFIED, 0, 1);  // Don't validate receive path
     /* Also insert the local CID */
-    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(pd->path, AK_PATH_LOCAL_CID, 0);
-    my_memcpy(local_cnxid, &pd->cnxid, sizeof(picoquic_connection_id_t));
-    uint8_t *reset_secret = (uint8_t *) get_path(pd->path, AK_PATH_RESET_SECRET, 0);
-    my_memcpy(reset_secret, pd->reset_secret, 16);
-    LOG_EVENT(cnx, "multipath", "receive_path_ready", "", "{\"path_id\": %" PRIu64 ", \"path\": \"%p\"}", pd->path_id, (protoop_arg_t) pd->path);
+    picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(ud->path, AK_PATH_LOCAL_CID, 0);
+    my_memcpy(local_cnxid, &ud->cnxid, sizeof(picoquic_connection_id_t));
+    uint8_t *reset_secret = (uint8_t *) get_path(ud->path, AK_PATH_RESET_SECRET, 0);
+    my_memcpy(reset_secret, ud->reset_secret, 16);
+    LOG_EVENT(cnx, "multipath", "sending_uniflow_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
 }
 
 static __attribute__((always_inline)) size_t varint_len(uint64_t val) {
@@ -324,13 +324,13 @@ static __attribute__((always_inline)) size_t varint_len(uint64_t val) {
     return 0;
 }
 
-static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t path_id)
+static void reserve_mp_new_connection_id_frame(picoquic_cnx_t *cnx, uint64_t uniflow_id)
 {
     mp_new_connection_id_ctx_t *mncic = (mp_new_connection_id_ctx_t *) my_malloc(cnx, sizeof(mp_new_connection_id_ctx_t));
     if (!mncic) {
         return;
     }
-    mncic->path_id = path_id;
+    mncic->uniflow_id = uniflow_id;
     reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
     if (!rfs) {
         my_free(cnx, mncic);
@@ -429,23 +429,6 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
     /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
     set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
-}
-
-static __attribute__((always_inline)) void reserve_path_update(picoquic_cnx_t *cnx, uint64_t closed_path_id, uint64_t proposed_path_id) {
-    path_update_t *update = (path_update_t *) my_malloc(cnx, sizeof(path_update_t));
-    update->closed_path_id = closed_path_id;
-    update->proposed_path_id = proposed_path_id;
-
-    reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
-    if (!rfs) {
-        my_free(cnx, update);
-        return;
-    }
-    my_memset(rfs, 0, sizeof(reserve_frame_slot_t));
-    rfs->frame_type = PATH_UPDATE_TYPE;
-    rfs->frame_ctx = update;
-    rfs->nb_bytes = 1 + varint_len(update->closed_path_id) + varint_len(update->proposed_path_id);
-    reserve_frames(cnx, 1, rfs);
 }
 
 /* Other multipath functions */

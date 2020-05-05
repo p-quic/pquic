@@ -34,7 +34,7 @@ parse_frame param 0x14 post frames/blocked_frame_parsed.o
 # TODO STREAMS BLOCKED uni
 parse_frame param 0x18 post frames/new_connection_id_parsed.o
 # TODO RETIRE CONNECTION ID
-# TODO PATH CHALLENGE
+parse_frame param 0x1a post frames/path_challenge_created.o
 parse_frame param 0x1b post frames/path_response_parsed.o
 parse_frame param 0x1c post frames/connection_close_parsed.o
 parse_frame param 0x1d post frames/application_close_parsed.o
@@ -65,7 +65,7 @@ write_frame param 0x14 post frames/frame_prepared.o
 # TODO STREAMS BLOCKED uni
 write_frame param 0x18 post frames/frame_prepared.o
 # TODO RETIRE CONNECTION ID
-# TODO PATH CHALLENGE
+write_frame param 0x1a post frames/frame_prepared.o
 write_frame param 0x1b post frames/frame_prepared.o
 write_frame param 0x1c post frames/frame_prepared.o
 write_frame param 0x1d post frames/frame_prepared.o

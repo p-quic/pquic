@@ -37,7 +37,7 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
             char *ack_str = my_malloc(cnx, BLOCK_STR_LEN + 200);
             if (!ack_str)
                 return 0;
-            PROTOOP_SNPRINTF(cnx, ack_str, BLOCK_STR_LEN + 200, "{\"frame_type\": \"mp_ack\", \"path_id\": \"%" PRIu64 "\", \"ack_delay\": \"%" PRIu64 "\", \"acked_ranges\": [%s]}", frame->path_id, frame->ack.ack_delay, (protoop_arg_t) block_str);
+            PROTOOP_SNPRINTF(cnx, ack_str, BLOCK_STR_LEN + 200, "{\"frame_type\": \"mp_ack\", \"uniflow_id\": \"%" PRIu64 "\", \"ack_delay\": \"%" PRIu64 "\", \"acked_ranges\": [%s]}", frame->uniflow_id, frame->ack.ack_delay, (protoop_arg_t) block_str);
             helper_log_frame(cnx, ack_str);
             my_free(cnx, block_str);
             my_free(cnx, ack_str);

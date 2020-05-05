@@ -5,8 +5,8 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
     picoquic_path_t *path_0 = sending_path;
     picoquic_path_t *path_c = NULL;
     bpf_data *bpfd = get_bpf_data(cnx);
-    path_data_t *pd = NULL;
-    uint8_t selected_path_index = 255;
+    uniflow_data_t *ud = NULL;
+    uint8_t selected_uniflow_index = 255;
     manage_paths(cnx);
     uint64_t now = picoquic_current_time();
     int valid = 0;
@@ -15,11 +15,11 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
     char *path_reason = "";
 
     for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
-        pd = bpfd->sending_paths[i];
+        ud = bpfd->sending_uniflows[i];
 
         /* A (very) simple round-robin */
-        if (pd->state == path_active) {
-            path_c = pd->path;
+        if (ud->state == uniflow_active) {
+            path_c = ud->path;
             int challenge_verified_c = (int) get_path(path_c, AK_PATH_CHALLENGE_VERIFIED, 0);
             uint64_t challenge_time_c = (uint64_t) get_path(path_c, AK_PATH_CHALLENGE_TIME, 0);
             uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, AK_PATH_RETRANSMIT_TIMER, 0);
@@ -28,7 +28,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < now && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 /* Start the challenge! */
                 sending_path = path_c;
-                selected_path_index = i;
+                selected_uniflow_index = i;
                 valid = 0;
                 path_reason = "CHALLENGE_REQUEST";
                 break;
@@ -40,7 +40,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             uint64_t pkt_sent_c = (uint64_t) get_path(path_c, AK_PATH_NB_PKT_SENT, 0);
             if (challenge_verified_c && sending_path == path_0) {
                 sending_path = path_c;
-                selected_path_index = i;
+                selected_uniflow_index = i;
                 valid = 0;
                 selected_sent_pkt = pkt_sent_c;
                 path_reason = "AVOID_PATH_0";
@@ -60,7 +60,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
             if (mtu_needed) {
                 sending_path = path_c;
-                selected_path_index = i;
+                selected_uniflow_index = i;
                 valid = 0;
                 path_reason = "MTU_DISCOVERY";
                 break;
@@ -72,13 +72,13 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             }
 
             if (sending_path == path_0) {
-                sending_path = pd->path;
-                selected_path_index = i;
+                sending_path = ud->path;
+                selected_uniflow_index = i;
                 valid = 1;
                 selected_sent_pkt = pkt_sent_c;
             } else if (pkt_sent_c < selected_sent_pkt || selected_cwin_limited) {
-                sending_path = pd->path;
-                selected_path_index = i;
+                sending_path = ud->path;
+                selected_uniflow_index = i;
                 valid = 1;
                 selected_sent_pkt = pkt_sent_c;
                 path_reason = "ROUND_ROBIN";
@@ -86,7 +86,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
         }
     }
 
-    bpfd->last_path_index_sent = selected_path_index;
+    bpfd->last_uniflow_index_sent = selected_uniflow_index;
     LOG {
         size_t path_reason_len = strlen(path_reason) + 1;
         char *p_path_reason = my_malloc(cnx, path_reason_len);

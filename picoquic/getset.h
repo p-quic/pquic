@@ -442,6 +442,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_HANDSHAKE_DONE_SENT 0x3E
 /** Whether a HANDSHAKE_DONE frame was acked */
 #define AK_CNX_HANDSHAKE_DONE_ACKED 0x3F
+/** Whether the cnx has notified that it is ready to send data */
+#define AK_CNX_READY_NOTIFIED 0x40
 
 /**
  * @}
@@ -674,8 +676,6 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_STREAMHEAD_MAX_DATA_REMOTE 0x04
 /** The maximum offset sent on the stream */
 #define AK_STREAMHEAD_SENT_OFFSET 0x05
-/** The stream flags */
-#define AK_STREAMHEAD_STREAM_FLAGS 0x06
 /** The offset at which new app data will be queued for sending */
 #define AK_STREAMHEAD_SENDING_OFFSET 0x07
 

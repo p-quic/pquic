@@ -20,7 +20,7 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
             header_length = 1 + remote_cnxid_len + 4;
         } else {
             bpf_data *bpfd = get_bpf_data(cnx);
-            path_data_t *pd = mp_get_sending_path_data(bpfd, path_x);
+            uniflow_data_t *ud = mp_get_sending_uniflow_data(bpfd, path_x);
             /* TODO cope with pd NULL */
             picoquic_connection_id_t *remote_cnxid_x = (picoquic_connection_id_t *) get_path(path_x, AK_PATH_REMOTE_CID, 0);
             header_length = 1 + remote_cnxid_len + 4;

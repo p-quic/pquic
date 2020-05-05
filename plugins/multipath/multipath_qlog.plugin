@@ -1,9 +1,9 @@
 be.qdeconinck.multipath.qlog
-parse_frame param 0x26 post qlog/mp_new_connection_id_frame_parsed.o
-write_frame param 0x26 post qlog/frame_prepared.o
-parse_frame param 0x27 post qlog/mp_ack_frame_parsed.o
-write_frame param 0x27 post qlog/frame_prepared.o
-parse_frame param 0x22 post qlog/add_address_parsed.o
-write_frame param 0x22 post qlog/frame_prepared.o
+parse_frame param 0x40 post qlog/mp_new_connection_id_frame_parsed.o
+write_frame param 0x40 post qlog/frame_prepared.o
+parse_frame param 0x42 post qlog/mp_ack_frame_parsed.o
+write_frame param 0x42 post qlog/frame_prepared.o
+parse_frame param 0x44 post qlog/add_address_parsed.o
+write_frame param 0x44 post qlog/frame_prepared.o
 parse_frame param 0x21 post qlog/path_update_parsed.o
 write_frame param 0x21 post qlog/frame_prepared.o

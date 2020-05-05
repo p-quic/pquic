@@ -18,10 +18,10 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
         path_from = path_0;
     } else {
         bpf_data *bpfd = get_bpf_data(cnx);
-        for (int i = 0; i < bpfd->nb_receive_proposed; i++) {
-            path_data_t *pd = bpfd->receive_paths[i];
-            if (pd && pd->state == path_active && picoquic_compare_connection_id(destination_cnxid, &pd->cnxid) == 0) {
-                path_from = pd->path;
+        for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
+            uniflow_data_t *ud = bpfd->receiving_uniflows[i];
+            if (ud && ud->state == uniflow_active && picoquic_compare_connection_id(destination_cnxid, &ud->cnxid) == 0) {
+                path_from = ud->path;
 
                 struct sockaddr_storage *peer_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_PEER_ADDR, 0);
                 struct sockaddr_storage *loc_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_LOCAL_ADDR, 0);
@@ -33,9 +33,9 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
 
                 LOG {
                     char from[48], to[48];
-                    LOG_EVENT(cnx, "multipath", "path_activated", "",
-                                "{\"path_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
-                                pd->path_id, (protoop_arg_t) pd->path,
+                    LOG_EVENT(cnx, "multipath", "uniflow_activated", "",
+                                "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\", \"loc_addr\": \"%s\", \"rem_addr\": \"%s\"}",
+                                ud->uniflow_id, (protoop_arg_t) ud->path,
                                 (protoop_arg_t) inet_ntop(laddr->ss_family, (laddr->ss_family == AF_INET)
                                                                             ? (void *) &(((struct sockaddr_in *) &laddr)->sin_addr)
                                                                             : (void *) &(((struct sockaddr_in6 *) &laddr)->sin6_addr),
