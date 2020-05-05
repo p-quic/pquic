@@ -2,7 +2,11 @@ import sys
 mallocs = {}
 frees = {}
 with open(sys.argv[1], "r") as f:
-    for i, line in enumerate(f):
+    for i, line in enumerate(f.readlines()):
+        if line.startswith("MY MALLOC") or line.startswith("MY FREE"):
+            ptr = line.split("=")[1].strip().split(" ")[0]
+            source_location = line.split(" ")[2]
+
         if line.startswith("MY MALLOC"):
             mallocs[line.split(" ")[-1]] = mallocs.get(line.split(" ")[-1], []) + [i+1]
         elif line.startswith("MY FREE"):
