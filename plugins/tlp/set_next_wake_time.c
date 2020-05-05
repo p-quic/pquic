@@ -84,18 +84,18 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 int challenge_verified_x = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
-                if (cwin_x > bytes_in_transit_x && challenge_verified_x == 1) {
+                if (challenge_verified_x == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
-                        (crypto_context_1_aead_encrypt != NULL &&
-                        ((stream = helper_find_ready_stream(cnx)) != NULL || run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL)))) {
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
-                            blocked = 0;
-                        }
-                        else {
-                            pacing = 1;
+                        (crypto_context_1_aead_encrypt != NULL && (stream = helper_find_ready_stream(cnx)) != NULL)) {
+                        if (cwin_x > bytes_in_transit_x) {
+                            if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
+                                blocked = 0;
+                            } else {
+                                pacing = 1;
+                            }
+                        } else if ((void *) get_cnx(cnx, AK_CNX_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
+                            helper_congestion_algorithm_notify(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                         }
                     }
                 }
@@ -243,18 +243,19 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             if (blocked != 0) {
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
-                if (cwin_x > bytes_in_transit_x) {
+                int challenge_verified_x = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
+                if (challenge_verified_x == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
-                        ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
-                        (stream = helper_find_ready_stream(cnx)) != NULL)) {
-                        uint64_t next_pacing_time_x = (uint64_t) get_path(path_x, AK_PATH_NEXT_PACING_TIME, 0);
-                        uint64_t pacing_margin_micros_x = (uint64_t) get_path(path_x, AK_PATH_PACING_MARGIN_MICROS, 0);
-                        if (next_pacing_time_x < current_time + pacing_margin_micros_x) {
-                            blocked = 0;
-                        }
-                        else {
-                            pacing = 1;
+                        (stream = helper_find_ready_stream(cnx)) != NULL) {
+                        if (cwin_x > bytes_in_transit_x) {
+                            if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
+                                blocked = 0;
+                            } else {
+                                pacing = 1;
+                            }
+                        } else if ((void *) get_cnx(cnx, AK_CNX_CONGESTION_CONTROL_ALGORITHM, 0) != NULL) {
+                            helper_congestion_algorithm_notify(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                         }
                     }
                 }

@@ -1794,15 +1794,18 @@ static void picoquic_cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t c
         {
             for (int i = 0; blocked != 0 && pacing == 0 && i < cnx->nb_paths; i++) {
                 path_x = cnx->path[i];
-                if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
+                if (path_x->challenge_verified == 1) {
                     if (picoquic_should_send_max_data(cnx) ||
                         picoquic_is_tls_stream_ready(cnx) ||
                         (cnx->crypto_context[1].aead_encrypt != NULL && (stream = picoquic_find_ready_stream(cnx)) != NULL)) {
-                        if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
-                            blocked = 0;
-                        }
-                        else {
-                            pacing = 1;
+                        if (path_x->cwin > path_x->bytes_in_transit) {
+                            if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
+                                blocked = 0;
+                            } else {
+                                pacing = 1;
+                            }
+                        } else {
+                            picoquic_congestion_algorithm_notify_func(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                         }
                     }
                 }
@@ -1926,18 +1929,20 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
                 }
             }
 
-            if (blocked != 0) {
-                if (path_x->cwin > path_x->bytes_in_transit && path_x->challenge_verified == 1) {
-                    if (picoquic_should_send_max_data(cnx) ||
-                        picoquic_is_tls_stream_ready(cnx) ||
-                        (!cnx->client_mode && cnx->handshake_done && !cnx->handshake_done_sent) ||
-                        ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
-                                ((stream = picoquic_find_ready_stream(cnx)) != NULL || picoquic_has_congestion_controlled_plugin_frames_to_send(cnx)))) {
+            if (blocked != 0 && path_x->challenge_verified == 1) {
+                if (picoquic_should_send_max_data(cnx) ||
+                    picoquic_is_tls_stream_ready(cnx) ||
+                    (!cnx->client_mode && cnx->handshake_done && !cnx->handshake_done_sent) ||
+                    ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) &&
+                            ((stream = picoquic_find_ready_stream(cnx)) != NULL || picoquic_has_congestion_controlled_plugin_frames_to_send(cnx)))) {
+                    if (path_x->cwin > path_x->bytes_in_transit) {
                         if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
                             blocked = 0;
                         } else {
                             pacing = 1;
                         }
+                    } else {
+                        picoquic_congestion_algorithm_notify_func(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
                     }
                 }
             }

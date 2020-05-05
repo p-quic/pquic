@@ -93,20 +93,23 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 int challenge_verified_x = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
-                if (cwin_x > bytes_in_transit_x && challenge_verified_x == 1) {
+                if (challenge_verified_x == 1) {
                     if (helper_should_send_max_data(cnx) ||
                         helper_is_tls_stream_ready(cnx) ||
                         (crypto_context_1_aead_encrypt != NULL && (helper_find_ready_stream(cnx)) != NULL)) {
+                        if (cwin_x > bytes_in_transit_x) {
 #ifdef PACING
-                        if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
+                            if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
 #endif
                             blocked = 0;
 #ifdef PACING
-                        }
-                        else {
-                            pacing = 1;
-                        }
+                            } else {
+                                pacing = 1;
+                            }
 #endif
+                        } else {
+                            helper_congestion_algorithm_notify(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
+                        }
                     }
                 }
             }
@@ -329,7 +332,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 int is_validated = get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
-                if (is_validated && cwin_x > bytes_in_transit_x) {
+                if (is_validated) {
                     int should_send_max_data = helper_should_send_max_data(cnx);
                     int is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
                     int has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
@@ -339,17 +342,21 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                         handshake_done_to_send ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
                         ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
+                        if (cwin_x > bytes_in_transit_x) {
 #ifdef PACING
-                        if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
+                            if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
 #endif
                             PROTOOP_PRINTF(cnx, "Not blocked because path %p has should max data %d tls ready %d cnx_state %d stream %p has_cc %d cwin %d BIF %d\n", (protoop_arg_t) path_x, should_send_max_data, is_tls_stream_ready, cnx_state, (protoop_arg_t) stream, has_cc_to_send, cwin_x, bytes_in_transit_x);
                             blocked = 0;
 #ifdef PACING
-                        }
-                        else {
-                             pacing = 1;
-                        }
+                            }
+                            else {
+                                 pacing = 1;
+                            }
 #endif
+                        } else {
+                            helper_congestion_algorithm_notify(cnx, path_x, picoquic_congestion_notification_cwin_blocked, 0, 0, 0, current_time);
+                        }
                     }
                 }
             }
