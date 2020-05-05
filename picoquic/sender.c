@@ -1516,7 +1516,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack & do_not_detect_spurious);
 
                     /* If we have a good packet, return it */
-                    if (packet_is_pure_ack || !length) {
+                    if (packet_is_pure_ack || length <= header_length) {
                         length = 0;
                     } else {
                         /* We should also consider if some action was recently observed to consider that it is actually a RTO... */
