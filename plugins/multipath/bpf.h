@@ -434,7 +434,7 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
 /* Other multipath functions */
 
 static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
-    uint64_t* num_block, uint64_t* nb_ecnx3, uint64_t *path_id,
+    uint64_t* num_block, uint64_t *path_id,
     uint64_t* largest, uint64_t* ack_delay, size_t* consumed,
     uint8_t ack_delay_exponent)
 {
@@ -459,19 +459,6 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
         l_delay = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, ack_delay);
         *ack_delay <<= ack_delay_exponent;
         byte_index += l_delay;
-    }
-
-    if (nb_ecnx3 != NULL) {
-        for (int ecnx = 0; ecnx < 3; ecnx++) {
-            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &nb_ecnx3[ecnx]);
-
-            if (l_ecnx == 0) {
-                byte_index = bytes_max;
-            }
-            else {
-                byte_index += l_ecnx;
-            }
-        }
     }
 
     if (bytes_max > byte_index) {

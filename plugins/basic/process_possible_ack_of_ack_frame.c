@@ -10,7 +10,6 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
     uint64_t largest;
     uint64_t ack_delay;
     uint64_t num_block;
-    uint64_t ecnx3[3];
 
     /* Find the oldest ACK range, in order to calibrate the
      * extension of the largest number to 64 bits */
@@ -23,7 +22,7 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
     }
 
     ret = helper_parse_ack_header(bytes, bytes_max,
-        &num_block, (is_ecn)? ecnx3 : NULL, 
+        &num_block,
         &largest, &ack_delay, consumed, 0);
 
     if (ret == 0) {
@@ -90,6 +89,12 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_sack_item_t* f
             }
 
             largest -= block_to_block;
+        }
+
+        if (is_ecn) {  // Skip the trailing counters
+            byte_index += picoquic_varint_skip(bytes + byte_index);
+            byte_index += picoquic_varint_skip(bytes + byte_index);
+            byte_index += picoquic_varint_skip(bytes + byte_index);
         }
 
         *consumed = byte_index;

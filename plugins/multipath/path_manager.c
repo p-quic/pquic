@@ -9,7 +9,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
     uniflow_data_t *ud = NULL;
 
     /* Don't go further if the address exchange is not complete! */
-    if (!bpfd->nb_sending_proposed || !bpfd->nb_receiving_proposed) {
+    if (!bpfd->nb_sending_proposed || !bpfd->nb_receiving_proposed || !(get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0)))) {
         PROTOOP_PRINTF(cnx, "Address exchange is not complete\n");
         return 0;
     }

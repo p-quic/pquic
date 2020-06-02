@@ -574,8 +574,8 @@ protoop_arg_t parse_new_token_frame(picoquic_cnx_t* cnx)
     new_token_frame_t *frame = malloc(sizeof(new_token_frame_t));
     if (!frame) {
         printf("Failed to allocate memory for new_token_frame_t\n");
-        protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
-        return (protoop_arg_t) NULL;
+        bytes = NULL;
+        goto exit;
     }
 
     if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->token_length)) == NULL) {
@@ -583,6 +583,8 @@ protoop_arg_t parse_new_token_frame(picoquic_cnx_t* cnx)
             picoquic_frame_type_new_token);
         free(frame);
         frame = NULL;
+        bytes = NULL;
+        goto exit;
     }
 
     if (bytes_max - bytes < frame->token_length) {
@@ -596,6 +598,7 @@ protoop_arg_t parse_new_token_frame(picoquic_cnx_t* cnx)
         bytes += frame->token_length;
     }
 
+exit:
     protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
     return (protoop_arg_t) bytes;
 }
