@@ -613,6 +613,11 @@ int picoquic_set_plugins_to_inject(picoquic_quic_t* quic, const char** plugin_fn
 /* Set the local plugins we want to forcefully inject */
 int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames, int plugins);
 
+/* Set the filename where the logging will be printed.
+ * If log_fname is NULL, print to stdout.
+ * If log_fname is "/dev/null", does not print at all. */
+int picoquic_set_log(picoquic_quic_t* quic, const char *log_fname);
+
 /* If the application required plugin insertion, handle the negotiation */
 int picoquic_handle_plugin_negotiation(picoquic_cnx_t* cnx);
 

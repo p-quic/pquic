@@ -523,6 +523,32 @@ int picoquic_set_local_plugins(picoquic_quic_t* quic, const char** plugin_fnames
     return inject_plugin(&quic->local_plugins, plugin_fnames, plugins);
 }
 
+int picoquic_set_log(picoquic_quic_t* quic, const char *log_fname)
+{
+    FILE* F_log = NULL;
+
+    if (log_fname != NULL && strcmp(log_fname, "/dev/null") != 0) {
+#ifdef _WINDOWS
+        if (fopen_s(&F_log, log_file, "w") != 0) {
+                F_log = NULL;
+            }
+#else
+        F_log = fopen(log_fname, "w");
+#endif
+        if (F_log == NULL) {
+            fprintf(stderr, "Could not open the log file <%s>\n", log_fname);
+            return 1;
+        }
+    }
+
+    if (!F_log && (!log_fname || strcmp(log_fname, "/dev/null") != 0)) {
+        F_log = stdout;
+    }
+
+    PICOQUIC_SET_LOG(quic, F_log);
+
+    return 0;
+}
 
 /* QUIC context create and dispose */
 picoquic_quic_t* picoquic_create(uint32_t nb_connections,
