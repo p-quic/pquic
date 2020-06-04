@@ -23,6 +23,7 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
             if (ud && ud->state == uniflow_active && picoquic_compare_connection_id(destination_cnxid, &ud->cnxid) == 0) {
                 path_from = ud->path;
 
+                /*
                 struct sockaddr_storage *peer_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_PEER_ADDR, 0);
                 struct sockaddr_storage *loc_addr = (struct sockaddr_storage *) get_path(path_from, AK_PATH_LOCAL_ADDR, 0);
 
@@ -49,6 +50,7 @@ protoop_arg_t get_incoming_path(picoquic_cnx_t* cnx)
 
                 my_free(cnx, paddr);
                 my_free(cnx, laddr);
+                */
                 
                 break;
             }

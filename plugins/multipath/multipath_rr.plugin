@@ -1,3 +1,3 @@
-be.qdeconinck.multipath.rr
+be.qdeconinck.multipath.rr dynamic_memory
 schedule_path replace path_schedulers/schedule_path_rr.o
 multipath.plugin include
