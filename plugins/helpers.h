@@ -491,19 +491,6 @@ static int helper_prepare_handshake_done_frame(picoquic_cnx_t* cnx, uint8_t* byt
     return ret;
 }
 
-static int helper_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-                                      size_t bytes_max, size_t* consumed)
-{
-    protoop_arg_t outs[1];
-    protoop_arg_t args[3];
-    args[0] = (protoop_arg_t) bytes;
-    args[1] = (protoop_arg_t) bytes_max;
-    args[2] = (protoop_arg_t) *consumed;
-    int ret = (int) run_noparam(cnx, PROTOOPID_NOPARAM_PREPARE_FIRST_MISC_FRAME, 3, args, outs);
-    *consumed = (size_t) outs[0];
-    return ret;
-}
-
 static int helper_prepare_max_data_frame(picoquic_cnx_t* cnx, uint64_t maxdata_increase,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {

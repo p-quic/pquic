@@ -3428,80 +3428,6 @@ protoop_arg_t process_max_stream_id_frame(picoquic_cnx_t* cnx)
 }
 
 /*
- * Sending of miscellaneous frames
- */
-
-/**
- * See PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME
- */
-protoop_arg_t prepare_first_misc_frame(picoquic_cnx_t* cnx)
-{
-    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[0];
-    size_t bytes_max = (size_t) cnx->protoop_inputv[1];
-
-    size_t consumed = 0;
-
-    int ret = picoquic_prepare_misc_frame(cnx, cnx->first_misc_frame, bytes, bytes_max, &consumed);
-
-    if (ret == 0) {
-        picoquic_misc_frame_header_t* misc_frame = cnx->first_misc_frame;
-        cnx->first_misc_frame = misc_frame->next_misc_frame;
-        free(misc_frame);
-    }
-
-    protoop_save_outputs(cnx, consumed);
-
-    return (protoop_arg_t) ret;
-}
-
-int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-                                      size_t bytes_max, size_t* consumed)
-{
-    protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME, outs,
-        bytes, bytes_max, *consumed);
-    *consumed = (size_t) outs[0];
-    return ret;
-}
-
-/**
- * See PROTOOP_NOPARAM_PREPARE_MISC_FRAME
- */
-protoop_arg_t prepare_misc_frame(picoquic_cnx_t *cnx)
-{
-    picoquic_misc_frame_header_t* misc_frame = (picoquic_misc_frame_header_t *) cnx->protoop_inputv[0];
-    uint8_t* bytes = (uint8_t *) cnx->protoop_inputv[1];
-    size_t bytes_max = (size_t) cnx->protoop_inputv[2];
-
-    size_t consumed = 0;
-
-    int ret = 0;
-
-    if (misc_frame->length > bytes_max) {
-        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-        consumed = 0;
-    } else {
-        uint8_t* frame = ((uint8_t*)misc_frame) + sizeof(picoquic_misc_frame_header_t);
-        memcpy(bytes, frame, misc_frame->length);
-        consumed = misc_frame->length;
-    }
-
-    protoop_save_outputs(cnx, consumed);
-
-    return (protoop_arg_t) ret;
-}
-
-int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
-                                size_t bytes_max, size_t* consumed)
-{
-    protoop_arg_t outs[PROTOOPARGS_MAX];
-    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PREPARE_MISC_FRAME, outs,
-        misc_frame, bytes, bytes_max, *consumed);
-    *consumed = (size_t) outs[0];
-    return ret;
-}
-
-/*
  * Path Challenge and Response frames
  */
 
@@ -3614,18 +3540,6 @@ protoop_arg_t decode_path_challenge_frame(picoquic_cnx_t *cnx)
         bytes = NULL;
 
     } else {
-        /*
-         * Queue a response frame as response to path challenge.
-         * TODO: ensure it goes out on the same path as the incoming challenge.
-         */
-        uint8_t frame_buffer[258];
-
-        frame_buffer[0] = picoquic_frame_type_path_response;
-        memcpy(frame_buffer+1, bytes + picoquic_varint_skip(bytes), PICOQUIC_CHALLENGE_LENGTH);
-
-        // Ignore return code. If cannot send the response, consider it "lost"
-        picoquic_queue_misc_frame(cnx, frame_buffer, PICOQUIC_CHALLENGE_LENGTH+1);
-
         bytes += PICOQUIC_CHALLENGE_LENGTH+1;
     }
 
@@ -4534,9 +4448,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PATH_CHALLENGE_FRAME, &prepare_path_challenge_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_CRYPTO_HS_FRAME, &prepare_crypto_hs_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_HANDSHAKE_DONE_FRAME, &prepare_handshake_done_frame);
-    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MISC_FRAME, &prepare_misc_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_MAX_DATA_FRAME, &prepare_max_data_frame);
-    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME, &prepare_first_misc_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME, &prepare_required_max_stream_data_frames);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_STREAM_FRAME, &prepare_stream_frame);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PREPARE_PLUGIN_FRAME, &prepare_plugin_frame);

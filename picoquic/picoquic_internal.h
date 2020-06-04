@@ -373,19 +373,6 @@ typedef struct _picoquic_stream_head {
 #define IS_LOCAL_STREAM_ID(id, client_mode)  (unsigned int)(((id)^(client_mode)) & 1)
 #define STREAM_ID_FROM_RANK(rank, is_server_stream, is_unidir) ((((uint64_t)(rank)-(uint64_t)1)<<2)|(((uint64_t)is_unidir)<<1)|((uint64_t)(is_server_stream)))
 
-/*
-     * Frame queue. This is used for miscellaneous packets, such as the PONG
-     * response to a PING.
-     *
-     * The misc frame are allocated in meory as blobs, starting with the
-     * misc_frame_header, followed by the misc frame content.
-     */
-
-typedef struct st_picoquic_misc_frame_header_t {
-    struct st_picoquic_misc_frame_header_t* next_misc_frame;
-    size_t length;
-} picoquic_misc_frame_header_t;
-
 /* Per epoch crypto context. There are four such contexts:
  * 0: Initial context, with encryption based on a version dependent key,
  * 1: 0-RTT context
@@ -740,9 +727,6 @@ typedef struct st_picoquic_cnx_t {
     uint64_t max_stream_id_unidir_local_computed;
     uint64_t max_stream_id_bidir_remote;
     uint64_t max_stream_id_unidir_remote;
-
-    /* Queue for frames waiting to be sent */
-    picoquic_misc_frame_header_t* first_misc_frame;
 
     /* Management of streams */
     picoquic_stream_head * first_stream;
@@ -1174,11 +1158,6 @@ void picoquic_clear_stream(picoquic_stream_head* stream);
 int picoquic_prepare_path_challenge_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
     size_t bytes_max, size_t* consumed, picoquic_path_t * path);
 
-int picoquic_prepare_first_misc_frame(picoquic_cnx_t* cnx, uint8_t* bytes,
-                                      size_t bytes_max, size_t* consumed);
-int picoquic_prepare_misc_frame(picoquic_cnx_t* cnx, picoquic_misc_frame_header_t* misc_frame, uint8_t* bytes,
-                                size_t bytes_max, size_t* consumed);
-
 int picoquic_write_plugin_validate_frame(picoquic_cnx_t* cnx, uint8_t* bytes, const uint8_t* bytes_max,
                                          uint64_t pid_id, char* pid, size_t* consumed, int* is_retransmittable);
 
@@ -1225,8 +1204,7 @@ void picoquic_queue_stateless_reset(picoquic_cnx_t* cnx,
     unsigned long if_index_to,
     uint64_t current_time);
 
-picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length);
-
+protoop_arg_t protoop_noop(picoquic_cnx_t *cnx);
 protoop_arg_t protoop_true(picoquic_cnx_t *cnx);
 protoop_arg_t protoop_false(picoquic_cnx_t *cnx);
 

@@ -424,8 +424,6 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_RESERVED_FRAMES 0x35
 /** The retry frames queue */
 #define AK_CNX_RETRY_FRAMES 0x36
-/** The first misc frame to be sent */
-#define AK_CNX_FIRST_MISC_FRAME 0x37
 /** The first stream in the queue */
 #define AK_CNX_FIRST_STREAM 0x38
 /** Are plugins requested? */

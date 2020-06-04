@@ -2089,21 +2089,10 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
         padding_required = 1;
     }
 
-    if ((stream == NULL && cnx->first_misc_frame == NULL && padding_required == 0) ||
+    if ((stream == NULL && padding_required == 0) ||
         (PICOQUIC_DEFAULT_0RTT_WINDOW <= path_x->bytes_in_transit + send_buffer_max)) {
         length = 0;
     } else {
-        /* If present, send misc frame */
-        while (cnx->first_misc_frame != NULL) {
-            ret = picoquic_prepare_first_misc_frame(cnx, &bytes[length],
-                send_buffer_max - checksum_overhead - length, &data_bytes);
-
-            if (ret == 0) {
-                length += (uint32_t)data_bytes;
-            } else {
-                break;
-            }
-        }
         /* Encode the stream frame */
         while ((stream = picoquic_schedule_next_stream(cnx, send_buffer_max - checksum_overhead - length, path_x)) != NULL) {
             ret = picoquic_prepare_stream_frame(cnx, stream, &bytes[length],
@@ -2368,7 +2357,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             packet->is_pure_ack = 0;
         }
         else if (ret == 0 && is_cleartext_mode && tls_ready == 0
-            && cnx->first_misc_frame == NULL && path_x->pkt_ctx[pc].ack_needed == 0 && rtx_frame_len == 0) {
+                 && path_x->pkt_ctx[pc].ack_needed == 0 && rtx_frame_len == 0) {
             /* when in a clear text mode, only send packets if there is
             * actually something to send, or resend */
 
@@ -2388,8 +2377,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                 packet->send_path = path_x;
 
                 if ((tls_ready == 0 || path_x->cwin <= path_x->bytes_in_transit)
-                    && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
-                    && cnx->first_misc_frame == NULL) {
+                    && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0) {
                     length = 0;
                 }
                 else {
@@ -2414,22 +2402,6 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
                         packet->is_congestion_controlled = 1;
                         free(rtx_frame->iov_base);
                         free(rtx_frame);
-                    }
-
-                    /* If present, send misc frame */
-                    while (cnx->first_misc_frame != NULL) {
-                        ret = picoquic_prepare_first_misc_frame(cnx, &bytes[length],
-                            send_buffer_max - checksum_overhead - length, &data_bytes);
-                        if (ret == 0) {
-                            length += (uint32_t)data_bytes;
-                            data_bytes = 0;
-                        }
-                        else {
-                            if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
-                                ret = 0;
-                            }
-                            break;
-                        }
                     }
 
                     if (ret == 0 && path_x->cwin > path_x->bytes_in_transit) {
@@ -3100,7 +3072,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         packet->send_time = current_time;
         packet->send_path = path_x;
 
-        if (((stream == NULL && tls_ready == 0 && cnx->first_misc_frame == NULL) ||
+        if (((stream == NULL && tls_ready == 0) ||
                 path_x->cwin <= path_x->bytes_in_transit)
             && picoquic_is_ack_needed(cnx, current_time, pc, path_x) == 0
             && picoquic_should_send_max_data(cnx) == 0
@@ -3198,21 +3170,6 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             path_x->challenge_response_to_send = 0;
                             length += PICOQUIC_CHALLENGE_LENGTH + 1;
                             packet->is_congestion_controlled = 1;
-                        }
-                        /* If present, send misc frame */
-                        while (cnx->first_misc_frame != NULL) {
-                            ret = picoquic_prepare_first_misc_frame(cnx, &bytes[length],
-                                                                    send_buffer_min_max - checksum_overhead - length, &data_bytes);
-                            if (ret == 0) {
-                                length += (uint32_t)data_bytes;
-                                packet->is_congestion_controlled = 1;
-                            }
-                            else {
-                                if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
-                                    ret = 0;
-                                }
-                                break;
-                            }
                         }
                         /* If necessary, encode the max data frame */
                         if (ret == 0 && 2 * cnx->data_received > cnx->maxdata_local) {

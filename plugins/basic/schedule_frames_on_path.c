@@ -75,7 +75,6 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         uint64_t cwin = get_path(path_x, AK_PATH_CWIN, 0);
         uint64_t bytes_in_transit = get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
         picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
-        void *first_misc_frame = (void *) get_cnx(cnx, AK_CNX_FIRST_MISC_FRAME, 0);
         int challenge_response_to_send = (int) get_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0);
         int challenge_verified = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
         uint64_t challenge_time = (uint64_t) get_path(path_x, AK_PATH_CHALLENGE_TIME, 0);
@@ -176,22 +175,6 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                             set_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0, 0);
                             length += PICOQUIC_CHALLENGE_LENGTH + 1;
                             set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
-                        }
-                        /* If present, send misc frame */
-                        while (first_misc_frame != NULL) {
-                            ret = helper_prepare_first_misc_frame(cnx, &bytes[length],
-                                                                    send_buffer_min_max - checksum_overhead - length, &data_bytes);
-                            if (ret == 0) {
-                                length += (uint32_t)data_bytes;
-                                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
-                            }
-                            else {
-                                if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
-                                    ret = 0;
-                                }
-                                break;
-                            }
-                            first_misc_frame = (void *) get_cnx(cnx, AK_CNX_FIRST_MISC_FRAME, 0);
                         }
                         /* If necessary, encode the max data frame */
                         uint64_t data_received = get_cnx(cnx, AK_CNX_DATA_RECEIVED, 0);

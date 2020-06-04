@@ -1773,36 +1773,6 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
     return cnx->callback_ctx;
 }
 
-picoquic_misc_frame_header_t* picoquic_create_misc_frame(picoquic_cnx_t *cnx, const uint8_t* bytes, size_t length) {
-    uint8_t* misc_frame = (uint8_t*)malloc(sizeof(picoquic_misc_frame_header_t) + length);
-
-    if (misc_frame == NULL) {
-        return NULL;
-    } else {
-        picoquic_misc_frame_header_t* head = (picoquic_misc_frame_header_t*)misc_frame;
-        head->length = length;
-        memcpy(misc_frame + sizeof(picoquic_misc_frame_header_t), bytes, length);
-
-        return head;
-    }
-}
-
-int picoquic_queue_misc_frame(picoquic_cnx_t* cnx, const uint8_t* bytes, size_t length)
-{
-    int ret = 0;
-    picoquic_misc_frame_header_t* misc_frame = picoquic_create_misc_frame(cnx, bytes, length);
-
-    if (misc_frame == NULL) {
-        ret = PICOQUIC_ERROR_MEMORY;
-    } else {
-        misc_frame->next_misc_frame = cnx->first_misc_frame;
-        cnx->first_misc_frame = misc_frame;
-    }
-
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
-
-    return ret;
-}
 
 void picoquic_clear_stream(picoquic_stream_head* stream)
 {
@@ -1995,7 +1965,6 @@ int picoquic_connection_error(picoquic_cnx_t* cnx, uint64_t local_error, uint64_
 void picoquic_delete_cnx(picoquic_cnx_t* cnx)
 {
     picoquic_stream_head* stream;
-    picoquic_misc_frame_header_t* misc_frame;
 
     if (cnx != NULL) {
         if (cnx->cnx_state < picoquic_state_disconnected) {
@@ -2054,10 +2023,6 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             }
         }
 
-        while ((misc_frame = cnx->first_misc_frame) != NULL) {
-            cnx->first_misc_frame = misc_frame->next_misc_frame;
-            free(misc_frame);
-        }
         for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
             picoquic_clear_stream(&cnx->tls_stream[epoch]);
         }

@@ -166,8 +166,6 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return cnx->protoop_output;
     case AK_CNX_RESERVED_FRAMES:
         return (protoop_arg_t) cnx->reserved_frames;
-    case AK_CNX_FIRST_MISC_FRAME:
-        return (protoop_arg_t) cnx->first_misc_frame;
     case AK_CNX_RETRY_FRAMES:
         return (protoop_arg_t) cnx->retry_frames;
     case AK_CNX_RTX_FRAMES:
@@ -427,9 +425,6 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_RETRY_FRAMES:
         printf("ERROR: trying to modify retry frames...\n");
-        break;
-    case AK_CNX_FIRST_MISC_FRAME:
-        printf("ERROR: trying to modify first misc frame...\n");
         break;
     case AK_CNX_RTX_FRAMES:
         printf("ERROR: trying to modify rtx frames...\n");

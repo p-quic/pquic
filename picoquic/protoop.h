@@ -573,27 +573,6 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MAX_DATA_FRAME;
 #define PROTOOPID_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME "prepare_required_max_stream_data_frames"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_REQUIRED_MAX_STREAM_DATA_FRAME;
 /**
- * Prepare the first miscellanious frame.
- * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame 
- * \param[in] bytes_max \b size_t Max size that can be written
- *
- * \return \b int Error code, 0 means it's ok
- * \param[out] consumed \b size_t Number of bytes written
- */
-#define PROTOOPID_NOPARAM_PREPARE_FIRST_MISC_FRAME "prepare_first_misc_frame"
-extern protoop_id_t PROTOOP_NOPARAM_PREPARE_FIRST_MISC_FRAME;
-/**
- * Prepare a miscellanious frame.
- * \param[in] misc_frame \b picoquic_misc_frame_header_t* Pointer of the misc frame structure
- * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame 
- * \param[in] bytes_max \b size_t Max size that can be written
- *
- * \return \b int Error code, 0 means it's ok
- * \param[out] consumed \b size_t Number of bytes written
- */
-#define PROTOOPID_NOPARAM_PREPARE_MISC_FRAME "prepare_misc_frame"
-extern protoop_id_t PROTOOP_NOPARAM_PREPARE_MISC_FRAME;
-/**
  * Prepare a path challenge frame.
  * \param[in] bytes \b uint8_t* Pointer to the buffer to write the frame 
  * \param[in] bytes_max \b size_t Max size that can be written

@@ -554,7 +554,7 @@ uint64_t picoquic_get_quic_time(picoquic_quic_t* quic); /* connection time, comp
 
 
 /* Callback function for providing stream data to the application.
-     * If stream_id is zero, this delivers misc frames or changes in
+     * If stream_id is zero, this delivers changes in
      * connection state.
      */
 typedef int (*picoquic_stream_data_cb_fn)(picoquic_cnx_t* cnx,
@@ -715,9 +715,6 @@ void picoquic_set_callback(picoquic_cnx_t* cnx,
     picoquic_stream_data_cb_fn callback_fn, void* callback_ctx);
 
 void * picoquic_get_callback_context(picoquic_cnx_t* cnx);
-
-/* Send extra frames */
-int picoquic_queue_misc_frame(picoquic_cnx_t* cnx, const uint8_t* bytes, size_t length);
 
 /* Send and receive network packets */
 
