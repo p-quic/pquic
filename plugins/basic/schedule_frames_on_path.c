@@ -133,7 +133,8 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                 size_t consumed = 0;
                 unsigned int is_pure_ack = (unsigned int) get_pkt(packet, AK_PKT_IS_PURE_ACK);
                 ret = helper_scheduler_write_new_frames(cnx, &bytes[length],
-                                                        send_buffer_min_max - checksum_overhead - length, packet,
+                                                        send_buffer_min_max - checksum_overhead - length,
+                                                        length - get_pkt(packet, AK_PKT_OFFSET), packet,
                                                         &consumed, &is_pure_ack);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, is_pure_ack);
                 if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {

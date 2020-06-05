@@ -148,6 +148,7 @@ extern protoop_id_t PROTOOP_NOPARAM_SCHEDULE_FRAMES_ON_PATH;
  * Write frames that were previously scheduled in the packet
  * \param[in] bytes \b uint8_t* The array of bytes forming the packet content
  * \param[in] max_bytes \b size_t The maximum amount of bytes that can be written on the packet
+ * \param[in] payload_offset \b size_t The current position in the payload were new frames can be written
  * \param[in] packet \b picoquic_packet_t* The packet to be sent
  * 
  * \return \b int 0 if everything is ok

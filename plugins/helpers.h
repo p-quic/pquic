@@ -336,15 +336,16 @@ static __attribute__((always_inline)) int helper_is_mtu_probe_needed(picoquic_cn
     return ret;
 }
 
-static int helper_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, picoquic_packet_t* packet,
+static int helper_scheduler_write_new_frames(picoquic_cnx_t *cnx, uint8_t *bytes, size_t max_bytes, size_t payload_offset, picoquic_packet_t* packet,
                                              size_t *consumed, unsigned int *is_pure_ack)
 {
     protoop_arg_t outs[2];
-    protoop_arg_t args[3];
+    protoop_arg_t args[4];
     args[0] = (protoop_arg_t) bytes;
     args[1] = (protoop_arg_t) max_bytes;
-    args[2] = (protoop_arg_t) packet;
-    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, 3, args, outs);
+    args[2] = (protoop_arg_t) payload_offset;
+    args[3] = (protoop_arg_t) packet;
+    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_SCHEDULER_WRITE_NEW_FRAMES, 4, args, outs);
     *consumed = (size_t) outs[0];
     *is_pure_ack &= (unsigned int) outs[1];
     return ret;
