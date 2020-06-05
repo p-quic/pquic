@@ -2025,12 +2025,12 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         for (int i = 0; i < cnx->nb_paths; i++) {
             path_x = cnx->path[i];
             /* Consider path challenges */
-            if (path_x->challenge_verified == 0) {
+            if (path_x->challenge_verified == 0 && path_x->challenge_repeat_count < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 uint64_t next_challenge_time = path_x->challenge_time + path_x->retransmit_timer;
-                if (current_time < next_challenge_time) {
-                    if (next_time > next_challenge_time) {
-                        next_time = next_challenge_time;
-                    }
+                if (next_challenge_time <= current_time) {
+                    next_time = current_time;
+                } else if (next_challenge_time < next_time) {
+                    next_time = next_challenge_time;
                 }
             }
 

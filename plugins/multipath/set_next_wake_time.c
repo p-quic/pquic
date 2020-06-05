@@ -182,7 +182,8 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
             continue;
         }
         int challenge_verified_x = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
-        if (blocked != 0 && challenge_verified_x == 0) {
+        int challenge_repeat_count_x = (int) get_path(path_x, AK_PATH_CHALLENGE_REPEAT_COUNT, 0);
+        if (blocked != 0 && challenge_verified_x == 0 && challenge_repeat_count_x < PICOQUIC_CHALLENGE_REPEAT_MAX) {
             uint64_t challenge_time_x = (uint64_t) get_path(path_x, AK_PATH_CHALLENGE_TIME, 0);
             uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, AK_PATH_RETRANSMIT_TIMER, 0);
             uint64_t next_challenge_time = challenge_time_x + retransmit_timer_x;
@@ -441,16 +442,18 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 continue;
             }
             int challenge_verified_x = (int) get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
+            int challenge_repeat_count_x = (int) get_path(path_x, AK_PATH_CHALLENGE_REPEAT_COUNT, 0);
             /* Consider path challenges */
-            if (challenge_verified_x == 0) {
+            if (challenge_verified_x == 0 && challenge_repeat_count_x < PICOQUIC_CHALLENGE_REPEAT_MAX) {
                 uint64_t challenge_time_x = (uint64_t) get_path(path_x, AK_PATH_CHALLENGE_TIME, 0);
                 uint64_t retransmit_timer_x = (uint64_t) get_path(path_x, AK_PATH_RETRANSMIT_TIMER, 0);
                 uint64_t next_challenge_time = challenge_time_x + retransmit_timer_x;
-                if (current_time < next_challenge_time) {
-                    if (next_time > next_challenge_time) {
-                        next_time = next_challenge_time;
-                        PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
-                    }
+                if (next_challenge_time <= current_time) {
+                    next_time = current_time;
+                    PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
+                } else if (next_challenge_time < next_time) {
+                    next_time = next_challenge_time;
+                    PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
                 }
             }
 
