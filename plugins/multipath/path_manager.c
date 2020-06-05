@@ -20,7 +20,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         // Do not return, it will never use uniflows otherwise...
     }
 
-    if (bpfd->nb_sending_active >= N_SENDING_UNIFLOWS) {
+    if (bpfd->nb_sending_active >= N_SENDING_UNIFLOWS || bpfd->nb_sending_active >= bpfd->nb_rem_addrs) {
         return 0;
     }
 
