@@ -1,3 +1,6 @@
 [submodule "ubpf"]
 	path = ubpf
 	url = https://github.com/p-quic/ubpf
+[submodule "picoquic/michelfralloc"]
+	path = picoquic/michelfralloc
+	url = https://github.com/p-quic/michelfralloc.git
