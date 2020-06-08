@@ -1437,6 +1437,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                     * in order to enable detection of spurious restransmissions */
                     int packet_is_pure_ack = p->is_pure_ack;
                     int written_non_pure_ack_frames = 0;
+                    int has_handshake_done = 0;
 
                     if (p->is_mtu_probe && p->length > old_path->send_mtu) {
                         /* MTU probe was lost, presumably because of packet too big */
@@ -1462,6 +1463,8 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                             }
 
                             if (!skip_frame) {
+                                uint64_t frame_type;
+                                picoquic_varint_decode(p->bytes + byte_index, p->length - byte_index, &frame_type);
                                 ret = picoquic_skip_frame(cnx, &p->bytes[byte_index], p->length - byte_index, &frame_length, &frame_is_pure_ack);
 
                                 /* Check whether the data was already acked, which may happen in case of spurious retransmissions */
@@ -1500,6 +1503,7 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
                                             length += (uint32_t)frame_length;
                                             // we have written non-pure-ack frames
                                             written_non_pure_ack_frames |= !frame_is_pure_ack;
+                                            has_handshake_done |= frame_type == picoquic_frame_type_handshake_done;
                                         }
                                     } else if (PICOQUIC_IN_RANGE(p->bytes[byte_index], picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {
                                         struct iovec *rtx_frame = (struct iovec *) malloc(sizeof(struct iovec));
@@ -1553,6 +1557,9 @@ protoop_arg_t retransmit_needed(picoquic_cnx_t *cnx)
 
                     if (written_non_pure_ack_frames)
                         packet->is_pure_ack = 0;
+
+                    if (has_handshake_done)
+                        packet->has_handshake_done = 1;
 
                     picoquic_dequeue_retransmit_packet(cnx, p, p->is_pure_ack & do_not_detect_spurious);
 
