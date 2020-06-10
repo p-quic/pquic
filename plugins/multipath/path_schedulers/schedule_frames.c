@@ -107,22 +107,15 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             }
         }
 
-        if (((stream == NULL && tls_ready == 0 && first_misc_frame == NULL) ||
-             cwin <= bytes_in_transit)
-            && any_receiving_require_ack == 0
+        if (any_receiving_require_ack == 0
             && any_path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
-            && !handshake_done_to_send
-            && mtu_needed
-            && queue_peek(retry_frames) == NULL
-            && queue_peek(rtx_frames) == NULL) {
-            if (ret == 0 && send_buffer_max > sending_path_mtu
-                && cwin > bytes_in_transit && mtu_needed) {
-                PROTOOP_PRINTF(cnx, "Preparing MTU probe on sending path %p\n", (protoop_arg_t) sending_path);
+            && mtu_needed) {
+            if (ret == 0 && send_buffer_max > sending_path_mtu) {
                 length = helper_prepare_mtu_probe(cnx, sending_path, header_length, checksum_overhead, bytes);
                 set_pkt(packet, AK_PKT_IS_MTU_PROBE, 1);
                 set_pkt(packet, AK_PKT_LENGTH, length);
-                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 0);  // See DPLPMTUD draft
                 set_path(sending_path, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {
@@ -130,6 +123,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 length = header_length;
             }
         }
+
         /* If we are blocked by something, let's send control frames */
         if (length == header_length) {
             if (challenge_verified == 0 &&

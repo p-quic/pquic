@@ -14,7 +14,12 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
     int selected_cwin_limited = 0;
     char *path_reason = "";
 
-    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
+    int mtu_needed_path_0 = helper_is_mtu_probe_needed(cnx, path_0);
+    if (mtu_needed_path_0) {
+        path_reason = "MTU_DISCOVERY_PATH_0";
+    }
+
+    for (int i = 0; i < bpfd->nb_sending_proposed && !mtu_needed_path_0; i++) {
         ud = bpfd->sending_uniflows[i];
 
         /* A (very) simple round-robin */
@@ -35,6 +40,14 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             }
 
             /* Because of asymmetry, no more need to decide the path on which the response should be sent */
+            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
+            if (mtu_needed) {
+                sending_path = path_c;
+                selected_uniflow_index = i;
+                valid = 0;
+                path_reason = "MTU_DISCOVERY";
+                break;
+            }
 
             /* At this point, this means path 0 should NEVER be reused anymore! */
             uint64_t pkt_sent_c = (uint64_t) get_path(path_c, AK_PATH_NB_PKT_SENT, 0);
@@ -53,17 +66,6 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
                 if (sending_path == path_c)
                     selected_cwin_limited = 1;
                 continue;
-            }
-
-            /* The ping reception is now handled by the schedule frame, as it just requires to ACK the path */
-
-            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (mtu_needed) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                path_reason = "MTU_DISCOVERY";
-                break;
             }
 
             /* Don't consider invalid paths */

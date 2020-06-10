@@ -196,6 +196,8 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return (protoop_arg_t) &cnx->pids_to_request.elems[param];
     case AK_CNX_READY_NOTIFIED:
         return cnx->ready_notified;
+    case AK_CNX_QUIC_MTU_MAX:
+        return cnx->quic->mtu_max;
     default:
         printf("ERROR: unknown cnx access key %u\n", ak);
         return 0;

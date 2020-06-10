@@ -92,19 +92,14 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
         set_pkt(packet, AK_PKT_SEND_TIME, current_time);
         set_pkt(packet, AK_PKT_SEND_PATH, (protoop_arg_t) path_x);
 
-        if (((stream == NULL && tls_ready == 0 && first_misc_frame == NULL) ||
-                cwin <= bytes_in_transit)
-            && helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
+        if (helper_is_ack_needed(cnx, current_time, pc, path_x) == 0
             && challenge_response_to_send == 0
-            && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
-            && queue_peek(reserved_frames) == NULL
-            && queue_peek(retry_frames) == NULL) {
-            if (ret == 0 && send_buffer_max > path_send_mtu
-                && cwin > bytes_in_transit && helper_is_mtu_probe_needed(cnx, path_x)) {
+            && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)) {
+            if (ret == 0 && send_buffer_max > path_send_mtu && helper_is_mtu_probe_needed(cnx, path_x)) {
                 length = helper_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
                 set_pkt(packet, AK_PKT_IS_MTU_PROBE, 1);
                 set_pkt(packet, AK_PKT_LENGTH, length);
-                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 0);
                 set_path(path_x, AK_PATH_MTU_PROBE_SENT, 0, 1);
                 set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
             } else {

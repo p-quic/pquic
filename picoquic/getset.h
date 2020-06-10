@@ -444,6 +444,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_HANDSHAKE_DONE_ACKED 0x3F
 /** Whether the cnx has notified that it is ready to send data */
 #define AK_CNX_READY_NOTIFIED 0x40
+/**/
+#define AK_CNX_QUIC_MTU_MAX 0x41
 
 /**
  * @}

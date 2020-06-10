@@ -39,7 +39,13 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     int valid = 0;
     picoquic_stream_head *stream = helper_find_ready_stream(cnx);
     int tls_ready = helper_is_tls_stream_ready(cnx);
-    for (uint8_t i = 0; i < bpfd->nb_sending_proposed; i++) {
+
+    int mtu_needed_path_0 = helper_is_mtu_probe_needed(cnx, path_0);
+    if (mtu_needed_path_0) {
+        path_reason = "MTU_DISCOVERY_PATH_0";
+    }
+
+    for (uint8_t i = 0; i < bpfd->nb_sending_proposed && !mtu_needed_path_0; i++) {
         ud = bpfd->sending_uniflows[i];
         /* Lowest RTT-based scheduler */
         if (ud->state == uniflow_active) {
@@ -59,6 +65,14 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             }
 
             /* Because of asymmetry, no more need to decide the path on which the response should be sent */
+            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
+            if (stream == NULL && tls_ready == 0 && mtu_needed) {
+                sending_path = path_c;
+                selected_uniflow_index = i;
+                valid = 0;
+                path_reason = "MTU_DISCOVERY";
+                break;
+            }
 
             /* At this point, this means path 0 should NEVER be reused anymore! */
             if (challenge_verified_c && sending_path == path_0) {
@@ -93,15 +107,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
                 selected_uniflow_index = i;
                 valid = 0;
                 path_reason = "PONG";
-                break;
-            }
-
-            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (stream == NULL && tls_ready == 0 && mtu_needed) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                path_reason = "MTU_DISCOVERY";
                 break;
             }
 

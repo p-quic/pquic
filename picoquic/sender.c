@@ -1697,32 +1697,8 @@ int picoquic_should_send_max_data(picoquic_cnx_t* cnx)
     return ret;
 }
 
-/* Decide whether to send an MTU probe */
-int picoquic_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
-{
-    int ret = 0;
-
-    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried)) {
-        ret = 1;
-    }
-
-    return ret;
-}
-
-/**
- * See PROTOOP_NOPARAM_PREPARE_MTU_PROBE
- */
-protoop_arg_t prepare_mtu_probe(picoquic_cnx_t* cnx)
-{
-    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[0];
-    uint32_t header_length = (uint32_t) cnx->protoop_inputv[1];
-    uint32_t checksum_length = (uint32_t) cnx->protoop_inputv[2];
-    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[3];
-
-    uint32_t probe_length;
-    uint32_t length = header_length;
-
-
+static size_t picoquic_mtu_probe_length(picoquic_cnx_t *cnx, picoquic_path_t *path_x) {
+    size_t probe_length;
     if (path_x->send_mtu_max_tried == 0) {
         if (cnx->remote_parameters.max_packet_size > 0) {
             probe_length = cnx->remote_parameters.max_packet_size;
@@ -1743,6 +1719,33 @@ protoop_arg_t prepare_mtu_probe(picoquic_cnx_t* cnx)
     } else {
         probe_length = (path_x->send_mtu + path_x->send_mtu_max_tried) / 2;
     }
+    return probe_length;
+}
+
+/* Decide whether to send an MTU probe */
+int picoquic_is_mtu_probe_needed(picoquic_cnx_t* cnx, picoquic_path_t * path_x)
+{
+    int ret = 0;
+
+    if ((cnx->cnx_state == picoquic_state_client_ready || cnx->cnx_state == picoquic_state_server_ready) && path_x->mtu_probe_sent == 0 && (path_x->send_mtu_max_tried == 0 || (path_x->send_mtu + 10) < path_x->send_mtu_max_tried) && picoquic_mtu_probe_length(cnx, path_x) > path_x->send_mtu) {
+        ret = 1;
+    }
+
+    return ret;
+}
+
+/**
+ * See PROTOOP_NOPARAM_PREPARE_MTU_PROBE
+ */
+protoop_arg_t prepare_mtu_probe(picoquic_cnx_t* cnx)
+{
+    picoquic_path_t * path_x = (picoquic_path_t *) cnx->protoop_inputv[0];
+    uint32_t header_length = (uint32_t) cnx->protoop_inputv[1];
+    uint32_t checksum_length = (uint32_t) cnx->protoop_inputv[2];
+    uint8_t* bytes = (uint8_t*) cnx->protoop_inputv[3];
+
+    uint32_t probe_length = picoquic_mtu_probe_length(cnx, path_x);
+    uint32_t length = header_length;
 
     bytes[length++] = picoquic_frame_type_ping;
     bytes[length++] = 0;
@@ -3107,12 +3110,11 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
             && queue_peek(cnx->reserved_frames) == NULL
             && queue_peek(cnx->retry_frames) == NULL
             && queue_peek(cnx->rtx_frames[pc]) == NULL) {
-            if (ret == 0 && send_buffer_max > path_x->send_mtu
-                && path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
+            if (ret == 0 && send_buffer_max > path_x->send_mtu && picoquic_is_mtu_probe_needed(cnx, path_x)) {
                 length = picoquic_prepare_mtu_probe(cnx, path_x, header_length, checksum_overhead, bytes);
                 packet->is_mtu_probe = 1;
                 packet->length = length;
-                packet->is_congestion_controlled = 1;
+                packet->is_congestion_controlled = 0;  // See DPLPMTUD
                 path_x->mtu_probe_sent = 1;
                 packet->is_pure_ack = 0;
             } else {
