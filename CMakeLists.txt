@@ -153,12 +153,7 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/qlog/mp_ack_frame_parsed.c
     plugins/multipath/qlog/mp_new_connection_id_frame_parsed.c
     plugins/multipath/qlog/add_address_parsed.c
-    plugins/multipath/qlog/path_update_parsed.c
     plugins/multipath/path_manager.c
-    plugins/multipath/notify_path_update.c
-    plugins/multipath/parse_path_update.c
-    plugins/multipath/process_path_update.c
-    plugins/multipath/write_path_update.c
     plugins/multipath/addresses_filters/no_v6_no_10.c
     plugins/multipath/update_rtt.c
 )
