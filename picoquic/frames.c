@@ -4361,13 +4361,6 @@ int picoquic_decode_closing_frames(picoquic_cnx_t *cnx, uint8_t* bytes, size_t b
     return ret;
 }
 
-/* A simple no-op */
-static protoop_arg_t protoop_noop(picoquic_cnx_t *cnx)
-{
-    /* Do nothing! */
-    return 0;
-}
-
 void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
 {
     /* Decoding */
