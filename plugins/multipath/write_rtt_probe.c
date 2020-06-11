@@ -27,7 +27,7 @@ protoop_arg_t write_rtt_probe(picoquic_cnx_t *cnx)  // TODO: What happens if the
             consumed = 0;
         } else {
             ret = PICOQUIC_MISCCODE_RETRY_NXT_PKT;
-            helper_cnx_set_next_wake_time(cnx, picoquic_current_time(), 1);
+            helper_cnx_set_next_wake_time(cnx, picoquic_current_time());
         }
     } else {
         uniflow_data_t *ud = bpfd->sending_uniflows[selected_path];

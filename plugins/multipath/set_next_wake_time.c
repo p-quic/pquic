@@ -231,7 +231,6 @@ static picoquic_path_t *get_receiving_path(picoquic_cnx_t *cnx, bpf_data *bpfd, 
 protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) get_cnx(cnx, AK_CNX_INPUT, 0);
-    uint32_t last_pkt_length = (uint32_t) get_cnx(cnx, AK_CNX_INPUT, 1);
     uint64_t latest_progress_time = (uint64_t) get_cnx(cnx, AK_CNX_LATEST_PROGRESS_TIME, 0);
     uint64_t client_mode = (int) get_cnx(cnx, AK_CNX_CLIENT_MODE, 0);
     uint64_t next_time = latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - client_mode);
@@ -258,14 +257,12 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         blocked = 0;
     }
 
-    PROTOOP_PRINTF(cnx, "Last packet size was %d\n", last_pkt_length);
-
     int nb_snd_uniflows = get_nb_uniflows(bpfd, true);
     int nb_rcv_uniflows = get_nb_uniflows(bpfd, false);
     picoquic_path_t *path_x = NULL;
 
     /* If any receive path requires path response, do it now! */
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && i < nb_rcv_uniflows; i++) {
+    for (int i = 0; blocked != 0 && i < nb_rcv_uniflows; i++) {
         path_x = get_receiving_path(cnx, bpfd, nb_rcv_uniflows, i, &ud);
         if (ud != NULL && ud->state != uniflow_active) continue;
         if (get_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0) != 0) {
@@ -348,7 +345,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && pacing == 0 && i < nb_snd_uniflows; i++) {
+    for (int i = 0; blocked != 0 && pacing == 0 && i < nb_snd_uniflows; i++) {
         path_x = get_sending_path(cnx, bpfd, nb_snd_uniflows, i, &ud);
         /* If the path is not active, don't expect anything! */
         if ((ud != NULL && ud->state != uniflow_active) || get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0) == 0) {
@@ -356,7 +353,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         }
         uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
         uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
-        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
+        if (helper_is_mtu_probe_needed(cnx, path_x)) {
             blocked = 0;
         }
         if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {

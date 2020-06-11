@@ -594,12 +594,11 @@ static void helper_finalize_and_protect_packet(picoquic_cnx_t *cnx, picoquic_pac
 }
 
 /* TODO: tie with per path scheduling */
-static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time, uint32_t last_pkt_length)
+static void helper_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
 {
-    protoop_arg_t args[2];
+    protoop_arg_t args[1];
     args[0] = (protoop_arg_t) current_time;
-    args[1] = (protoop_arg_t) last_pkt_length;
-    run_noparam(cnx, PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME, 2, args, NULL);
+    run_noparam(cnx, PROTOOPID_NOPARAM_SET_NEXT_WAKE_TIME, 1, args, NULL);
 }
 
 static picoquic_packet_context_enum helper_context_from_epoch(int epoch)

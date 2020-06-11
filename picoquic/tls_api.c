@@ -1298,7 +1298,7 @@ static int picoquic_add_to_tls_stream(picoquic_cnx_t* cnx, const uint8_t* data, 
             }
         }
 
-        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
     }
 
     return ret;

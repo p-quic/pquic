@@ -1415,7 +1415,7 @@ int picoquic_incoming_segment(
             ret = picoquic_record_pn_received(cnx, path_x, ph.pc, ph.pn64, current_time);
         }
         if (cnx != NULL) {
-            picoquic_cnx_set_next_wake_time(cnx, current_time, 1);
+            picoquic_cnx_set_next_wake_time(cnx, current_time);
         }
     } else if (ret == PICOQUIC_ERROR_DUPLICATE) {
         /* Bad packets are dropped silently, but duplicates should be acknowledged */

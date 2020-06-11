@@ -158,7 +158,7 @@ int picoquic_add_to_stream(picoquic_cnx_t* cnx, uint64_t stream_id,
 
         LOG_EVENT(cnx, "APPLICATION", "ADD_TO_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"data_ptr\": \"%p\", \"length\": %" PRIu64 ", \"fin\": %d, \"queued_size\": %" PRIu64 "}", stream, stream->stream_id, data, length, set_fin, stream->sending_offset - stream->sent_offset);
 
-        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
     }
 
     if (ret == 0) {
@@ -189,7 +189,7 @@ int picoquic_reset_stream(picoquic_cnx_t* cnx,
         LOG_EVENT(cnx, "STREAMS", "RESET_STREAM", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 "}", stream, stream_id, local_stream_error);
     }
 
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
 
     return ret;
 }
@@ -214,7 +214,7 @@ int picoquic_stop_sending(picoquic_cnx_t* cnx,
         LOG_EVENT(cnx, "STREAMS", "STOP_SENDING", "", "{\"stream\": \"%p\", \"stream_id\": %" PRIu64 ", \"error\": %" PRIu64 "}", stream, stream_id, local_stream_error);
     }
 
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
 
     return ret;
 }
@@ -300,7 +300,7 @@ int picoquic_add_to_plugin_stream(picoquic_cnx_t* cnx, uint64_t pid_id,
 
         LOG_EVENT(cnx, "APPLICATION", "ADD_TO_PLUGIN_STREAM", "", "{\"stream\": \"%p\", \"pid_id\": %" PRIu64 ", \"data_ptr\": \"%p\", \"length\": %" PRIu64 ", \"fin\": %d}", stream, stream->stream_id, data, length, set_fin);
 
-        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+        picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
     }
 
     return ret;
@@ -1933,7 +1933,6 @@ bool picoquic_has_congestion_controlled_plugin_frames_to_send(picoquic_cnx_t *cn
 protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 {
     uint64_t current_time = (uint64_t) cnx->protoop_inputv[0];
-    uint32_t last_pkt_length = (uint32_t) cnx->protoop_inputv[1];
     uint64_t next_time = cnx->latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - cnx->client_mode);
     picoquic_stream_head* stream = NULL;
     int timer_based = 0;
@@ -1990,9 +1989,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    for (int i = 0; last_pkt_length > 0 && blocked != 0 && pacing == 0 && i < cnx->nb_paths; i++) {
+    for (int i = 0; blocked != 0 && pacing == 0 && i < cnx->nb_paths; i++) {
         picoquic_path_t *path_x = cnx->path[i];
-        if (path_x->cwin > path_x->bytes_in_transit && picoquic_is_mtu_probe_needed(cnx, path_x)) {
+        if (picoquic_is_mtu_probe_needed(cnx, path_x)) {
             blocked = 0;
         }
         if (path_x->cwin > path_x->bytes_in_transit && picoquic_has_booked_plugin_frames(cnx)) {
@@ -2057,10 +2056,9 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
 
 /* Decide the next time at which the connection should send data */
 /* TODO: tie with per path scheduling */
-void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time, uint32_t last_pkt_length)
+void picoquic_cnx_set_next_wake_time(picoquic_cnx_t* cnx, uint64_t current_time)
 {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, NULL,
-        current_time, last_pkt_length);
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_SET_NEXT_WAKE_TIME, NULL, current_time);
 }
 
 /* Prepare the next packet to 0-RTT packet to send in the client initial
@@ -2127,7 +2125,7 @@ int picoquic_prepare_packet_0rtt(picoquic_cnx_t* cnx, picoquic_path_t * path_x, 
         cnx->nb_zero_rtt_sent++;
     }
 
-    picoquic_cnx_set_next_wake_time(cnx, current_time, length);
+    picoquic_cnx_set_next_wake_time(cnx, current_time);
 
     return ret;
 }
@@ -2487,7 +2485,7 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
             send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
 
         if (cnx->cnx_state != picoquic_state_draining) {
-            picoquic_cnx_set_next_wake_time(cnx, current_time, length);
+            picoquic_cnx_set_next_wake_time(cnx, current_time);
         }
     }
     POP_LOG_CTX(cnx);
@@ -2649,7 +2647,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
         ret, length, header_length, checksum_overhead,
         send_length, send_buffer, (uint32_t)send_buffer_max, path_x, current_time);
 
-    picoquic_cnx_set_next_wake_time(cnx, current_time, length);
+    picoquic_cnx_set_next_wake_time(cnx, current_time);
 
     POP_LOG_CTX(cnx);
 
@@ -3500,7 +3498,7 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
       && path_x->cwin > path_x->bytes_in_transit && send_length > 0) {
         picoquic_reinsert_by_wake_time(cnx->quic, cnx, current_time);
     } else {
-        picoquic_cnx_set_next_wake_time(cnx, current_time, length);
+        picoquic_cnx_set_next_wake_time(cnx, current_time);
     }
 
     POP_LOG_CTX(cnx);
@@ -3683,7 +3681,7 @@ int picoquic_close(picoquic_cnx_t* cnx, uint64_t reason_code)
     }
     cnx->offending_frame_type = 0;
 
-    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic), 1);
+    picoquic_cnx_set_next_wake_time(cnx, picoquic_get_quic_time(cnx->quic));
 
     return ret;
 }

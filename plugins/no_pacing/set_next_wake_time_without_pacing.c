@@ -203,7 +203,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, i);
         uint64_t cwin_x = (uint64_t) get_path(path_x, AK_PATH_CWIN, 0);
         uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
-        if (cwin_x > bytes_in_transit_x && helper_is_mtu_probe_needed(cnx, path_x)) {
+        if (helper_is_mtu_probe_needed(cnx, path_x)) {
             blocked = 0;
         }
         if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
