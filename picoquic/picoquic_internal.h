@@ -678,7 +678,6 @@ typedef struct st_picoquic_cnx_t {
     unsigned int handshake_done : 1;
     unsigned int handshake_done_sent : 1;
     unsigned int handshake_done_acked : 1;
-    unsigned int ready_notified : 1;
 
 
     /* Next time sending data is expected */

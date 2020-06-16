@@ -1042,6 +1042,11 @@ int picoquic_incoming_client_cleartext(
                     picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_initial, current_time);
                     picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_handshake, current_time);
                 }
+                if (cnx->callback_fn != NULL) {
+                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx) != 0) {
+                        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
+                    }
+                }
             }
         }
     } else {

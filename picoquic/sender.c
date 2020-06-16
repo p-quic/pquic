@@ -3362,25 +3362,6 @@ protoop_arg_t prepare_packet_ready(picoquic_cnx_t *cnx)
     LOG_EVENT(cnx, "TRANSPORT", "PREPARE_PACKET", "", "{\"type\": \"%s\"}", picoquic_log_ptype_name(packet_type));
     PUSH_LOG_CTX(cnx, "\"packet_type\": \"%s\"", picoquic_log_ptype_name(packet_type));
 
-    if (!cnx->ready_notified &&
-        ((cnx->cnx_state == picoquic_state_server_ready &&
-        cnx->crypto_context[3].aead_decrypt != NULL) ||
-        (cnx->cnx_state == picoquic_state_client_ready &&
-            cnx->one_rtt_data_acknowledged))) {
-        /* Transition to server ready state.
-         * The handshake is complete, all the handshake packets are implicitly acknowledged */
-        picoquic_implicit_handshake_ack(cnx, path_x, picoquic_packet_context_initial, current_time);
-        picoquic_implicit_handshake_ack(cnx, path_x, picoquic_packet_context_handshake, current_time);
-
-        cnx->ready_notified = 1;
-
-        if (cnx->callback_fn != NULL) {
-            if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx) != 0) {
-                picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
-            }
-        }
-    }
-
     /* We should be able to get the retransmission, no matter the path we look at */
     picoquic_packet_t* retransmit_p = NULL;
     picoquic_path_t * from_path = NULL;
