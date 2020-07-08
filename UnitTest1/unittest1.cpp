@@ -380,13 +380,6 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
-        TEST_METHOD(test_ping_pong)
-        {
-            int ret = ping_pong_test();
-
-            Assert::AreEqual(ret, 0);
-        }
-
         TEST_METHOD(test_keep_alive)
         {
           int ret = keep_alive_test();
@@ -573,13 +566,6 @@ namespace UnitTest1
         TEST_METHOD(test_spin_bit)
         {
             int ret = spin_bit_test();
-
-            Assert::AreEqual(ret, 0);
-        }
-
-        TEST_METHOD(test_client_error)
-        {
-            int ret = client_error_test();
 
             Assert::AreEqual(ret, 0);
         }
