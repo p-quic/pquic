@@ -10,7 +10,7 @@ More detailed instructions are available at: https://pquic.org
 
 PQUIC is developed in C, and is based on picoquic (https://github.com/private-octopus/picoquic).
 It can be built under Linux (the support of Windows is not provided yet).
-Building the project requires first managing the dependencies, Picotls, uBPF, libarchive
+Building the project requires first managing the dependencies, Picotls, uBPF, michelfralloc, libarchive
 and OpenSSL.
 
 ## PQUIC on Linux
@@ -23,11 +23,14 @@ To build PQUIC on Linux, you need to:
 
  * Clone and compile Picotls (https://github.com/p-quic/picotls), using cmake as explained in the Picotls documentation.
 
- * Clone and compile PQUIC with its uBPF dependency:
+ * Clone and compile PQUIC with both its uBPF and michelfralloc dependencies:
 
 ~~~
    git submodule update --init
    cd ubpf/vm
+   make
+   cd ../..
+   cd picoquic/michelfralloc
    make
    cd ../..
    cmake .
