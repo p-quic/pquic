@@ -16,6 +16,7 @@ protoop_arg_t log_event(picoquic_cnx_t *cnx) {
         qlog_event_t *e = my_malloc(cnx, sizeof(qlog_event_t));
         if (!e)
             return 0;
+        my_memset(e, 0, sizeof(qlog_event_t));
         e->reference_time = now;
         for (int i = 0; i < QLOG_N_EVENT_FIELDS - 1; i++) {
             if (fields[i]) {
