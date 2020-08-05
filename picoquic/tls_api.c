@@ -876,7 +876,6 @@ int picoquic_master_tlscontext(picoquic_quic_t* quic,
 
         ctx->send_change_cipher_spec = 0;
 
-        ctx->hkdf_label_prefix = NULL;
         ctx->update_traffic_key = picoquic_set_update_traffic_key_callback();
 
         if (quic->p_simulated_time == NULL) {
@@ -1470,32 +1469,6 @@ static void picoquic_setup_cleartext_aead_salt(size_t version_index, ptls_iovec_
         salt->base = picoquic_cleartext_null_salt;
         salt->len = sizeof(picoquic_cleartext_null_salt);
     }
-}
-
-/* Compare AEAD context parameters. This is done just by comparing the IV,
- * which is accessible in the context */
-int picoquic_compare_cleartext_aead_contexts(picoquic_cnx_t* cnx1, picoquic_cnx_t* cnx2)
-{
-    int ret = 0;
-    ptls_aead_context_t * aead_enc = (ptls_aead_context_t *)cnx1->crypto_context[0].aead_encrypt;
-    ptls_aead_context_t * aead_dec = (ptls_aead_context_t *)cnx2->crypto_context[0].aead_decrypt;
-
-    if (aead_enc == NULL )
-    {
-        DBG_PRINTF("%s", "Missing aead encoding context\n");
-        ret = -1;
-    }
-    else if (aead_dec == NULL)
-    {
-        DBG_PRINTF("%s", "Missing aead decoding context\n");
-        ret = -1;
-    }
-    else if (memcmp(aead_enc->static_iv, aead_dec->static_iv, 16) != 0){
-        DBG_PRINTF("%s", "Encoding IV does not match decoding IV\n");
-        ret = -1;
-    }
-
-    return ret;
 }
 
 /* Input stream zero data to TLS context.

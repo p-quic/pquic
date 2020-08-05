@@ -130,11 +130,6 @@ int cleartext_aead_test()
                  picoquic_val64_connection_id(cnx_server->initial_cnxid));
             ret = -1;
         }
-        else if (picoquic_compare_cleartext_aead_contexts(cnx_client, cnx_server) != 0 ||
-            picoquic_compare_cleartext_aead_contexts(cnx_server, cnx_client) != 0) {
-            DBG_PRINTF("%s", "Cleartext encryption contexts no not match.\n");
-            ret = -1;
-        }
         register_protocol_operations(cnx_server);
     }
 
@@ -198,14 +193,6 @@ static uint8_t clear_test_vector_server_iv[12] = {
     0xaf, 0x13, 0x50, 0x8b
 };
 
-
-static int cleartext_iv_cmp(void * void_aead, uint8_t * ref_iv, size_t iv_length)
-{
-    ptls_aead_context_t* aead = (ptls_aead_context_t*)void_aead;
-
-    return memcmp(aead->static_iv, ref_iv, iv_length);
-}
-
 int cleartext_aead_vector_test_one(picoquic_connection_id_t test_id, uint8_t * client_iv, size_t client_iv_length,
     uint8_t * server_iv, size_t server_iv_length, char const * test_name)
 {
@@ -243,16 +230,8 @@ int cleartext_aead_vector_test_one(picoquic_connection_id_t test_id, uint8_t * c
         {
             DBG_PRINTF("%s: Could not create clear text AEAD encryption context.\n", test_name);
             ret = -1;
-        } else if (0 != cleartext_iv_cmp(cnx_client->crypto_context[0].aead_encrypt, 
-            client_iv, client_iv_length)) {
-            DBG_PRINTF("%s: Clear text AEAD encryption IV does not match expected value.\n", test_name);
-            ret = -1;
         } else if (cnx_client->crypto_context[0].aead_decrypt == NULL) {
             DBG_PRINTF("%s: Could not create clear text AEAD decryption context.\n", test_name);
-            ret = -1;
-        } else if (0 != cleartext_iv_cmp(cnx_client->crypto_context[0].aead_decrypt,
-            server_iv, server_iv_length)) {
-            DBG_PRINTF("%s: Clear text AEAD decryption IV does not match expected value.\n", test_name);
             ret = -1;
         }
     }
