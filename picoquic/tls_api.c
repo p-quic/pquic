@@ -353,48 +353,41 @@ int picoquic_tls_collected_extensions_cb(ptls_t* tls, ptls_handshake_properties_
  */
 
 int picoquic_client_hello_call_back(ptls_on_client_hello_t* on_hello_cb_ctx,
-    ptls_t* tls, ptls_iovec_t server_name, const ptls_iovec_t* negotiated_protocols,
-    size_t num_negotiated_protocols, const uint16_t* signature_algorithms, size_t num_signature_algorithms)
+                                    ptls_t* tls, ptls_on_client_hello_parameters_t *params)
 {
-#ifdef _WINDOWS
-    UNREFERENCED_PARAMETER(signature_algorithms);
-    UNREFERENCED_PARAMETER(num_signature_algorithms);
-#endif
-    int alpn_found = 0;
+    const uint8_t * alpn_found = 0;
+    size_t alpn_found_length = 0;
+    int ret = 0;
     picoquic_quic_t** ppquic = (picoquic_quic_t**)(((char*)on_hello_cb_ctx) + sizeof(ptls_on_client_hello_t));
     picoquic_quic_t* quic = *ppquic;
 
     /* Save the server name */
-    ptls_set_server_name(tls, (const char *)server_name.base, server_name.len);
+    ptls_set_server_name(tls, (const char *)params->server_name.base, params->server_name.len);
 
     /* Check if the client is proposing the expected ALPN */
     if (quic->default_alpn != NULL) {
         size_t len = strlen(quic->default_alpn);
 
-        for (size_t i = 0; i < num_negotiated_protocols; i++) {
-            if (negotiated_protocols[i].len == len && memcmp(negotiated_protocols[i].base, quic->default_alpn, len) == 0) {
-                alpn_found = 1;
+        for (size_t i = 0; i < params->negotiated_protocols.count; i++) {
+            if (params->negotiated_protocols.list[i].len == len &&
+                memcmp(params->negotiated_protocols.list[i].base, quic->default_alpn, len) == 0) {
+                DBG_PRINTF("ALPN[%d] matches default alpn (%s)", (int) i, quic->default_alpn);
+                alpn_found = (const uint8_t *) quic->default_alpn;
+                alpn_found_length = len;
                 ptls_set_negotiated_protocol(tls, quic->default_alpn, len);
                 break;
             }
         }
     }
 
-    /* If no common ALPN found, pick the first choice of the client. 
-	 * This could be problematic, but right now alpn use in quic is in flux.
-	 */
-
-    if (alpn_found == 0) {
-        for (size_t i = 0; i < num_negotiated_protocols; i++) {
-            if (negotiated_protocols[i].len > 0) {
-                ptls_set_negotiated_protocol(tls,
-                    (char const*)negotiated_protocols[i].base, negotiated_protocols[i].len);
-                break;
-            }
-        }
+    /* ALPN is mandatory in Quic. Return an error if no match found. */
+    if (alpn_found == NULL) {
+        ret = PTLS_ALERT_NO_APPLICATION_PROTOCOL;
     }
 
-    return 0;
+
+    DBG_PRINTF("Client Hello call back returns %d (0x%x)", ret, ret);
+    return ret;
 }
 
 /*

@@ -470,7 +470,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                         } else {
                             cnx->remote_parameters.original_destination_connection_id.id_len = extension_length;
-                            memcpy(&cnx->remote_parameters.original_destination_connection_id.id, bytes + byte_index, extension_length);
+                            memcpy(cnx->remote_parameters.original_destination_connection_id.id, bytes + byte_index, extension_length);
                             byte_index += extension_length;
                         }
                         break;
@@ -492,7 +492,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                         } else {
                             cnx->remote_parameters.initial_source_connection_id.id_len = extension_length;
-                            memcpy(&cnx->remote_parameters.initial_source_connection_id.id, bytes + byte_index, extension_length);
+                            memcpy(cnx->remote_parameters.initial_source_connection_id.id, bytes + byte_index, extension_length);
                             byte_index += extension_length;
                         }
                         break;
@@ -501,7 +501,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                         } else {
                             cnx->remote_parameters.retry_source_connection_id.id_len = extension_length;
-                            memcpy(&cnx->remote_parameters.retry_source_connection_id.id, bytes + byte_index, extension_length);
+                            memcpy(cnx->remote_parameters.retry_source_connection_id.id, bytes + byte_index, extension_length);
                             byte_index += extension_length;
                         }
                         break;

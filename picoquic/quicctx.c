@@ -930,6 +930,8 @@ void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode)
     tp->max_idle_timeout = PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000;
     tp->max_packet_size = PICOQUIC_PRACTICAL_MAX_MTU;
     tp->ack_delay_exponent = 3;
+    tp->max_ack_delay = 25;
+    tp->active_connection_id_limit = 2;
     tp->supported_plugins = NULL;
     tp->plugins_to_inject = NULL;
 }

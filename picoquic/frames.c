@@ -936,6 +936,7 @@ protoop_arg_t parse_stream_frame(picoquic_cnx_t* cnx)
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, *((uint8_t *) cnx->protoop_inputv[0]));
         free(frame);
         frame = NULL;
+        bytes = NULL;
     } else {
         frame->data_ptr = bytes + hdr_consumed;
         bytes += hdr_consumed + frame->data_length;
@@ -3384,6 +3385,7 @@ protoop_arg_t parse_max_streams_frame(picoquic_cnx_t *cnx)
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, frame_type);
         free(frame);
         frame = NULL;
+        bytes = NULL;
     }
 
     protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
@@ -4404,6 +4406,7 @@ void frames_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_data, &process_max_data_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_stream_data, &process_max_stream_data_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_streams_bidi, &process_max_stream_id_frame);
+    register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_max_streams_uni, &process_max_stream_id_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_ping, &process_ping_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_data_blocked, &process_ignore_frame);
     register_param_protoop(cnx, &PROTOOP_PARAM_PROCESS_FRAME, picoquic_frame_type_stream_data_blocked, &process_ignore_frame);
