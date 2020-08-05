@@ -119,7 +119,7 @@ int picoquic_parse_packet_header(
                         /* If the version is supported now, the format field in the version table
                         * describes the encoding. */
                         switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
-                        case picoquic_version_header_27:
+                        case picoquic_version_header_29:
                             switch (type) {
                             case picoquic_long_packet_type_initial:
                             {
@@ -268,7 +268,7 @@ int picoquic_parse_packet_header(
              ph->version_index = (*pcnx)->version_index;
              /* If the connection is identified, decode the short header per version ID */
              switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
-             case picoquic_version_header_27:
+             case picoquic_version_header_29:
                  ph->has_spin_bit = 1;
                  ph->ptype = picoquic_packet_1rtt_protected_phi0;
                  ph->spin = (bytes[0] >> 5) & 1;
@@ -1351,6 +1351,7 @@ int picoquic_incoming_segment(
                     /* Verify that the source CID matches expectation */
                     if (picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid)) {
                         cnx->path[0]->remote_cnxid = ph.srce_cnx_id;
+                        cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
                     } else if (picoquic_compare_connection_id(&cnx->path[0]->remote_cnxid, &ph.srce_cnx_id) != 0) {
                         DBG_PRINTF("Error wrong srce cnxid (%d), type: %d, epoch: %d, pc: %d, pn: %d\n",
                             cnx->client_mode, ph.ptype, ph.epoch, ph.pc, (int)ph.pn);

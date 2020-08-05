@@ -137,21 +137,21 @@ static uint8_t picoquic_cleartext_internal_test_1_salt[] = {
     0x3d, 0xc1, 0xca, 0x36
 };
 
-static uint8_t picoquic_cleartext_draft_27_salt[] = {
-    0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a,
-    0x11, 0xa7, 0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65,
-    0xbe, 0xf9, 0xf5, 0x02
+static uint8_t picoquic_cleartext_draft_29_salt[] = {
+    0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c,
+    0x9e, 0x97, 0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0,
+    0x43, 0x90, 0xa8, 0x99
 };
 
 const picoquic_version_parameters_t picoquic_supported_versions[] = {
     { PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
-        picoquic_version_header_27,
+        picoquic_version_header_29,
         sizeof(picoquic_cleartext_internal_test_1_salt),
         picoquic_cleartext_internal_test_1_salt },
     { PICOQUIC_INTEROP_VERSION, 0,
-        picoquic_version_header_27,
-        sizeof(picoquic_cleartext_draft_27_salt),
-            picoquic_cleartext_draft_27_salt }
+        picoquic_version_header_29,
+        sizeof(picoquic_cleartext_draft_29_salt),
+            picoquic_cleartext_draft_29_salt }
 };
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
@@ -1365,6 +1365,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             /* Moved packet context initialization into path creation */
 
             cnx->latest_progress_time = start_time;
+            cnx->local_parameters.initial_source_connection_id = cnx->path[0]->local_cnxid;
 
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].stream_id = 0;

@@ -202,7 +202,11 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     uint16_t param_size = 0;
 
     /* All parameters are now optional, but some are sent always */
-    param_size =  (1 + 1 + 4) + (1 + 1 + 4) + (1 + 1 + 2) + (1 + 1 + 2);
+    param_size =  (1 + 1 + 4) + (1 + 1 + 4) + (1 + 1 + 2) + (1 + 1 + 2) + (1 + 1 + cnx->local_parameters.initial_source_connection_id.id_len);
+
+    if (extension_mode == 1) {
+        param_size += (1 + 1 + cnx->local_parameters.original_destination_connection_id.id_len);
+    }
 
     if (cnx->local_parameters.initial_max_streams_bidi != 0) {
         param_size += (1 + 1 + picoquic_varint_len(cnx->local_parameters.initial_max_streams_bidi));
@@ -252,6 +256,18 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                                        picoquic_tp_initial_max_data,
                                        cnx->local_parameters.initial_max_data);
 
+        byte_index += tp_data_encode(bytes + byte_index, bytes_max - byte_index,
+                                       picoquic_tp_initial_source_connection_id,
+                                       cnx->local_parameters.initial_source_connection_id.id,
+                                       cnx->local_parameters.initial_source_connection_id.id_len);
+
+        if (extension_mode == 1) {
+            byte_index += tp_data_encode(bytes + byte_index, bytes_max - byte_index,
+                                         picoquic_tp_original_destination_connection_id,
+                                         cnx->local_parameters.original_destination_connection_id.id,
+                                         cnx->local_parameters.original_destination_connection_id.id_len);
+        }
+
 
         if (cnx->local_parameters.initial_max_streams_bidi > 0) {
             byte_index += tp_varint_encode(bytes + byte_index, bytes_max - byte_index,
@@ -266,7 +282,7 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
         if (cnx->local_parameters.max_packet_size >= 1200) {
             byte_index += tp_varint_encode(bytes + byte_index, bytes_max - byte_index,
-                                           picoquic_tp_max_packet_size,
+                                           picoquic_tp_max_udp_payload_size,
                                            cnx->local_parameters.max_packet_size);
         }
 
@@ -408,7 +424,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                     case picoquic_tp_max_idle_timeout:
                         byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &cnx->remote_parameters.max_idle_timeout);
                         break;
-                    case picoquic_tp_max_packet_size:
+                    case picoquic_tp_max_udp_payload_size:
                         byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &cnx->remote_parameters.max_packet_size);
                         if (cnx->remote_parameters.max_packet_size < 1200) {
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
@@ -449,12 +465,12 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         }
                         byte_index += extension_length;
                         break;
-                    case picoquic_tp_original_connection_id:
+                    case picoquic_tp_original_destination_connection_id:
                         if (extension_length > PICOQUIC_CONNECTION_ID_MAX_SIZE) {
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                         } else {
-                            cnx->remote_parameters.original_connection_id.id_len = extension_length;
-                            memcpy(&cnx->remote_parameters.original_connection_id.id, bytes + byte_index, extension_length);
+                            cnx->remote_parameters.original_destination_connection_id.id_len = extension_length;
+                            memcpy(&cnx->remote_parameters.original_destination_connection_id.id, bytes + byte_index, extension_length);
                             byte_index += extension_length;
                         }
                         break;
@@ -469,6 +485,24 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &cnx->remote_parameters.active_connection_id_limit);
                         if (cnx->remote_parameters.active_connection_id_limit < 2) {
                             ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
+                        }
+                        break;
+                    case picoquic_tp_initial_source_connection_id:
+                        if (extension_length > PICOQUIC_CONNECTION_ID_MAX_SIZE) {
+                            ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
+                        } else {
+                            cnx->remote_parameters.initial_source_connection_id.id_len = extension_length;
+                            memcpy(&cnx->remote_parameters.initial_source_connection_id.id, bytes + byte_index, extension_length);
+                            byte_index += extension_length;
+                        }
+                        break;
+                    case picoquic_tp_retry_source_connection_id:
+                        if (extension_length > PICOQUIC_CONNECTION_ID_MAX_SIZE) {
+                            ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
+                        } else {
+                            cnx->remote_parameters.retry_source_connection_id.id_len = extension_length;
+                            memcpy(&cnx->remote_parameters.retry_source_connection_id.id, bytes + byte_index, extension_length);
+                            byte_index += extension_length;
                         }
                         break;
                     case picoquic_tp_supported_plugins:
@@ -522,9 +556,17 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
 
     /* Check for TPs that can't be sent by a client */
     if (ret == 0 && extension_mode == 0 &&
-        (TP_PRESENT(present_flag, picoquic_tp_original_connection_id) ||
+        (TP_PRESENT(present_flag, picoquic_tp_original_destination_connection_id) ||
          TP_PRESENT(present_flag, picoquic_tp_stateless_reset_secret) ||
-         TP_PRESENT(present_flag, picoquic_tp_preferred_address))) {
+         TP_PRESENT(present_flag, picoquic_tp_preferred_address) ||
+         TP_PRESENT(present_flag, picoquic_tp_retry_source_connection_id))) {
+        ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
+    }
+
+    /* Check mandatory TPs */
+    if (ret == 0 &&
+        (!TP_PRESENT(present_flag, picoquic_tp_initial_source_connection_id) || /* Both have to send initial SCID */
+        (extension_mode == 1 && !TP_PRESENT(present_flag, picoquic_tp_original_destination_connection_id)))) /* The server must send ODCID */ {
         ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
     }
 

@@ -96,7 +96,7 @@ extern "C" {
 /*
  * Supported versions
  */
-#define PICOQUIC_INTEROP_VERSION 0xff00001b
+#define PICOQUIC_INTEROP_VERSION 0xff00001d
 #define PICOQUIC_INTERNAL_TEST_VERSION_1 0x50435130
 
 #define PICOQUIC_INTEROP_VERSION_INDEX 1
@@ -113,7 +113,7 @@ typedef enum {
  * Codes used for representing the various types of packet encodings
  */
 typedef enum {
-    picoquic_version_header_27
+    picoquic_version_header_29
 } picoquic_version_header_encoding;
 
 typedef struct st_picoquic_version_parameters_t {
@@ -264,10 +264,10 @@ picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
  */
 
 typedef enum {
-    picoquic_tp_original_connection_id = 0x00,
+    picoquic_tp_original_destination_connection_id = 0x00,
     picoquic_tp_max_idle_timeout = 0x01,
     picoquic_tp_stateless_reset_secret = 0x02,
-    picoquic_tp_max_packet_size = 0x03,
+    picoquic_tp_max_udp_payload_size = 0x03,
     picoquic_tp_initial_max_data = 0x04,
     picoquic_tp_initial_max_stream_data_bidi_local = 0x05,
     picoquic_tp_initial_max_stream_data_bidi_remote = 0x06,
@@ -275,10 +275,12 @@ typedef enum {
     picoquic_tp_initial_max_streams_bidi = 0x08,
     picoquic_tp_initial_max_streams_uni = 0x09,
     picoquic_tp_ack_delay_exponent = 0x0a,
-    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-27
+    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-29
     picoquic_tp_disable_active_migration = 0x0c,
     picoquic_tp_preferred_address = 0x0d,
-    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-27
+    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-29
+    picoquic_tp_initial_source_connection_id = 0x0f, // TODO draft-29
+    picoquic_tp_retry_source_connection_id = 0x10,
     picoquic_tp_supported_plugins = 0x20,
     picoquic_tp_plugins_to_inject = 0x21,
 } picoquic_tp_enum;
@@ -293,7 +295,7 @@ typedef struct st_picoquic_tp_preferred_address_t {
 } picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
-    picoquic_connection_id_t original_connection_id;  // TODO use TP
+    picoquic_connection_id_t original_destination_connection_id;
     uint64_t max_idle_timeout;  // TODO use TP
     uint64_t max_packet_size;
     uint64_t initial_max_data;
@@ -307,6 +309,8 @@ typedef struct st_picoquic_tp_t {
     unsigned int disable_active_migration;
     picoquic_tp_preferred_address_t preferred_address;  // TODO use TP
     uint64_t active_connection_id_limit;
+    picoquic_connection_id_t initial_source_connection_id;
+    picoquic_connection_id_t retry_source_connection_id; // TODO use this TP
     char* supported_plugins;
     char* plugins_to_inject;
 } picoquic_tp_t;
@@ -666,7 +670,7 @@ typedef struct st_picoquic_cnx_t {
 
     /* connection state, ID, etc. Todo: allow for multiple cnxid */
     picoquic_state_enum cnx_state;
-    picoquic_connection_id_t initial_cnxid;
+    picoquic_connection_id_t initial_cnxid;  // What's that ?
     uint64_t start_time;
     uint64_t application_error;
     uint64_t local_error;

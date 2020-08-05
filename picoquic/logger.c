@@ -807,21 +807,18 @@ size_t picoquic_log_stream_blocked_frame(FILE* F, uint8_t* bytes, size_t bytes_m
 size_t picoquic_log_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
-    size_t min_size = 1 + 8 + 16;
+    size_t min_size = 1 + 1 + 2 + 16;
     picoquic_connection_id_t new_cnx_id;
-    size_t l_seq = 0;
+    uint64_t seq = 0, prior = 0;
     uint8_t l_cid = 0;
-
-    l_seq = picoquic_varint_skip(&bytes[byte_index]);
-
-    min_size += l_seq;
 
     if (min_size > bytes_max) {
         fprintf(F, "    Malformed NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
         return bytes_max;
     }
 
-    byte_index += l_seq;
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &seq);;
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &prior);;
 
     if (byte_index < bytes_max) {
         l_cid = bytes[byte_index++];
@@ -833,7 +830,7 @@ size_t picoquic_log_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t byte
     }
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
-        fprintf(F, "    NEW CONNECTION ID: 0x");
+        fprintf(F, "    NEW CONNECTION ID: Seq %" PRIu64 ", Retire Prior To %" PRIu64 ", 0x", seq, prior);
         for (int x = 0; x < new_cnx_id.id_len; x++) {
             fprintf(F, "%02x", new_cnx_id.id[x]);
         }
