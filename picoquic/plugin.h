@@ -35,6 +35,15 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, p
 int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname);
 
 /**
+ * Function that reads a plugin file and insert post-plugins described in it
+ * in an atomic, transaction style. This means, if one of the plugins
+ * cannot be inserted for any reason, all the previously inserted ones
+ * will be unplugged.
+ * Returns 0 if the plugin insertion succeed, 1 otherwise.
+ */
+int plugin_insert_post_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *p);
+
+/**
  * Function taking a list of plugin file names with their associated plugin
  * IDs and insert them in the provided order.
  * Notice that this function can reuse some previously cached plugins.
@@ -56,8 +65,10 @@ int plugin_insert_plugins_from_fnames(picoquic_cnx_t *cnx, uint8_t nb_plugins, c
  * Function that parses the identifier of a plugin contained in its manifest.
  * The name of the ID is copied in the provided buffer (requires at least 250 bytes).
  * Returns 0 on success.
+ * The function also indicates if the injection of the full plugin requires negotiation
+ * between both hosts using transport parameters.
  */
-int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id);
+int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id, bool *require_negotiation);
 
 /**
  * This function prepares an archive containing the plugin to exchange.

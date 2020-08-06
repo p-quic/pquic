@@ -13,6 +13,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+typedef enum {
+    plugin_inject_all = 0,
+    plugin_inject_preplugins,
+    plugin_inject_postplugins,
+} plugin_inject_mode_t;
+
 const char *pluglet_type_name(pluglet_type_enum te) {
     char const *text = "unknown";
     switch (te) {
@@ -267,12 +273,21 @@ int plugin_unplug(picoquic_cnx_t *cnx, protoop_str_id_t pid, param_id_t param, p
 }
 
 bool parse_plugin_line(char* line, protoop_str_id_t inserted_pid,
-    param_id_t *param, pluglet_type_enum *pte, char **pluglet_fname)
+    param_id_t *param, pluglet_type_enum *pte, char **pluglet_fname,
+    bool *end_preplugin)
 {
+    if (end_preplugin) {
+        *end_preplugin = false;
+    }
     /* Part one: extract protocol operation id */
     char *token = strsep(&line, " ");
     if (token == NULL) {
         printf("No token for protocol operation id extracted!\n");
+        return false;
+    } else if (strncmp(token, "-", 1) == 0) {
+        if (end_preplugin) {
+            *end_preplugin = true;
+        }
         return false;
     }
     strcpy(inserted_pid, token);
@@ -336,12 +351,45 @@ bool parse_plugin_line(char* line, protoop_str_id_t inserted_pid,
 }
 
 bool insert_pluglet_from_plugin_line(picoquic_cnx_t *cnx, char *line, protoop_plugin_t *p,
-    char *plugin_dirname, protoop_str_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte)
+    char *plugin_dirname, protoop_str_id_t inserted_pid, param_id_t *param, pluglet_type_enum *pte,
+    plugin_inject_mode_t pim, bool *seen_preplugin_marker)
 {
     char *pluglet_fname;
-    bool ok = parse_plugin_line(line, inserted_pid, param, pte, &pluglet_fname);
-    if (!ok) {
-        return false;
+    bool end_preplugin;
+    bool ok = parse_plugin_line(line, inserted_pid, param, pte, &pluglet_fname, &end_preplugin);
+
+    switch (pim)
+    {
+    case plugin_inject_all:
+        if (!ok) {
+            return false;
+        }
+        break;
+    case plugin_inject_preplugins:
+        if (ok && *seen_preplugin_marker) {
+            return true;
+        } else if (!ok && !*seen_preplugin_marker && end_preplugin) {
+            // Stop now injecting plugins
+            *seen_preplugin_marker = true;
+            return true;
+        } else if (!ok) {
+            return false;
+        }
+        break;
+    case plugin_inject_postplugins:
+        if (ok && !*seen_preplugin_marker) {
+            return true;
+        } else if (!ok && !*seen_preplugin_marker && end_preplugin) {
+            // Now start really injecting plugins
+            *seen_preplugin_marker = true;
+            return true;
+        } else if (!ok) {
+            return false;
+        }
+        break;
+    default:
+        fprintf(stderr, "This should never happen\n");
+        exit(-1);
     }
 
     size_t max_dirname_size = 250;
@@ -364,6 +412,9 @@ int plugin_parse_parameter(char *param_token, plugin_parameters_t *params) {
         return 0;
     } else if (strcmp(param_token, "dynamic_memory") == 0) {
         params->plugin_memory_manager_type = plugin_memory_manager_dynamic;
+        return 0;
+    } else if (strcmp(param_token, "negotiate") == 0) {
+        params->require_negotiation = true;
         return 0;
     }
     printf("Unrecognized plugin option: \"%s\"\n", param_token);
@@ -568,52 +619,170 @@ int plugin_preprocess_file(picoquic_cnx_t *cnx, char *plugin_dirname, const char
     return 0;
 }
 
-int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
+static FILE *get_file_from_fname(picoquic_cnx_t *cnx, const char *plugin_fname, char **preprocessed) {
     size_t max_filename_size = 250;
     char buf[max_filename_size];
     if (strlen(plugin_fname) >= max_filename_size){
         printf("The size of the plugin path is too large (>= %" PRIu64 ")\n", max_filename_size);
-        return 1;
+        return NULL;
     }
     // here, we know that plugin_fname has a \0 at an index before max_filename_size
     strcpy(buf, plugin_fname);
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read = 0;
-    bool ok = true;
     char *plugin_dirname = dirname(buf);
+    if (plugin_preprocess_file(cnx, plugin_dirname, plugin_fname, preprocessed) != 0 || !preprocessed) {
+        if (*preprocessed) free(*preprocessed);
+        return NULL;
+    }
+#ifndef NS3
+    FILE *file = fmemopen(*preprocessed, strlen(*preprocessed)+1, "r");
+
+    if (file == NULL) {
+        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
+        return NULL;
+    }
+#else
+    FILE *file = tmpfile();
+    if (!file) {
+        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
+        return NULL;
+    }
+    size_t preprocessed_len = strlen(*preprocessed) + 1;
+    size_t written = fwrite(*preprocessed, preprocessed_len, 1, file);
+    if (written != 1) {
+        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
+        return NULL;
+    }
+    int ret = fseek(file, 0L, SEEK_SET);
+#endif
+    return file;
+}
+
+int plugin_insert_post_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *p) {
+    size_t max_filename_size = 250;
+    char buf[max_filename_size];
+    if (strlen(p->path) >= max_filename_size){
+        printf("The size of the plugin path is too large (>= %" PRIu64 ")\n", max_filename_size);
+        return NULL;
+    }
+    // here, we know that plugin_fname has a \0 at an index before max_filename_size
+    strcpy(buf, p->path);
+
+    ssize_t read = 0;
+    size_t len = 0;
+    char *line = NULL;
+    bool ok = true;
+    char *preprocessed = NULL;
+    FILE *file = get_file_from_fname(cnx, p->path, &preprocessed);
+    if (file == NULL) {
+        return 1;
+    }
+
+    char *plugin_dirname = dirname(buf);
+
     char inserted_pid[100];
     param_id_t param;
     pluglet_type_enum pte;
     pid_node_t *pid_stack_top = NULL;
     pid_node_t *tmp = NULL;
 
-    char *preprocessed = NULL;
-    if (plugin_preprocess_file(cnx, plugin_dirname, plugin_fname, &preprocessed) != 0 || !preprocessed) {
-        if (preprocessed) free(preprocessed);
-        return -1;
+    // reading the first line and ignoring its content
+    read = getline(&line, &len, file);
+    if (read == -1) {
+        printf("Error in the file %s\n", p->path);
+        fclose(file);
+        return 1;
     }
-#ifndef NS3
-    FILE *file = fmemopen(preprocessed, strlen(preprocessed)+1, "r");
 
-    if (file == NULL) {
-        fprintf(stderr, "Failed to open %s: %s\n", plugin_fname, strerror(errno));
-        return 1;
+    int nodes = 0;
+    pid_node_t *inserted_nodes[1024];
+    bool seen_preplugin_marker = false;
+    while (ok && (read = getline(&line, &len, file)) != -1) {
+        /* Skip blank lines */
+        if (read <= 1) {
+            continue;
+        }
+        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_str_id_t ) inserted_pid, &param, &pte,
+            plugin_inject_postplugins, &seen_preplugin_marker);
+        /* We do not want to keep track of postplugins now if we need to negotiate */
+        if (ok && seen_preplugin_marker) {
+            /* Keep track of the inserted pids */
+            tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
+            if (!tmp) {
+                printf("No enough memory to allocate stack nodes; abort\n");
+                ok = false;
+                break;
+            }
+            if (strlen(inserted_pid) + 1 > sizeof(tmp->pid)){
+                printf("No enough memory to store the plugin id\n");
+                ok = false;
+                break;
+            }
+            strcpy(tmp->pid, inserted_pid);
+            tmp->param = param;
+            tmp->pte = pte;
+            tmp->next = pid_stack_top;
+            pid_stack_top = tmp;
+        }
     }
-#else
-    FILE *file = tmpfile();
-    if (!file) {
-        fprintf(stderr, "Failed to open tmpfile, strerror: %s\n", strerror(errno));
-        return 1;
+
+    while (pid_stack_top != NULL) {
+        if (!ok) {
+            /* Unplug previously plugged code */
+            plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
+        }
+        LOG_EVENT(cnx, "PLUGINS", "PLUGLET_INSERTED", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
+        tmp = pid_stack_top->next;
+        free(pid_stack_top);
+        pid_stack_top = tmp;
     }
-    size_t preprocessed_len = strlen(preprocessed) + 1;
-    size_t written = fwrite(preprocessed, preprocessed_len, 1, file);
-    if (written != 1) {
-        fprintf(stderr, "Failed to write to tmpfile, ret: %d\n", written);
-        return 1;
+
+    if (!ok) {
+        LOG_EVENT(cnx, "PLUGINS", "PLUGIN_INSERTION_FAILED", "", "{\"filename\": \"%s\"}", p->path);
+        free(p);
+    } else {
+        LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", p->path, p->name);
     }
-    int ret = fseek(file, 0L, SEEK_SET);
+
+    free(preprocessed);
+
+#ifndef NS3
+    if (line) {
+        free(line);
+    }
 #endif
+
+    fclose(file);
+
+    return ok ? 0 : 1;
+}
+
+int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
+    size_t max_filename_size = 250;
+    char buf[max_filename_size];
+    if (strlen(plugin_fname) >= max_filename_size){
+        printf("The size of the plugin path is too large (>= %" PRIu64 ")\n", max_filename_size);
+        return NULL;
+    }
+    // here, we know that plugin_fname has a \0 at an index before max_filename_size
+    strcpy(buf, plugin_fname);
+
+    ssize_t read = 0;
+    size_t len = 0;
+    char *line = NULL;
+    bool ok = true;
+    char *preprocessed = NULL;
+    FILE *file = get_file_from_fname(cnx, plugin_fname, &preprocessed);
+    if (file == NULL) {
+        return 1;
+    }
+
+    char *plugin_dirname = dirname(buf);
+
+    char inserted_pid[100];
+    param_id_t param;
+    pluglet_type_enum pte;
+    pid_node_t *pid_stack_top = NULL;
+    pid_node_t *tmp = NULL;
 
     // reading the first line
     read = getline(&line, &len, file);
@@ -630,13 +799,18 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         return 1;
     }
 
+    int nodes = 0;
+    pid_node_t *inserted_nodes[1024];
+    plugin_inject_mode_t pim = p->params.require_negotiation ? plugin_inject_preplugins : plugin_inject_all;
+    bool seen_preplugin_marker = false;
     while (ok && (read = getline(&line, &len, file)) != -1) {
         /* Skip blank lines */
         if (read <= 1) {
             continue;
         }
-        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_str_id_t ) inserted_pid, &param, &pte);
-        if (ok) {
+        ok = insert_pluglet_from_plugin_line(cnx, line, p, plugin_dirname, (protoop_str_id_t ) inserted_pid, &param, &pte, pim, &seen_preplugin_marker);
+        /* We do not want to keep track of postplugins now if we need to negotiate */
+        if (ok && (pim == plugin_inject_all || !seen_preplugin_marker)) {
             /* Keep track of the inserted pids */
             tmp = (pid_node_t *) malloc(sizeof(pid_node_t));
             if (!tmp) {
@@ -678,6 +852,8 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
         free(p);
     } else {
         LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
+        p->path = (char *) malloc(sizeof(char) * (strlen(plugin_fname) + 1));
+        strcpy(p->path, plugin_fname);
     }
 
     free(preprocessed);
@@ -693,7 +869,7 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
     return ok ? 0 : 1;
 }
 
-int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
+int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id, bool *require_negotiation) {
     FILE *file = fopen(plugin_fname, "r");
 
     if (file == NULL) {
@@ -711,13 +887,18 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
     }
     char *line_to_parse = first_line;
 
-    char* pid_tmp = get_plugin_id(&line_to_parse);
+    plugin_parameters_t params = {0};
+    char* pid_tmp = plugin_parse_first_plugin_line(line_to_parse, &params);
     if (pid_tmp == NULL) {
         printf("Cannot extract plugin id\n");
         fclose(file);
         return 1;
     }
     fclose(file);
+
+    if (require_negotiation) {
+        *require_negotiation = params.require_negotiation;
+    }
 
     /* FIXME It's bad, I know... */
     strcpy(plugin_id, pid_tmp);
@@ -729,17 +910,22 @@ int plugin_parse_plugin_id(const char *plugin_fname, char *plugin_id) {
     return 0;
 }
 
-int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_t* plugins)
+bool plugin_insert_plugins_from_cache(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_t* plugins)
 {
-    int ret = 0;
-    int err = 0;
-
-    /* First, look at the cache */
     /* Fast track: do we have cached plugins? */
+
+    /* FIXME: currently, it is NOT possible to use cached plugins if one of them requires negotiation. We need to rework the cache storage first. */
+    for (int i = 0; i < nb_plugins; i++) {
+        if (plugins[i].require_negotiation) {
+            return false;
+        }
+    }
+
     /* First condition is required for tests */
     if (cnx->quic && cnx->quic->cached_plugins_queue && queue_peek(cnx->quic->cached_plugins_queue) != NULL) {
         cached_plugins_t* first = queue_dequeue(cnx->quic->cached_plugins_queue);
         cached_plugins_t* curr = first;
+        int err = 0;
         do {
             /* Check that the cache exactly contains what we want */
             /* This is not optimised, but it should be ok for the current usage we have */
@@ -763,7 +949,7 @@ int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_
                     cnx->plugins = curr->plugins;
                     free(curr);
                     DBG_PRINTF("%s", "Plugin found in cache: inserted!\n");
-                    return 0;
+                    return true;
                 }
             }
 
@@ -775,10 +961,25 @@ int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_
         } while ((curr = queue_dequeue(cnx->quic->cached_plugins_queue)) != first && curr != NULL);
     }
 
+    return false;
+}
+
+int plugin_insert_plugins(picoquic_cnx_t *cnx, uint8_t nb_plugins, plugin_fname_t* plugins)
+{
+    int ret = 0;
+    int err = 0;
+
+    /* First, look at the cache */
+    if (plugin_insert_plugins_from_cache(cnx, nb_plugins, plugins)) {
+        return 0;
+    }
+
     /* If the combination was not previously cached, insert them now */
     for (int i = 0; i < nb_plugins; i++) {
         err = plugin_insert_plugin(cnx, plugins[i].plugin_path);
-        if (ret == 0) {
+        if (err == 0 && plugins[i].require_negotiation) {
+            printf("Successfully inserted preplugin %s\n", plugins[i].plugin_path);
+        } else if (err == 0) {
             printf("Successfully inserted local plugin %s\n", plugins[i].plugin_path);
         } else {
             printf("Failed to insert local plugin %s\n", plugins[i].plugin_path);
@@ -798,7 +999,7 @@ int plugin_insert_plugins_from_fnames(picoquic_cnx_t *cnx, uint8_t nb_plugins, c
         plugin_fname_t plugins[nb_plugins];
         int err = 0;
         for (int i = 0; err == 0 && i < nb_plugins; i++) {
-            err = plugin_parse_plugin_id(plugin_fnames[i], plugin_ids[i]);
+            err = plugin_parse_plugin_id(plugin_fnames[i], plugin_ids[i], &plugins[i].require_negotiation);
             if (err) {
                 fprintf(stderr, "Failed to parse plugin ID for %s; do not insert plugins!\n", plugin_fnames[i]);
             }
@@ -920,6 +1121,7 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
     char abs_path[max_dirname_size];
     struct stat st;
     int fd;
+    bool pre_plugin;
     char buff[8192];
     if (strlen(plugin_dirname) >= max_dirname_size){
         printf("The size of the plugin path is too large (>= %" PRIu64 ")\n", max_dirname_size);
@@ -930,7 +1132,7 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
         if (read_len <= 1) {
             continue;
         }
-        ok = parse_plugin_line(line, (protoop_str_id_t) inserted_pid, &param, &pte, &pluglet_fname);
+        ok = parse_plugin_line(line, (protoop_str_id_t) inserted_pid, &param, &pte, &pluglet_fname, &pre_plugin);
         if (ok) {
             // here, we know that plugin_dirname will have a \0 at an index before max_dirname_size
             // abs_path is thus large enough
@@ -967,6 +1169,9 @@ int plugin_prepare_plugin_data_exchange(picoquic_cnx_t *cnx, const char *plugin_
             }
             close(fd);
             archive_entry_free(entry);
+        } else if (pre_plugin) {
+            // We just reached the pre plugin marker, just continue
+            ok = true;
         }
     }
 
@@ -1131,8 +1336,10 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
             param_id_t default_behaviour = NO_PARAM;
             HASH_FIND(hh, post->params, &default_behaviour, sizeof(param_id_t), popst);
             if (!popst) {
-                printf("FATAL ERROR: no protocol operation with id %s and param %u, no default behaviour!\n", pp->pid->id, pp->param);
-                exit(-1);
+                fprintf(stderr, "WARNING: no protocol operation with id %s and param %u, no default behaviour!\n", pp->pid->id, pp->param);
+                fprintf(stderr, "NOTE: this used to be a fatal error, but for a parametrizable protoop, this might be normal. Note that the return value will be 0\n");
+                status = 0;
+                goto cleanup;
             }
         }
     } else {
@@ -1219,6 +1426,7 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
         printf("HINT: this is probably not what you want, so maybe check if you called the right protocol operation...\n");
     }
 
+cleanup:
     /* ... and restore ALL the previous inputs and outputs */
     memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * caller_inputc);
     memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * caller_outputc);

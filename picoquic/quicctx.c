@@ -381,6 +381,7 @@ void picoquic_free_plugins(protoop_plugin_t *plugins)
         queue_free(current_p->block_queue_cc);
         queue_free(current_p->block_queue_non_cc);
         destroy_memory_management(current_p);
+        free(current_p->path);
         free(current_p);
     }
 }
@@ -419,6 +420,7 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
     const int max_plugin_fname_len = strlen(quic->plugin_store_path) + 514; /* From d_name max length, plus the separator and null char*/
     char tmp_buf[max_plugin_fname_len];
     char pid_buf[250]; /* Required plugin name size */
+    bool require_negotiation;
     size_t pid_size, path_size;
     d = opendir(quic->plugin_store_path);
     if (d) {
@@ -434,8 +436,11 @@ int picoquic_get_supported_plugins(picoquic_quic_t* quic)
                     while ((sub_dir = readdir(sub_d)) != NULL) {
                         if (picoquic_string_ends_with(sub_dir->d_name, ".plugin")) {
                             picoquic_string_join_path_and_fname(tmp_buf, sub_dir->d_name);
-                            if (plugin_parse_plugin_id(tmp_buf, pid_buf)) {
+                            if (plugin_parse_plugin_id(tmp_buf, pid_buf, &require_negotiation)) {
                                 fprintf(stderr, "Error when parsing PID of path %s\n", tmp_buf);
+                                continue;
+                            } else if (require_negotiation) {
+                                printf("Plugin %s requires negotiation, so don't advertise it in supported plugins...\n", pid_buf);
                                 continue;
                             }
                             pid_size = strlen(pid_buf);
@@ -477,8 +482,9 @@ static int inject_plugin(plugin_list_t *quic_plugins, const char** plugin_fnames
     char buf[256];
     size_t buf_len;
     int i;
+    bool require_negotiation;
     for (i = 0; err == 0 && i < plugins; i++) {
-        err = plugin_parse_plugin_id(plugin_fnames[i], buf);
+        err = plugin_parse_plugin_id(plugin_fnames[i], buf, &require_negotiation);
         if (err != 0) {
             break;
         }
@@ -494,6 +500,7 @@ static int inject_plugin(plugin_list_t *quic_plugins, const char** plugin_fnames
         }
         strcpy(quic_plugins->elems[i].plugin_name, buf);
         strcpy(quic_plugins->elems[i].plugin_path, plugin_fnames[i]);
+        quic_plugins->elems[i].require_negotiation = require_negotiation;
         quic_plugins->name_num_bytes += buf_len;
         quic_plugins->size++;
     }
@@ -1387,12 +1394,25 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
+    if (cnx != NULL) {
+        register_protocol_operations(cnx);
+        /* It's already the time to inject plugins, as creating the TLS context sets up the transport parameters */
+        if (quic->local_plugins.size > 0) {
+            int err = plugin_insert_plugins(cnx, quic->local_plugins.size, quic->local_plugins.elems);
+            if (err) {
+                cnx = NULL;
+            }
+        }
+    }
+
     /* Only initialize TLS after all parameters have been set */
 
-    if (picoquic_tlscontext_create(quic, cnx, start_time) != 0) {
-        /* Cannot just do partial creation! */
-        picoquic_delete_cnx(cnx);
-        cnx = NULL;
+    if (cnx != NULL) {
+        if (picoquic_tlscontext_create(quic, cnx, start_time) != 0) {
+            /* Cannot just do partial creation! */
+            picoquic_delete_cnx(cnx);
+            cnx = NULL;
+        }
     }
 
     if (cnx != NULL) {
@@ -1413,8 +1433,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
         }
     }
 
-    if (cnx) {
-        register_protocol_operations(cnx);
+    if (cnx != NULL) {
         /* Also initialize reserve queue */
         cnx->reserved_frames = queue_init();
         /* And the retry queue */
@@ -1581,8 +1600,30 @@ int picoquic_pid_index(plugin_list_t* list, char* pid)
     return list->size;
 }
 
+void handle_plugin_to_negotiate(picoquic_cnx_t* cnx)
+{
+    protoop_plugin_t *current_plugin, *tmp_plugin;
+    protoop_arg_t status;
+    char *error_msg = NULL;
+    int err;
+    HASH_ITER(hh, cnx->plugins, current_plugin, tmp_plugin) {
+        if (current_plugin->params.require_negotiation && current_plugin->params.negotiated) {
+            /* Excellent, we just need to inject the postplugins */
+            err = plugin_insert_post_plugin(cnx, current_plugin);
+            if (err) {
+                printf("Failed to inject post plugins for %s\n", current_plugin->name);
+            } else {
+                printf("Successfully injected post plugins for %s\n", current_plugin->name);
+            }
+        }
+    }
+}
+
 int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
 {
+    /* First handle plugins to negotiate */
+    handle_plugin_to_negotiate(cnx);
+
     /* If there is no plugins_to_inject remote parameter, stop now */
     if (!cnx->remote_parameters.plugins_to_inject) {
         return 0;
@@ -1643,6 +1684,9 @@ int picoquic_handle_plugin_negotiation_client(picoquic_cnx_t* cnx)
 
 int picoquic_handle_plugin_negotiation_server(picoquic_cnx_t* cnx)
 {
+    /* First handle plugins to negotiate */
+    handle_plugin_to_negotiate(cnx);
+
     /* If there is no supported_plugins remote parameter, stop now */
     if (!cnx->remote_parameters.supported_plugins) {
         return 0;
@@ -2141,9 +2185,13 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
         }
 
         /* Delete pending reserved frames, if any */
-        queue_free(cnx->reserved_frames);
+        if (cnx->reserved_frames != NULL) {
+            queue_free(cnx->reserved_frames);
+        }
         /* And also the retry frames */
-        queue_free(cnx->retry_frames);
+        if (cnx->retry_frames != NULL) {
+            queue_free(cnx->retry_frames);
+        }
 
         free(cnx);
     }
