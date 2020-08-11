@@ -281,8 +281,8 @@ typedef enum {
     picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-29
     picoquic_tp_initial_source_connection_id = 0x0f, // TODO draft-29
     picoquic_tp_retry_source_connection_id = 0x10,
-    picoquic_tp_supported_plugins = 0x20,
-    picoquic_tp_plugins_to_inject = 0x21,
+    picoquic_tp_supported_plugins = 0x79, // to avoid clash with datagram extension
+    picoquic_tp_plugins_to_inject = 0x7a, // to avoid clash with datagram extension
 } picoquic_tp_enum;
 
 typedef struct st_picoquic_tp_preferred_address_t {
@@ -543,11 +543,16 @@ typedef struct plugin_parameters {
 
     // determines the memory manager used for this plugin
     plugin_memory_manager_type_t plugin_memory_manager_type;
+    // indicates if the injection of the plugin is negotiated with TPs
+    bool require_negotiation;
+    // set during the processing of the transport parameter to indicate if the plugin was successfully negotiated or not
+    bool negotiated;
 } plugin_parameters_t;
 
 typedef struct protoop_plugin {
     UT_hash_handle hh; /* Make the structure hashable */
     char name[PROTOOPPLUGINNAME_MAX];
+    char* path; /* Path of the plugin manifest */
     queue_t *block_queue_cc; /* Send reservation queue for congestion controlled frames */
     queue_t *block_queue_non_cc; /* Send reservation queue for non-congestion controlled frames */
     uint64_t bytes_in_flight; /* Number of bytes in flight due to generated frames */

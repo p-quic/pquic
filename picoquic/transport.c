@@ -193,6 +193,55 @@ static size_t tp_data_encode(uint8_t *bytes, size_t bytes_max, uint64_t extensio
     return byte_index;
 }
 
+int prepare_plugin_transport_extensions(picoquic_cnx_t* cnx, uint8_t* bytes, size_t bytes_max)
+{
+    int byte_index = 0;
+
+    /* Insert here a special (parametrizable) protocol operation to add new TPs */
+    protocol_operation_struct_t *post;
+    if (PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER.hash == 0) {
+        PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER.hash = hash_value_str(PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER.id);
+    }
+    HASH_FIND_PID(cnx->ops, &(PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER.hash), post);
+    if (!post) {
+        printf("No plugin attached on write_transport_parameter\n");
+        return 0;
+        // exit(-1);
+    }
+    protocol_operation_param_struct_t *current_popst, *tmp_popst;
+    protoop_arg_t status;
+    char *error_msg = NULL;
+    HASH_ITER(hh, post->params, current_popst, tmp_popst) {
+        /* FIXME this should be parametrizable per-plugin */
+        if (bytes_max - byte_index > 64) {
+            uint8_t value[64];
+            size_t max_length = 64;
+            /* FIXME this is a little hacky here, but this is also a special case */
+            if (current_popst->replace) {
+                cnx->protoop_inputc = 2;
+                cnx->protoop_inputv[0] = (protoop_arg_t) &value;
+                cnx->protoop_inputv[1] = (protoop_arg_t) max_length;
+                cnx->current_plugin = current_popst->replace->p;
+                cnx->current_anchor = pluglet_replace;
+                status = (protoop_arg_t) exec_loaded_code(current_popst->replace, (void *)cnx,
+                    (void *)cnx->current_plugin->memory, sizeof(cnx->current_plugin->memory), &error_msg);
+                if (error_msg) {
+                    fprintf(stderr, "Error when running %s: %s\n", PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER.id, error_msg);
+                }
+                cnx->current_plugin = NULL;
+                cnx->protoop_inputc = 0;
+
+                if (status > 0 && status <= max_length) {
+                    byte_index += tp_data_encode(bytes + byte_index, bytes_max - byte_index,
+                                         current_popst->param, (uint8_t *) value, status);
+                }
+            }
+        }
+    }
+
+    return byte_index;
+}
+
 int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mode,
     uint8_t* bytes, size_t bytes_max, size_t* consumed)
 {
@@ -332,6 +381,8 @@ int picoquic_prepare_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                                          (uint8_t *) cnx->local_parameters.plugins_to_inject,
                                          plugins_to_insert_len);
         }
+
+        byte_index += prepare_plugin_transport_extensions(cnx, bytes + byte_index, bytes_max - byte_index);
     }
 
     *consumed = byte_index;
@@ -368,6 +419,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                     ret = picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PARAMETER_ERROR, 0);
                 } else {
                     size_t extension_val_start = byte_index;
+                    int inject_plugin;
 
                     switch (extension_type) {  // TP with integer values are varint encoded
                         case picoquic_tp_initial_max_stream_data_bidi_local:
@@ -393,8 +445,6 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         } else {
                             present_flag |= (1UL << extension_type);
                         }
-                    } else {
-                        break;
                     }
 
                     switch (extension_type) {
@@ -528,6 +578,16 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         }
                         break;
                     default:
+                        inject_plugin = protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PROCESS_TRANSPORT_PARAMETER, extension_type, NULL, bytes + byte_index, extension_length);
+                        if (inject_plugin != 0 && cnx->previous_plugin_in_replace != NULL) {
+                            if (cnx->previous_plugin_in_replace->params.require_negotiation) {
+                                cnx->previous_plugin_in_replace->params.negotiated = true;
+                                printf("Register plugin %s for full registration\n", cnx->previous_plugin_in_replace->name);
+                            } else {
+                                printf("WARNING: trying to register plugin %s for full registration, but does not require negotiation...\n",
+                                    cnx->previous_plugin_in_replace->name);
+                            }
+                        }
                         /* ignore unknown extensions */
                         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, NULL, extension_type, extension_length, bytes + byte_index);
                         byte_index += extension_length;

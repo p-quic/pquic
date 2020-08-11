@@ -1029,6 +1029,32 @@ protoop_arg_t get_stream_head(picoquic_stream_head *stream_head, access_key_t ak
         return stream_head->sent_offset;
     case AK_STREAMHEAD_SENDING_OFFSET:
         return stream_head->sending_offset;
+    case AK_STREAMHEAD_FLAGS_FIN_REQUESTED:
+        return stream_head->fin_requested;
+    case AK_STREAMHEAD_FLAGS_FIN_SENT:
+        return stream_head->fin_sent;
+    case AK_STREAMHEAD_FLAGS_FIN_RECEIVED:
+        return stream_head->fin_received;
+    case AK_STREAMHEAD_FLAGS_FIN_SIGNALLED:
+        return stream_head->fin_signalled;
+    case AK_STREAMHEAD_FLAGS_RESET_REQUESTED:
+        return stream_head->reset_requested;
+    case AK_STREAMHEAD_FLAGS_RESET_SENT:
+        return stream_head->reset_sent;
+    case AK_STREAMHEAD_FLAGS_RESET_RECEIVED:
+        return stream_head->reset_received;
+    case AK_STREAMHEAD_FLAGS_RESET_SIGNALLED:
+        return stream_head->reset_signalled;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_REQUESTED:
+        return stream_head->stop_sending_requested;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_SENT:
+        return stream_head->stop_sending_sent;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_RECEIVED:
+        return stream_head->stop_sending_received;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_SIGNALLED:
+        return stream_head->stop_sending_signalled;
+    case AK_STREAMHEAD_FLAGS_MAX_STREAM_UPDATED:
+        return stream_head->max_stream_updated;
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);
         return 0;
@@ -1043,6 +1069,45 @@ void set_stream_head(picoquic_stream_head *stream_head, access_key_t ak, protoop
         break;
     case AK_STREAMHEAD_CONSUMED_OFFSET:
         stream_head->consumed_offset = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_FIN_REQUESTED:
+        stream_head->fin_requested = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_FIN_SENT:
+        stream_head->fin_sent = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_FIN_RECEIVED:
+        stream_head->fin_received = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_FIN_SIGNALLED:
+        stream_head->fin_signalled = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_RESET_REQUESTED:
+        stream_head->reset_requested = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_RESET_SENT:
+        stream_head->reset_sent = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_RESET_RECEIVED:
+        stream_head->reset_received = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_RESET_SIGNALLED:
+        stream_head->reset_signalled = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_REQUESTED:
+        stream_head->stop_sending_requested = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_SENT:
+        stream_head->stop_sending_sent = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_RECEIVED:
+        stream_head->stop_sending_received = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_STOP_SENDING_SIGNALLED:
+        stream_head->stop_sending_signalled = val;
+        break;
+    case AK_STREAMHEAD_FLAGS_MAX_STREAM_UPDATED:
+        stream_head->max_stream_updated = val;
         break;
     default:
         printf("ERROR: unknown stream head access key %u\n", ak);

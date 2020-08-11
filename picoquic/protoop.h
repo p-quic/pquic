@@ -96,6 +96,28 @@ extern protoop_id_t PROTOOP_PARAM_WRITE_FRAME;
 #define PROTOOPID_PARAM_NOTIFY_FRAME "notify_frame"
 extern protoop_id_t PROTOOP_PARAM_NOTIFY_FRAME;
 
+/**
+ * Write a non-standard transport parameter.
+ *
+ * \param[in] bytes \b uint8_t* Pointer to the start of the buffer to write the value (and only the value)
+ * \param[in] max_length \b size_t The maximum length that can be written
+ *
+ * \return consumed \b int The number of bytes written in \p bytes
+ */
+#define PROTOOPID_PARAM_WRITE_TRANSPORT_PARAMETER "write_transport_parameter"
+extern protoop_id_t PROTOOP_PARAM_WRITE_TRANSPORT_PARAMETER;
+
+/**
+ * Process a non-standard transport parameter and indicates if a plugin should be injected or not.
+ *
+ * \param[in] bytes \b uint8_t* A pointer to the value of the received extension
+ * \param[in] length \b size_t The length of the value of the received extension
+ *
+ * \return inject_plugin \b int If non zero, indicates that the plugin having injected this protoop should be fully injected
+ */
+#define PROTOOPID_PARAM_PROCESS_TRANSPORT_PARAMETER "process_transport_parameter"
+extern protoop_id_t PROTOOP_PARAM_PROCESS_TRANSPORT_PARAMETER;
+
 /* @} */
 
 /**
