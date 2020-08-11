@@ -1,4 +1,5 @@
 #include "../bpf.h"
+#include "../../ecn/bpf.h"
 
 #define BLOCK_STR_LEN 1200
 
@@ -39,7 +40,13 @@ protoop_arg_t protoop_log(picoquic_cnx_t *cnx) {
             char *ack_str = my_malloc(cnx, BLOCK_STR_LEN + 200);
             if (!ack_str)
                 return 0;
-            PROTOOP_SNPRINTF(cnx, ack_str, BLOCK_STR_LEN + 200, "{\"frame_type\": \"ack\", \"ack_delay\": \"%" PRIu64 "\", \"acked_ranges\": [%s]}", frame->ack_delay, (protoop_arg_t) block_str);
+            if (!frame->is_ack_ecn || frame->ecn_block == NULL) {
+                PROTOOP_SNPRINTF(cnx, ack_str, BLOCK_STR_LEN + 200, "{\"frame_type\": \"ack\", \"ack_delay\": \"%" PRIu64 "\", \"acked_ranges\": [%s]}", frame->ack_delay, (protoop_arg_t) block_str);
+            } else if (frame->ecn_block) {  // TODO: Make this work when sending acks
+                ecn_block_t b;
+                my_memcpy(&b, frame->ecn_block, sizeof(ecn_block_t));
+                PROTOOP_SNPRINTF(cnx, ack_str, BLOCK_STR_LEN + 200, "{\"frame_type\": \"ack\", \"ack_delay\": \"%" PRIu64 "\", \"ect1\": \"%" PRIu64 "\", \"ect0\": \"%" PRIu64 "\", \"ce\": \"%" PRIu64 "\", \"acked_ranges\": [%s]}", frame->ack_delay, b.ect1, b.ect0, b.ectce, (protoop_arg_t) block_str);
+            }
             helper_log_frame(cnx, ack_str);
             my_free(cnx, block_str);
             my_free(cnx, ack_str);

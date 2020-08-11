@@ -125,6 +125,12 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
             }
         }
 
+        if (frame->ack.is_ack_ecn && frame->ack.ecn_block && helper_process_ecn_block(cnx, frame->ack.ecn_block, pkt_ctx, sending_path)) {
+            helper_protoop_printf(cnx, "ecn block error\n", NULL, 0);
+            helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, MP_ACK_TYPE);
+            return 1;
+        }
+
         if (old_path != NULL && is_new_ack) {
             helper_estimate_path_bandwidth(cnx, sending_path, largest_sent_time,
                                              delivered_prior, delivered_time_prior, delivered_sent_prior,

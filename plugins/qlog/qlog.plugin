@@ -11,7 +11,7 @@ stream_flags_changed post frames/stream_flags_changed.o
 parse_frame param 0x00 post frames/padding_or_ping_parsed.o
 parse_frame param 0x01 post frames/padding_or_ping_parsed.o
 parse_frame param 0x02 post frames/ack_frame_parsed.o
-# TODO ACK ecn
+parse_frame param 0x03 post frames/ack_frame_parsed.o
 parse_frame param 0x04 post frames/reset_stream_frame_parsed.o
 parse_frame param 0x05 post frames/stop_sending_parsed.o
 parse_frame param 0x06 post frames/crypto_frame_parsed.o
@@ -42,7 +42,7 @@ parse_frame param 0x1e post frames/handshake_done_parsed.o
 write_frame param 0x00 post frames/frame_prepared.o
 write_frame param 0x01 post frames/frame_prepared.o
 write_frame param 0x02 post frames/frame_prepared.o
-# TODO ACK ecn
+write_frame param 0x03 post frames/frame_prepared.o
 write_frame param 0x04 post frames/frame_prepared.o
 write_frame param 0x05 post frames/frame_prepared.o
 write_frame param 0x06 post frames/frame_prepared.o
@@ -84,3 +84,4 @@ segment_prepared post sender/segment_prepared.o
 segment_aborted post sender/segment_aborted.o
 retransmit_needed post sender/segment_aborted.o
 received_segment post receiver/segment_received.o
+estimate_path_bandwidth post sender/path_bandwidth_estimated.o

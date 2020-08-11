@@ -1,19 +1,16 @@
-#include "picoquic.h"
-#include "memory.h"
-#include "memcpy.h"
-#include "getset.h"
+#include "../helpers.h"
 
 #define ECN_OPAQUE_ID 0x01
 
-#define ECN_FRAME_TYPE 0x28
-
-#define PROTOOPID_DECODE_ECN_FRAME (PROTOOPID_DECODE_FRAMES + 0x38)
-#define PROTOOPID_PREPARE_ECN_FRAME (PROTOOPID_SENDER + 0x38)
+#define META_PKT_CTX_ECN_COUNTERS 0x01
 
 typedef struct {
-    /* ECN Data */
-    uint32_t ecn_val;
-    uint32_t ecn_sock_flags;
+    uint32_t ecn_val; /* Latest value read from a socket */
+    uint32_t ecn_sock_flags; /* A map of sockets correctly ECN-configured */
+    bool in_skip_frame;
+} bpf_data;
+
+typedef struct {
     uint64_t ecn_ect0_marked_pkts;
     uint64_t ecn_ect1_marked_pkts;
     uint64_t ecn_ect_ce_marked_pkts;
@@ -21,13 +18,13 @@ typedef struct {
     uint64_t ecn_ect1_remote_pkts;
     uint64_t ecn_ect_ce_remote_pkts;
     uint64_t ecn_ack_ce_counter;
-} bpf_data;
+} ecn_counters_t;
 
-typedef struct ecn_frame {
+typedef struct {
     uint64_t ect0;
     uint64_t ect1;
     uint64_t ectce;
-} ecn_frame_t;
+} ecn_block_t;
 
 static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 {
@@ -45,5 +42,5 @@ static bpf_data *get_bpf_data(picoquic_cnx_t *cnx)
         // Save pointer for future use
         set_cnx_metadata(cnx, ECN_OPAQUE_ID, (protoop_arg_t) bpfd_ptr);
     }
-    return *bpfd_ptr;
+    return bpfd_ptr;
 }

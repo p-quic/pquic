@@ -127,7 +127,8 @@ int picoquic_recvmsg(SOCKET_TYPE fd,
     struct sockaddr_storage* addr_dest,
     socklen_t* dest_length,
     unsigned long* dest_if,
-    uint8_t* buffer, int buffer_max)
+    uint8_t* buffer, int buffer_max,
+    int *tos)
 #ifdef _WINDOWS
 {
     GUID WSARecvMsg_GUID = WSAID_WSARECVMSG;
@@ -284,6 +285,8 @@ int picoquic_recvmsg(SOCKET_TYPE fd,
                     if (dest_if != NULL) {
                         *dest_if = 0;
                     }
+                } else if (cmsg->cmsg_type == IP_TOS && tos) {
+                    *tos = *(int *) CMSG_DATA(cmsg);
                 }
 
 #endif
@@ -299,6 +302,8 @@ int picoquic_recvmsg(SOCKET_TYPE fd,
                     if (dest_if != NULL) {
                         *dest_if = pPktInfo6->ipi6_ifindex;
                     }
+                } else if (cmsg->cmsg_type == IPV6_TCLASS && tos) {
+                        *tos = *(int *) CMSG_DATA(cmsg);
                 }
             }
         }
@@ -604,7 +609,7 @@ select_retry:
                 if (S_ISSOCK(statbuf.st_mode)) {
                     bytes_recv = picoquic_recvmsg(sockets[i], addr_from, from_length,
                                                   addr_dest, dest_length, dest_if,
-                                                  buffer, buffer_max);
+                                                  buffer, buffer_max, &quic->rcv_tos);
                 } else {
                     bytes_recv = (int) read(sockets[i], buffer, (size_t) buffer_max);
                 }

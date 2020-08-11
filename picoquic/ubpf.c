@@ -53,6 +53,8 @@ register_functions(struct ubpf_vm *vm) {
     ubpf_register(vm, current_idx++, "set_path_metadata", set_path_metadata);
     ubpf_register(vm, current_idx++, "get_pkt_ctx", get_pkt_ctx);
     ubpf_register(vm, current_idx++, "set_pkt_ctx", set_pkt_ctx);
+    ubpf_register(vm, current_idx++, "get_pkt_ctx_metadata", get_pkt_ctx_metadata);
+    ubpf_register(vm, current_idx++, "set_pkt_ctx_metadata", set_pkt_ctx_metadata);
     ubpf_register(vm, current_idx++, "get_pkt", get_pkt);
     ubpf_register(vm, current_idx++, "set_pkt", set_pkt);
     ubpf_register(vm, current_idx++, "get_pkt_metadata", get_pkt_metadata);

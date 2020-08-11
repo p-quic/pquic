@@ -94,18 +94,6 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return cnx->nb_retransmission_total;
     case AK_CNX_NB_SPURIOUS:
         return cnx->nb_spurious;
-    case AK_CNX_ECN_ECT0_TOTAL_LOCAL:
-        return cnx->ecn_ect0_total_local;
-    case AK_CNX_ECN_ECT1_TOTAL_LOCAL:
-        return cnx->ecn_ect1_total_local;
-    case AK_CNX_ECN_CE_TOTAL_LOCAL:
-        return cnx->ecn_ce_total_local;
-    case AK_CNX_ECN_ECT0_TOTAL_REMOTE:
-        return cnx->ecn_ect0_total_remote;
-    case AK_CNX_ECN_ECT1_TOTAL_REMOTE:
-        return cnx->ecn_ect1_total_remote;
-    case AK_CNX_ECN_CE_TOTAL_REMOTE:
-        return cnx->ecn_ce_total_remote;
     case AK_CNX_DATA_SENT:
         return cnx->data_sent;
     case AK_CNX_DATA_RECEIVED:
@@ -331,24 +319,6 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_NB_SPURIOUS:
         cnx->nb_spurious = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_ECT0_TOTAL_LOCAL:
-        cnx->ecn_ect0_total_local = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_ECT1_TOTAL_LOCAL:
-        cnx->ecn_ect1_total_local = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_CE_TOTAL_LOCAL:
-        cnx->ecn_ce_total_local = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_ECT0_TOTAL_REMOTE:
-        cnx->ecn_ect0_total_remote = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_ECT1_TOTAL_REMOTE:
-        cnx->ecn_ect1_total_remote = (uint64_t) val;
-        break;
-    case AK_CNX_ECN_CE_TOTAL_REMOTE:
-        cnx->ecn_ce_total_remote = (uint64_t) val;
         break;
     case AK_CNX_DATA_SENT:
         cnx->data_sent = (uint64_t) val;
@@ -708,6 +678,28 @@ protoop_arg_t get_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int 
     }
     uint64_t out;
     int err = get_plugin_metadata(cnx->current_plugin, &path->metadata, idx, &out);
+    if (err)
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+    return out;
+}
+
+void set_pkt_ctx_metadata(picoquic_cnx_t *cnx, picoquic_packet_context_t *pkt_ctx, int idx, protoop_arg_t val) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return;
+    }
+    if (set_plugin_metadata(cnx->current_plugin, &pkt_ctx->metadata, idx, val))
+        printf("ERROR: %s returned a non-zero error code\n", __func__);
+}
+
+
+protoop_arg_t get_pkt_ctx_metadata(picoquic_cnx_t *cnx, picoquic_packet_context_t *pkt_ctx, int idx) {
+    if (!cnx->current_plugin) {
+        printf("ERROR: %s called outside a plugin context\n", __func__);
+        return -1;
+    }
+    uint64_t out;
+    int err = get_plugin_metadata(cnx->current_plugin, &pkt_ctx->metadata, idx, &out);
     if (err)
         printf("ERROR: %s returned a non-zero error code\n", __func__);
     return out;
@@ -1166,6 +1158,8 @@ protoop_arg_t get_ph(picoquic_packet_header *ph, access_key_t ak)
         return (protoop_arg_t) ph->epoch;
     case AK_PH_PTYPE:
         return ph->ptype;
+    case AK_PH_PC:
+        return ph->pc;
     default:
         printf("ERROR: unknown packet header access key %u\n", ak);
         return 0;

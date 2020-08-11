@@ -1821,6 +1821,24 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
 }
 
 
+uint8_t *picoquic_parse_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, const uint8_t *bytes_max, void **ecn_block) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    bytes = (uint8_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PARSE_ECN_BLOCK, outs, bytes, bytes_max);
+    *ecn_block = (void *) outs[0];
+    return bytes;
+}
+
+int picoquic_process_ecn_block(picoquic_cnx_t* cnx, void *ecn_block, picoquic_packet_context_t *pkt_ctx, picoquic_path_t *path) {
+    return (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PROCESS_ECN_BLOCK, NULL, ecn_block, pkt_ctx, path);
+}
+
+int picoquic_write_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, size_t bytes_max, picoquic_packet_context_t *pkt_ctx, size_t *consumed) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_WRITE_ECN_BLOCK, outs, bytes, bytes_max, pkt_ctx);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
 void picoquic_clear_stream(picoquic_stream_head* stream)
 {
     picoquic_stream_data** pdata[2];
@@ -1865,6 +1883,15 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
 
     pkt_ctx->first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
     pkt_ctx->first_sack_item.end_of_sack_range = 0;
+
+    /* Free the metadata */
+    if (pkt_ctx->metadata) {
+        plugin_struct_metadata_t *current_md, *tmp;
+        HASH_ITER(hh, pkt_ctx->metadata, current_md, tmp) {
+            HASH_DEL(pkt_ctx->metadata, current_md);
+            free(current_md);
+        }
+    }
 }
 
 /*
@@ -1905,14 +1932,6 @@ int picoquic_reset_cnx(picoquic_cnx_t* cnx, uint64_t current_time)
         cnx->tls_stream[epoch].sent_offset = 0;
         /* No need to reset the state flags, are they are not used for the crypto stream */
     }
-
-    /* Reset the ECN data */
-    cnx->ecn_ect0_total_local = 0;
-    cnx->ecn_ect1_total_local = 0;
-    cnx->ecn_ce_total_local = 0;
-    cnx->ecn_ect0_total_remote = 0;
-    cnx->ecn_ect1_total_remote = 0;
-    cnx->ecn_ce_total_remote = 0;
 
     for (int k = 0; k < 4; k++) {
         picoquic_crypto_context_free(&cnx->crypto_context[k]);
@@ -2366,8 +2385,8 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
     picoquic_tls_set_client_authentication(quic, client_authentication);
 }
 
-void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket);
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket, int recv_tos) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket, recv_tos);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {

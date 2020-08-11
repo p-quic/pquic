@@ -573,6 +573,41 @@ extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_FRAME;
  */
 #define PROTOOPID_NOPARAM_PREPARE_ACK_ECN_FRAME "prepare_ack_ecn_frame"
 extern protoop_id_t PROTOOP_NOPARAM_PREPARE_ACK_ECN_FRAME;
+
+/**
+ * Parse an ECN block
+ * \param[in] bytes \b uint8_t* Pointer to the start of the block in binary format to parse
+ * \param[in] bytes_max <b> const uint8_t* </b> Pointer to the end of the packet to parse
+ *
+ * \return \b uint8_t* Pointer to the first byte after the block in the packet, or NULL if an error occurred
+ * \param[out] ecn_block \b void* Pointer to the structure malloc'ed in the context memory containing the block information
+ */
+#define PROTOOPID_NOPARAM_PARSE_ECN_BLOCK "parse_ecn_block"
+extern protoop_id_t PROTOOP_NOPARAM_PARSE_ECN_BLOCK;
+
+/**
+ * Process an ECN block, and free it
+ * \param[in] ecn_block \b void* The block to process
+ * \param[in] pkt_ctx \b picoquic_packet_context_t* The packet context of the block
+ * \param[in] path \b picoquic_path_t* The path on which the block was received
+ *
+ * \return \b int Error code, 0 means it's ok
+ */
+#define PROTOOPID_NOPARAM_PROCESS_ECN_BLOCK "process_ecn_block"
+extern protoop_id_t PROTOOP_NOPARAM_PROCESS_ECN_BLOCK;
+
+/**
+ * Write an ECN block
+ * \param[in] bytes \b uint8_t* The buffer to write the block to
+ * \param[in] bytes_max \b size_t The number of bytes that can be written in the buffer
+ * \param[in] pkt_ctx \b picoquic_packet_context_t* The packet context for which a block should be written
+ *
+ * \return \b int Error code, 0 means it's ok
+ * \param[out] consumed \b size_t The number of bytes written
+ */
+#define PROTOOPID_NOPARAM_WRITE_ECN_BLOCK "write_ecn_block"
+extern protoop_id_t PROTOOP_NOPARAM_WRITE_ECN_BLOCK;
+
 /**
  * Prepare a MAX DATA frame.
  * \param[in] maxdata_increase \b uint64_t The max data to advertise

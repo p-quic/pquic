@@ -1311,7 +1311,7 @@ int picoquic_incoming_segment(
             /* TO DO: Find the incoming path */
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
-            picoquic_received_packet(cnx, quic->rcv_socket);
+            picoquic_received_packet(cnx, quic->rcv_socket, quic->rcv_tos);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
             picoquic_header_parsed(cnx, &ph, path, *consumed);
             if (cnx != NULL) LOG {

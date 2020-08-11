@@ -1,7 +1,9 @@
-be.qdeconinck.ecn
-before_sending_packet replace before_sending_packet.o
-received_packet replace received_packet.o
-process_frame param 0x0d replace process_ack_frame.o
-parse_frame param 0x28 replace parse_ecn_frame.o
-process_frame param 0x28 replace process_ecn_frame.o
-prepare_ecn_frame replace prepare_ecn_frame.o
+be.mpiraux.ecn
+before_sending_packet post before_sending_packet.o
+header_parsed post header_parsed.o
+received_packet post received_packet.o
+parse_ecn_block replace parse_ecn_block.o
+write_ecn_block replace write_ecn_block.o
+process_ecn_block replace process_ecn_block.o
+skip_frame pre pre_skip_frame.o
+skip_frame post post_skip_frame.o

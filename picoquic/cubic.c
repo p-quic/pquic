@@ -245,6 +245,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
                 }
                 break;
             case picoquic_congestion_notification_repeat:
+            case picoquic_congestion_notification_congestion_experienced:
             case picoquic_congestion_notification_timeout:
                 /* enter recovery */
                 if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt) {
@@ -320,6 +321,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
                 case picoquic_congestion_notification_spurious_repeat:
                     picoquic_cubic_correct_spurious(path_x, cubic_state, current_time);
                     break;
+                case picoquic_congestion_notification_congestion_experienced:
                 case picoquic_congestion_notification_repeat:
                 case picoquic_congestion_notification_timeout:
                     if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt) {
@@ -355,6 +357,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
                 }
                 break;
             }
+            case picoquic_congestion_notification_congestion_experienced:
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_timeout:
                 if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt) {
@@ -381,6 +384,7 @@ void picoquic_cubic_notify(picoquic_path_t* path_x,
                 }
                 break;
             }
+            case picoquic_congestion_notification_congestion_experienced:
             case picoquic_congestion_notification_repeat:
             case picoquic_congestion_notification_timeout:
                 if (current_time - cubic_state->start_of_epoch > path_x->smoothed_rtt) {

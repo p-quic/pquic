@@ -431,6 +431,7 @@ typedef struct ack_frame {
     uint64_t largest_acknowledged;
     uint64_t ack_delay;
     uint64_t ecnx3[3];
+    void *ecn_block;
     /** \todo Fixme we do not support ACK frames with more than 63 ack blocks */
     uint64_t ack_block_count;
     uint64_t first_ack_block;
@@ -717,6 +718,9 @@ void picoquic_set_callback(picoquic_cnx_t* cnx,
 
 void * picoquic_get_callback_context(picoquic_cnx_t* cnx);
 
+uint8_t *picoquic_parse_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, const uint8_t *bytes_max, void **ecn_block);
+int picoquic_process_ecn_block(picoquic_cnx_t* cnx, void *ecn_block, picoquic_packet_context_t *pkt_ctx, picoquic_path_t *path);
+int picoquic_write_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, size_t bytes_max, picoquic_packet_context_t *pkt_ctx, size_t *consumed);
 /* Send and receive network packets */
 
 picoquic_stateless_packet_t* picoquic_dequeue_stateless_packet(picoquic_quic_t* quic);
@@ -795,7 +799,8 @@ typedef enum {
     picoquic_congestion_notification_spurious_repeat,
     picoquic_congestion_notification_rtt_measurement,
     picoquic_congestion_notification_cwin_blocked,
-    picoquic_congestion_notification_bw_measurement
+    picoquic_congestion_notification_bw_measurement,
+    picoquic_congestion_notification_congestion_experienced
 } picoquic_congestion_notification_t;
 
 typedef void (*picoquic_congestion_algorithm_init)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);

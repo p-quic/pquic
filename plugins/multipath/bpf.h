@@ -28,6 +28,7 @@
 
 #define MP_NEW_CONNECTION_ID_TYPE 0x40
 #define MP_ACK_TYPE 0x42
+#define MP_ACK_ECN_TYPE 0x43
 #define ADD_ADDRESS_TYPE 0x44
 
 #define RTT_PROBE_TYPE 0x42

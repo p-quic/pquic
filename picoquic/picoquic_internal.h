@@ -239,6 +239,8 @@ typedef struct st_picoquic_quic_t {
 
     /* Which was the socket used to receive the last packet? */
     SOCKET_TYPE rcv_socket;
+    /* Last received TOS */
+    int rcv_tos;
 
     picoquic_tp_t * default_tp;
 
@@ -418,6 +420,8 @@ typedef struct st_picoquic_packet_context_t {
     picoquic_packet_t* retransmitted_oldest;
 
     unsigned int ack_needed : 1;
+
+    plugin_struct_metadata_t *metadata;
 } picoquic_packet_context_t;
 
 /*
@@ -713,13 +717,6 @@ typedef struct st_picoquic_cnx_t {
     uint32_t nb_zero_rtt_acked;
     uint64_t nb_retransmission_total;
     uint64_t nb_spurious;
-    /* ECN Counters */
-    uint64_t ecn_ect0_total_local;
-    uint64_t ecn_ect1_total_local;
-    uint64_t ecn_ce_total_local;
-    uint64_t ecn_ect0_total_remote;
-    uint64_t ecn_ect1_total_remote;
-    uint64_t ecn_ce_total_remote;
 
     /* Congestion algorithm */
     picoquic_congestion_algorithm_t const* congestion_alg;
@@ -1037,7 +1034,7 @@ int picoquic_parse_stream_header(
 
 int picoquic_parse_ack_header(
     uint8_t const* bytes, size_t bytes_max,
-    uint64_t* num_block, uint64_t* nb_ecnx3, uint64_t* largest,
+    uint64_t* num_block, uint64_t* largest,
     uint64_t* ack_delay, size_t* consumed,
     uint8_t ack_delay_exponent);
 
@@ -1196,7 +1193,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 
 /* Hooks for reception and sending of packets */
-void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket, int recv_tos);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_received_segment(picoquic_cnx_t *cnx);
 void picoquic_segment_prepared(picoquic_cnx_t *cnx, picoquic_packet_t *pkt);

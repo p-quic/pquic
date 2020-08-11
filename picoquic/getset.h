@@ -101,6 +101,27 @@ void set_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx, prot
 protoop_arg_t get_path_metadata(picoquic_cnx_t *cnx, picoquic_path_t *path, int idx);
 
 /**
+ * Set the plugin-specific metadata of this packet context at index \p idx to \p val
+ *
+ * \param cnx The connection pointer
+ * \param pkt_ctx The packet context pointer
+ * \param idx The index of the plugin-specific metadata
+ * \param val The value of the metadata to set
+ */
+void set_pkt_ctx_metadata(picoquic_cnx_t *cnx, picoquic_packet_context_t *pkt_ctx, int idx, protoop_arg_t val);
+
+/**
+ * Get and return the value of the plugin-specific metadata of this packet context at index \p idx
+ * If the metadata have never been set before, zero is returned
+ *
+ * \param cnx The connection pointer
+ * \param pkt_ctx The packet context pointer
+ * \param idx The index of the plugin-specific metadata to get
+ *
+ */
+protoop_arg_t get_pkt_ctx_metadata(picoquic_cnx_t *cnx, picoquic_packet_context_t *pkt_ctx, int idx);
+
+/**
  * Get a specific field beloging to the packet context \p pkt_ctx
  * 
  * \param pkt_ctx The packet context pointer
@@ -374,18 +395,6 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_CNX_NB_RETRANSMISSION_TOTAL 0x1c
 /** Number of spurious packet retransmissions, as uint64_t */
 #define AK_CNX_NB_SPURIOUS 0x1d
-/** Total number of local ECN ECT0 packets, as uint64_t */
-#define AK_CNX_ECN_ECT0_TOTAL_LOCAL 0x1e
-/** Total number of local ECN ECT1 packets, as uint64_t */
-#define AK_CNX_ECN_ECT1_TOTAL_LOCAL 0x1f
-/** Total number of local ECN CE packets, as uint64_t */
-#define AK_CNX_ECN_CE_TOTAL_LOCAL 0x20
-/** Total number of remote ECN ECT0 packets, as uint64_t */
-#define AK_CNX_ECN_ECT0_TOTAL_REMOTE 0x21
-/** Total number of remote ECN ECT1 packets, as uint64_t */
-#define AK_CNX_ECN_ECT1_TOTAL_REMOTE 0x22
-/** Total number of remote ECN CE packets, as uint64_t */
-#define AK_CNX_ECN_CE_TOTAL_REMOTE 0x23
 /** Total data sent, as uint64_t */
 #define AK_CNX_DATA_SENT 0x24
 /** Total data received, as uint64_t */
@@ -743,6 +752,8 @@ void set_preq(plugin_req_pid_t *preq, access_key_t ak, protoop_arg_t val);
 #define AK_PH_EPOCH 0x04
 /** The packet type */
 #define AK_PH_PTYPE 0x05
+/** The packet context enum */
+#define AK_PH_PC 0x06
 
 /**
  * @}

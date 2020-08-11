@@ -201,7 +201,16 @@ SET(PLUGINS_QLOG
         plugins/qlog/receiver/segment_received.c
         plugins/qlog/frames/stream_frame_parsed.c
         plugins/qlog/frames/handshake_done_parsed.c
-)
+        plugins/qlog/sender/path_bandwidth_estimated.c)
+
+SET(PLUGINS_ECN
+    plugins/ecn/header_parsed.c
+    plugins/ecn/before_sending_packet.c
+    plugins/ecn/received_packet.c
+    plugins/ecn/write_ecn_block.c
+    plugins/ecn/parse_ecn_block.c
+    plugins/ecn/process_ecn_block.c
+        plugins/ecn/pre_skip_frame.c plugins/ecn/post_skip_frame.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
@@ -250,6 +259,9 @@ if($ENV{COMPILE_CLION})
     )
     ADD_LIBRARY(plugins-qlog
         ${PLUGINS_QLOG}
+    )
+    ADD_LIBRARY(plugins-ecn
+        ${PLUGINS_ECN}
     )
 endif()
 
