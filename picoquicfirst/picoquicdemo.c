@@ -154,6 +154,7 @@ static char* strip_endofline(char* buf, size_t bufmax, char const* line)
 #define PICOQUIC_FIRST_COMMAND_MAX 128
 #define PICOQUIC_FIRST_RESPONSE_MAX (1 << 28)
 #define PICOQUIC_DEMO_MAX_PLUGIN_FILES 64
+#define PICOQUIC_DEMO_ALPN "hq-29"
 
 static protoop_id_t set_qlog_file = { .id = "set_qlog_file" };
 
@@ -509,7 +510,7 @@ int quic_server(const char* server_name, int server_port,
     /* Wait for packets and process them */
     if (ret == 0) {
         /* Create QUIC context */
-        qserver = picoquic_create(8, pem_cert, pem_key, NULL, NULL, first_server_callback, NULL,
+        qserver = picoquic_create(8, pem_cert, pem_key, NULL, PICOQUIC_DEMO_ALPN, first_server_callback, NULL,
             cnx_id_callback, cnx_id_callback_ctx, reset_seed, picoquic_current_time(), NULL, NULL, NULL, 0, NULL);
 
         if (qserver == NULL) {
@@ -542,7 +543,7 @@ int quic_server(const char* server_name, int server_port,
         picoquic_connection_id_t src;
         src.id_len = 4;
         struct sockaddr_storage a;
-        picoquic_cnx_t *tmp_cnx = picoquic_create_cnx(qserver, dst, src, (struct sockaddr *) &a, picoquic_current_time(), 0xff00000b, NULL, NULL, 0);
+        picoquic_cnx_t *tmp_cnx = picoquic_create_cnx(qserver, dst, src, (struct sockaddr *) &a, picoquic_current_time(), 0xff00000b, NULL, PICOQUIC_DEMO_ALPN, 0);
 
         if (local_plugins > 0) {
             plugin_insert_plugins_from_fnames(tmp_cnx, local_plugins, (char **) local_plugin_fnames);
@@ -1002,7 +1003,6 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     int64_t delay_max = 10000000;
     int64_t delta_t = 0;
     int notified_ready = 0;
-    const char* alpn = "hq-29";
     int zero_rtt_available = 0;
     int new_context_created = 0;
     char buf[25];
@@ -1056,7 +1056,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
     callback_ctx.last_interaction_time = current_time;
 
     if (ret == 0) {
-        qclient = picoquic_create(8, NULL, NULL, root_crt, alpn, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0, plugin_store_path);
+        qclient = picoquic_create(8, NULL, NULL, root_crt, PICOQUIC_DEMO_ALPN, NULL, NULL, NULL, NULL, NULL, current_time, NULL, ticket_store_filename, NULL, 0, plugin_store_path);
 
         if (qclient == NULL) {
             ret = -1;
@@ -1101,7 +1101,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         /* Create a client connection */
         cnx_client = picoquic_create_cnx(qclient, picoquic_null_connection_id, picoquic_null_connection_id,
             (struct sockaddr*)&server_address, current_time,
-            proposed_version, sni, alpn, 1);
+            proposed_version, sni, PICOQUIC_DEMO_ALPN, 1);
 
         if (cnx_client == NULL) {
             ret = -1;
@@ -1364,7 +1364,7 @@ int quic_client(const char* ip_address_text, int server_port, const char * sni,
         uint8_t* ticket;
         uint16_t ticket_length;
 
-        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, picoquic_current_time(), sni, (uint16_t)strlen(sni), alpn, (uint16_t)strlen(alpn), &ticket, &ticket_length) && F_log) {
+        if (sni != NULL && 0 == picoquic_get_ticket(qclient->p_first_ticket, picoquic_current_time(), sni, (uint16_t)strlen(sni), PICOQUIC_DEMO_ALPN, (uint16_t)strlen(PICOQUIC_DEMO_ALPN), &ticket, &ticket_length) && F_log) {
             fprintf(F_log, "Received ticket from %s:\n", sni);
             picoquic_log_picotls_ticket(F_log, picoquic_null_connection_id, ticket, ticket_length);
         }
