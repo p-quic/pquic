@@ -1339,9 +1339,6 @@ int picoquic_incoming_segment(
                     /* Verify that the source CID matches expectation */
                     if (picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid)) {
                         cnx->path[0]->remote_cnxid = ph.srce_cnx_id;
-                        if (cnx->client_mode == 0) {
-                            cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
-                        }
                     } else if (picoquic_compare_connection_id(&cnx->path[0]->remote_cnxid, &ph.srce_cnx_id) != 0) {
                         DBG_PRINTF("Error wrong srce cnxid (%d), type: %d, epoch: %d, pc: %d, pn: %d\n",
                             cnx->client_mode, ph.ptype, ph.epoch, ph.pc, (int)ph.pn);
@@ -1350,6 +1347,7 @@ int picoquic_incoming_segment(
                     if (ret == 0) {
                         if (cnx->client_mode == 0) {
                             /* TODO: finish processing initial connection packet */
+                            cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
                             ret = picoquic_incoming_initial(&cnx, bytes,
                                 addr_from, addr_to, if_index_to, &ph, current_time, *new_context_created);
                         }
