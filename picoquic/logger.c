@@ -1632,7 +1632,7 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
     {
         if (ret == 0)
         {
-            if (byte_index + 2 > bytes_max) {
+            if (byte_index + 1 > bytes_max) {
                 if (log_cnxid != 0) {
                     fprintf(F, "%" PRIx64 ": ", cnx_id_64);
                 }
@@ -1645,7 +1645,7 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
                 }
                 fprintf(F, "    Extension list (%d bytes):\n", (uint32_t) bytes_max);
                 while (ret == 0 && byte_index < bytes_max) {
-                    if (byte_index + 4 > bytes_max) {
+                    if (byte_index + 1 > bytes_max) {
                         if (log_cnxid != 0) {
                             fprintf(F, "%" PRIx64 ": ", cnx_id_64);
                         }
