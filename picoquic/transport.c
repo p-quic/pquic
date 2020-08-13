@@ -578,7 +578,10 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
                         }
                         break;
                     default:
-                        inject_plugin = protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PROCESS_TRANSPORT_PARAMETER, extension_type, NULL, bytes + byte_index, extension_length);
+                        inject_plugin = 0;
+                        if (plugin_pluglet_exists(cnx, &PROTOOP_PARAM_PROCESS_TRANSPORT_PARAMETER, extension_type, pluglet_replace)) {
+                            inject_plugin = protoop_prepare_and_run_param(cnx, &PROTOOP_PARAM_PROCESS_TRANSPORT_PARAMETER, extension_type, NULL, bytes + byte_index, extension_length);
+                        }
                         if (inject_plugin != 0 && cnx->previous_plugin_in_replace != NULL) {
                             if (cnx->previous_plugin_in_replace->params.require_negotiation) {
                                 cnx->previous_plugin_in_replace->params.negotiated = true;
