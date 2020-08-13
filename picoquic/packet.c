@@ -1043,7 +1043,7 @@ int picoquic_incoming_client_cleartext(
                     picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_handshake, current_time);
                 }
                 if (cnx->callback_fn != NULL) {
-                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx) != 0) {
+                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx, NULL) != 0) {
                         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
                     }
                 }
@@ -1067,7 +1067,7 @@ int picoquic_incoming_stateless_reset(
     picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
 
     if (cnx->callback_fn) {
-        (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
+        (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx, NULL);
     }
 
     return PICOQUIC_ERROR_AEAD_CHECK;

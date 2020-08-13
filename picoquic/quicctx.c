@@ -2037,7 +2037,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             /* Give the application a chance to clean up its state */
             picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
             if (cnx->callback_fn) {
-                (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
+                (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx, NULL);
             }
         }
 
@@ -2326,10 +2326,19 @@ protoop_arg_t callback_function(picoquic_cnx_t *cnx)
     picoquic_call_back_event_t fin_or_event = (picoquic_call_back_event_t) cnx->protoop_inputv[3];
 
     if (cnx->callback_fn) {
-        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx);
+        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx, NULL);
     }
 
     return 0;
+}
+
+void picoquic_set_alpn_select_fn(picoquic_quic_t* quic, picoquic_alpn_select_fn alpn_select_fn)
+{
+    if (quic->default_alpn != NULL) {
+        free((void *)quic->default_alpn);
+        quic->default_alpn = NULL;
+    }
+    quic->alpn_select_fn = alpn_select_fn;
 }
 
 void picoquic_enable_keep_alive(picoquic_cnx_t* cnx, uint64_t interval)

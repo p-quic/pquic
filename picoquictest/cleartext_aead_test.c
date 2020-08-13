@@ -22,11 +22,12 @@
 #ifdef _WINDOWS
 #include "../picoquic/wincompat.h"
 #endif
+
+#include "picotls.h"
+#include "picotls/openssl.h"
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/tls_api.h"
 #include "../picoquic/util.h"
-#include "picotls.h"
-#include "picotls/openssl.h"
 #include <string.h>
 #include "picoquictest_internal.h"
 

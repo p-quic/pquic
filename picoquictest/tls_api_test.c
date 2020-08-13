@@ -19,13 +19,13 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <picotls.h>
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/tls_api.h"
 #include "picoquictest_internal.h"
 #ifdef _WINDOWS
 #include "..\picoquic\wincompat.h"
 #endif
-#include <picotls.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>

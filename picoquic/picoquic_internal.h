@@ -92,6 +92,8 @@ extern "C" {
 
 #define PICOQUIC_SPIN_VEC_LATE 1000 /* in microseconds : reaction time beyond which to mark a spin bit edge as 'late' */
 
+#define PICOQUIC_ALPN_NUMBER_MAX 8
+
 
 /*
  * Supported versions
@@ -204,6 +206,7 @@ typedef struct st_picoquic_quic_t {
     picoquic_stream_data_cb_fn default_callback_fn;
     void* default_callback_ctx;
     char const* default_alpn;
+    picoquic_alpn_select_fn alpn_select_fn;
     uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE];
     uint8_t retry_seed[PICOQUIC_RETRY_SECRET_SIZE];
     uint64_t* p_simulated_time;
@@ -356,6 +359,7 @@ typedef struct _picoquic_stream_head {
     uint64_t sent_offset;
     uint64_t sending_offset;
     picoquic_stream_data* send_queue;
+    void *app_stream_ctx;
     picoquic_sack_item_t first_sack_item;
     /* Flags describing the state of the stream */
     unsigned int is_active : 1; /* The application is actively managing data sending through callbacks */

@@ -26,27 +26,25 @@
 #include <assert.h>
 #include "picosplay.h"
 
-void picosplay_check_sanity(picosplay_tree *tree);
-
 /* The single most important utility function. */
-static void rotate(picosplay_node *child);
+static void rotate(picosplay_node_t *child);
 /* And a few more. */
-static picosplay_node* leftmost(picosplay_node *node);
-static picosplay_node* rightmost(picosplay_node *node);
+static picosplay_node_t* leftmost(picosplay_node_t *node);
+static picosplay_node_t* rightmost(picosplay_node_t *node);
 
 
 /* The meat: splay the node x. */
-static void zig(picosplay_node *x);
-static void zigzig(picosplay_node *x, picosplay_node *p);
-static void zigzag(picosplay_node *x);
-static void splay(picosplay_tree *tree, picosplay_node *x) {
+static void zig(picosplay_node_t *x);
+static void zigzig(picosplay_node_t *x, picosplay_node_t *p);
+static void zigzag(picosplay_node_t *x);
+static void splay(picosplay_tree_t *tree, picosplay_node_t *x) {
     while(1) {
-        picosplay_node *p = x->parent;
+        picosplay_node_t *p = x->parent;
         if(p == NULL) {
             tree->root = x;
             return;
         }
-        picosplay_node *g = p->parent;
+        picosplay_node_t *g = p->parent;
         if(p->parent == NULL)
             zig(x);
         else
@@ -59,14 +57,14 @@ static void splay(picosplay_tree *tree, picosplay_node *x) {
 }
 
 /* When p is root, rotate on the edge between x and p.*/
-static void zig(picosplay_node *x) {
+static void zig(picosplay_node_t *x) {
     rotate(x);
 }
 
 /* When both x and p are left (or both right) children,
  * rotate on edge between p and g, then on edge between x and p.
  */
-static void zigzig(picosplay_node *x, picosplay_node *p) {
+static void zigzig(picosplay_node_t *x, picosplay_node_t *p) {
     rotate(p);
     rotate(x);
 }
@@ -74,35 +72,37 @@ static void zigzig(picosplay_node *x, picosplay_node *p) {
 /* When one of x and p is a left child and the other a right child,
  * rotate on the edge between x and p, then on the new edge between x and g.
  */
-static void zigzag(picosplay_node *x) {
+static void zigzag(picosplay_node_t *x) {
     rotate(x);
     rotate(x);
 }
 
 /* Initialize an empty tree, storing the picosplay_comparator. */
-void picosplay_init_tree(picosplay_tree* tree, picosplay_comparator comp) {
+void picosplay_init_tree(picosplay_tree_t* tree, picosplay_comparator comp, picosplay_create create, picosplay_delete_node delete_node, picosplay_node_value node_value) {
     tree->comp = comp;
+    tree->create = create;
+    tree->delete_node = delete_node;
+    tree->node_value = node_value;
     tree->root = NULL;
     tree->size = 0;
 }
 
 /* Return an empty tree, storing the picosplay_comparator. */
-picosplay_tree* picosplay_new_tree(picosplay_comparator comp) {
-    picosplay_tree *new = malloc(sizeof(picosplay_tree));
-    new->comp = comp;
-    new->root = NULL;
-    new->size = 0;
+picosplay_tree_t* picosplay_new_tree(picosplay_comparator comp, picosplay_create create, picosplay_delete_node delete_node, picosplay_node_value node_value) {
+    picosplay_tree_t *new = malloc(sizeof(picosplay_tree_t));
+    if (new != NULL) {
+        picosplay_init_tree(new, comp, create, delete_node, node_value);
+    }
     return new;
 }
 
 /* picosplay_insert and return a new node with the given value, splaying the tree. 
  * The insertion is essentially a generic BST insertion.
  */
-picosplay_node* picosplay_insert(picosplay_tree *tree, void *value) {
-    picosplay_node *new = malloc(sizeof(picosplay_node));
+picosplay_node_t* picosplay_insert(picosplay_tree_t *tree, void *value) {
+    picosplay_node_t *new = tree->create(value);
 
     if (new != NULL) {
-        new->value = value;
         new->left = NULL;
         new->right = NULL;
         if (tree->root == NULL) {
@@ -110,12 +110,12 @@ picosplay_node* picosplay_insert(picosplay_tree *tree, void *value) {
             new->parent = NULL;
         }
         else {
-            picosplay_node *curr = tree->root;
-            picosplay_node *parent = NULL;
+            picosplay_node_t *curr = tree->root;
+            picosplay_node_t *parent = NULL;
             int left = 0;
             while (curr != NULL) {
                 parent = curr;
-                if (tree->comp(new->value, curr->value) < 0) {
+                if (tree->comp(tree->node_value(new), tree->node_value(curr)) < 0) {
                     left = 1;
                     curr = curr->left;
                 }
@@ -138,11 +138,12 @@ picosplay_node* picosplay_insert(picosplay_tree *tree, void *value) {
 }
 
 /* Find a node with the given value, splaying the tree. */
-picosplay_node* picosplay_find(picosplay_tree *tree, void *value) {
-    picosplay_node *curr = tree->root;
+picosplay_node_t* picosplay_find(picosplay_tree_t *tree, void *value)
+{
+    picosplay_node_t *curr = tree->root;
     int found = 0;
     while(curr != NULL && !found) {
-        int relation = tree->comp(value, curr->value);
+        int64_t relation = tree->comp(value, tree->node_value(curr));
         if(relation == 0) {
             found = 1;
         } else if(relation < 0) {
@@ -160,14 +161,38 @@ picosplay_node* picosplay_find(picosplay_tree *tree, void *value) {
     return curr;
 }
 
+/* Find a node with the given value, splaying the tree. */
+picosplay_node_t* picosplay_find_previous(picosplay_tree_t* tree, void* value)
+{
+    picosplay_node_t* curr = tree->root;
+    picosplay_node_t* previous = NULL;
+    int found = 0;
+    while (curr != NULL && !found) {
+        int64_t relation = tree->comp(value, tree->node_value(curr));
+        if (relation == 0) {
+            found = 1;
+            previous = curr;
+        }
+        else if (relation < 0) {
+            curr = curr->left;
+        }
+        else {
+            previous = curr;
+            curr = curr->right;
+        }
+    }
+
+    return previous;
+}
+
 /* Remove a node with the given value, splaying the tree. */
-void picosplay_delete(picosplay_tree *tree, void *value) {
-    picosplay_node *node = picosplay_find(tree, value);
+void picosplay_delete(picosplay_tree_t *tree, void *value) {
+    picosplay_node_t *node = picosplay_find(tree, value);
     picosplay_delete_hint(tree, node);
 }
 
 /* Remove the node given by the pointer, splaying the tree. */
-void picosplay_delete_hint(picosplay_tree *tree, picosplay_node *node) {
+void picosplay_delete_hint(picosplay_tree_t *tree, picosplay_node_t *node) {
     if(node == NULL)
         return;
     splay(tree, node); /* Now node is tree's root. */
@@ -179,7 +204,7 @@ void picosplay_delete_hint(picosplay_tree *tree, picosplay_node *node) {
         tree->root = node->left;
         tree->root->parent = NULL;
     } else {
-        picosplay_node *x = leftmost(node->right);
+        picosplay_node_t *x = leftmost(node->right);
         if(x->parent != node) {
             x->parent->left = x->right;
             if(x->right != NULL)
@@ -192,11 +217,11 @@ void picosplay_delete_hint(picosplay_tree *tree, picosplay_node *node) {
         x->left = node->left;
         x->left->parent = x;
     }
-    free(node);
+    tree->delete_node(tree, node);
     tree->size--;
 }
 
-void picosplay_empty_tree(picosplay_tree * tree)
+void picosplay_empty_tree(picosplay_tree_t * tree)
 {
     if (tree != NULL) {
         while (tree->root != NULL) {
@@ -205,7 +230,7 @@ void picosplay_empty_tree(picosplay_tree * tree)
     }
 }
 
-picosplay_node* picosplay_first(picosplay_tree *tree) {
+picosplay_node_t* picosplay_first(picosplay_tree_t *tree) {
     return leftmost(tree->root);
 }
 
@@ -214,7 +239,7 @@ picosplay_node* picosplay_first(picosplay_tree *tree) {
  *  - leftmost child in the right subtree
  *  - closest ascendant for which given node is in left subtree
  */
-picosplay_node* picosplay_next(picosplay_node *node) {
+picosplay_node_t* picosplay_next(picosplay_node_t *node) {
     if(node->right != NULL)
         return leftmost(node->right);
     while(node->parent != NULL && node == node->parent->right)
@@ -222,7 +247,7 @@ picosplay_node* picosplay_next(picosplay_node *node) {
     return node->parent;
 }
 
-picosplay_node* picosplay_last(picosplay_tree *tree) {
+picosplay_node_t* picosplay_last(picosplay_tree_t *tree) {
     return rightmost(tree->root);
 }
 
@@ -230,8 +255,8 @@ picosplay_node* picosplay_last(picosplay_tree *tree) {
 /* analyzer flags a memory leak in this code. We do not use it yet. */
 /* TODO: fix memory leak before restoring this. */
 /* An in-order traversal of the tree. */
-static void store(picosplay_node *node, void ***out);
-void* picosplay_contents(picosplay_tree *tree) {
+static void store(picosplay_node_t *node, void ***out);
+void* picosplay_contents(picosplay_tree_t *tree) {
     if(tree->size == 0)
         return NULL;
     void **out = malloc(tree->size * sizeof(void*));
@@ -240,7 +265,7 @@ void* picosplay_contents(picosplay_tree *tree) {
     return out - tree->size;
 }
 
-static void store(picosplay_node *node, void ***out) {
+static void store(picosplay_node_t *node, void ***out) {
     if(node->left != NULL)
         store(node->left, out);
     **out = node->value;
@@ -250,11 +275,11 @@ static void store(picosplay_node *node, void ***out) {
 }
 #endif
 /* This mutates the parental relationships, copy pointer to old parent. */
-static void mark_gp(picosplay_node *child);
+static void mark_gp(picosplay_node_t *child);
 
 /* Rotate to make the given child take its parent's place in the tree. */
-static void rotate(picosplay_node *child) {
-    picosplay_node *parent = child->parent;
+static void rotate(picosplay_node_t *child) {
+    picosplay_node_t *parent = child->parent;
     assert(parent != NULL);
     if(parent->left == child) { /* A left child given. */
         mark_gp(child);
@@ -271,9 +296,9 @@ static void rotate(picosplay_node *child) {
     }
 }
 
-static void mark_gp(picosplay_node *child) {
-    picosplay_node *parent = child->parent;
-    picosplay_node *grand = parent->parent;
+static void mark_gp(picosplay_node_t *child) {
+    picosplay_node_t *parent = child->parent;
+    picosplay_node_t *grand = parent->parent;
     child->parent = grand;
     parent->parent = child;
     if(grand == NULL)
@@ -284,8 +309,8 @@ static void mark_gp(picosplay_node *child) {
         grand->right = child;
 }
 
-static picosplay_node* leftmost(picosplay_node *node) {
-    picosplay_node *parent = NULL;
+static picosplay_node_t* leftmost(picosplay_node_t *node) {
+    picosplay_node_t *parent = NULL;
     while(node != NULL) {
         parent = node;
         node = node->left;
@@ -293,8 +318,8 @@ static picosplay_node* leftmost(picosplay_node *node) {
     return parent;
 }
 
-static picosplay_node* rightmost(picosplay_node *node) {
-    picosplay_node *parent = NULL;
+static picosplay_node_t* rightmost(picosplay_node_t *node) {
+    picosplay_node_t *parent = NULL;
     while(node != NULL) {
         parent = node;
         node = node->right;
