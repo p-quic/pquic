@@ -2504,18 +2504,6 @@ protoop_arg_t parse_ack_frame_maybe_ecn(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if (frame->is_ack_ecn) {
-        bytes = picoquic_parse_ecn_block(cnx, bytes, bytes_max, &frame->ecn_block);
-        if (bytes == NULL) {
-            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
-                frame->is_ack_ecn ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack);
-            free(frame);
-            frame = NULL;
-            protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
-            return (protoop_arg_t) NULL;
-        }
-    }
-
     if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->ack_block_count)) == NULL) {
         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
             frame->is_ack_ecn ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack);
@@ -2559,9 +2547,7 @@ protoop_arg_t parse_ack_frame_maybe_ecn(picoquic_cnx_t* cnx)
     }
 
     if (frame->is_ack_ecn) {
-        for (int ecnx = 0; bytes && ecnx < 3; ecnx++) {
-            bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->ecnx3[ecnx]);
-        }
+        bytes = picoquic_parse_ecn_block(cnx, bytes, bytes_max, &frame->ecn_block);
         if (bytes == NULL) {
             picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
                                       frame->is_ack_ecn ? picoquic_frame_type_ack_ecn : picoquic_frame_type_ack);
@@ -2739,14 +2725,6 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
             byte_index += l_delay;
         }
 
-        ret = picoquic_write_ecn_block(cnx, bytes + byte_index, bytes_max - byte_index, pkt_ctx, consumed);
-        if (ret != 0) {
-            ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-        } else if (*consumed > 0) {
-            bytes[type_byte_index] = picoquic_frame_type_ack_ecn;
-            byte_index += *consumed;
-        }
-
         if (ret == 0) {
             /* Reserve one byte for the number of blocks */
             num_block_index = byte_index;
@@ -2796,6 +2774,14 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
                     next_sack = next_sack->next_sack;
                     num_block++;
                 }
+            }
+
+            ret = picoquic_write_ecn_block(cnx, bytes + byte_index, bytes_max - byte_index, pkt_ctx, consumed);
+            if (ret != 0) {
+                ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+            } else if (*consumed > 0) {
+                bytes[type_byte_index] = picoquic_frame_type_ack_ecn;
+                byte_index += *consumed;
             }
 
             frame.ack_block_count = num_block;

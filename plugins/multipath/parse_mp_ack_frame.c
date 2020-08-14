@@ -18,7 +18,7 @@ protoop_arg_t parse_mp_ack_frame(picoquic_cnx_t* cnx)
         goto exit;
     }
 
-    if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->uniflow_id)) == NULL)
+    if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->uniflow_id)) == NULL)
     {
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, frame_type);
         PROTOOP_PRINTF(cnx, "Cannot parse path ID\n");
