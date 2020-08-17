@@ -48,6 +48,8 @@ void debug_printf_resume(void);
 int debug_printf_reset(int suspended);
 void debug_dump(const void * x, int len);
 
+int picoquic_sprintf(char* buf, size_t buf_len, size_t * nb_chars, const char* fmt, ...);
+
 extern const picoquic_connection_id_t picoquic_null_connection_id;
 uint32_t picoquic_format_connection_id(uint8_t* bytes, size_t bytes_max, picoquic_connection_id_t cnx_id);
 uint32_t picoquic_parse_connection_id(const uint8_t* bytes, uint8_t len, picoquic_connection_id_t *cnx_id);
@@ -64,9 +66,33 @@ char *picoquic_string_join_path_and_fname(char* dir_path, const char* fname);
 int picoquic_string_ends_with(const char *str, const char *suffix);
 char** picoquic_string_split(char* a_str, const char a_delim);
 
+/* Safely open files in a portable way */
+FILE * picoquic_file_open_ex(char const * file_name, char const * flags, int * last_err);
+FILE * picoquic_file_open(char const * file_name, char const * flags);
+FILE * picoquic_file_close(FILE * F);
+
+int picoquic_file_delete(char const* file_name, int* last_err);
+
+/* Setting the solution dir when not executing from default location */
+void picoquic_set_solution_dir(char const* solution_dir);
+int picoquic_get_input_path(char * target_file_path, size_t file_path_max, const char * solution_path, const char * file_name);
+
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
+
+#ifdef _WINDOWS
+#define PICOQUIC_FILE_SEPARATOR "\\"
+#ifdef _WINDOWS64
+#define PICOQUIC_DEFAULT_SOLUTION_DIR "..\\..\\"
+#else
+#define PICOQUIC_DEFAULT_SOLUTION_DIR "..\\"
+#endif
+#else
+#define PICOQUIC_DEFAULT_SOLUTION_DIR "./"
+#define PICOQUIC_FILE_SEPARATOR "/"
+#endif
+
 
 #ifndef DISABLE_DEBUG_PRINTF
 

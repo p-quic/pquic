@@ -137,21 +137,21 @@ static uint8_t picoquic_cleartext_internal_test_1_salt[] = {
     0x3d, 0xc1, 0xca, 0x36
 };
 
-static uint8_t picoquic_cleartext_draft_27_salt[] = {
-    0xc3, 0xee, 0xf7, 0x12, 0xc7, 0x2e, 0xbb, 0x5a,
-    0x11, 0xa7, 0xd2, 0x43, 0x2b, 0xb4, 0x63, 0x65,
-    0xbe, 0xf9, 0xf5, 0x02
+static uint8_t picoquic_cleartext_draft_29_salt[] = {
+    0xaf, 0xbf, 0xec, 0x28, 0x99, 0x93, 0xd2, 0x4c,
+    0x9e, 0x97, 0x86, 0xf1, 0x9c, 0x61, 0x11, 0xe0,
+    0x43, 0x90, 0xa8, 0x99
 };
 
 const picoquic_version_parameters_t picoquic_supported_versions[] = {
     { PICOQUIC_INTERNAL_TEST_VERSION_1, 0,
-        picoquic_version_header_27,
+        picoquic_version_header_29,
         sizeof(picoquic_cleartext_internal_test_1_salt),
         picoquic_cleartext_internal_test_1_salt },
     { PICOQUIC_INTEROP_VERSION, 0,
-        picoquic_version_header_27,
-        sizeof(picoquic_cleartext_draft_27_salt),
-            picoquic_cleartext_draft_27_salt }
+        picoquic_version_header_29,
+        sizeof(picoquic_cleartext_draft_29_salt),
+            picoquic_cleartext_draft_29_salt }
 };
 
 const size_t picoquic_nb_supported_versions = sizeof(picoquic_supported_versions) / sizeof(picoquic_version_parameters_t);
@@ -937,6 +937,8 @@ void picoquic_init_transport_parameters(picoquic_tp_t* tp, int client_mode)
     tp->max_idle_timeout = PICOQUIC_MICROSEC_HANDSHAKE_MAX/1000;
     tp->max_packet_size = PICOQUIC_PRACTICAL_MAX_MTU;
     tp->ack_delay_exponent = 3;
+    tp->max_ack_delay = 25;
+    tp->active_connection_id_limit = 2;
     tp->supported_plugins = NULL;
     tp->plugins_to_inject = NULL;
 }
@@ -1372,6 +1374,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             /* Moved packet context initialization into path creation */
 
             cnx->latest_progress_time = start_time;
+            cnx->local_parameters.initial_source_connection_id = cnx->path[0]->local_cnxid;
 
             for (int epoch = 0; epoch < PICOQUIC_NUMBER_OF_EPOCHS; epoch++) {
                 cnx->tls_stream[epoch].stream_id = 0;
@@ -1818,6 +1821,24 @@ void * picoquic_get_callback_context(picoquic_cnx_t * cnx)
 }
 
 
+uint8_t *picoquic_parse_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, const uint8_t *bytes_max, void **ecn_block) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    bytes = (uint8_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PARSE_ECN_BLOCK, outs, bytes, bytes_max);
+    *ecn_block = (void *) outs[0];
+    return bytes;
+}
+
+int picoquic_process_ecn_block(picoquic_cnx_t* cnx, void *ecn_block, picoquic_packet_context_t *pkt_ctx, picoquic_path_t *path) {
+    return (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PROCESS_ECN_BLOCK, NULL, ecn_block, pkt_ctx, path);
+}
+
+int picoquic_write_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, size_t bytes_max, picoquic_packet_context_t *pkt_ctx, size_t *consumed) {
+    protoop_arg_t outs[PROTOOPARGS_MAX];
+    int ret = (int) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_WRITE_ECN_BLOCK, outs, bytes, bytes_max, pkt_ctx);
+    *consumed = (size_t) outs[0];
+    return ret;
+}
+
 void picoquic_clear_stream(picoquic_stream_head* stream)
 {
     picoquic_stream_data** pdata[2];
@@ -1862,6 +1883,15 @@ void picoquic_reset_packet_context(picoquic_cnx_t* cnx,
 
     pkt_ctx->first_sack_item.start_of_sack_range = (uint64_t)((int64_t)-1);
     pkt_ctx->first_sack_item.end_of_sack_range = 0;
+
+    /* Free the metadata */
+    if (pkt_ctx->metadata) {
+        plugin_struct_metadata_t *current_md, *tmp;
+        HASH_ITER(hh, pkt_ctx->metadata, current_md, tmp) {
+            HASH_DEL(pkt_ctx->metadata, current_md);
+            free(current_md);
+        }
+    }
 }
 
 /*
@@ -1902,14 +1932,6 @@ int picoquic_reset_cnx(picoquic_cnx_t* cnx, uint64_t current_time)
         cnx->tls_stream[epoch].sent_offset = 0;
         /* No need to reset the state flags, are they are not used for the crypto stream */
     }
-
-    /* Reset the ECN data */
-    cnx->ecn_ect0_total_local = 0;
-    cnx->ecn_ect1_total_local = 0;
-    cnx->ecn_ce_total_local = 0;
-    cnx->ecn_ect0_total_remote = 0;
-    cnx->ecn_ect1_total_remote = 0;
-    cnx->ecn_ce_total_remote = 0;
 
     for (int k = 0; k < 4; k++) {
         picoquic_crypto_context_free(&cnx->crypto_context[k]);
@@ -2015,7 +2037,7 @@ void picoquic_delete_cnx(picoquic_cnx_t* cnx)
             /* Give the application a chance to clean up its state */
             picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
             if (cnx->callback_fn) {
-                (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx);
+                (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_close, cnx->callback_ctx, NULL);
             }
         }
 
@@ -2304,10 +2326,19 @@ protoop_arg_t callback_function(picoquic_cnx_t *cnx)
     picoquic_call_back_event_t fin_or_event = (picoquic_call_back_event_t) cnx->protoop_inputv[3];
 
     if (cnx->callback_fn) {
-        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx);
+        (cnx->callback_fn)(cnx, stream_id, bytes, length, fin_or_event, cnx->callback_ctx, NULL);
     }
 
     return 0;
+}
+
+void picoquic_set_alpn_select_fn(picoquic_quic_t* quic, picoquic_alpn_select_fn alpn_select_fn)
+{
+    if (quic->default_alpn != NULL) {
+        free((void *)quic->default_alpn);
+        quic->default_alpn = NULL;
+    }
+    quic->alpn_select_fn = alpn_select_fn;
 }
 
 void picoquic_enable_keep_alive(picoquic_cnx_t* cnx, uint64_t interval)
@@ -2363,8 +2394,8 @@ void picoquic_set_client_authentication(picoquic_quic_t* quic, int client_authen
     picoquic_tls_set_client_authentication(quic, client_authentication);
 }
 
-void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {
-    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket);
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket, int recv_tos) {
+    protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_RECEIVED_PACKET, NULL, socket, recv_tos);
 }
 
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket) {

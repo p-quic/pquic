@@ -85,6 +85,7 @@ extern "C" {
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_TOO_MANY_ARGUMENTS (PICOQUIC_ERROR_CLASS + 40)
 #define PICOQUIC_ERROR_PROTOCOL_OPERATION_UNEXEPECTED_ARGC (PICOQUIC_ERROR_CLASS + 41)
 #define PICOQUIC_ERROR_INVALID_PLUGIN_STREAM_ID (PICOQUIC_ERROR_CLASS + 42)
+#define PICOQUIC_ERROR_NO_ALPN_PROVIDED (PICOQUIC_ERROR_CLASS + 43)
 
 #define PICOQUIC_MISCCODE_CLASS 0x800
 #define PICOQUIC_MISCCODE_RETRY_NXT_PKT (PICOQUIC_MISCCODE_CLASS + 1)
@@ -431,6 +432,7 @@ typedef struct ack_frame {
     uint64_t largest_acknowledged;
     uint64_t ack_delay;
     uint64_t ecnx3[3];
+    void *ecn_block;
     /** \todo Fixme we do not support ACK frames with more than 63 ack blocks */
     uint64_t ack_block_count;
     uint64_t first_ack_block;
@@ -502,6 +504,8 @@ typedef enum {
     picoquic_callback_prepare_to_send, /* Ask application to send data in frame, see picoquic_provide_stream_data_buffer for details */
     picoquic_callback_almost_ready, /* Data can be sent, but the connection is not fully established */
     picoquic_callback_ready, /* Data can be sent and received, connection migration can be initiated */
+    picoquic_callback_request_alpn_list, /* Provide the list of supported ALPN */
+    picoquic_callback_set_alpn, /* Set ALPN to negotiated value */
 } picoquic_call_back_event_t;
 
 typedef struct plugin_stat {
@@ -560,10 +564,33 @@ uint64_t picoquic_get_quic_time(picoquic_quic_t* quic); /* connection time, comp
      */
 typedef int (*picoquic_stream_data_cb_fn)(picoquic_cnx_t* cnx,
     uint64_t stream_id, uint8_t* bytes, size_t length,
-    picoquic_call_back_event_t fin_or_event, void* callback_ctx);
+    picoquic_call_back_event_t fin_or_event, void* callback_ctx, void* stream_ctx);
 
 typedef void (*cnx_id_cb_fn)(picoquic_connection_id_t cnx_id_local,
     picoquic_connection_id_t cnx_id_remote, void* cnx_id_cb_data, picoquic_connection_id_t * cnx_id_returned);
+
+#ifndef picotls_h
+/* Including picotls.h here complicates the plugins compilation, so better define this simple structure here */
+typedef struct st_ptls_iovec_t {
+    uint8_t *base;
+    size_t len;
+} ptls_iovec_t;
+#endif
+/* Callback from the TLS stack upon receiving a list of proposed ALPN in the Client Hello
+ * The stack passes a <list> of io <count> vectors (base, len) each containing a proposed
+ * ALPN. The implementation returns the index of the selected ALPN, or a value >= count
+ * if none of the proposed ALPN is supported.
+ *
+ * The callback is only called if no default ALPN is specified in the Quic context.
+ */
+typedef size_t (*picoquic_alpn_select_fn)(picoquic_quic_t* quic, ptls_iovec_t* list, size_t count);
+
+void picoquic_set_alpn_select_fn(picoquic_quic_t* quic, picoquic_alpn_select_fn alpn_select_fn);
+
+/* Function used during callback to provision an ALPN context. The stack
+ * issues a callback of type
+ */
+int picoquic_add_proposed_alpn(void* tls_context, const char* alpn);
 
 /* The fuzzer function is used to inject error in packets randomly.
  * It is called just prior to sending a packet, and can randomly
@@ -717,6 +744,9 @@ void picoquic_set_callback(picoquic_cnx_t* cnx,
 
 void * picoquic_get_callback_context(picoquic_cnx_t* cnx);
 
+uint8_t *picoquic_parse_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, const uint8_t *bytes_max, void **ecn_block);
+int picoquic_process_ecn_block(picoquic_cnx_t* cnx, void *ecn_block, picoquic_packet_context_t *pkt_ctx, picoquic_path_t *path);
+int picoquic_write_ecn_block(picoquic_cnx_t* cnx, uint8_t *bytes, size_t bytes_max, picoquic_packet_context_t *pkt_ctx, size_t *consumed);
 /* Send and receive network packets */
 
 picoquic_stateless_packet_t* picoquic_dequeue_stateless_packet(picoquic_quic_t* quic);
@@ -739,6 +769,10 @@ void picoquic_destroy_packet(picoquic_packet_t *p);
 int picoquic_prepare_packet(picoquic_cnx_t* cnx,
     uint64_t current_time, uint8_t* send_buffer, size_t send_buffer_max, size_t* send_length, picoquic_path_t** path);
 
+/* Associate stream with app context */
+int picoquic_set_app_stream_ctx(picoquic_cnx_t* cnx,
+                                uint64_t stream_id, void* app_stream_ctx);
+
 /* Mark stream as active, or not.
  * If a stream is active, it will be polled for data when the transport
  * is ready to send.
@@ -746,7 +780,7 @@ int picoquic_prepare_packet(picoquic_cnx_t* cnx,
  * "picoquic_add_to_stream" and the data has not been sent yet.
  */
 int picoquic_mark_active_stream(picoquic_cnx_t* cnx,
-    uint64_t stream_id, int is_active);
+    uint64_t stream_id, int is_active, void *app_stream_ctx);
 
 /* If a stream is marked active, the application will receive a callback with
  * event type "picoquic_callback_prepare_to_send" when the transport is ready to
@@ -773,6 +807,11 @@ uint8_t* picoquic_provide_stream_data_buffer(void* context, size_t nb_bytes, int
 int picoquic_add_to_stream(picoquic_cnx_t* cnx,
     uint64_t stream_id, const uint8_t* data, size_t length, int set_fin);
 
+/* Same as "picoquic_add_to_stream", but also sets the application stream context.
+ * The context is used in call backs, so the application can directly process responses.
+ */
+int picoquic_add_to_stream_with_ctx(picoquic_cnx_t * cnx, uint64_t stream_id, const uint8_t * data, size_t length, int set_fin, void * app_stream_ctx);
+
 /* Reset a stream, indicating that no more data will be sent on 
  * that stream and that any data currently queued can be abandoned. */
 int picoquic_reset_stream(picoquic_cnx_t* cnx,
@@ -795,7 +834,8 @@ typedef enum {
     picoquic_congestion_notification_spurious_repeat,
     picoquic_congestion_notification_rtt_measurement,
     picoquic_congestion_notification_cwin_blocked,
-    picoquic_congestion_notification_bw_measurement
+    picoquic_congestion_notification_bw_measurement,
+    picoquic_congestion_notification_congestion_experienced
 } picoquic_congestion_notification_t;
 
 typedef void (*picoquic_congestion_algorithm_init)(picoquic_cnx_t* cnx, picoquic_path_t* path_x);

@@ -165,6 +165,26 @@ int debug_printf_reset(int suspended)
     return ret;
 }
 
+int picoquic_sprintf(char* buf, size_t buf_len, size_t * nb_chars, const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+#ifdef _WINDOWS
+    int res = vsnprintf_s(buf, buf_len, _TRUNCATE, fmt, args);
+#else
+    int res = vsnprintf(buf, buf_len, fmt, args);
+#endif
+    va_end(args);
+
+    if (nb_chars != NULL) {
+        *nb_chars = res;
+    }
+
+    // vsnprintf returns <0 for errors and >=0 for nb of characters required.
+    // We return 0 when printing was successful.
+    return res >= 0 ? ((size_t)res >= buf_len) : res;
+}
+
 uint8_t picoquic_create_packet_header_cnxid_lengths(uint8_t dest_len, uint8_t srce_len)
 {
     uint8_t ret;
@@ -456,4 +476,88 @@ char** picoquic_string_split(char* a_str, const char a_delim)
     }
 
     return result;
+}
+
+/* Return a directory path based on solution dir and file name */
+char const* picoquic_solution_dir = NULL;
+
+void picoquic_set_solution_dir(char const* solution_dir)
+{
+    picoquic_solution_dir = solution_dir;
+}
+
+int picoquic_get_input_path(char * target_file_path, size_t file_path_max, const char * solution_path, const char * file_name)
+{
+    if (solution_path == NULL) {
+        solution_path = PICOQUIC_DEFAULT_SOLUTION_DIR;
+    }
+
+    const char * separator = PICOQUIC_FILE_SEPARATOR;
+    size_t solution_path_length = strlen(solution_path);
+    if (solution_path_length != 0 && solution_path[solution_path_length - 1] == separator[0]) {
+        separator = "";
+    }
+
+    int ret = picoquic_sprintf(target_file_path, file_path_max, NULL, "%s%s%s",
+                               solution_path, separator, file_name);
+
+    return ret;
+}
+
+/* Safely open files in a portable way */
+FILE * picoquic_file_open_ex(char const * file_name, char const * flags, int * last_err)
+{
+    FILE * F;
+
+#ifdef _WINDOWS
+    errno_t err = fopen_s(&F, file_name, flags);
+    if (err != 0){
+        if (last_err != NULL) {
+            *last_err = err;
+        }
+        if (F != NULL) {
+            fclose(F);
+            F = NULL;
+        }
+    }
+#else
+    F = fopen(file_name, flags);
+    if (F == NULL && last_err != NULL) {
+        *last_err = errno;
+    }
+#endif
+
+    return F;
+}
+FILE* picoquic_file_open(char const* file_name, char const* flags)
+{
+    return picoquic_file_open_ex(file_name, flags, NULL);
+}
+
+/* Safely close files in a portable way */
+FILE * picoquic_file_close(FILE * F)
+{
+    if (F != NULL) {
+        (void)fclose(F);
+    }
+    return NULL;
+}
+
+/* Safely delete file in a portable way */
+int picoquic_file_delete(char const * file_name, int * last_err)
+{
+    int ret;
+
+#ifdef _WINDOWS
+    ret = _unlink(file_name);
+    if (last_err != NULL && ret != 0) {
+        *last_err = errno;
+    }
+#else
+    ret = unlink(file_name);
+    if (last_err != NULL && ret != 0) {
+        *last_err = errno;
+    }
+#endif
+    return ret;
 }

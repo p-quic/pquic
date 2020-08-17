@@ -21,7 +21,7 @@ protoop_arg_t segment_prepared(picoquic_cnx_t *cnx)
     char *hdr_str = sprint_header(cnx, qlog);
     char *frame_str = sprint_frames(cnx, qlog);
 
-    LOG_EVENT(cnx, "transport", "packet_sent", "", "{\"packet_type\": \"%s\", \"header\": %s, \"frames\": %s}", (protoop_arg_t) ptype(qlog->pkt_hdr.ptype), (protoop_arg_t) hdr_str, (protoop_arg_t) (frame_str ? frame_str : "[]"));
+    LOG_EVENT(cnx, "transport", "packet_sent", "", "{\"packet_type\": \"%s\", \"header\": %s, \"frames\": %s, \"path\": \"%p\"}", (protoop_arg_t) ptype(qlog->pkt_hdr.ptype), (protoop_arg_t) hdr_str, (protoop_arg_t) (frame_str ? frame_str : "[]"), (protoop_arg_t) get_pkt(pkt, AK_PKT_SEND_PATH));
 
     if (frame_str) {
         my_free(cnx, frame_str);

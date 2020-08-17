@@ -47,6 +47,7 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
         ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
     } else {
         /* Encode the frame ID */
+        size_t type_byte_index = byte_index;
         l_frame_id = picoquic_varint_encode(bytes + byte_index, (size_t) (bytes_max - bytes) - byte_index,
                 MP_ACK_TYPE);
         byte_index += l_frame_id;
@@ -126,6 +127,16 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
             }
             /* When numbers are lower than 64, varint encoding fits on one byte */
             my_memset(&bytes[num_block_index], (uint8_t)num_block, 1);
+
+            size_t ecn_size = 0;
+            if (helper_write_ecn_block(cnx, bytes + byte_index, bytes_max - bytes, pkt_ctx, &ecn_size)) {
+                ret = 1;
+            }
+
+            if (ecn_size > 0) {
+                picoquic_varint_encode(bytes + type_byte_index, (size_t) (bytes_max - bytes) - type_byte_index, MP_ACK_ECN_TYPE);
+                byte_index += ecn_size;
+            }
 
             /* Remember the ACK value and time */
             set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_SENT, first_sack_end_range);

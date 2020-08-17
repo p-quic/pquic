@@ -52,7 +52,8 @@ typedef struct st_picoquic_tls_ctx_t {
     int client_mode;
     ptls_raw_extension_t ext[2];
     ptls_handshake_properties_t handshake_properties;
-    ptls_iovec_t alpn_vec;
+    ptls_iovec_t alpn_vec[PICOQUIC_ALPN_NUMBER_MAX];
+    int alpn_count;
     uint8_t ext_data[256];
     uint8_t ext_received[256];
     size_t ext_received_length;
@@ -353,48 +354,52 @@ int picoquic_tls_collected_extensions_cb(ptls_t* tls, ptls_handshake_properties_
  */
 
 int picoquic_client_hello_call_back(ptls_on_client_hello_t* on_hello_cb_ctx,
-    ptls_t* tls, ptls_iovec_t server_name, const ptls_iovec_t* negotiated_protocols,
-    size_t num_negotiated_protocols, const uint16_t* signature_algorithms, size_t num_signature_algorithms)
+                                    ptls_t* tls, ptls_on_client_hello_parameters_t *params)
 {
-#ifdef _WINDOWS
-    UNREFERENCED_PARAMETER(signature_algorithms);
-    UNREFERENCED_PARAMETER(num_signature_algorithms);
-#endif
-    int alpn_found = 0;
+    const uint8_t * alpn_found = 0;
+    size_t alpn_found_length = 0;
+    int ret = 0;
     picoquic_quic_t** ppquic = (picoquic_quic_t**)(((char*)on_hello_cb_ctx) + sizeof(ptls_on_client_hello_t));
     picoquic_quic_t* quic = *ppquic;
 
     /* Save the server name */
-    ptls_set_server_name(tls, (const char *)server_name.base, server_name.len);
+    ptls_set_server_name(tls, (const char *)params->server_name.base, params->server_name.len);
 
     /* Check if the client is proposing the expected ALPN */
     if (quic->default_alpn != NULL) {
         size_t len = strlen(quic->default_alpn);
 
-        for (size_t i = 0; i < num_negotiated_protocols; i++) {
-            if (negotiated_protocols[i].len == len && memcmp(negotiated_protocols[i].base, quic->default_alpn, len) == 0) {
-                alpn_found = 1;
+        for (size_t i = 0; i < params->negotiated_protocols.count; i++) {
+            if (params->negotiated_protocols.list[i].len == len &&
+                memcmp(params->negotiated_protocols.list[i].base, quic->default_alpn, len) == 0) {
+                DBG_PRINTF("ALPN[%d] matches default alpn (%s)", (int) i, quic->default_alpn);
+                alpn_found = (const uint8_t *) quic->default_alpn;
+                alpn_found_length = len;
                 ptls_set_negotiated_protocol(tls, quic->default_alpn, len);
                 break;
             }
         }
     }
+    else if (quic->alpn_select_fn != NULL) {
+        size_t selected = quic->alpn_select_fn(quic, params->negotiated_protocols.list, params->negotiated_protocols.count);
 
-    /* If no common ALPN found, pick the first choice of the client. 
-	 * This could be problematic, but right now alpn use in quic is in flux.
-	 */
+        DBG_PRINTF("ALPN Selection call back selects %d (out of %d)", (int)selected, (int)params->negotiated_protocols.count);
 
-    if (alpn_found == 0) {
-        for (size_t i = 0; i < num_negotiated_protocols; i++) {
-            if (negotiated_protocols[i].len > 0) {
-                ptls_set_negotiated_protocol(tls,
-                    (char const*)negotiated_protocols[i].base, negotiated_protocols[i].len);
-                break;
-            }
+        if (selected < params->negotiated_protocols.count) {
+            alpn_found = params->negotiated_protocols.list[selected].base;
+            alpn_found_length = params->negotiated_protocols.list[selected].len;
+            ptls_set_negotiated_protocol(tls, (const char *)params->negotiated_protocols.list[selected].base, params->negotiated_protocols.list[selected].len);
         }
     }
 
-    return 0;
+    /* ALPN is mandatory in Quic. Return an error if no match found. */
+    if (alpn_found == NULL) {
+        ret = PTLS_ALERT_NO_APPLICATION_PROTOCOL;
+    }
+
+
+    DBG_PRINTF("Client Hello call back returns %d (0x%x)", ret, ret);
+    return ret;
 }
 
 /*
@@ -876,7 +881,6 @@ int picoquic_master_tlscontext(picoquic_quic_t* quic,
 
         ctx->send_change_cipher_spec = 0;
 
-        ctx->hkdf_label_prefix = NULL;
         ctx->update_traffic_key = picoquic_set_update_traffic_key_callback();
 
         if (quic->p_simulated_time == NULL) {
@@ -1085,10 +1089,11 @@ int picoquic_tlscontext_create(picoquic_quic_t* quic, picoquic_cnx_t* cnx, uint6
             }
 
             if (cnx->alpn != NULL) {
-                ctx->alpn_vec.base = (uint8_t*)cnx->alpn;
-                ctx->alpn_vec.len = strlen(cnx->alpn);
+                ctx->alpn_vec[0].base = (uint8_t*)cnx->alpn;
+                ctx->alpn_vec[0].len = strlen(cnx->alpn);
+                ctx->alpn_count++;
                 ctx->handshake_properties.client.negotiated_protocols.count = 1;
-                ctx->handshake_properties.client.negotiated_protocols.list = &ctx->alpn_vec;
+                ctx->handshake_properties.client.negotiated_protocols.list = ctx->alpn_vec;
             }
 
             picoquic_tls_set_extensions(cnx, ctx);
@@ -1304,6 +1309,26 @@ static int picoquic_add_to_tls_stream(picoquic_cnx_t* cnx, const uint8_t* data, 
     return ret;
 }
 
+
+/* Add a supported ALPN context */
+int picoquic_add_proposed_alpn(void* tls_context, const char* alpn)
+{
+    int ret = 0;
+    picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)tls_context;
+    if (ctx == NULL) {
+        ret = PICOQUIC_ERROR_UNEXPECTED_ERROR;
+    }
+    else if (ctx->alpn_count >= PICOQUIC_ALPN_NUMBER_MAX) {
+        ret = PICOQUIC_ERROR_SEND_BUFFER_TOO_SMALL;
+    } else {
+        ctx->alpn_vec[ctx->alpn_count].base = (uint8_t*)alpn;
+        ctx->alpn_vec[ctx->alpn_count].len = strlen(alpn);
+        ctx->alpn_count++;
+    }
+
+    return ret;
+}
+
 /* Prepare the initial message when starting a connection.
  */
 
@@ -1313,6 +1338,30 @@ int picoquic_initialize_tls_stream(picoquic_cnx_t* cnx)
     struct st_ptls_buffer_t sendbuf;
     picoquic_tls_ctx_t* ctx = (picoquic_tls_ctx_t*)cnx->tls_ctx;
     size_t epoch_offsets[PICOQUIC_NUMBER_OF_EPOCH_OFFSETS] = { 0, 0, 0, 0, 0 };
+
+    if (cnx->alpn != NULL) {
+        ctx->alpn_vec[0].base = (uint8_t*)cnx->alpn;
+        ctx->alpn_vec[0].len = strlen(cnx->alpn);
+        ctx->handshake_properties.client.negotiated_protocols.count = 1;
+        ctx->handshake_properties.client.negotiated_protocols.list = ctx->alpn_vec;
+    }
+    else if (cnx->callback_fn != NULL) {
+        /* Get the default ALPN list for the callback function */
+        ret = cnx->callback_fn(cnx, 0, (uint8_t*)ctx, 0, picoquic_callback_request_alpn_list, cnx->callback_ctx, NULL);
+
+        ctx->handshake_properties.client.negotiated_protocols.count = ctx->alpn_count;
+        ctx->handshake_properties.client.negotiated_protocols.list = ctx->alpn_vec;
+
+        if (ret != 0) {
+            DBG_PRINTF("ALPN list callback returns 0x%x", ret);
+        }
+    }
+
+    /* ALPN is mandatory, there should be at least one */
+    if (ret == 0 && ctx->handshake_properties.client.negotiated_protocols.count == 0) {
+        ret = PICOQUIC_ERROR_NO_ALPN_PROVIDED;
+        DBG_PRINTF("No ALPN provided, error 0x%x", ret);
+    }
 
     if ((cnx->quic->flags&picoquic_context_client_zero_share) != 0 &&
         cnx->cnx_state == picoquic_state_client_init)
@@ -1472,32 +1521,6 @@ static void picoquic_setup_cleartext_aead_salt(size_t version_index, ptls_iovec_
     }
 }
 
-/* Compare AEAD context parameters. This is done just by comparing the IV,
- * which is accessible in the context */
-int picoquic_compare_cleartext_aead_contexts(picoquic_cnx_t* cnx1, picoquic_cnx_t* cnx2)
-{
-    int ret = 0;
-    ptls_aead_context_t * aead_enc = (ptls_aead_context_t *)cnx1->crypto_context[0].aead_encrypt;
-    ptls_aead_context_t * aead_dec = (ptls_aead_context_t *)cnx2->crypto_context[0].aead_decrypt;
-
-    if (aead_enc == NULL )
-    {
-        DBG_PRINTF("%s", "Missing aead encoding context\n");
-        ret = -1;
-    }
-    else if (aead_dec == NULL)
-    {
-        DBG_PRINTF("%s", "Missing aead decoding context\n");
-        ret = -1;
-    }
-    else if (memcmp(aead_enc->static_iv, aead_dec->static_iv, 16) != 0){
-        DBG_PRINTF("%s", "Encoding IV does not match decoding IV\n");
-        ret = -1;
-    }
-
-    return ret;
-}
-
 /* Input stream zero data to TLS context.
  *
  * Processing  depends on the "epoch" in which packets have been received. That
@@ -1562,6 +1585,32 @@ int picoquic_tls_stream_process(picoquic_cnx_t* cnx)
                         data_pushed = 1;
                         ret = picoquic_add_to_tls_stream(cnx,
                             sendbuf.base + send_offset[i], send_offset[i + 1] - send_offset[i], i);
+                    }
+                }
+                if (cnx->client_mode) {
+                    if (cnx->alpn == NULL) {
+                        const char* alpn = ptls_get_negotiated_protocol(ctx->tls);
+
+                        if (alpn != NULL){
+                            cnx->alpn = picoquic_string_duplicate(alpn);
+
+                            if (cnx->callback_fn != NULL) {
+                                cnx->callback_fn(cnx, 0, (uint8_t*)alpn, 0, picoquic_callback_set_alpn, cnx->callback_ctx, NULL);
+                            }
+                            else {
+                                DBG_PRINTF("Negotiated ALPN: %s", alpn);
+                            }
+                        }
+                    }
+                    switch (ctx->handshake_properties.client.early_data_acceptance) {
+                        case PTLS_EARLY_DATA_REJECTED:
+                            cnx->zero_rtt_data_accepted = 0;
+                            break;
+                        case PTLS_EARLY_DATA_ACCEPTED:
+                            cnx->zero_rtt_data_accepted = 1;
+                            break;
+                        default:
+                            break;
                     }
                 }
             }

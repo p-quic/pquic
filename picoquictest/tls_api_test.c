@@ -19,13 +19,13 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <picotls.h>
 #include "../picoquic/picoquic_internal.h"
 #include "../picoquic/tls_api.h"
 #include "picoquictest_internal.h"
 #ifdef _WINDOWS
 #include "..\picoquic\wincompat.h"
 #endif
-#include <picotls.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1078,7 +1078,7 @@ static int tls_api_test_with_loss(uint64_t* loss_mask, uint32_t proposed_version
 
 int tls_api_test()
 {
-    return tls_api_test_with_loss(NULL, PICOQUIC_INTERNAL_TEST_VERSION_1, PICOQUIC_TEST_SNI, NULL);
+    return tls_api_test_with_loss(NULL, PICOQUIC_INTERNAL_TEST_VERSION_1, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN);
 }
 
 int tls_api_silence_test()
@@ -1129,21 +1129,6 @@ int tls_api_loss_test(uint64_t mask)
     return tls_api_test_with_loss(&loss_mask, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_ALPN);
 }
 
-int tls_api_many_losses()
-{
-    uint64_t loss_mask = 0;
-    int ret = 0;
-
-    for (uint64_t i = 0; ret == 0 && i < 6; i++) {
-        for (uint64_t j = 1; ret == 0 && j < 4; j++) {
-            loss_mask = ((((uint64_t)1) << j) - ((uint64_t)1)) << i;
-            ret = tls_api_test_with_loss(&loss_mask, 0, NULL, NULL);
-        }
-    }
-
-    return ret;
-}
-
 int tls_api_version_negotiation_test()
 {
     const uint32_t version_grease = 0x0aca4a0a;
@@ -1162,7 +1147,50 @@ int tls_api_alpn_test()
 
 int tls_api_wrong_alpn_test()
 {
-    return tls_api_test_with_loss(NULL, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_WRONG_ALPN);
+    uint64_t simulated_time = 0;
+    picoquic_test_tls_api_ctx_t* test_ctx = NULL;
+    int ret = tls_api_init_ctx(&test_ctx, 0, PICOQUIC_TEST_SNI, PICOQUIC_TEST_WRONG_ALPN, &simulated_time, NULL, 0, 0, 0);
+
+    if (ret == 0) {
+        /* By default, client and servers are using the same ALPN. Correct that on the server side
+         * so we can test the wrong ALPN condition */
+        free((void*)test_ctx->qserver->default_alpn);
+        test_ctx->qserver->default_alpn = picoquic_string_duplicate(PICOQUIC_TEST_ALPN);
+    }
+
+    if (ret != 0)
+    {
+        DBG_PRINTF("Could not create the QUIC test contexts for V=%x\n", 0);
+    }
+
+    if (ret == 0) {
+        ret = tls_api_connection_loop(test_ctx, 0, 0, &simulated_time);
+
+        if (ret == 0)
+        {
+            if (test_ctx->cnx_client != NULL) {
+                if (test_ctx->cnx_client->cnx_state == picoquic_state_disconnected &&
+                    test_ctx->cnx_client->remote_error == PICOQUIC_TRANSPORT_CRYPTO_ERROR(120)) {
+                    ret = 0;
+                }
+                else {
+                    DBG_PRINTF("Connection loop returns 0x%x\n", test_ctx->cnx_client->remote_error);
+                    ret = -1;
+                }
+            }
+            else {
+                DBG_PRINTF("%s", "Could not establish a client connection");
+                ret = -1;
+            }
+        }
+    }
+
+    if (test_ctx != NULL) {
+        tls_api_delete_ctx(test_ctx);
+        test_ctx = NULL;
+    }
+
+    return ret;
 }
 
 /*
@@ -1926,8 +1954,9 @@ int zero_rtt_test_one(int use_badcrypt, int hardreset, unsigned int early_loss)
                 ret = -1;
             } else {
                 ret = picoquic_save_tickets(test_ctx->qclient->p_first_ticket, simulated_time, ticket_file_name);
-                DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), cnx %d, ticket save error (0x%x).\n",
-                    use_badcrypt, hardreset, i, ret);
+                if (ret != 0)
+                    DBG_PRINTF("Zero RTT test (badcrypt: %d, hard: %d), cnx %d, ticket save error (0x%x).\n",
+                               use_badcrypt, hardreset, i, ret);
             }
         }
 

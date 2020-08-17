@@ -32,27 +32,27 @@
  */
 
 static uint8_t v0_1[] = {
-    0x10, /* Start Byte: F=0, Len=0, Off=0 */
+    0x08, /* Start Byte: F=0, Len=0, Off=0 */
     0, /* One byte stream ID */
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10 /* Some random data */
 };
 
 static uint8_t v0_2[] = {
-    0x14, /* Start Byte: F=0, Len=0, Off=4 */
+    0x0c, /* Start Byte: F=0, Len=0, Off=4 */
     0, /* One byte stream ID */
     10, /* One byte offset */
     11, 12, 13, 14, 15, 16, 17, 18, 19, 20 /* Some random data */
 };
 
 static uint8_t v0_3[] = {
-    0x14, /* Start Byte: F=0, Len=0, Off=4 */
+    0x0c, /* Start Byte: F=0, Len=0, Off=4 */
     0x40, 0, /* Two  byte stream ID, still 0 */
     0x40, 20, /* Two byte offset */
     21, 22, 23, 24, 25, 26, 27, 28, 29, 30 /* Some random data */
 };
 
 static uint8_t v0_4[] = {
-    0x16, /* Start Byte: F=0, Len=2, Off=4 */
+    0x0e, /* Start Byte: F=0, Len=2, Off=4 */
     0x40, 0, /* Two  byte stream ID */
     0x80, 0, 0, 30, /* Four byte offset */
     0x40, 10, /* two byte length */
@@ -60,7 +60,7 @@ static uint8_t v0_4[] = {
 };
 
 static uint8_t v0_5[] = {
-    0x16, /* Start Byte: F=0, Len=2, Off=4 */
+    0x0e, /* Start Byte: F=0, Len=2, Off=4 */
     0x80, 0, 0, 0, /* Four  byte stream ID */
     0xC0, 0, 0, 0, 0, 0, 0, 40, /* Eight byte offset */
     0x40, 10, /* Two byte length */
@@ -69,7 +69,7 @@ static uint8_t v0_5[] = {
 };
 
 static uint8_t v0_45_overlap[] = {
-    0x16, /* Start Byte: F=0, Len=2, Off=4 */
+    0x0e, /* Start Byte: F=0, Len=2, Off=4 */
     0, /* One  byte stream ID */
     0x40, 35, /* Two byte offset */
     0x40, 10, /* Two byte length */

@@ -92,11 +92,13 @@ extern "C" {
 
 #define PICOQUIC_SPIN_VEC_LATE 1000 /* in microseconds : reaction time beyond which to mark a spin bit edge as 'late' */
 
+#define PICOQUIC_ALPN_NUMBER_MAX 8
+
 
 /*
  * Supported versions
  */
-#define PICOQUIC_INTEROP_VERSION 0xff00001b
+#define PICOQUIC_INTEROP_VERSION 0xff00001d
 #define PICOQUIC_INTERNAL_TEST_VERSION_1 0x50435130
 
 #define PICOQUIC_INTEROP_VERSION_INDEX 1
@@ -113,7 +115,7 @@ typedef enum {
  * Codes used for representing the various types of packet encodings
  */
 typedef enum {
-    picoquic_version_header_27
+    picoquic_version_header_29
 } picoquic_version_header_encoding;
 
 typedef struct st_picoquic_version_parameters_t {
@@ -204,6 +206,7 @@ typedef struct st_picoquic_quic_t {
     picoquic_stream_data_cb_fn default_callback_fn;
     void* default_callback_ctx;
     char const* default_alpn;
+    picoquic_alpn_select_fn alpn_select_fn;
     uint8_t reset_seed[PICOQUIC_RESET_SECRET_SIZE];
     uint8_t retry_seed[PICOQUIC_RETRY_SECRET_SIZE];
     uint64_t* p_simulated_time;
@@ -239,6 +242,8 @@ typedef struct st_picoquic_quic_t {
 
     /* Which was the socket used to receive the last packet? */
     SOCKET_TYPE rcv_socket;
+    /* Last received TOS */
+    int rcv_tos;
 
     picoquic_tp_t * default_tp;
 
@@ -264,10 +269,10 @@ picoquic_packet_context_enum picoquic_context_from_epoch(int epoch);
  */
 
 typedef enum {
-    picoquic_tp_original_connection_id = 0x00,
+    picoquic_tp_original_destination_connection_id = 0x00,
     picoquic_tp_max_idle_timeout = 0x01,
     picoquic_tp_stateless_reset_secret = 0x02,
-    picoquic_tp_max_packet_size = 0x03,
+    picoquic_tp_max_udp_payload_size = 0x03,
     picoquic_tp_initial_max_data = 0x04,
     picoquic_tp_initial_max_stream_data_bidi_local = 0x05,
     picoquic_tp_initial_max_stream_data_bidi_remote = 0x06,
@@ -275,10 +280,12 @@ typedef enum {
     picoquic_tp_initial_max_streams_bidi = 0x08,
     picoquic_tp_initial_max_streams_uni = 0x09,
     picoquic_tp_ack_delay_exponent = 0x0a,
-    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-27
+    picoquic_tp_max_ack_delay = 0x0b,  // TODO draft-29
     picoquic_tp_disable_active_migration = 0x0c,
     picoquic_tp_preferred_address = 0x0d,
-    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-27
+    picoquic_tp_active_connection_id_limit = 0x0e, // TODO draft-29
+    picoquic_tp_initial_source_connection_id = 0x0f, // TODO draft-29
+    picoquic_tp_retry_source_connection_id = 0x10,
     picoquic_tp_supported_plugins = 0x79, // to avoid clash with datagram extension
     picoquic_tp_plugins_to_inject = 0x7a, // to avoid clash with datagram extension
 } picoquic_tp_enum;
@@ -293,7 +300,7 @@ typedef struct st_picoquic_tp_preferred_address_t {
 } picoquic_tp_preferred_address_t;
 
 typedef struct st_picoquic_tp_t {
-    picoquic_connection_id_t original_connection_id;  // TODO use TP
+    picoquic_connection_id_t original_destination_connection_id;
     uint64_t max_idle_timeout;  // TODO use TP
     uint64_t max_packet_size;
     uint64_t initial_max_data;
@@ -307,6 +314,8 @@ typedef struct st_picoquic_tp_t {
     unsigned int disable_active_migration;
     picoquic_tp_preferred_address_t preferred_address;  // TODO use TP
     uint64_t active_connection_id_limit;
+    picoquic_connection_id_t initial_source_connection_id;
+    picoquic_connection_id_t retry_source_connection_id; // TODO use this TP
     char* supported_plugins;
     char* plugins_to_inject;
 } picoquic_tp_t;
@@ -350,6 +359,7 @@ typedef struct _picoquic_stream_head {
     uint64_t sent_offset;
     uint64_t sending_offset;
     picoquic_stream_data* send_queue;
+    void *app_stream_ctx;
     picoquic_sack_item_t first_sack_item;
     /* Flags describing the state of the stream */
     unsigned int is_active : 1; /* The application is actively managing data sending through callbacks */
@@ -414,6 +424,8 @@ typedef struct st_picoquic_packet_context_t {
     picoquic_packet_t* retransmitted_oldest;
 
     unsigned int ack_needed : 1;
+
+    plugin_struct_metadata_t *metadata;
 } picoquic_packet_context_t;
 
 /*
@@ -671,7 +683,7 @@ typedef struct st_picoquic_cnx_t {
 
     /* connection state, ID, etc. Todo: allow for multiple cnxid */
     picoquic_state_enum cnx_state;
-    picoquic_connection_id_t initial_cnxid;
+    picoquic_connection_id_t initial_cnxid;  // What's that ?
     uint64_t start_time;
     uint64_t application_error;
     uint64_t local_error;
@@ -709,13 +721,6 @@ typedef struct st_picoquic_cnx_t {
     uint32_t nb_zero_rtt_acked;
     uint64_t nb_retransmission_total;
     uint64_t nb_spurious;
-    /* ECN Counters */
-    uint64_t ecn_ect0_total_local;
-    uint64_t ecn_ect1_total_local;
-    uint64_t ecn_ce_total_local;
-    uint64_t ecn_ect0_total_remote;
-    uint64_t ecn_ect1_total_remote;
-    uint64_t ecn_ce_total_remote;
 
     /* Congestion algorithm */
     picoquic_congestion_algorithm_t const* congestion_alg;
@@ -1033,7 +1038,7 @@ int picoquic_parse_stream_header(
 
 int picoquic_parse_ack_header(
     uint8_t const* bytes, size_t bytes_max,
-    uint64_t* num_block, uint64_t* nb_ecnx3, uint64_t* largest,
+    uint64_t* num_block, uint64_t* largest,
     uint64_t* ack_delay, size_t* consumed,
     uint8_t ack_delay_exponent);
 
@@ -1192,7 +1197,7 @@ int picoquic_receive_transport_extensions(picoquic_cnx_t* cnx, int extension_mod
     uint8_t* bytes, size_t bytes_max, size_t* consumed);
 
 /* Hooks for reception and sending of packets */
-void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
+void picoquic_received_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket, int recv_tos);
 void picoquic_before_sending_packet(picoquic_cnx_t *cnx, SOCKET_TYPE socket);
 void picoquic_received_segment(picoquic_cnx_t *cnx);
 void picoquic_segment_prepared(picoquic_cnx_t *cnx, picoquic_packet_t *pkt);

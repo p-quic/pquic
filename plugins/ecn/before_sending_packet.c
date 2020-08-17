@@ -20,13 +20,15 @@ protoop_arg_t before_sending_packet(picoquic_cnx_t *cnx)
         return 0;
     }
 
-    int ecn_val = 1;
+    int read_ecn = 1;
     int ecn_ip_tos = 1; // For ECT(0)
     // int ecn_ip_tos = 2; // For ECT(1)
 
-    /* FIXME what if the socket is IPv6? */
-    setsockopt(socket, IPPROTO_IP, IP_RECVTOS, &ecn_val, sizeof(ecn_val));
+    setsockopt(socket, IPPROTO_IP, IP_RECVTOS, &read_ecn, sizeof(read_ecn));
     setsockopt(socket, IPPROTO_IP, IP_TOS, &ecn_ip_tos, sizeof(ecn_ip_tos));
+
+    setsockopt(socket, IPPROTO_IPV6, IPV6_RECVTCLASS, &read_ecn, sizeof(read_ecn));
+    setsockopt(socket, IPPROTO_IPV6, IPV6_TCLASS, &ecn_ip_tos, sizeof(ecn_ip_tos));
 
     bpfd->ecn_sock_flags |= flag;
 

@@ -34,140 +34,151 @@
 static uint8_t test_frame_type_padding[] = { 0, 0, 0 };
 
 static uint8_t test_frame_type_reset_stream[] = {
-    picoquic_frame_type_reset_stream,
-    17,
-    0, 1,
-    1
+        picoquic_frame_type_reset_stream,
+        17,
+        1,
+        1
 };
 
 static uint8_t test_type_connection_close[] = {
-    picoquic_frame_type_connection_close,
-    0xcf, 0xff, 0x00,
-    9,
-    '1', '2', '3', '4', '5', '6', '7', '8', '9'
+        picoquic_frame_type_connection_close,
+        0x80, 0x00, 0xCF, 0xFF, 0,
+        9,
+        '1', '2', '3', '4', '5', '6', '7', '8', '9'
 };
 
 static uint8_t test_type_application_close[] = {
-    picoquic_frame_type_application_close,
-    0, 0,
-    0
+        picoquic_frame_type_application_close,
+        0,
+        0
 };
 
 static uint8_t test_type_application_close_reason[] = {
-    picoquic_frame_type_application_close,
-    4, 4,
-    4,
-    't', 'e', 's', 't'
+        picoquic_frame_type_application_close,
+        0x44, 4,
+        4,
+        't', 'e', 's', 't'
 };
 
 static uint8_t test_frame_type_max_data[] = {
-    picoquic_frame_type_max_data,
-    0xC0, 0, 0x01, 0, 0, 0, 0, 0
+        picoquic_frame_type_max_data,
+        0xC0, 0, 0x01, 0, 0, 0, 0, 0
 };
+
 static uint8_t test_frame_type_max_stream_data[] = {
-    picoquic_frame_type_max_stream_data,
-    1,
-    0x80, 0x01, 0, 0
+        picoquic_frame_type_max_stream_data,
+        1,
+        0x80, 0x01, 0, 0
 };
-static uint8_t test_frame_type_max_stream_id[] = {
-    picoquic_frame_type_max_streams_bidi,
-    0x41, 0
+
+static uint8_t test_frame_type_max_streams_bidir[] = {
+        picoquic_frame_type_max_streams_bidi,
+        0x41, 0
 };
+
+static uint8_t test_frame_type_max_streams_unidir[] = {
+        picoquic_frame_type_max_streams_uni,
+        0x41, 7
+};
+
 static uint8_t test_frame_type_ping[] = {
-    picoquic_frame_type_ping
+        picoquic_frame_type_ping
 };
+
 static uint8_t test_frame_type_blocked[] = {
-    picoquic_frame_type_data_blocked,
-    0x80, 0x01, 0, 0
+        picoquic_frame_type_data_blocked,
+        0x80, 0x01, 0, 0
 };
+
 static uint8_t test_frame_type_stream_blocked[] = {
-    picoquic_frame_type_stream_data_blocked,
-    0x80, 1, 0, 0,
-    0x80, 0x01, 0, 0
+        picoquic_frame_type_stream_data_blocked,
+        0x80, 1, 0, 0,
+        0x80, 0x02, 0, 0
 };
-static uint8_t test_frame_type_stream_id_blocked[] = {
-    picoquic_frame_type_bidi_streams_blocked,
-    0x41, 0
-};
+
 static uint8_t test_frame_type_new_connection_id[] = {
-    picoquic_frame_type_new_connection_id,
-    0x41, 0,
-    8,
-    1, 2, 3, 4, 5, 6, 7, 8,
-    0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
-    0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+        picoquic_frame_type_new_connection_id,
+        7,
+        0,
+        8,
+        1, 2, 3, 4, 5, 6, 7, 8,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
 };
+
 static uint8_t test_frame_type_stop_sending[] = {
-    picoquic_frame_type_stop_sending,
-    17,
-    0x40, 0
+        picoquic_frame_type_stop_sending,
+        17,
+        0x17
 };
 
 static uint8_t test_frame_type_path_challenge[] = {
-    picoquic_frame_type_path_challenge,
-    1, 2, 3, 4, 5, 6, 7, 8
+        picoquic_frame_type_path_challenge,
+        1, 2, 3, 4, 5, 6, 7, 8
 };
 
 static uint8_t test_frame_type_path_response[] = {
-    picoquic_frame_type_path_response,
-    1, 2, 3, 4, 5, 6, 7, 8
+        picoquic_frame_type_path_response,
+        1, 2, 3, 4, 5, 6, 7, 8
 };
 
 static uint8_t test_frame_type_new_token[] = {
-    picoquic_frame_type_new_token,
-    17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+        picoquic_frame_type_new_token,
+        17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 };
 
 static uint8_t test_frame_type_ack[] = {
-    picoquic_frame_type_ack,
-    0xC0, 0, 0, 1, 2, 3, 4, 5,
-    0x44, 0,
-    2,
-    5,
-    0, 0,
-    5, 12
+        picoquic_frame_type_ack,
+        0xC0, 0, 0, 1, 2, 3, 4, 5,
+        0x44, 0,
+        2,
+        5,
+        0, 0,
+        5, 12
 };
 static uint8_t test_frame_type_ack_ecn[] = {
-    picoquic_frame_type_ack_ecn,
-    0xC0, 0, 0, 1, 2, 3, 4, 5,
-    0x44, 0,
-    3, 0, 1,
-    2,
-    5,
-    0, 0,
-    5, 12
+        picoquic_frame_type_ack_ecn,
+        0xC0, 0, 0, 1, 2, 3, 4, 5,
+        0x44, 0,
+        2,
+        5,
+        0, 0,
+        5, 12,
+        3, 0, 1
 };
+
 static uint8_t test_frame_type_stream_range_min[] = {
-    picoquic_frame_type_stream_range_min,
-    1,
-    0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
-    0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+        picoquic_frame_type_stream_range_min,
+        1,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
 };
 
 static uint8_t test_frame_type_stream_range_max[] = {
-    picoquic_frame_type_stream_range_min + 2 + 4,
-    1,
-    0x44, 0,
-    0x10,
-    0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
-    0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+        picoquic_frame_type_stream_range_min + 2 + 4,
+        1,
+        0x44, 0,
+        0x10,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
 };
 
 static uint8_t test_frame_type_crypto_hs[] = {
-    picoquic_frame_type_crypto_hs,
-    0,
-    0x10,
-    0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
-    0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+        picoquic_frame_type_crypto_hs,
+        0,
+        0x10,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
 };
 
-static uint8_t test_frame_type_plugin_validate[] = {
-    picoquic_frame_type_plugin_validate,
-    0,
-    0x18,
-    0x62, 0x65, 0x2E, 0x71, 0x64, 0x65, 0x63, 0x6F,
-    0x6E, 0x69, 0x6E, 0x63, 0x6B, 0x2E, 0x6D, 0x75,
-    0x6C, 0x74, 0x69, 0x70, 0x61, 0x74, 0x68, 0x00
+
+static uint8_t test_frame_type_retire_connection_id[] = {
+        picoquic_frame_type_retire_connection_id,
+        1
+};
+
+static uint8_t test_frame_type_handshake_done[] = {
+        picoquic_frame_type_handshake_done
 };
 
 typedef struct st_test_skip_frames_t {
@@ -185,32 +196,178 @@ typedef struct st_test_skip_frames_t {
     }
 
 static test_skip_frames_t test_skip_list[] = {
-    TEST_SKIP_ITEM("padding", test_frame_type_padding, 1, 0, 0),
-    TEST_SKIP_ITEM("reset_stream", test_frame_type_reset_stream, 0, 0, 3),
-    TEST_SKIP_ITEM("connection_close", test_type_connection_close, 0, 0, 3),
-    TEST_SKIP_ITEM("application_close", test_type_application_close, 0, 0, 3),
-    TEST_SKIP_ITEM("application_close", test_type_application_close_reason, 0, 0, 3),
-    TEST_SKIP_ITEM("max_data", test_frame_type_max_data, 0, 0, 3),
-    TEST_SKIP_ITEM("max_stream_data", test_frame_type_max_stream_data, 0, 0, 3),
-    TEST_SKIP_ITEM("max_stream_id", test_frame_type_max_stream_id, 0, 0, 3),
-    TEST_SKIP_ITEM("ping", test_frame_type_ping, 0, 0, 3),
-    TEST_SKIP_ITEM("blocked", test_frame_type_blocked, 0, 0, 3),
-    TEST_SKIP_ITEM("stream_blocked", test_frame_type_stream_blocked, 0, 0, 3),
-    TEST_SKIP_ITEM("stream_id_blocked", test_frame_type_stream_id_blocked, 0, 0, 3),
-    TEST_SKIP_ITEM("new_connection_id", test_frame_type_new_connection_id, 0, 0, 3),
-    TEST_SKIP_ITEM("stop_sending", test_frame_type_stop_sending, 0, 0, 3),
-    TEST_SKIP_ITEM("challenge", test_frame_type_path_challenge, 1, 0, 3),
-    TEST_SKIP_ITEM("response", test_frame_type_path_response, 1, 0, 3),
-    TEST_SKIP_ITEM("new_token", test_frame_type_new_token, 0, 0, 3),
-    TEST_SKIP_ITEM("ack", test_frame_type_ack, 1, 0, 3),
-    TEST_SKIP_ITEM("ack_ecn", test_frame_type_ack_ecn, 1, 0, 3),
-    TEST_SKIP_ITEM("stream_min", test_frame_type_stream_range_min, 0, 1, 3),
-    TEST_SKIP_ITEM("stream_max", test_frame_type_stream_range_max, 0, 0, 3),
-    TEST_SKIP_ITEM("crypto_hs", test_frame_type_crypto_hs, 0, 0, 2),
-    TEST_SKIP_ITEM("plugin_validate", test_frame_type_plugin_validate, 0, 0, 3)
+        TEST_SKIP_ITEM("padding", test_frame_type_padding, 1, 0, 0),
+        TEST_SKIP_ITEM("reset_stream", test_frame_type_reset_stream, 0, 0, 3),
+        TEST_SKIP_ITEM("connection_close", test_type_connection_close, 0, 0, 3),
+        TEST_SKIP_ITEM("application_close", test_type_application_close, 0, 0, 3),
+        TEST_SKIP_ITEM("application_close", test_type_application_close_reason, 0, 0, 3),
+        TEST_SKIP_ITEM("max_data", test_frame_type_max_data, 0, 0, 3),
+        TEST_SKIP_ITEM("max_stream_data", test_frame_type_max_stream_data, 0, 0, 3),
+        TEST_SKIP_ITEM("max_streams_bidir", test_frame_type_max_streams_bidir, 0, 0, 3),
+        TEST_SKIP_ITEM("max_streams_unidir", test_frame_type_max_streams_unidir, 0, 0, 3),
+        TEST_SKIP_ITEM("ping", test_frame_type_ping, 0, 0, 3),
+        TEST_SKIP_ITEM("blocked", test_frame_type_blocked, 0, 0, 3),
+        TEST_SKIP_ITEM("stream_data_blocked", test_frame_type_stream_blocked, 0, 0, 3),
+        TEST_SKIP_ITEM("new_connection_id", test_frame_type_new_connection_id, 0, 0, 3),
+        TEST_SKIP_ITEM("stop_sending", test_frame_type_stop_sending, 0, 0, 3),
+        TEST_SKIP_ITEM("challenge", test_frame_type_path_challenge, 1, 0, 3),
+        TEST_SKIP_ITEM("response", test_frame_type_path_response, 1, 0, 3),
+        TEST_SKIP_ITEM("new_token", test_frame_type_new_token, 0, 0, 3),
+        TEST_SKIP_ITEM("ack", test_frame_type_ack, 1, 0, 3),
+        TEST_SKIP_ITEM("ack_ecn", test_frame_type_ack_ecn, 1, 0, 3),
+        TEST_SKIP_ITEM("stream_min", test_frame_type_stream_range_min, 0, 1, 3),
+        TEST_SKIP_ITEM("stream_max", test_frame_type_stream_range_max, 0, 0, 3),
+        TEST_SKIP_ITEM("crypto_hs", test_frame_type_crypto_hs, 0, 0, 2),
+        TEST_SKIP_ITEM("retire_connection_id", test_frame_type_retire_connection_id, 0, 0, 3),
+        TEST_SKIP_ITEM("handshake_done", test_frame_type_handshake_done, 0, 0, 3)
 };
 
-static size_t nb_test_skip_list = sizeof(test_skip_list) / sizeof(test_skip_frames_t);
+size_t nb_test_skip_list = sizeof(test_skip_list) / sizeof(test_skip_frames_t);
+
+static uint8_t test_frame_type_bad_reset_stream_offset[] = {
+        picoquic_frame_type_reset_stream,
+        17,
+        1,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+static uint8_t test_frame_type_bad_reset_stream[] = {
+        picoquic_frame_type_reset_stream,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        1,
+        1
+};
+
+static uint8_t test_type_bad_connection_close[] = {
+        picoquic_frame_type_connection_close,
+        0x80, 0x00, 0xCF, 0xFF, 0,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        '1', '2', '3', '4', '5', '6', '7', '8', '9'
+};
+
+
+static uint8_t test_type_bad_application_close[] = {
+        picoquic_frame_type_application_close,
+        0x44, 4,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        't', 'e', 's', 't'
+};
+
+static uint8_t test_frame_type_bad_max_stream_stream[] = {
+        picoquic_frame_type_max_stream_data,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0x80, 0x01, 0, 0
+};
+
+static uint8_t test_frame_type_max_bad_streams_bidir[] = {
+        picoquic_frame_type_max_streams_bidi,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+static uint8_t test_frame_type_bad_max_streams_unidir[] = {
+        picoquic_frame_type_max_streams_uni,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+static uint8_t test_frame_type_bad_new_cid_length[] = {
+        picoquic_frame_type_new_connection_id,
+        7,
+        0,
+        0x3F,
+        1, 2, 3, 4, 5, 6, 7, 8,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+};
+
+static uint8_t test_frame_type_bad_new_cid_retire[] = {
+        picoquic_frame_type_new_connection_id,
+        7,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        8,
+        1, 2, 3, 4, 5, 6, 7, 8,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+};
+
+static uint8_t test_frame_type_bad_stop_sending[] = {
+        picoquic_frame_type_stop_sending,
+        19,
+        0x17
+};
+
+static uint8_t test_frame_type_bad_new_token[] = {
+        picoquic_frame_type_new_token,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+};
+
+static uint8_t test_frame_type_bad_ack_range[] = {
+        picoquic_frame_type_ack,
+        0xC0, 0, 0, 1, 2, 3, 4, 5,
+        0x44, 0,
+        2,
+        5,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0,
+        5, 12
+};
+
+static uint8_t test_frame_type_bad_ack_gaps[] = {
+        picoquic_frame_type_ack,
+        0xC0, 0, 0, 1, 2, 3, 4, 5,
+        0x44, 0,
+        2,
+        5,
+        0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        5, 12
+};
+
+static uint8_t test_frame_type_bad_ack_blocks[] = {
+        picoquic_frame_type_ack_ecn,
+        0xC0, 0, 0, 1, 2, 3, 4, 5,
+        0x44, 0,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        5,
+        0, 0,
+        5, 12,
+        3, 0, 1
+};
+
+static uint8_t test_frame_type_bad_crypto_hs[] = {
+        picoquic_frame_type_crypto_hs,
+        0,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF
+};
+
+static uint8_t test_frame_stream_hang[] = {
+        0x01, 0x00, 0x0D, 0xFF, 0xFF, 0xFF, 0x01, 0x00,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+
+
+test_skip_frames_t test_frame_error_list[] = {
+        TEST_SKIP_ITEM("bad_reset_stream_offset", test_frame_type_bad_reset_stream_offset, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_reset_stream", test_frame_type_bad_reset_stream, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_connection_close", test_type_bad_connection_close, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_application_close", test_type_bad_application_close, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_max_stream_stream", test_frame_type_bad_max_stream_stream, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_max_streams_bidir", test_frame_type_max_bad_streams_bidir, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_max_streams_unidir", test_frame_type_bad_max_streams_unidir, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_new_connection_id_length", test_frame_type_bad_new_cid_length, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_new_connection_id_retire", test_frame_type_bad_new_cid_retire, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_stop_sending", test_frame_type_bad_stop_sending, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_new_token", test_frame_type_bad_new_token, 0, 0, 3),
+        TEST_SKIP_ITEM("bad_ack_range", test_frame_type_bad_ack_range, 1, 0, 3),
+        TEST_SKIP_ITEM("bad_ack_gaps", test_frame_type_bad_ack_gaps, 1, 0, 3),
+        TEST_SKIP_ITEM("bad_ack_blocks", test_frame_type_bad_ack_blocks, 1, 0, 3),
+        TEST_SKIP_ITEM("bad_crypto_hs", test_frame_type_bad_crypto_hs, 0, 0, 2),
+        TEST_SKIP_ITEM("stream_hang", test_frame_stream_hang, 1, 0, 3)
+};
+
+size_t nb_test_frame_error_list = sizeof(test_frame_error_list) / sizeof(test_skip_frames_t);
 
 
 /* Pseudo random generation suitable for tests. Guaranties that the
@@ -347,6 +504,31 @@ int skip_frame_test()
             }
         }
     }
+
+    /* Check a series of known bad packets. We are checking that an error is
+     * detected and no adverse code issue happens. */
+    /* TODO integrate this
+    for (size_t i = 0; i < nb_test_frame_error_list; i++) {
+        for (int sharp_end = 0; sharp_end < 2; sharp_end++) {
+            size_t consumed = 0;
+            size_t byte_max = 0;
+            int pure_ack;
+            int t_ret = 0;
+
+            memcpy(buffer, test_frame_error_list[i].val, test_frame_error_list[i].len);
+            byte_max = test_frame_error_list[i].len;
+            if (test_frame_error_list[i].must_be_last == 0 && sharp_end == 0) {
+                memcpy(buffer + byte_max, extra_bytes, sizeof(extra_bytes));
+                byte_max += sizeof(extra_bytes);
+            }
+
+            t_ret = picoquic_skip_frame(&cnx, buffer, byte_max, &consumed, &pure_ack);
+
+            if (t_ret == 0) {
+                DBG_PRINTF("Skip error frame <%s> does not fails, ret = %d\n", test_frame_error_list[i].name, t_ret);
+            }
+        }
+    }*/
 
     /* Do a minimal fuzz test */
     for (size_t i = 0; ret == 0 && i < 100; i++) {

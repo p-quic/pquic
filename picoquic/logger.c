@@ -485,7 +485,7 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
 
     int suspended = debug_printf_reset(1);
 
-    int ret = picoquic_parse_ack_header(bytes, bytes_max, &num_block, (is_ecn)? ecnx3:NULL,
+    int ret = picoquic_parse_ack_header(bytes, bytes_max, &num_block,
         &largest, &ack_delay, &byte_index, 0);
 
     (void)debug_printf_reset(suspended);
@@ -495,10 +495,8 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
 
     /* Now that the size is good, print it */
     if (is_ecn) {
-        fprintf(F, "    ACK_ECN (nb=%u, ect0=%" PRIu64 ", ect1=%" PRIu64 ", ce=%" PRIu64 ")", (int)num_block,
-            ecnx3[0], ecnx3[1], ecnx3[2]);
-    }
-    else {
+        fprintf(F, "    ACK_ECN (nb=%u)", (int)num_block);
+    } else {
         fprintf(F, "    ACK (nb=%u)", (int)num_block);
     }
 
@@ -582,6 +580,23 @@ size_t picoquic_log_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t
     }
 
     fprintf(F, "\n");
+
+    if (ret == 0 && is_ecn) {
+        for (int ecnx = 0; ecnx < 3; ecnx++) {
+            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &ecnx3[ecnx]);
+
+            if (l_ecnx == 0) {
+                byte_index = bytes_max;
+            } else {
+                byte_index += l_ecnx;
+            }
+        }
+        if (cnx_id64 != 0) {
+            fprintf(F, "%" PRIx64 ": ", cnx_id64);
+        }
+        fprintf(F, "        ect0=%" PRIu64 ", ect1=%" PRIu64 ", ce=%" PRIu64 "\n", ecnx3[0], ecnx3[1], ecnx3[2]);
+    }
+
 
     return byte_index;
 }
@@ -807,21 +822,18 @@ size_t picoquic_log_stream_blocked_frame(FILE* F, uint8_t* bytes, size_t bytes_m
 size_t picoquic_log_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 1;
-    size_t min_size = 1 + 8 + 16;
+    size_t min_size = 1 + 1 + 2 + 16;
     picoquic_connection_id_t new_cnx_id;
-    size_t l_seq = 0;
+    uint64_t seq = 0, prior = 0;
     uint8_t l_cid = 0;
-
-    l_seq = picoquic_varint_skip(&bytes[byte_index]);
-
-    min_size += l_seq;
 
     if (min_size > bytes_max) {
         fprintf(F, "    Malformed NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
         return bytes_max;
     }
 
-    byte_index += l_seq;
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &seq);;
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &prior);;
 
     if (byte_index < bytes_max) {
         l_cid = bytes[byte_index++];
@@ -833,7 +845,7 @@ size_t picoquic_log_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t byte
     }
     else {
         byte_index += picoquic_parse_connection_id(bytes + byte_index, l_cid, &new_cnx_id);
-        fprintf(F, "    NEW CONNECTION ID: 0x");
+        fprintf(F, "    NEW CONNECTION ID: Seq %" PRIu64 ", Retire Prior To %" PRIu64 ", 0x", seq, prior);
         for (int x = 0; x < new_cnx_id.id_len; x++) {
             fprintf(F, "%02x", new_cnx_id.id[x]);
         }
@@ -1139,7 +1151,7 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
 }
 
 static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
-    uint64_t* num_block, uint64_t* nb_ecnx3, uint64_t *path_id,
+    uint64_t* num_block, uint64_t *path_id,
     uint64_t* largest, uint64_t* ack_delay, size_t* consumed,
     uint8_t ack_delay_exponent)
 {
@@ -1166,19 +1178,6 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
         byte_index += l_delay;
     }
 
-    if (nb_ecnx3 != NULL) {
-        for (int ecnx = 0; ecnx < 3; ecnx++) {
-            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &nb_ecnx3[ecnx]);
-
-            if (l_ecnx == 0) {
-                byte_index = bytes_max;
-            }
-            else {
-                byte_index += l_ecnx;
-            }
-        }
-    }
-
     if (bytes_max > byte_index) {
         l_blocks = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, num_block);
         byte_index += l_blocks;
@@ -1195,17 +1194,18 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
     return ret;
 }
 
-size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max)
+size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max, int is_ecn)
 {
     size_t byte_index;
     uint64_t path_id;
     uint64_t num_block;
     uint64_t largest;
     uint64_t ack_delay;
+    uint64_t ecnx3[3];
 
     int suspended = debug_printf_reset(1);
 
-    int ret = parse_mp_ack_header(bytes, bytes_max, &num_block, NULL, &path_id,
+    int ret = parse_mp_ack_header(bytes, bytes_max, &num_block, &path_id,
         &largest, &ack_delay, &byte_index, 0);
 
     (void)debug_printf_reset(suspended);
@@ -1214,7 +1214,11 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
         return bytes_max;
 
     /* Now that the size is good, print it */
-    fprintf(F, "    MP ACK for uniflow 0x%02lx (nb=%u)", path_id, (int)num_block);
+    if (bytes[1] == 0x42) {
+        fprintf(F, "    MP ACK for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+    } else if (bytes[1] == 0x43) {
+        fprintf(F, "    MP ACK_ECN for path 0x%02lx (nb=%u)", path_id, (int)num_block);
+    }
 
     /* decoding the acks */
 
@@ -1296,6 +1300,22 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
     }
 
     fprintf(F, "\n");
+
+    if (ret == 0 && is_ecn) {
+        for (int ecnx = 0; ecnx < 3; ecnx++) {
+            size_t l_ecnx = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &ecnx3[ecnx]);
+
+            if (l_ecnx == 0) {
+                byte_index = bytes_max;
+            } else {
+                byte_index += l_ecnx;
+            }
+        }
+        if (cnx_id64 != 0) {
+            fprintf(F, "%" PRIx64 ": ", cnx_id64);
+        }
+        fprintf(F, "        ect0=%" PRIu64 ", ect1=%" PRIu64 ", ce=%" PRIu64 "\n", ecnx3[0], ecnx3[1], ecnx3[2]);
+    }
 
     return byte_index;
 }
@@ -1464,7 +1484,11 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
             break;
         case 0x42: /* MP ACK */
             byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
-                length - byte_index);
+                                                    length - byte_index, 0);
+            break;
+        case 0x43:
+            byte_index += picoquic_log_mp_ack_frame(F, cnx_id64, bytes + byte_index,
+                length - byte_index, 1);
             break;
         case 0x44: /* ADD_ADDRESS */
             byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
@@ -1608,7 +1632,7 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
     {
         if (ret == 0)
         {
-            if (byte_index + 2 > bytes_max) {
+            if (byte_index + 1 > bytes_max) {
                 if (log_cnxid != 0) {
                     fprintf(F, "%" PRIx64 ": ", cnx_id_64);
                 }
@@ -1621,7 +1645,7 @@ void picoquic_log_transport_extension_content(FILE* F, int log_cnxid, uint64_t c
                 }
                 fprintf(F, "    Extension list (%d bytes):\n", (uint32_t) bytes_max);
                 while (ret == 0 && byte_index < bytes_max) {
-                    if (byte_index + 4 > bytes_max) {
+                    if (byte_index + 1 > bytes_max) {
                         if (log_cnxid != 0) {
                             fprintf(F, "%" PRIx64 ": ", cnx_id_64);
                         }

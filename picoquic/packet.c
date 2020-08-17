@@ -119,7 +119,7 @@ int picoquic_parse_packet_header(
                         /* If the version is supported now, the format field in the version table
                         * describes the encoding. */
                         switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
-                        case picoquic_version_header_27:
+                        case picoquic_version_header_29:
                             switch (type) {
                             case picoquic_long_packet_type_initial:
                             {
@@ -268,7 +268,7 @@ int picoquic_parse_packet_header(
              ph->version_index = (*pcnx)->version_index;
              /* If the connection is identified, decode the short header per version ID */
              switch (picoquic_supported_versions[ph->version_index].version_header_encoding) {
-             case picoquic_version_header_27:
+             case picoquic_version_header_29:
                  ph->has_spin_bit = 1;
                  ph->ptype = picoquic_packet_1rtt_protected_phi0;
                  ph->spin = (bytes[0] >> 5) & 1;
@@ -1043,7 +1043,7 @@ int picoquic_incoming_client_cleartext(
                     picoquic_implicit_handshake_ack(cnx, path, picoquic_packet_context_handshake, current_time);
                 }
                 if (cnx->callback_fn != NULL) {
-                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx) != 0) {
+                    if (cnx->callback_fn(cnx, 0, NULL, 0, picoquic_callback_ready, cnx->callback_ctx, NULL) != 0) {
                         picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_INTERNAL_ERROR, 0);
                     }
                 }
@@ -1067,7 +1067,7 @@ int picoquic_incoming_stateless_reset(
     picoquic_set_cnx_state(cnx, picoquic_state_disconnected);
 
     if (cnx->callback_fn) {
-        (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx);
+        (void)(cnx->callback_fn)(cnx, 0, NULL, 0, picoquic_callback_stateless_reset, cnx->callback_ctx, NULL);
     }
 
     return PICOQUIC_ERROR_AEAD_CHECK;
@@ -1311,7 +1311,7 @@ int picoquic_incoming_segment(
             /* TO DO: Find the incoming path */
             /* TO DO: update each of the incoming functions, since the packet is already decrypted. */
             /* Hook for performing action when connection received new packet */
-            picoquic_received_packet(cnx, quic->rcv_socket);
+            picoquic_received_packet(cnx, quic->rcv_socket, quic->rcv_tos);
             picoquic_path_t *path = (picoquic_path_t *) protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_GET_INCOMING_PATH, NULL, &ph);
             picoquic_header_parsed(cnx, &ph, path, *consumed);
             if (cnx != NULL) LOG {
@@ -1347,6 +1347,7 @@ int picoquic_incoming_segment(
                     if (ret == 0) {
                         if (cnx->client_mode == 0) {
                             /* TODO: finish processing initial connection packet */
+                            cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
                             ret = picoquic_incoming_initial(&cnx, bytes,
                                 addr_from, addr_to, if_index_to, &ph, current_time, *new_context_created);
                         }

@@ -6,6 +6,10 @@ parse_frame param 0x42 replace parse_mp_ack_frame.o
 process_frame param 0x42 replace process_mp_ack_frame.o
 write_frame param 0x42 replace write_mp_ack_frame.o
 notify_frame param 0x42 replace notify_mp_ack_frame.o
+parse_frame param 0x43 replace parse_mp_ack_frame.o
+process_frame param 0x43 replace process_mp_ack_frame.o
+write_frame param 0x43 replace write_mp_ack_frame.o
+notify_frame param 0x43 replace notify_mp_ack_frame.o
 parse_frame param 0x44 replace parse_add_address_frame.o
 process_frame param 0x44 replace process_add_address_frame.o
 write_frame param 0x44 replace write_add_address_frame.o

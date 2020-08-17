@@ -81,6 +81,12 @@ SET(PICOQUIC_LIBRARY_FILES
         picoquic/michelfralloc/michelfralloc.h
     picoquic/cc_common.c picoquic/cc_common.h picoquic/bbr.c)
 
+set(PICOHTTP_LIBRARY_FILES
+    picohttp/democlient.c
+    picohttp/demoserver.c
+    picohttp/h3zero.c
+)
+
 SET(PICOQUIC_TEST_LIBRARY_FILES
     picoquictest/ack_of_ack_test.c
     picoquictest/cleartext_aead_test.c
@@ -201,7 +207,16 @@ SET(PLUGINS_QLOG
         plugins/qlog/receiver/segment_received.c
         plugins/qlog/frames/stream_frame_parsed.c
         plugins/qlog/frames/handshake_done_parsed.c
-)
+        plugins/qlog/sender/path_bandwidth_estimated.c)
+
+SET(PLUGINS_ECN
+    plugins/ecn/header_parsed.c
+    plugins/ecn/before_sending_packet.c
+    plugins/ecn/received_packet.c
+    plugins/ecn/write_ecn_block.c
+    plugins/ecn/parse_ecn_block.c
+    plugins/ecn/process_ecn_block.c
+        plugins/ecn/pre_skip_frame.c plugins/ecn/post_skip_frame.c)
 
 FIND_LIBRARY(PTLS_CORE picotls-core PATH ../picotls)
 MESSAGE(STATUS "Found picotls-core at : ${PTLS_CORE} " )
@@ -233,6 +248,10 @@ ADD_LIBRARY(picoquic-core
     ${PICOQUIC_LIBRARY_FILES}
 )
 
+ADD_LIBRARY(picohttp-core
+    ${PICOHTTP_LIBRARY_FILES}
+)
+
 # They add lot of noise at compile time without actually compiling them...
 if($ENV{COMPILE_CLION})
     ADD_LIBRARY(plugins-monitoring
@@ -251,12 +270,17 @@ if($ENV{COMPILE_CLION})
     ADD_LIBRARY(plugins-qlog
         ${PLUGINS_QLOG}
     )
+    ADD_LIBRARY(plugins-ecn
+        ${PLUGINS_ECN}
+    )
 endif()
 
 if(NOT DEFINED ONLY_LIB)
     ADD_EXECUTABLE(picoquicdemo picoquicfirst/picoquicdemo.c
                                 picoquicfirst/getopt.c )
-    TARGET_LINK_LIBRARIES(picoquicdemo picoquic-core
+    TARGET_LINK_LIBRARIES(picoquicdemo
+        picohttp-core
+        picoquic-core
         ${PTLS_CORE}
         ${PTLS_OPENSSL}
         ${PTLS_MINICRYPTO}
@@ -266,6 +290,8 @@ if(NOT DEFINED ONLY_LIB)
         ${LibArchive_LIBRARIES}
         ${MICHELFRALLOC_STATIC_LIBS}
     )
+
+    target_include_directories(picoquicdemo PRIVATE picohttp)
 
     ADD_EXECUTABLE(picoquicvpn picoquicfirst/picoquicvpn.c
                                 picoquicfirst/getopt.c )

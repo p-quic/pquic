@@ -849,6 +849,43 @@ static __attribute__((always_inline)) void helper_process_ack_of_ack_range(picoq
     run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ACK_OF_ACK_RANGE, 3, args, NULL);
 }
 
+static __attribute__((always_inline)) uint8_t *helper_parse_ecn_block(picoquic_cnx_t *cnx, uint8_t *bytes, const uint8_t *bytes_max, void **ecn_block)
+{
+    protoop_arg_t args[2], outs[1];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    uint8_t *ret = (uint8_t *) run_noparam(cnx, PROTOOPID_NOPARAM_PARSE_ECN_BLOCK, 2, args, outs);
+    if (ecn_block) {
+        *ecn_block = (void *) outs[0];
+    }
+    return ret;
+}
+
+static __attribute__((always_inline)) int helper_process_ecn_block(picoquic_cnx_t *cnx, void *ecn_block, picoquic_packet_context_t *pkt_ctx, picoquic_path_t *path)
+{
+    protoop_arg_t args[3];
+    args[0] = (protoop_arg_t) ecn_block;
+    args[1] = (protoop_arg_t) pkt_ctx;
+    args[2] = (protoop_arg_t) path;
+    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_PROCESS_ECN_BLOCK, 3, args, NULL);
+    return ret;
+}
+
+static __attribute__((always_inline)) int helper_write_ecn_block(picoquic_cnx_t *cnx, uint8_t *bytes, size_t bytes_max, picoquic_packet_context_t *pkt_ctx, size_t *consumed)
+{
+    protoop_arg_t args[3], outs[1];
+    args[0] = (protoop_arg_t) bytes;
+    args[1] = (protoop_arg_t) bytes_max;
+    args[2] = (protoop_arg_t) pkt_ctx;
+    outs[0] = 0;
+    int ret = run_noparam(cnx, PROTOOPID_NOPARAM_WRITE_ECN_BLOCK, 3, args, outs);
+    if (consumed) {
+        *consumed = outs[0];
+    }
+    return ret;
+}
+
+
 #define TMP_FRAME_BEGIN(cnx, parsed_frame, local_frame, frame_type)                                                     \
     frame_type *parsed_frame = (frame_type *) get_cnx(cnx, AK_CNX_OUTPUT, 0);                                           \
     if (parsed_frame) {                                                                                                 \
