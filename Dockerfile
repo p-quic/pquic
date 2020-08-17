@@ -34,6 +34,8 @@ WORKDIR /src/pquic/
 RUN git submodule init && \
     git submodule update
 
+RUN cd ubpf/vm && make
+
 RUN cd picoquic/michelfralloc && make
 
 RUN cmake . && make
