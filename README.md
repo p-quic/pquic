@@ -6,14 +6,13 @@ The current PQUIC implementation supports the draft-29 version of the QUIC speci
 
 # Using Docker
 
-Docker builds exist on `Docker Hub`_. They contain a build of the master branch, along with the necessary tools to build PQUIC.
+Docker builds exist on (Docker Hub)[https://hub.docker.com/r/pquic/pquic/].
+They contain a build of the master branch, along with the necessary tools to build PQUIC.
 
-::
-
+~~~
     docker run -it pquic/pquic
     ./picoquicdemo -h
-
-.. _Docker Hub: https://hub.docker.com/r/pquic/pquic/
+~~~
 
 
 # Building PQUIC
