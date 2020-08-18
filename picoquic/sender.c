@@ -397,7 +397,8 @@ protoop_arg_t get_destination_connection_id(picoquic_cnx_t* cnx)
 
     picoquic_connection_id_t *dest_cnx_id = NULL;
 
-    if ((packet_type == picoquic_packet_initial ||
+    if (cnx->client_mode == 1 &&
+           (packet_type == picoquic_packet_initial ||
             packet_type == picoquic_packet_0rtt_protected)
             && picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid))
     {
@@ -532,7 +533,8 @@ protoop_arg_t predict_packet_header_length(picoquic_cnx_t *cnx)
         header_length = 1 + /* version */ 4 + /* cnx_id prefix */ 2;
 
         /* add dest-id length */
-        if ((packet_type == picoquic_packet_initial ||
+        if (cnx->client_mode == 1 &&
+           (packet_type == picoquic_packet_initial ||
             packet_type == picoquic_packet_0rtt_protected)
             && picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid)) {
             header_length += cnx->initial_cnxid.id_len;
