@@ -634,10 +634,10 @@ int picoquic_prepare_version_negotiation(
         /* Set the version number to zero */
         picoformat_32(bytes + byte_index, 0);
         byte_index += 4;
-        /* Encode the ID lengths */
-        bytes[byte_index++] = picoquic_create_packet_header_cnxid_lengths(ph->srce_cnx_id.id_len, ph->dest_cnx_id.id_len);
-        /* Copy the incoming connection ID */
+        /* Encode the CIDs, in reverse of the incoming packet */
+        bytes[byte_index++] = ph->srce_cnx_id.id_len;
         byte_index += picoquic_format_connection_id(bytes + byte_index, PICOQUIC_MAX_PACKET_SIZE - byte_index, ph->srce_cnx_id);
+        bytes[byte_index++] = ph->dest_cnx_id.id_len;
         byte_index += picoquic_format_connection_id(bytes + byte_index, PICOQUIC_MAX_PACKET_SIZE - byte_index, ph->dest_cnx_id);
 
         /* Set the payload to the list of versions */
