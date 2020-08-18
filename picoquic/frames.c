@@ -4153,8 +4153,7 @@ int picoquic_decode_frames(picoquic_cnx_t* cnx, uint8_t* bytes,
         picoquic_varint_decode(bytes, bytes_max - bytes, &frame_type);
 
         if (epoch != 1 && epoch != 3 && frame_type != picoquic_frame_type_padding
-                                     && frame_type != picoquic_frame_type_path_challenge
-                                     && frame_type != picoquic_frame_type_path_response
+                                     && frame_type != picoquic_frame_type_ping
                                      && frame_type != picoquic_frame_type_connection_close
                                      && frame_type != picoquic_frame_type_crypto_hs
                                      && frame_type != picoquic_frame_type_ack
@@ -4231,8 +4230,7 @@ int picoquic_decode_frames_without_current_time(picoquic_cnx_t* cnx, uint8_t* by
         picoquic_varint_decode(bytes, bytes_max - bytes, &frame_type);
 
         if (epoch != 1 && epoch != 3 && frame_type != picoquic_frame_type_padding
-                                     && frame_type != picoquic_frame_type_path_challenge
-                                     && frame_type != picoquic_frame_type_path_response
+                                     && frame_type != picoquic_frame_type_ping
                                      && frame_type != picoquic_frame_type_connection_close
                                      && frame_type != picoquic_frame_type_crypto_hs
                                      && frame_type != picoquic_frame_type_ack
