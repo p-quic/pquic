@@ -21,8 +21,8 @@ protoop_arg_t before_sending_packet(picoquic_cnx_t *cnx)
     }
 
     int read_ecn = 1;
-    int ecn_ip_tos = 1; // For ECT(0)
-    // int ecn_ip_tos = 2; // For ECT(1)
+    int ecn_ip_tos = 0x02; // For ECT(0)
+    // int ecn_ip_tos = 0x01; // For ECT(1)
 
     setsockopt(socket, IPPROTO_IP, IP_RECVTOS, &read_ecn, sizeof(read_ecn));
     setsockopt(socket, IPPROTO_IP, IP_TOS, &ecn_ip_tos, sizeof(ecn_ip_tos));
