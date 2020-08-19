@@ -259,9 +259,9 @@ int picoquic_recvmsg(SOCKET_TYPE fd,
         *from_length = msg.msg_namelen;
 
         for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+            if (cmsg->cmsg_level == IPPROTO_IP) {
 #ifdef IP_PKTINFO
-            if ((cmsg->cmsg_level == IPPROTO_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
-                if (addr_dest != NULL && dest_length != NULL) {
+                if (cmsg->cmsg_type == IP_PKTINFO && addr_dest != NULL && dest_length != NULL) {
                     struct in_pktinfo* pPktInfo = (struct in_pktinfo*)CMSG_DATA(cmsg);
                     ((struct sockaddr_in*)addr_dest)->sin_family = AF_INET;
                     ((struct sockaddr_in*)addr_dest)->sin_port = 0;
@@ -285,13 +285,14 @@ int picoquic_recvmsg(SOCKET_TYPE fd,
                     if (dest_if != NULL) {
                         *dest_if = 0;
                     }
-                } else if (cmsg->cmsg_type == IP_TOS && tos) {
-                    *tos = *(int *) CMSG_DATA(cmsg);
                 }
-
 #endif
-            } else if ((cmsg->cmsg_level == IPPROTO_IPV6) && (cmsg->cmsg_type == IPV6_PKTINFO)) {
-                if (addr_dest != NULL && dest_length != NULL) {
+                if (cmsg->cmsg_type == IP_TOS && tos) {
+                    *tos = *(int *) CMSG_DATA(cmsg);
+                    printf("Socket received tos %d\n", *tos);
+                }
+            } else if (cmsg->cmsg_level == IPPROTO_IPV6) {
+                if (cmsg->cmsg_type == IPV6_PKTINFO && addr_dest != NULL && dest_length != NULL) {
                     struct in6_pktinfo* pPktInfo6 = (struct in6_pktinfo*)CMSG_DATA(cmsg);
 
                     ((struct sockaddr_in6*)addr_dest)->sin6_family = AF_INET6;
