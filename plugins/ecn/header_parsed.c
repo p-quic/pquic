@@ -27,15 +27,15 @@ protoop_arg_t header_parsed(picoquic_cnx_t *cnx)
         return 0;
 
     switch (bpfd->ecn_val) {
-        case 1:
+        case 0x02:
             PROTOOP_PRINTF(cnx, "ECT0++\n");
             cnts->ecn_ect0_marked_pkts++;
             break;
-        case 2:
+        case 0x01:
             PROTOOP_PRINTF(cnx, "ECT1++\n");
             cnts->ecn_ect1_marked_pkts++;
             break;
-        case 3:
+        case 0x03:
             PROTOOP_PRINTF(cnx, "CE++\n");
             cnts->ecn_ect_ce_marked_pkts++;
             break;
