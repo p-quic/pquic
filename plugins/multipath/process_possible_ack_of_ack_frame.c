@@ -156,8 +156,8 @@ protoop_arg_t process_possible_ack_of_ack_frame(picoquic_cnx_t* cnx)
     while (ret == 0 && byte_index < plength) {
         picoquic_varint_decode(pbytes + byte_index, plength - byte_index, &frame_type);
         if (frame_type == picoquic_frame_type_ack || frame_type == picoquic_frame_type_ack_ecn ||
-            frame_type == MP_ACK_TYPE) {
-            int is_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : 0;
+            frame_type == MP_ACK_TYPE || frame_type == MP_ACK_ECN_TYPE) {
+            int is_ecn = frame_type == picoquic_frame_type_ack_ecn ? 1 : frame_type == MP_ACK_ECN_TYPE ? 1 : 0;
             ret = process_ack_of_ack_frame(cnx, pc, &pbytes[byte_index], plength - byte_index, &frame_length, is_ecn);
             byte_index += frame_length;
         } else if (PICOQUIC_IN_RANGE(frame_type, picoquic_frame_type_stream_range_min, picoquic_frame_type_stream_range_max)) {

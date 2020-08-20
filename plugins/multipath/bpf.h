@@ -440,7 +440,7 @@ static int parse_mp_ack_header(uint8_t const* bytes, size_t bytes_max,
     uint8_t ack_delay_exponent)
 {
     int ret = 0;
-    size_t byte_index = 1;
+    size_t byte_index = 2;
     size_t l_largest = 0;
     size_t l_delay = 0;
     size_t l_blocks = 0;
