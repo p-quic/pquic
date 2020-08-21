@@ -2451,7 +2451,8 @@ int picoquic_getaddrs(struct sockaddr_storage *sas, uint32_t *if_indexes, int sa
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (strncmp("docker", ifa->ifa_name, 6) == 0 ||
             strncmp("lo", ifa->ifa_name, 2) == 0 ||
-            strncmp("tun", ifa->ifa_name, 3) == 0)
+            strncmp("tun", ifa->ifa_name, 3) == 0 ||
+            strncmp("virbr", ifa->ifa_name, 5) == 0)
         {
             /* Do not consider those addresses */
             continue;
