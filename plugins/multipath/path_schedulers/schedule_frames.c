@@ -1,5 +1,20 @@
 #include "../bpf.h"
 
+#define copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, pure_ack, cong_controlled) { \
+   \
+   if (data_bytes && (bpfdd->data_length + data_bytes) < MAX_DUPLICATE_DATA_LENGTH) { \
+        /* Let's copy data for further duplication in next packet */    \
+        my_memcpy(&bpfdd->data[bpfdd->data_length], &bytes[length-data_bytes], data_bytes);   \
+        bpfdd->requires_duplication = 1;   \
+        bpfdd->data_length += data_bytes;   \
+        set_pkt(packet, AK_PKT_IS_PURE_ACK, get_pkt(packet, AK_PKT_IS_PURE_ACK) && pure_ack);   \
+        set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, get_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED) || cong_controlled);   \
+        \
+        /* And requires waking now */   \
+        set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);   \
+    } \
+}
+
 protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
     picoquic_packet_t* packet = (picoquic_packet_t*) get_cnx(cnx, AK_CNX_INPUT, 0);
     size_t send_buffer_max = (size_t) get_cnx(cnx, AK_CNX_INPUT, 1);
@@ -13,7 +28,6 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
     int is_cleartext_mode = 0;
     uint32_t checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
 
-    /* Check if we need to change of path */
     bpf_duplicate_data *bpfdd = get_bpf_duplicate_data(cnx);
 
     /* FIXME cope with different path MTUs */
@@ -91,23 +105,21 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */
         int any_receiving_require_ack = 0;
-        int receiving_require_ack[MAX_RECEIVING_UNIFLOWS];
-        int any_path_challenge_response_to_send = 0;
-        int path_challenge_response_to_send[MAX_RECEIVING_UNIFLOWS];
+        int receive_require_ack = 0;
+        int path_challenge_response_to_send = 0;
         for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
-            picoquic_path_t *receiving_path = bpfd->receiving_uniflows[i]->path;
-            if (receiving_path != NULL) {
-                receiving_require_ack[i] = helper_is_ack_needed(cnx, current_time, pc, receiving_path);
+            picoquic_path_t *receive_path = bpfd->receiving_uniflows[i]->path;
+            if (receive_path != NULL) {
+                receive_require_ack |= (helper_is_ack_needed(cnx, current_time, pc, receive_path) & 1) << i;
                 /* Handle here the reception of the ping */
-                receiving_require_ack[i] |= get_path(receiving_path, AK_PATH_PING_RECEIVED, 0);
-                any_receiving_require_ack |= receiving_require_ack[i];
-                path_challenge_response_to_send[i] = get_path(receiving_path, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0);
-                any_path_challenge_response_to_send |= path_challenge_response_to_send[i];
+                receive_require_ack |= (get_path(receive_path, AK_PATH_PING_RECEIVED, 0) & 1) << i;
+                any_receiving_require_ack |= receive_require_ack & (1 << i);
+                path_challenge_response_to_send |= (get_path(receive_path, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0) & 1) << i;
             }
         }
 
         if (any_receiving_require_ack == 0
-            && any_path_challenge_response_to_send == 0
+            && path_challenge_response_to_send == 0
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
             && mtu_needed) {
             if (ret == 0 && send_buffer_max > sending_path_mtu) {
@@ -145,6 +157,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     }
                 }
             }
+            bool path_validation_in_progress = challenge_verified == 0 && (challenge_time == 0 || current_time < challenge_time + retransmit_timer);
 
             picoquic_state_enum cnx_state = get_cnx(cnx, AK_CNX_STATE, 0);
 
@@ -152,10 +165,11 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
 
                 /* Before going further, let's duplicate all required frames first */
-                if (bpfdd->requires_duplication) {
-                    my_memcpy(&bytes[length], bpfdd->data, bpfdd->data_length);
-                    length += (uint32_t) bpfdd->data_length;
-                    /* And of course, don't retry again later */
+                if (!path_validation_in_progress && bpfdd->requires_duplication) { // TODO: What about no validated path available for duplication ?
+                    if (bpfdd->data_length <= send_buffer_min_max - checksum_overhead - length) {
+                        my_memcpy(&bytes[length], bpfdd->data, bpfdd->data_length);
+                        length += (uint32_t) bpfdd->data_length;
+                    }
                     bpfdd->data_length = 0;
                     bpfdd->requires_duplication = 0;
                 }
@@ -175,24 +189,37 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     }
                 }
 
+                size_t queued_bytes = 0;
+                size_t consumed = 0;
                 queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
                 if (queue_peek(reserved_frames) == NULL) {
                     stream = helper_schedule_next_stream(cnx, send_buffer_min_max - checksum_overhead - length, sending_path);
                     picoquic_frame_fair_reserve(cnx, sending_path, stream, send_buffer_min_max - checksum_overhead - length);
                 }
-                PROTOOP_PRINTF(cnx, "reserved frame top is %p\n", (protoop_arg_t) queue_peek(reserved_frames));
 
-                size_t consumed = 0;
-                unsigned int is_pure_ack = (unsigned int) get_pkt(packet, AK_PKT_IS_PURE_ACK);
-                ret = helper_scheduler_write_new_frames(cnx, &bytes[length],
-                                                        send_buffer_min_max - checksum_overhead - length,
-                                                        length - get_pkt(packet, AK_PKT_OFFSET), packet,
-                                                        &consumed, &is_pure_ack);
-                set_pkt(packet, AK_PKT_IS_PURE_ACK, is_pure_ack);
-                if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {
-                    ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
-                } else if (!ret) {
-                    length += consumed;
+                do { // Enqueue and write frame until no more bytes can be queued or written
+                    queue_t *reserved_frames = (queue_t *) get_cnx(cnx, AK_CNX_RESERVED_FRAMES, 0);
+                    if (queue_peek(reserved_frames) == NULL) {
+                        queued_bytes = picoquic_frame_fair_reserve(cnx, sending_path, stream, send_buffer_min_max - checksum_overhead - length);
+                    }
+
+                    consumed = 0;
+                    unsigned int is_pure_ack = (unsigned int) get_pkt(packet, AK_PKT_IS_PURE_ACK);
+                    ret = helper_scheduler_write_new_frames(cnx, &bytes[length], send_buffer_min_max - checksum_overhead - length, length - get_pkt(packet, AK_PKT_OFFSET), packet, &consumed, &is_pure_ack);
+
+                    if (!ret && consumed > send_buffer_min_max - checksum_overhead - length) {
+                        ret = PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL;
+                    } else if (ret == 0) {
+                        length += consumed;
+                        set_pkt(packet, AK_PKT_IS_PURE_ACK, get_pkt(packet, AK_PKT_IS_PURE_ACK) && is_pure_ack);
+
+                        if (path_validation_in_progress && !is_pure_ack) {
+                            copy_for_duplication(cnx, bpfdd, packet, bytes, length, consumed, is_pure_ack, true);
+                        }
+                    }
+                } while (ret == 0 && queued_bytes > 0 && consumed < send_buffer_min_max - checksum_overhead - length);
+
+                if (ret == 0) {
                     /* FIXME: Sorry, I'm lazy, this could be easily fixed by making this a PO.
                         * This is needed by the way the cwin is now handled. */
                     if (helper_is_ack_needed(cnx, current_time, pc, path_0)) {
@@ -202,10 +229,10 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                     }
 
                     /* if present, send path response. This ensures we send it on the right path */
-                    if (any_path_challenge_response_to_send) {
+                    if (path_challenge_response_to_send) {
 #define PICOQUIC_CHALLENGE_LENGTH 8
                         for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
-                            if (path_challenge_response_to_send[i] && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
+                            if ((path_challenge_response_to_send & (1 << i)) && send_buffer_min_max - checksum_overhead - length >= PICOQUIC_CHALLENGE_LENGTH + 1) {
                                 picoquic_path_t *receiving_path = bpfd->receiving_uniflows[i]->path;
                                 /* This is not really clean, but it will work */
                                 my_memset(&bytes[length], picoquic_frame_type_path_response, 1);
@@ -231,6 +258,10 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_CONTAINS_CRYPTO, 1);
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+
+                                    if (path_validation_in_progress) {
+                                        copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
+                                    }
                                 }
                             }
                         }
@@ -253,17 +284,8 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
-                                if (data_bytes > 0)
-                                {
-                                    /* Let's copy data for further duplication in next packet */
-                                    my_memcpy(&bpfdd->data[bpfdd->data_length], &bytes[length-data_bytes], data_bytes);
-                                    bpfdd->requires_duplication = 1;
-                                    bpfdd->data_length += data_bytes;
-                                    /* And requires waking now */
-                                    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);
-
-                                    set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
-                                    set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                                if (data_bytes > 0) {
+                                    copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
                                 }
                             }
                             else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -276,17 +298,8 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                                                                  send_buffer_min_max - checksum_overhead - length, &data_bytes);
                             if (ret == 0) {
                                 length += (uint32_t)data_bytes;
-                                if (data_bytes > 0)
-                                {
-                                    /* Let's copy data for further duplication in next packet */
-                                    my_memcpy(&bpfdd->data[bpfdd->data_length], &bytes[length-data_bytes], data_bytes);
-                                    bpfdd->requires_duplication = 1;
-                                    bpfdd->data_length += data_bytes;
-                                    /* And requires waking now */
-                                    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);
-
-                                    set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
-                                    set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+                                if (data_bytes > 0) {
+                                    copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
                                 }
                             }
                         }
@@ -314,6 +327,10 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                         set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                         set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
                                         set_preq(pid_to_request, AK_PIDREQ_REQUESTED, 1);
+
+                                        if (path_validation_in_progress) {
+                                            copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
+                                        }
                                     }
                                 }
                                 else if (ret == PICOQUIC_ERROR_FRAME_BUFFER_TOO_SMALL) {
@@ -334,6 +351,10 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 {
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+
+                                    if (path_validation_in_progress) {
+                                        copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
+                                    }
                                 }
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {
@@ -362,6 +383,10 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                                 {
                                     set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
                                     set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, 1);
+
+                                    if (path_validation_in_progress && !helper_is_stream_frame_unlimited(bytes + length - data_bytes)) {
+                                        copy_for_duplication(cnx, bpfdd, packet, bytes, length, data_bytes, false, true);
+                                    }
                                 }
 
                                 if (stream_bytes_max > checksum_overhead + length + 8) {

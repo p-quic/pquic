@@ -31,6 +31,8 @@
 #define MP_ACK_ECN_TYPE 0x43
 #define ADD_ADDRESS_TYPE 0x44
 
+#define MAX_DUPLICATE_DATA_LENGTH 1250
+
 #define RTT_PROBE_TYPE 0x42
 #define RTT_PROBE_INTERVAL 100000
 
@@ -309,7 +311,7 @@ static __attribute__((always_inline)) void mp_receiving_uniflow_active(picoquic_
     my_memcpy(local_cnxid, &ud->cnxid, sizeof(picoquic_connection_id_t));
     uint8_t *reset_secret = (uint8_t *) get_path(ud->path, AK_PATH_RESET_SECRET, 0);
     my_memcpy(reset_secret, ud->reset_secret, 16);
-    LOG_EVENT(cnx, "multipath", "sending_uniflow_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
+    LOG_EVENT(cnx, "multipath", "receiving_uniflow_ready", "", "{\"uniflow_id\": %" PRIu64 ", \"path\": \"%p\"}", ud->uniflow_id, (protoop_arg_t) ud->path);
 }
 
 static __attribute__((always_inline)) size_t varint_len(uint64_t val) {
