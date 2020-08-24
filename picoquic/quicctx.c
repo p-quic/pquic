@@ -1219,7 +1219,7 @@ int picoquic_create_path(picoquic_cnx_t* cnx, uint64_t start_time, struct sockad
 
                 char peer_addr_str[250];
                 inet_ntop(path_x->peer_addr_len == sizeof(struct sockaddr_in) ? AF_INET : AF_INET6, path_x->peer_addr_len == sizeof(struct sockaddr_in) ? (void *) &((struct sockaddr_in *)&path_x->peer_addr)->sin_addr : (void *) &((struct sockaddr_in6 *)&path_x->peer_addr)->sin6_addr, peer_addr_str, sizeof(peer_addr_str));
-                LOG_EVENT(cnx, "CONNECTION", "PATH_CREATED", "", "{\"path\": \"%p\", \"peer_addr\": \"%s\", \"scid\": \"%s\"}", path_x, peer_addr_str, local_id_str);
+                LOG_EVENT(cnx, "connection", "path_created", "", "{\"path\": \"%p\", \"peer_addr\": \"%s\", \"scid\": \"%s\"}", path_x, peer_addr_str, local_id_str);
             }
         }
     }
@@ -1581,7 +1581,7 @@ void picoquic_set_cnx_state(picoquic_cnx_t* cnx, picoquic_state_enum state)
     picoquic_state_enum previous_state = cnx->cnx_state;
     cnx->cnx_state = state;
     if(previous_state != cnx->cnx_state) {
-        LOG_EVENT(cnx, "CONNECTION", "NEW_STATE", "", "{\"state\": \"%s\"}", picoquic_log_state_name(cnx->cnx_state));
+        LOG_EVENT(cnx, "connection", "new_state", "", "{\"state\": \"%s\"}", picoquic_log_state_name(cnx->cnx_state));
         protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_CONNECTION_STATE_CHANGED, NULL,
             previous_state, state);
     }
@@ -2017,7 +2017,7 @@ protoop_arg_t connection_error(picoquic_cnx_t* cnx)
 
     cnx->offending_frame_type = frame_type;
 
-    LOG_EVENT(cnx, "CONNECTION", "ERROR", "", "{\"local_error\": %" PRIu64 ", \"frame_type\": %" PRIu64 "}", local_error, frame_type);
+    LOG_EVENT(cnx, "connection", "connection_error", "", "{\"code\": %" PRIu64 ", \"frame_type\": %" PRIu64 "}", local_error, frame_type);
 
     return (protoop_arg_t) PICOQUIC_ERROR_DETECTED;
 }
@@ -2730,7 +2730,7 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
             ftypes_ofs += snprintf(ftypes_str + ftypes_ofs, sizeof(ftypes_str) - ftypes_ofs, "%" PRIu64 "%s", block->frames[i].frame_type, i < nb_frames - 1 ? ", " : "");
         }
         ftypes_str[ftypes_ofs] = 0;
-        LOG_EVENT(cnx, "PLUGINS", "RESERVE_FRAMES", "", "{\"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+        LOG_EVENT(cnx, "plugins", "reserve_frames", "", "{\"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
     }
     POP_LOG_CTX(cnx);
     cnx->wake_now = 1;
@@ -2761,7 +2761,7 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
         }
         ftypes_str[ftypes_ofs] = 0;
 
-        LOG_EVENT(cnx, "PLUGINS", "CANCEL_HEAD_RESERVATION", "", "{\"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
+        LOG_EVENT(cnx, "plugins", "cancel_head_reservation", "", "{\"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
     }
     free(block);
     POP_LOG_CTX(cnx);
