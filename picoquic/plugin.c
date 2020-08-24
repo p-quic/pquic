@@ -730,17 +730,17 @@ int plugin_insert_post_plugin(picoquic_cnx_t *cnx, protoop_plugin_t *p) {
             /* Unplug previously plugged code */
             plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
         }
-        LOG_EVENT(cnx, "PLUGINS", "PLUGLET_INSERTED", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
+        LOG_EVENT(cnx, "plugins", "pluglet_inserted", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
         tmp = pid_stack_top->next;
         free(pid_stack_top);
         pid_stack_top = tmp;
     }
 
     if (!ok) {
-        LOG_EVENT(cnx, "PLUGINS", "PLUGIN_INSERTION_FAILED", "", "{\"filename\": \"%s\"}", p->path);
+        LOG_EVENT(cnx, "plugins", "plugin_insertion_failed", "", "{\"filename\": \"%s\"}", p->path);
         free(p);
     } else {
-        LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", p->path, p->name);
+        LOG_EVENT(cnx, "plugins", "inserted_plugin", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", p->path, p->name);
     }
 
     free(preprocessed);
@@ -841,17 +841,17 @@ int plugin_insert_plugin(picoquic_cnx_t *cnx, const char *plugin_fname) {
             /* Unplug previously plugged code */
             plugin_unplug(cnx, pid_stack_top->pid, pid_stack_top->param, pid_stack_top->pte);
         }
-        LOG_EVENT(cnx, "PLUGINS", "PLUGLET_INSERTED", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
+        LOG_EVENT(cnx, "plugins", "pluglet_inserted", p->name, "{\"pid\": \"%s\", \"param\": %d, \"anchor\": \"%s\"}", pid_stack_top->pid, pid_stack_top->param, pluglet_type_name(pid_stack_top->pte));
         tmp = pid_stack_top->next;
         free(pid_stack_top);
         pid_stack_top = tmp;
     }
 
     if (!ok) {
-        LOG_EVENT(cnx, "PLUGINS", "PLUGIN_INSERTION_FAILED", "", "{\"filename\": \"%s\"}", plugin_fname);
+        LOG_EVENT(cnx, "plugins", "plugin_insertion_failed", "", "{\"filename\": \"%s\"}", plugin_fname);
         free(p);
     } else {
-        LOG_EVENT(cnx, "PLUGINS", "INSERTED_PLUGIN", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
+        LOG_EVENT(cnx, "plugins", "inserted_plugin", "", "{\"filename\": \"%s\", \"plugin_name\": \"%s\"}", plugin_fname, p->name);
         p->path = (char *) malloc(sizeof(char) * (strlen(plugin_fname) + 1));
         strcpy(p->path, plugin_fname);
     }

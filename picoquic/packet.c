@@ -400,21 +400,6 @@ size_t  picoquic_decrypt_packet(picoquic_cnx_t* cnx,
         (already_received==NULL)?path_from->pkt_ctx[ph->pc].send_sequence:
         path_from->pkt_ctx[ph->pc].first_sack_item.end_of_sack_range, ph->pnmask, ph->pn);
 
-    LOG {
-        char dest_id_str[(ph->dest_cnx_id.id_len * 2) + 1];
-        snprintf_bytes(dest_id_str, (ph->dest_cnx_id.id_len * 2) + 1, ph->dest_cnx_id.id, ph->dest_cnx_id.id_len);
-        if (ph->ptype == picoquic_packet_1rtt_protected_phi0 || ph->ptype == picoquic_packet_1rtt_protected_phi1) {
-            LOG_EVENT(cnx, "TRANSPORT", "SHORT_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"pn\": %" PRIu64 ", \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, ph->pn64, ph->payload_length);
-        } else if (ph->ptype != picoquic_packet_version_negotiation && ph->ptype != picoquic_packet_retry) {
-            char srce_id_str[(ph->srce_cnx_id.id_len) + 1];
-            snprintf_bytes(srce_id_str, (ph->srce_cnx_id.id_len * 2) + 1, ph->srce_cnx_id.id, ph->srce_cnx_id.id_len);
-            LOG_EVENT(cnx, "TRANSPORT", "LONG_HEADER_PARSED", "", "{\"type\": \"%s\", \"dcid\": \"%s\", \"scid\": \"%s\", \"pn\": %" PRIu64 ", \"payload_length\": %d}", picoquic_log_ptype_name(ph->ptype), dest_id_str, srce_id_str, ph->pn64, ph->payload_length);
-        } else {
-            // TODO: vneg
-        }
-    }
-
-
     /* verify that the packet is new */
     if (already_received != NULL && picoquic_is_pn_already_received(path_from, ph->pc, ph->pn64) != 0) {
         /* Set error type: already received */
@@ -1192,6 +1177,16 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 /* size_t challenge_length; */ // Unused
 
                 /* Address origin different than expected. Update */
+                LOG { ;
+                    char old[INET6_ADDRSTRLEN] = {0};
+                    char new[INET6_ADDRSTRLEN] = {0};
+                    struct sockaddr *old_addr = (struct sockaddr *) &path_x->peer_addr;
+                    struct sockaddr *new_addr = addr_from;
+                    inet_ntop(old_addr->sa_family, old_addr->sa_family == AF_INET ? &((struct sockaddr_in *)old_addr)->sin_addr : &((struct sockaddr_in6 *)old_addr)->sin6_addr, old, path_x->peer_addr_len);
+                    inet_ntop(new_addr->sa_family, new_addr->sa_family == AF_INET ? &((struct sockaddr_in *)new_addr)->sin_addr : &((struct sockaddr_in6 *)new_addr)->sin6_addr, new, path_x->peer_addr_len);
+                    LOG_EVENT(cnx, "connectivity", "peer_address_changed", "incoming_encrypted",
+                              "{\"path\": \"%p\", \"old_address\": \"%s\", \"new_address\": \"%s\"}", path_x, old, new);
+                }
                 path_x->peer_addr_len = (addr_from->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
                 memcpy(&path_x->peer_addr, addr_from, path_x->peer_addr_len);
                 /* Reset the path challenge */
