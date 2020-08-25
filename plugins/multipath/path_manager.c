@@ -29,6 +29,10 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         for (int rem = 0; adl->sa && rem < bpfd->nb_rem_addrs; rem++) {
             addr_data_t *adr = &bpfd->rem_addrs[rem];
 
+            if (adl->is_v6 != adr->is_v6) {
+                continue; // Keep it simple, don't mix v4 and v6
+            }
+
             for (int uniflow_idx = 0; adr->sa && uniflow_idx < bpfd->nb_sending_proposed; uniflow_idx++) {
                 ud = bpfd->sending_uniflows[uniflow_idx];
                 if (ud->state == uniflow_unused && bpfd->nb_sending_active < N_SENDING_UNIFLOWS) {

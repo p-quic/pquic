@@ -162,6 +162,11 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/path_manager.c
     plugins/multipath/addresses_filters/no_v6_no_10.c
     plugins/multipath/update_rtt.c
+    plugins/multipath/parse_uniflows_frame.c
+    plugins/multipath/process_uniflows_frame.c
+    plugins/multipath/write_uniflows_frame.c
+    plugins/multipath/notify_uniflows_frame.c
+    plugins/multipath/peer_address_changed.c
 )
 
 SET(PLUGINS_STREAM_SCHEDULER

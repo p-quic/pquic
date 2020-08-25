@@ -17,6 +17,10 @@ parse_frame param 0x44 replace parse_add_address_frame.o
 process_frame param 0x44 replace process_add_address_frame.o
 write_frame param 0x44 replace write_add_address_frame.o
 notify_frame param 0x44 replace notify_add_address_frame.o
+parse_frame param 0x46 replace parse_uniflows_frame.o
+process_frame param 0x46 replace process_uniflows_frame.o
+write_frame param 0x46 replace write_uniflows_frame.o
+notify_frame param 0x46 replace notify_uniflows_frame.o
 process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
 get_incoming_path replace get_incoming_path.o
 set_next_wake_time replace set_next_wake_time.o
@@ -28,3 +32,4 @@ notify_frame param 0x49 replace notify_rtt_probe.o
 schedule_frames_on_path replace path_schedulers/schedule_frames.o
 manage_paths replace path_manager.o
 update_rtt replace update_rtt.o
+peer_address_changed post peer_address_changed.o
