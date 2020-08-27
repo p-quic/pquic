@@ -1320,6 +1320,58 @@ size_t picoquic_log_mp_ack_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, siz
     return byte_index;
 }
 
+size_t picoquic_log_uniflows_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max) {
+    size_t byte_index = picoquic_varint_skip(bytes);
+    uint64_t sequence = 0;
+    uint64_t receiving_uniflows = 0;
+    uint64_t sending_uniflows = 0;
+
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &sequence);
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &receiving_uniflows);
+    byte_index += picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &sending_uniflows);
+
+    if (byte_index >= bytes_max && (receiving_uniflows > 0 || sending_uniflows > 0)) {
+        fprintf(F, "    Malformed UNIFLOWS frame");
+        byte_index = bytes_max;
+    } else {
+        fprintf(F, "    UNIFLOWS (seq=%" PRIu64 ", receiving=%" PRIu64 ", sending=%" PRIu64 ")\n", sequence, receiving_uniflows, sending_uniflows);
+
+        fprintf(F, "%" PRIx64 ": ", cnx_id64);
+        fprintf(F, "      Receiving uniflows\n");
+        for (int i = 0; i < receiving_uniflows && byte_index < bytes_max; i++) {
+            uint64_t uniflow_id;
+            size_t l_uniflow_id = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &uniflow_id);
+            byte_index += l_uniflow_id;
+            fprintf(F, "%" PRIx64 ": ", cnx_id64);
+            if (l_uniflow_id == 0 || byte_index >= bytes_max) {
+                fprintf(F, "        Malformed uniflow entry\n");
+                byte_index = bytes_max;
+            } else {
+                fprintf(F, "        Uniflow %" PRIu64 ", Local Address ID %d\n", uniflow_id, *(bytes + byte_index));
+                byte_index++;
+            }
+        }
+
+        fprintf(F, "%" PRIx64 ": ", cnx_id64);
+        fprintf(F, "      Active sending uniflows\n");
+        for (int i = 0; i < sending_uniflows && byte_index < bytes_max; i++) {
+            uint64_t uniflow_id;
+            size_t l_uniflow_id = picoquic_varint_decode(bytes + byte_index, bytes_max - byte_index, &uniflow_id);
+            byte_index += l_uniflow_id;
+            fprintf(F, "%" PRIx64 ": ", cnx_id64);
+            if (l_uniflow_id == 0 || byte_index >= bytes_max) {
+                fprintf(F, "        Malformed uniflow entry\n");
+                byte_index = bytes_max;
+            } else {
+                fprintf(F, "        Uniflow %" PRIu64 ", Local Address ID %d\n", uniflow_id, *(bytes + byte_index));
+                byte_index++;
+            }
+        }
+    }
+
+    return byte_index;
+}
+
 size_t picoquic_log_datagram_frame(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t bytes_max) {
     size_t byte_index = 0;
     uint64_t len = 0;
@@ -1493,6 +1545,9 @@ void picoquic_log_frames(FILE* F, uint64_t cnx_id64, uint8_t* bytes, size_t leng
         case 0x44: /* ADD_ADDRESS */
             byte_index += picoquic_log_add_address_frame(F, bytes + byte_index,
                 length - byte_index);
+            break;
+        case 0x46:
+            byte_index += picoquic_log_uniflows_frames(F, cnx_id64, bytes + byte_index, length - byte_index);
             break;
         default: {
             /* Not implemented yet! */

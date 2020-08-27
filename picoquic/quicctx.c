@@ -2803,4 +2803,5 @@ void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_POP_LOG_CONTEXT, &protoop_noop);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_CONNECTION_ERROR, &connection_error);
     register_noparam_protoop(cnx, &PROTOOP_NOPARAM_NOPARAM_UNKNOWN_TP_RECEIVED, &protoop_noop);
+    register_noparam_protoop(cnx, &PROTOOP_NOPARAM_PEER_ADDRESS_CHANGED, &protoop_noop);
 }

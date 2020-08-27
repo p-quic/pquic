@@ -854,6 +854,14 @@ extern protoop_id_t PROTOOP_NOPARAM_PUSH_LOG_CONTEXT;
 #define PROTOOPID_NOPARAM_POP_LOG_CONTEXT "pop_log_context"
 extern protoop_id_t PROTOOP_NOPARAM_POP_LOG_CONTEXT;
 
+
+/**
+ * The peer address of a particular path has changed
+ * \param[in] path_x \b picoquic_path_t* The path for which the peer_address has changed
+ */
+#define PROTOOPID_NOPARAM_PEER_ADDRESS_CHANGED "peer_address_changed"
+extern protoop_id_t PROTOOP_NOPARAM_PEER_ADDRESS_CHANGED;
+
 /* @} */
 
 #endif

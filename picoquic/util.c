@@ -283,31 +283,49 @@ void picoquic_set64_connection_id(picoquic_connection_id_t * cnx_id, uint64_t va
     cnx_id->id_len = 8;
 }
 
+static int is_v4_mapped_in_v6(struct sockaddr_in6 *a, struct in_addr *ret) {
+    uint8_t mapped_header[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
+    if (memcmp(mapped_header, &a->sin6_addr, sizeof(mapped_header)) == 0) {
+        memcpy(ret, ((uint8_t *)&a->sin6_addr) + 12, sizeof(struct in_addr));
+        return 1;
+    }
+    return 0;
+}
+
 int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual)
 {
     int ret = -1;
+    struct in_addr v4;
 
     if (expected->sa_family == actual->sa_family) {
         if (expected->sa_family == AF_INET) {
-            struct sockaddr_in * ex = (struct sockaddr_in *)expected;
-            struct sockaddr_in * ac = (struct sockaddr_in *)actual;
+            struct sockaddr_in *ex = (struct sockaddr_in *) expected;
+            struct sockaddr_in *ac = (struct sockaddr_in *) actual;
             if (ex->sin_port == ac->sin_port &&
-#ifdef _WINDOWS
-                ex->sin_addr.S_un.S_addr == ac->sin_addr.S_un.S_addr) {
-#else
-                ex->sin_addr.s_addr == ac->sin_addr.s_addr){
-#endif
+                ex->sin_addr.s_addr == ac->sin_addr.s_addr) {
                 ret = 0;
             }
         } else {
-            struct sockaddr_in6 * ex = (struct sockaddr_in6 *)expected;
-            struct sockaddr_in6 * ac = (struct sockaddr_in6 *)actual;
+            struct sockaddr_in6 *ex = (struct sockaddr_in6 *) expected;
+            struct sockaddr_in6 *ac = (struct sockaddr_in6 *) actual;
 
 
             if (ex->sin6_port == ac->sin6_port &&
                 memcmp(&ex->sin6_addr, &ac->sin6_addr, 16) == 0) {
                 ret = 0;
             }
+        }
+    } else if (expected->sa_family == AF_INET6 && actual->sa_family == AF_INET && is_v4_mapped_in_v6((struct sockaddr_in6 *) expected, &v4)) {
+        struct sockaddr_in6 *ex = (struct sockaddr_in6 *) expected;
+        struct sockaddr_in *ac = (struct sockaddr_in *) actual;
+        if (ex->sin6_port == ac->sin_port && v4.s_addr == ac->sin_addr.s_addr) {
+            ret = 0;
+        }
+    } else if (actual->sa_family == AF_INET6 && expected->sa_family == AF_INET && is_v4_mapped_in_v6((struct sockaddr_in6 *) actual, &v4)) {
+        struct sockaddr_in *ex = (struct sockaddr_in *) expected;
+        struct sockaddr_in6 *ac = (struct sockaddr_in6 *) actual;
+        if (ex->sin_port == ac->sin6_port && ex->sin_addr.s_addr == v4.s_addr) {
+            ret = 0;
         }
     }
 

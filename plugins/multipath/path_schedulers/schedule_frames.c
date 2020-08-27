@@ -102,6 +102,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         int mtu_needed = helper_is_mtu_probe_needed(cnx, sending_path);
         int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
         bpf_data *bpfd = get_bpf_data(cnx);
+        uniflow_data_t *sending_uniflow = mp_get_sending_uniflow_data(bpfd, sending_path);
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */
         int any_receiving_require_ack = 0;
@@ -120,6 +121,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
         if (any_receiving_require_ack == 0
             && path_challenge_response_to_send == 0
+            && (!sending_uniflow || sending_uniflow->has_sent_uniflows_frame == 1)
             && (challenge_verified == 1 || current_time < challenge_time + retransmit_timer)
             && mtu_needed) {
             if (ret == 0 && send_buffer_max > sending_path_mtu) {
@@ -175,6 +177,12 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 }
 
                 /* FIXME I know Multipath somewhat bypass the reservation rules, but it is required here and easier like this... */
+                if (bpfd->nb_sending_proposed > 0 && bpfd->nb_receiving_proposed > 0 && (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) &&
+                    sending_uniflow && !sending_uniflow->has_sent_uniflows_frame) {
+                    reserve_uniflows_frame(cnx, sending_uniflow);
+                    sending_uniflow->has_sent_uniflows_frame = 1;
+                }
+
                 if (any_receiving_require_ack) {
                     for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
                         uniflow_data_t *udtmp = bpfd->receiving_uniflows[i];

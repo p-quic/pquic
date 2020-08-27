@@ -1194,6 +1194,7 @@ protoop_arg_t incoming_encrypted(picoquic_cnx_t *cnx)
                 path_x->challenge_verified = 0;
                 path_x->challenge_time = current_time + path_x->retransmit_timer;
                 path_x->challenge_repeat_count = 0;
+                protoop_prepare_and_run_noparam(cnx, &PROTOOP_NOPARAM_PEER_ADDRESS_CHANGED, NULL, path_x);
             }
 
             /* Compute receive bandwidth */

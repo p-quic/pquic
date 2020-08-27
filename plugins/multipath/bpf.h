@@ -30,6 +30,7 @@
 #define MP_ACK_TYPE 0x42
 #define MP_ACK_ECN_TYPE 0x43
 #define ADD_ADDRESS_TYPE 0x44
+#define UNIFLOWS_TYPE 0x46
 
 #define MAX_DUPLICATE_DATA_LENGTH 1250
 
@@ -73,6 +74,7 @@ typedef struct {
     bool rtt_probe_ready;
     bool proposed_cid;
     // bool doing_ack;
+    bool has_sent_uniflows_frame;
 
     uint64_t failure_count;
     uint64_t cooldown_time;
@@ -109,6 +111,7 @@ typedef struct {
     addr_data_t rem_addrs[MAX_ADDRS];
 
     // uint8_t pkt_seen_non_ack;
+    uint64_t uniflows_sequence;
 } bpf_data;
 
 typedef struct {
@@ -143,6 +146,19 @@ typedef struct path_update {
     uint64_t closed_path_id;
     uint64_t proposed_path_id;
 } path_update_t;
+
+typedef struct uniflow_info {
+    uint64_t uniflow_id;
+    uint8_t local_address_id;
+} uniflow_info_t;
+
+typedef struct uniflows {
+    uint64_t sequence;
+    uint64_t receiving_uniflows;
+    uint64_t active_sending_uniflows;
+    uniflow_info_t receiving_uniflow_infos[MAX(MAX_RECEIVING_UNIFLOWS, MAX_SENDING_UNIFLOWS)];
+    uniflow_info_t sending_uniflow_infos[MAX(MAX_RECEIVING_UNIFLOWS, MAX_SENDING_UNIFLOWS)];
+} uniflows_frame_t;
 
 static bpf_data *initialize_bpf_data(picoquic_cnx_t *cnx)
 {
@@ -432,6 +448,19 @@ static __attribute__((always_inline)) void reserve_mp_ack_frame(picoquic_cnx_t *
     /* Reserved now, so ack_needed is not true anymore. This is an important fix! */
     picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
     set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
+}
+
+static __attribute__((always_inline)) void reserve_uniflows_frame(picoquic_cnx_t *cnx, uniflow_data_t *sending_uniflow)
+{
+   reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
+    if (!rfs) {
+        return;
+    }
+    my_memset(rfs, 0, sizeof(reserve_frame_slot_t));
+    rfs->frame_type = UNIFLOWS_TYPE;
+    rfs->frame_ctx = sending_uniflow;
+    rfs->nb_bytes = 200; /* FIXME dynamic count */
+    reserve_frames(cnx, 1, rfs);
 }
 
 /* Other multipath functions */

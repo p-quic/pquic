@@ -7,3 +7,5 @@ parse_frame param 0x43 post qlog/mp_ack_frame_parsed.o
 write_frame param 0x43 post qlog/frame_prepared.o
 parse_frame param 0x44 post qlog/add_address_parsed.o
 write_frame param 0x44 post qlog/frame_prepared.o
+parse_frame param 0x46 post qlog/uniflows_parsed.o
+write_frame param 0x46 post qlog/frame_prepared.o
