@@ -221,7 +221,7 @@ int demo_server_is_path_sane(const uint8_t* path, size_t path_length)
         if ((c >= 'a' && c <= 'z') ||
             (c >= 'A' && c <= 'Z') ||
             (c >= '0' && c <= '9') ||
-            c == '-' || c == '_') {
+            c == '-' || c == '_' || c == '/') {
             nb_good++;
             past_is_dot = 0;
         }
@@ -240,7 +240,7 @@ int demo_server_is_path_sane(const uint8_t* path, size_t path_length)
     return ret;
 }
 
-int demo_server_try_file_path(const uint8_t* path, size_t path_length, size_t* echo_size, FILE** pF, char const* web_folder)
+int demo_server_try_file_path(const uint8_t* path, size_t path_length, size_t* echo_size, h3zero_content_type_enum *content_type, FILE** pF, char const* web_folder)
 {
     int ret = -1;
     char file_name[1024];
@@ -279,19 +279,47 @@ int demo_server_try_file_path(const uint8_t* path, size_t path_length, size_t* e
                 ret = 0;
             }
         }
+
+        if (ret == 0 && content_type) {
+            char *ext = strrchr(path, '.');
+            size_t ext_len = path_length - (ext - (const char *) path);
+            if (ext == NULL) {
+                *content_type = h3zero_content_type_text_plain;
+            } else if (ext_len == 5) {
+                if (memcmp(ext, ".html", ext_len) == 0)
+                    *content_type = h3zero_content_type_text_html;
+                else if (memcmp(ext, ".jpeg", ext_len) == 0)
+                    *content_type = h3zero_content_type_image_jpeg;
+                else if (memcmp(ext, ".json", ext_len) == 0)
+                    *content_type = h3zero_content_type_json;
+            } else if (ext_len == 4) {
+                if (memcmp(ext, ".css", ext_len) == 0)
+                    *content_type = h3zero_content_type_text_css;
+                else if (memcmp(ext, ".gif", ext_len) == 0)
+                    *content_type = h3zero_content_type_image_gif;
+                else if (memcmp(ext, ".jpg", ext_len) == 0)
+                    *content_type = h3zero_content_type_image_jpeg;
+                else if (memcmp(ext, ".png", ext_len) == 0)
+                    *content_type = h3zero_content_type_image_png;
+            } else if (ext_len == 3) {
+                if (memcmp(ext, ".js", ext_len) == 0)
+                    *content_type = h3zero_content_type_javascript;
+            }
+        }
     }
 
     return ret;
 }
 
 
-static int demo_server_parse_path(const uint8_t * path, size_t path_length, size_t * echo_size, FILE ** pF, char const * web_folder)
+static int demo_server_parse_path(const uint8_t * path, size_t path_length, size_t * echo_size, h3zero_content_type_enum *content_type, FILE ** pF, char const * web_folder)
 {
     int ret = 0;
 
     if (path != NULL && path_length == 1 && path[0] == '/') {
         /* Redirect the root requests to the default index so it can be read from file if file is present */
         path = (const uint8_t *)"/index.html";
+        *content_type = h3zero_content_type_text_html;
         path_length = 11;
     }
 
@@ -299,7 +327,7 @@ static int demo_server_parse_path(const uint8_t * path, size_t path_length, size
     if (path == NULL || path_length == 0 || path[0] != '/') {
         ret = -1;
     }
-    else if (web_folder != NULL && demo_server_try_file_path(path, path_length, echo_size, pF, web_folder) == 0) {
+    else if (web_folder != NULL && demo_server_try_file_path(path, path_length, echo_size, content_type, pF, web_folder) == 0) {
         ret = 0;
     }
     else if (path_length > 1 && (path_length != 11 || memcmp(path, "/index.html", 11) != 0)) {
@@ -315,6 +343,8 @@ static int demo_server_parse_path(const uint8_t * path, size_t path_length, size
 
         if (ret == 0) {
             *echo_size = x;
+            if (content_type)
+                *content_type = h3zero_content_type_text_plain;
         }
     }
 
@@ -338,6 +368,8 @@ static int h3zero_server_process_request_frame(
     size_t response_length = 0;
     int ret = 0;
 
+    h3zero_content_type_enum content_type = h3zero_content_type_text_plain;
+
     *o_bytes++ = h3zero_frame_header;
     o_bytes += 2; /* reserve two bytes for frame length */
 
@@ -347,7 +379,7 @@ static int h3zero_server_process_request_frame(
         o_bytes = h3zero_create_bad_method_header_frame(o_bytes, o_bytes_max);
     }
     else if (stream_ctx->ps.stream_state.header.method == h3zero_method_get &&
-        demo_server_parse_path(stream_ctx->ps.stream_state.header.path, stream_ctx->ps.stream_state.header.path_length, &stream_ctx->echo_length, &stream_ctx->F, app_ctx->web_folder) != 0) {
+        demo_server_parse_path(stream_ctx->ps.stream_state.header.path, stream_ctx->ps.stream_state.header.path_length, &stream_ctx->echo_length, &content_type, &stream_ctx->F, app_ctx->web_folder) != 0) {
         /* If unknown, 404 */
         o_bytes = h3zero_create_not_found_header_frame(o_bytes, o_bytes_max);
         /* TODO: consider known-url?data construct */
@@ -376,10 +408,7 @@ static int h3zero_server_process_request_frame(
                 strlen(demo_server_default_page) : stream_ctx->echo_length;
         }
         /* If known, create response header frame */
-        /* POST-TODO: provide content type of response as part of context */
-        o_bytes = h3zero_create_response_header_frame(o_bytes, o_bytes_max,
-            (stream_ctx->echo_length == 0) ? h3zero_content_type_text_html :
-            h3zero_content_type_text_plain);
+        o_bytes = h3zero_create_response_header_frame(o_bytes, o_bytes_max, content_type);
     }
 
     if (o_bytes == NULL) {
@@ -1025,7 +1054,7 @@ int picoquic_h09_server_process_data(picoquic_cnx_t* cnx,
 
             if (stream_ctx->method == 0) {
                 if (demo_server_parse_path(stream_ctx->ps.hq.path, stream_ctx->ps.hq.path_length, &stream_ctx->echo_length,
-                    &stream_ctx->F, app_ctx->web_folder)) {
+                    NULL, &stream_ctx->F, app_ctx->web_folder)) {
                     is_not_found = 1;
                 }
             }
