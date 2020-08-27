@@ -167,7 +167,7 @@ SET(PLUGINS_MULTIPATH
     plugins/multipath/write_uniflows_frame.c
     plugins/multipath/notify_uniflows_frame.c
     plugins/multipath/peer_address_changed.c
-)
+        plugins/multipath/qlog/uniflows_parsed.c)
 
 SET(PLUGINS_STREAM_SCHEDULER
     plugins/stream_scheduling_rr/stream_scheduling_rr.c

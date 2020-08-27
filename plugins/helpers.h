@@ -116,14 +116,14 @@ static inline protoop_arg_t run_param(picoquic_cnx_t *cnx, char *pid_str, param_
     return run_param_with_pid(cnx, pid_str, param, inputc, inputv, outputv, NULL);
 }
 
-static __attribute__((always_inline)) void helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {
+static __attribute__((always_inline)) size_t helper_protoop_snprintf(picoquic_cnx_t *cnx, const char *buf, size_t buf_len, const char *fmt, const protoop_arg_t *fmt_args, size_t args_len) {
     protoop_arg_t args[5];
     args[0] = (protoop_arg_t) buf;
     args[1] = buf_len;
     args[2] = (protoop_arg_t) fmt;
     args[3] = (protoop_arg_t) fmt_args;
     args[4] = args_len;
-    run_noparam(cnx, PROTOOPID_NOPARAM_SNPRINTF, 5, args, NULL);
+    return (size_t) run_noparam(cnx, PROTOOPID_NOPARAM_SNPRINTF, 5, args, NULL);
 }
 
 static uint32_t helper_get_checksum_length(picoquic_cnx_t* cnx, int is_cleartext_mode)
