@@ -10,7 +10,8 @@ RUN apt-get update && \
 
 COPY --from=pquic_build /src/pquic/picoquicdemo .
 COPY --from=pquic_build /src/pquic/plugins plugins
-COPY --from=pquic_build /src/pquic/certs certs
+COPY --from=pquic_build /src/pquic/certs/cert.pem certs/cert.pem
+COPY --from=pquic_build /src/pquic/certs/key.pem certs/priv.key
 
 # copy run script and run it
 COPY run_endpoint.sh .
