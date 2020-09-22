@@ -156,7 +156,7 @@ size_t picoquic_demo_server_callback_select_alpn(picoquic_quic_t* quic, ptls_iov
 
 int demo_server_is_path_sane(const uint8_t* path, size_t path_length);
 
-int demo_server_try_file_path(const uint8_t* path, size_t path_length, size_t* echo_size, FILE** pF, char const* web_folder);
+int demo_server_try_file_path(const uint8_t* path, size_t path_length, size_t* echo_size, h3zero_content_type_enum *content, FILE** pF, char const* web_folder);
 
 /* For building a basic HTTP 0.9 test server */
 int http0dot9_get(uint8_t* command, size_t command_length,

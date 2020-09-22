@@ -74,7 +74,7 @@ if [ "$ROLE" == "client" ]; then
         /picoquicdemo $TEST_PARAMS server 443 $FILELIST > /logs/client.log
     fi
 elif [ "$ROLE" == "server" ]; then
-    TEST_PARAMS="$SERVER_PARAMS -k /certs/key.pem"
+    TEST_PARAMS="$SERVER_PARAMS -k /certs/priv.key"
     TEST_PARAMS="$TEST_PARAMS -c /certs/cert.pem"
     TEST_PARAMS="$TEST_PARAMS -p 443"
     TEST_PARAMS="$TEST_PARAMS -X /logs/keys.log"
