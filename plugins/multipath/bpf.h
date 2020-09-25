@@ -19,7 +19,7 @@
 #define MAX_RECEIVING_UNIFLOWS 4
 #endif
 #ifndef MAX_ADDRS
-#define MAX_ADDRS 2
+#define MAX_ADDRS 3
 #endif
 
 #define PREPARE_NEW_CONNECTION_ID_FRAME (PROTOOPID_SENDER + 0x48)
