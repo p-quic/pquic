@@ -1,0 +1,35 @@
+write_transport_parameter param 0x40 replace write_max_sending_uniflow_id.o
+process_transport_parameter param 0x40 replace process_max_sending_uniflow_id.o
+-
+parse_frame param 0x40 replace parse_mp_new_connection_id_frame.o
+process_frame param 0x40 replace process_mp_new_connection_id_frame.o
+write_frame param 0x40 replace write_mp_new_connection_id_frame.o
+notify_frame param 0x40 replace notify_mp_new_connection_id_frame.o
+parse_frame param 0x42 replace parse_mp_ack_frame.o
+process_frame param 0x42 replace process_mp_ack_frame.o
+write_frame param 0x42 replace write_mp_ack_frame.o
+notify_frame param 0x42 replace notify_mp_ack_frame.o
+parse_frame param 0x43 replace parse_mp_ack_frame.o
+process_frame param 0x43 replace process_mp_ack_frame.o
+write_frame param 0x43 replace write_mp_ack_frame.o
+notify_frame param 0x43 replace notify_mp_ack_frame.o
+parse_frame param 0x44 replace parse_add_address_frame.o
+process_frame param 0x44 replace process_add_address_frame.o
+write_frame param 0x44 replace write_add_address_frame.o
+notify_frame param 0x44 replace notify_add_address_frame.o
+parse_frame param 0x46 replace parse_uniflows_frame.o
+process_frame param 0x46 replace process_uniflows_frame.o
+write_frame param 0x46 replace write_uniflows_frame.o
+notify_frame param 0x46 replace notify_uniflows_frame.o
+process_possible_ack_of_ack_frame replace process_possible_ack_of_ack_frame.o
+get_incoming_path replace get_incoming_path.o
+set_next_wake_time replace set_next_wake_time.o
+get_destination_connection_id replace get_destination_connection_id.o
+predict_packet_header_length replace predict_packet_header_length.o
+connection_state_changed post connection_state_changed.o
+write_frame param 0x49 replace write_rtt_probe.o
+notify_frame param 0x49 replace notify_rtt_probe.o
+schedule_frames_on_path replace path_schedulers/schedule_frames.o
+manage_paths replace path_manager_rev.o
+update_rtt replace update_rtt.o
+peer_address_changed post peer_address_changed.o
