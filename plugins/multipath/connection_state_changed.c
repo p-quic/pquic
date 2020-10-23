@@ -15,7 +15,16 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
         if (bpfd->nb_receiving_proposed == 0) {
             /* TODO do something smarter than this... */
             /* Prepare MP_NEW_CONNECTION_IDs */
-            for (uint64_t i = 1; i < N_RECEIVING_UNIFLOWS + 1; i++) {
+
+            uint64_t max_sending_uniflow_id = N_RECEIVING_UNIFLOWS;
+            /* If we negotiate the option, let's bound to the peer provided value */
+            if (bpfd->tp_sent) {
+                if (bpfd->received_max_sending_uniflow < max_sending_uniflow_id) {
+                    max_sending_uniflow_id = bpfd->received_max_sending_uniflow;
+                }
+            }
+
+            for (uint64_t i = 1; i <= max_sending_uniflow_id; i++) {
                 reserve_mp_new_connection_id_frame(cnx, i);
             }
             /* And also send add address */

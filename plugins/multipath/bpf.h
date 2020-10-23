@@ -96,6 +96,11 @@ typedef struct {
 } stats_t;
 
 typedef struct {
+    /* Because we can have the non-negotiated version */
+    uint8_t tp_sent;
+    uint8_t tp_received;
+    uint64_t received_max_sending_uniflow;
+
     uint8_t nb_sending_active;
     uint8_t nb_sending_proposed;
     uint8_t nb_receiving_proposed;

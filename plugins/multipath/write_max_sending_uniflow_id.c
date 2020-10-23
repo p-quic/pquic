@@ -8,6 +8,9 @@ protoop_arg_t write_max_sending_uniflow_id(picoquic_cnx_t* cnx)
     uint8_t* bytes = (uint8_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
     const uint16_t max_length = (const uint16_t) get_cnx(cnx, AK_CNX_INPUT, 1);
 
+    bpf_data *bpfd = get_bpf_data(cnx);
+    bpfd->tp_sent = 1;
+
     size_t consumed = 0;
 
     uint64_t max_sending_uniflow_id = 2;
