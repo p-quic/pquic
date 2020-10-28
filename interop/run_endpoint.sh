@@ -25,6 +25,11 @@ if [ "$ROLE" == "client" ]; then
     TEST_PARAMS="$CLIENT_PARAMS -o /downloads"
     TEST_PARAMS="$TEST_PARAMS -X /logs/keys.log"
 
+    SERVER_HOST=`echo $REQUESTS | cut -f3 -d'/' | cut -f1 -d':'`
+    PORT=`echo $REQUESTS | cut -f3 -d'/' | cut -f2 -d':'`
+
+    echo "Hostname: $SERVER_HOST, port: $PORT"
+
     echo "Requests: " $REQUESTS
     for REQ in $REQUESTS; do
         FILE=`echo $REQ | cut -f4 -d'/'`
@@ -48,12 +53,12 @@ if [ "$ROLE" == "client" ]; then
             L1="/logs/first_log.txt"
             L2="/logs/second_log.txt"
             rm *.bin
-            /picoquicdemo $TEST_PARAMS server 443 $FILE1 > $L1
+            /picoquicdemo $TEST_PARAMS $SERVER_HOST $PORT $FILE1 > $L1
             if [ $? != 0 ]; then
                 RET=1
                 echo "First call to picoquicdemo failed"
             else
-                /picoquicdemo $TEST_PARAMS server 443 $FILE2 > $L2
+                /picoquicdemo $TEST_PARAMS $SERVER_HOST $PORT $FILE2 > $L2
                 if [ $? != 0 ]; then
                     RET=1
                     echo "Second call to picoquicdemo failed"
@@ -64,14 +69,14 @@ if [ "$ROLE" == "client" ]; then
             CFILE=`echo $CREQ | cut -f4 -d'/'`
             CFILEX="/$CFILE"
             MCLOG="/logs/mc-$CFILE.txt"
-            /picoquicdemo $TEST_PARAMS server 443 $CFILEX > $MCLOG
+            /picoquicdemo $TEST_PARAMS $SERVER_HOST $PORT $CFILEX > $MCLOG
             if [ $? != 0 ]; then
                 RET=1
                 echo "Call to picoquicdemo failed"
             fi
         done
     else
-        /picoquicdemo $TEST_PARAMS server 443 $FILELIST > /logs/client.log
+        /picoquicdemo $TEST_PARAMS $SERVER_HOST $PORT $FILELIST > /logs/client.log
     fi
 elif [ "$ROLE" == "server" ]; then
     TEST_PARAMS="$SERVER_PARAMS -k /certs/priv.key"
