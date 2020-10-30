@@ -39,56 +39,71 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
     frame->has_port = (flags_and_ip_ver & 0x10) != 0;
     frame->ip_vers = flags_and_ip_ver & 0x0F;
 
-    /* Get the default port, if needed */
-    picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
-    struct sockaddr_storage *sa_def = (struct sockaddr_storage *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
-    int sa_def_length = (int) get_path(path_0, AK_PATH_PEER_ADDR_LEN, 0);
-    uint16_t port_def = 0;
-
-    if (sa_def_length == sizeof(struct sockaddr_in)) {
-        struct sockaddr_in sai_def;
-        my_memcpy(&sai_def, sa_def, sizeof(struct sockaddr_in));
-        port_def = (uint16_t) sai_def.sin_port;
-    } else { /* IPv6 */
-        struct sockaddr_in6 sai6_def; 
-        my_memcpy(&sai6_def, sa_def, sizeof(struct sockaddr_in6));
-        port_def = (uint16_t) sai6_def.sin6_port;
-    }
-
-    if (frame->ip_vers == 4 && (bytes_max - (bytes + byte_index) >= 4 + 2 * frame->has_port)) {
-        struct sockaddr_in *sai = (struct sockaddr_in *) &frame->addr;
-        my_memcpy(&sai->sin_addr.s_addr, &bytes[byte_index], 4);
-        byte_index += 4;
-        if (frame->has_port) {
-            my_memcpy(&sai->sin_port, &bytes[byte_index], 2);
-            byte_index += 2;
-        } else {
-            /* It is the same port as the initial path */
-            my_memcpy(&sai->sin_port, &port_def, 2);
-        }
-        /* Ensure sai is a AF_INET address */
-        sai->sin_family = AF_INET;
-        bytes += byte_index;
-    } else if (frame->ip_vers == 6 && (bytes_max - (bytes + byte_index) >= 16 + 2 * frame->has_port)) {
-        struct sockaddr_in6 *sai6 = &frame->addr;
-        my_memcpy(&sai6->sin6_addr, &bytes[byte_index], 16);
-        byte_index += 16;
-        if (frame->has_port) {
-            my_memcpy(&sai6->sin6_port, &bytes[byte_index], 2);
-            byte_index += 2;
-        } else {
-            /* It is the same port as the initial path */
-            my_memcpy(&sai6->sin6_port, &port_def, 2);
-        }
-        /* Ensure sai6 is a AF_INET6 address */
-        sai6->sin6_family = AF_INET6;
-        bytes += byte_index;
-    } else {
-        // Error: unknown ip version
+    if ((bytes = picoquic_frames_varint_decode(&bytes[byte_index], bytes_max, &frame->sequence)) == NULL ||
+         bytes_max - bytes < 5) { /* In any case here, we should still have 5 bytes to read */
+        // Error
+        helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
+            picoquic_frame_type_new_connection_id);
         my_free(cnx, frame);
         frame = NULL;
         bytes = NULL;
+    } else {
+        /* Byte index restarts at 0 */
+        byte_index = 0;
+
+        my_memcpy(&frame->interface_type, &bytes[byte_index++], 1);
+        /* Get the default port, if needed */
+        picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+        struct sockaddr_storage *sa_def = (struct sockaddr_storage *) get_path(path_0, AK_PATH_PEER_ADDR, 0);
+        int sa_def_length = (int) get_path(path_0, AK_PATH_PEER_ADDR_LEN, 0);
+        uint16_t port_def = 0;
+
+        if (sa_def_length == sizeof(struct sockaddr_in)) {
+            struct sockaddr_in sai_def;
+            my_memcpy(&sai_def, sa_def, sizeof(struct sockaddr_in));
+            port_def = (uint16_t) sai_def.sin_port;
+        } else { /* IPv6 */
+            struct sockaddr_in6 sai6_def; 
+            my_memcpy(&sai6_def, sa_def, sizeof(struct sockaddr_in6));
+            port_def = (uint16_t) sai6_def.sin6_port;
+        }
+
+        if (frame->ip_vers == 4 && (bytes_max - (bytes + byte_index) >= 4 + 2 * frame->has_port)) {
+            struct sockaddr_in *sai = (struct sockaddr_in *) &frame->addr;
+            my_memcpy(&sai->sin_addr.s_addr, &bytes[byte_index], 4);
+            byte_index += 4;
+            if (frame->has_port) {
+                my_memcpy(&sai->sin_port, &bytes[byte_index], 2);
+                byte_index += 2;
+            } else {
+                /* It is the same port as the initial path */
+                my_memcpy(&sai->sin_port, &port_def, 2);
+            }
+            /* Ensure sai is a AF_INET address */
+            sai->sin_family = AF_INET;
+            bytes += byte_index;
+        } else if (frame->ip_vers == 6 && (bytes_max - (bytes + byte_index) >= 16 + 2 * frame->has_port)) {
+            struct sockaddr_in6 *sai6 = &frame->addr;
+            my_memcpy(&sai6->sin6_addr, &bytes[byte_index], 16);
+            byte_index += 16;
+            if (frame->has_port) {
+                my_memcpy(&sai6->sin6_port, &bytes[byte_index], 2);
+                byte_index += 2;
+            } else {
+                /* It is the same port as the initial path */
+                my_memcpy(&sai6->sin6_port, &port_def, 2);
+            }
+            /* Ensure sai6 is a AF_INET6 address */
+            sai6->sin6_family = AF_INET6;
+            bytes += byte_index;
+        } else {
+            // Error: unknown ip version
+            my_free(cnx, frame);
+            frame = NULL;
+            bytes = NULL;
+        }
     }
+
 
     set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) frame);
     set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) ack_needed);

@@ -27,7 +27,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
     int frame_size_v4 = 9;
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    if (bytes_max - bytes < aac->nb_addrs * frame_size_v4) {
+    if (bytes_max - bytes < (aac->nb_addrs + 1) * frame_size_v4) { // Count also header size
         /* A valid frame, with our encoding, uses at least 13 bytes.
          * If there is not enough space, don't attempt to encode it.
          */
@@ -78,6 +78,12 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
             my_memset(&bytes[byte_index++], (port ? 0x10 : 0x00) | ((sa->ss_family == AF_INET6) ? 0x06 : 0x04), 1);
             /* Encode address ID */
             my_memset(&bytes[byte_index++], addr_id, 1);
+            /* Encode sequence number */
+            // TODO FIXME
+            my_memset(&bytes[byte_index++], 0, 1);
+            /* Encode interface type */
+            // TODO FIXME
+            my_memset(&bytes[byte_index++], 0, 1);
             /* Encode IP address */
             if (sa->ss_family == AF_INET) {
                 my_memcpy(&bytes[byte_index], &((struct sockaddr_in*)sa)->sin_addr.s_addr, sizeof(in_addr_t));

@@ -1044,11 +1044,19 @@ size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
     uint8_t has_port = 0;
     uint8_t ip_vers;
     uint8_t addr_id;
+    size_t l_seq = 0;
 
     uint8_t flags_and_ip_ver = bytes[byte_index++];
     has_port = (flags_and_ip_ver & 0x10);
     ip_vers = (flags_and_ip_ver & 0x0f);
     addr_id = bytes[byte_index++];
+
+    l_seq = picoquic_varint_skip(&bytes[byte_index]);
+
+    byte_index += l_seq;
+
+    /* Also skip interface type */
+    byte_index++;
 
     char hostname[256];
     const char* x;

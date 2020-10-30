@@ -133,6 +133,8 @@ typedef struct add_address_frame {
     uint8_t has_port;
     uint8_t ip_vers;
     uint8_t address_id;
+    uint64_t sequence;
+    uint8_t interface_type;
     /* This is an hack... An ipv4 address will fit inside */
     struct sockaddr_in6 addr;
 } add_address_frame_t;
