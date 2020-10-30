@@ -1095,12 +1095,13 @@ size_t picoquic_log_add_address_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t bytes_max)
 {
     size_t byte_index = 2;
-    size_t min_size = 2 + 8 + 16;
+    size_t min_size = 3 + 8 + 16;
     picoquic_connection_id_t new_cnx_id;
     size_t l_seq = 0;
     uint8_t l_cid = 0;
     uint64_t path_id = 0;
     size_t l_path_id = 0;
+    size_t l_retire = 0;
 
     l_path_id = picoquic_varint_decode(&bytes[byte_index], bytes_max, &path_id);
 
@@ -1123,6 +1124,17 @@ size_t picoquic_log_mp_new_connection_id_frame(FILE* F, uint8_t* bytes, size_t b
     }
 
     byte_index += l_seq;
+
+    l_retire = picoquic_varint_skip(&bytes[byte_index]);
+
+    min_size += l_retire;
+
+    if (min_size > bytes_max) {
+        fprintf(F, "    Malformed MP NEW CONNECTION ID, requires %d bytes out of %d\n", (int)min_size, (int)bytes_max);
+        return bytes_max;
+    }
+
+    byte_index += l_retire;
 
     if (byte_index < bytes_max) {
         l_cid = bytes[byte_index++];

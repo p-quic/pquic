@@ -16,7 +16,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
     int new_uniflow_index = 0;
     bpf_data *bpfd = get_bpf_data(cnx);
 
-    if (bytes_max - bytes < 28) {
+    if (bytes_max - bytes < 29) {
         /* A valid frame, with our encoding, uses at least 13 bytes.
          * If there is not enough space, don't attempt to encode it.
          */
@@ -48,6 +48,7 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         size_t frame_id_l = 0;
         size_t uniflow_id_l = 0;
         size_t seq_l = 0;
+        size_t retire_l = 0;
 
         /* Frame ID */
         frame_id_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
@@ -63,6 +64,12 @@ protoop_arg_t write_mp_new_connection_id_frame(picoquic_cnx_t* cnx)
         if (byte_index < bytes_max - bytes) {
             /* Seq */
             seq_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
+                0);
+            byte_index += seq_l;
+        }
+        if (byte_index < bytes_max - bytes) {
+            /* Seq */
+            retire_l = picoquic_varint_encode(bytes + byte_index, (size_t) bytes_max - byte_index,
                 0);
             byte_index += seq_l;
         }
