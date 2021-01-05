@@ -2,24 +2,19 @@
 
 protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
     picoquic_path_t *sending_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
-    picoquic_path_t *path_0 = sending_path;
-    picoquic_path_t *path_c = NULL;
+    picoquic_path_t *path_c = sending_path;
     bpf_data *bpfd = get_bpf_data(cnx);
     uniflow_data_t *ud = NULL;
     uint8_t selected_uniflow_index = 255;
     manage_paths(cnx);
     uint64_t now = picoquic_current_time();
-    int valid = 0;
-    uint64_t selected_sent_pkt = 0;
-    int selected_cwin_limited = 0;
+    uint64_t selected_sent_pkt = get_path(sending_path, AK_PATH_NB_PKT_SENT, 0);
+    uint64_t cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
+    uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
+    int selected_cwin_limited = cwin_c <= bytes_in_transit_c;
     char *path_reason = "";
 
-    int mtu_needed_path_0 = helper_is_mtu_probe_needed(cnx, path_0);
-    if (mtu_needed_path_0) {
-        path_reason = "MTU_DISCOVERY_PATH_0";
-    }
-
-    for (int i = 0; i < bpfd->nb_sending_proposed && !mtu_needed_path_0; i++) {
+    for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
         ud = bpfd->sending_uniflows[i];
 
         /* A (very) simple round-robin */
@@ -34,7 +29,6 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
                 /* Start the challenge! */
                 sending_path = path_c;
                 selected_uniflow_index = i;
-                valid = 0;
                 path_reason = "CHALLENGE_REQUEST";
                 break;
             }
@@ -44,24 +38,13 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
             if (mtu_needed) {
                 sending_path = path_c;
                 selected_uniflow_index = i;
-                valid = 0;
                 path_reason = "MTU_DISCOVERY";
                 break;
             }
 
-            /* At this point, this means path 0 should NEVER be reused anymore! */
-            uint64_t pkt_sent_c = (uint64_t) get_path(path_c, AK_PATH_NB_PKT_SENT, 0);
-            if (challenge_verified_c && sending_path == path_0) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                selected_sent_pkt = pkt_sent_c;
-                path_reason = "AVOID_PATH_0";
-            }
-
             /* Very important: don't go further if the cwin is exceeded! */
-            uint64_t cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
-            uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
+            cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
+            bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
             if (cwin_c <= bytes_in_transit_c) {
                 if (sending_path == path_c)
                     selected_cwin_limited = 1;
@@ -73,15 +56,10 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
                 continue;
             }
 
-            if (sending_path == path_0) {
+            uint64_t pkt_sent_c = (uint64_t) get_path(path_c, AK_PATH_NB_PKT_SENT, 0);
+            if (pkt_sent_c < selected_sent_pkt || selected_cwin_limited) {
                 sending_path = ud->path;
                 selected_uniflow_index = i;
-                valid = 1;
-                selected_sent_pkt = pkt_sent_c;
-            } else if (pkt_sent_c < selected_sent_pkt || selected_cwin_limited) {
-                sending_path = ud->path;
-                selected_uniflow_index = i;
-                valid = 1;
                 selected_sent_pkt = pkt_sent_c;
                 path_reason = "ROUND_ROBIN";
             }

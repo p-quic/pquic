@@ -237,7 +237,7 @@ static int mp_find_uniflow_index_internal(picoquic_cnx_t *cnx, uint8_t max_count
     return uniflow_index;
 }
 
-static int mp_get_uniflow_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_uniflow, uint64_t uniflow_id, int *new_uniflow_index) {
+static __attribute__((always_inline)) int mp_get_uniflow_index(picoquic_cnx_t *cnx, bpf_data *bpfd, bool for_sending_uniflow, uint64_t uniflow_id, int *new_uniflow_index) {
     uniflow_data_t **uniflows = for_sending_uniflow ? bpfd->sending_uniflows : bpfd->receiving_uniflows;
     uint8_t max_count = for_sending_uniflow ? bpfd->nb_sending_proposed : bpfd->nb_receiving_proposed;
     uint8_t max_val = for_sending_uniflow ? MAX_SENDING_UNIFLOWS : MAX_RECEIVING_UNIFLOWS;

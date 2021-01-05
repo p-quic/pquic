@@ -9,7 +9,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
     uniflow_data_t *ud = NULL;
 
     /* Don't go further if the address exchange is not complete! */
-    if (!bpfd->nb_sending_proposed || !bpfd->nb_receiving_proposed || !(get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0)))) {
+    if (bpfd->nb_sending_proposed <= 1 || bpfd->nb_receiving_proposed <= 1 || !(get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0)))) {
         PROTOOP_PRINTF(cnx, "Address exchange is not complete\n");
         return 0;
     }
@@ -37,8 +37,8 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
                 ud = bpfd->sending_uniflows[uniflow_idx];
                 if (ud->state == uniflow_unused && bpfd->nb_sending_active < N_SENDING_UNIFLOWS) {
                     ud->state = uniflow_active;
-                    ud->loc_addr_id = (uint8_t) (loc + 1);
-                    ud->rem_addr_id = (uint8_t) (rem + 1);
+                    ud->loc_addr_id = (uint8_t) loc;
+                    ud->rem_addr_id = (uint8_t) rem;
                     set_path(ud->path, AK_PATH_LOCAL_ADDR_LEN, 0, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
                     my_memcpy((struct sockaddr_storage *) get_path(ud->path, AK_PATH_LOCAL_ADDR, 0), adl->sa, (adl->is_v6) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
                     set_path(ud->path, AK_PATH_IF_INDEX_LOCAL, 0, (unsigned long) adl->if_index);

@@ -1335,6 +1335,8 @@ int picoquic_incoming_segment(
                     /* Verify that the source CID matches expectation */
                     if (picoquic_is_connection_id_null(cnx->path[0]->remote_cnxid)) {
                         cnx->path[0]->remote_cnxid = ph.srce_cnx_id;
+                        cnx->path[0]->local_addr_len = (addr_to->sa_family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+                        memcpy(&cnx->path[0]->local_addr, addr_to, cnx->path[0]->local_addr_len);
                     } else if (picoquic_compare_connection_id(&cnx->path[0]->remote_cnxid, &ph.srce_cnx_id) != 0) {
                         DBG_PRINTF("Error wrong srce cnxid (%d), type: %d, epoch: %d, pc: %d, pn: %d\n",
                             cnx->client_mode, ph.ptype, ph.epoch, ph.pc, (int)ph.pn);

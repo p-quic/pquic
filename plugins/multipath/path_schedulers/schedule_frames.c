@@ -65,15 +65,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
         }
         /* Set the new checksum length */
         checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
-        /* Check whether it makes sense to add an ACK at the end of the retransmission */
-        /* Don't do that if it risks mixing clear text and encrypted ack */
-        picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
-        if (is_cleartext_mode == 0 && ptype != picoquic_packet_0rtt_protected) {
-            if (sending_path == path_0 && helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes) == 0) {
-                length += (uint32_t)data_bytes;
-                set_pkt(packet, AK_PKT_LENGTH, length);
-            }
-        }
+        /* TODO: It would be smart to bundle an ACK with the retransmission */
         /* document the send time & overhead */
         set_pkt(packet, AK_PKT_IS_PURE_ACK, 0);
         set_pkt(packet, AK_PKT_SEND_TIME, current_time);
@@ -164,8 +156,6 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
             picoquic_state_enum cnx_state = get_cnx(cnx, AK_CNX_STATE, 0);
 
             if (cnx_state != picoquic_state_disconnected) {
-                picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
-
                 /* Before going further, let's duplicate all required frames first */
                 if (!path_validation_in_progress && bpfdd->requires_duplication) { // TODO: What about no validated path available for duplication ?
                     if (bpfdd->data_length <= send_buffer_min_max - checksum_overhead - length) {
@@ -228,14 +218,6 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
                 } while (ret == 0 && queued_bytes > 0 && consumed < send_buffer_min_max - checksum_overhead - length);
 
                 if (ret == 0) {
-                    /* FIXME: Sorry, I'm lazy, this could be easily fixed by making this a PO.
-                        * This is needed by the way the cwin is now handled. */
-                    if (helper_is_ack_needed(cnx, current_time, pc, path_0)) {
-                        if (helper_prepare_ack_frame(cnx, current_time, pc, &bytes[length], send_buffer_min_max - checksum_overhead - length, &data_bytes) == 0) {
-                            length += (uint32_t)data_bytes;
-                        }
-                    }
-
                     /* if present, send path response. This ensures we send it on the right path */
                     if (path_challenge_response_to_send) {
 #define PICOQUIC_CHALLENGE_LENGTH 8

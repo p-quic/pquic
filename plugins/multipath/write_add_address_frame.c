@@ -47,7 +47,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 
             if (!aac->is_rtx) {
                 addr_index = bpfd->nb_loc_addrs;
-                addr_id = addr_index + 1;
+                addr_id = addr_index;
                 sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
                 if (!sa) {
                     ret = PICOQUIC_ERROR_MEMORY;
@@ -59,6 +59,15 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                     my_memcpy(&((struct sockaddr_in *) sa)->sin_port, &port, 2);
                 } else if (sa->ss_family == AF_INET6) {
                     my_memcpy(&((struct sockaddr_in6 *) sa)->sin6_port, &port, 2);
+                }
+                int already_exists = 0;
+                for (int a = 0; a < addr_index && !already_exists; a++) {
+                    if (picoquic_compare_addr((struct sockaddr *) sa, bpfd->loc_addrs[a].sa) == 0) {
+                        already_exists = 1;
+                    }
+                }
+                if (already_exists) {
+                    continue;
                 }
                 bpfd->loc_addrs[addr_index].id = addr_id;
                 bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;

@@ -10,12 +10,38 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
                                    to_state == picoquic_state_server_ready))
     {
         /* Again, still checking */
-        /* Try to send two CIDs for 2 paths IDS */
         bpf_data *bpfd = get_bpf_data(cnx);
         if (bpfd->nb_receiving_proposed == 0) {
-            /* TODO do something smarter than this... */
-            /* Prepare MP_NEW_CONNECTION_IDs */
+            /* Initialize initial uniflows */
+            picoquic_path_t *path_0 = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+            uniflow_data_t *ru0 = bpfd->receiving_uniflows[mp_get_uniflow_index(cnx, bpfd, false, 0, NULL)];
+            uniflow_data_t *su0 = bpfd->sending_uniflows[mp_get_uniflow_index(cnx, bpfd, true, 0, NULL)];
 
+            ru0->state = uniflow_active;
+            ru0->path = path_0;
+            ru0->proposed_cid = true;
+            su0->state = uniflow_active;
+            su0->path = path_0;
+            su0->proposed_cid = true;
+            su0->has_sent_uniflows_frame = true; /* No need to send UNIFLOWS after initiating the initial uniflow */
+            bpfd->nb_sending_active = 1;
+
+            /* Initialize initial addresses */
+            bpfd->nb_loc_addrs = 1;
+            struct sockaddr_storage *sal = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
+            my_memcpy(sal, (const void *) get_path(path_0, AK_PATH_LOCAL_ADDR, 0), get_path(path_0, AK_PATH_LOCAL_ADDR_LEN, 0));
+            bpfd->loc_addrs[0].id = 0;
+            bpfd->loc_addrs[0].sa = (struct sockaddr *) sal;
+            bpfd->loc_addrs[0].is_v6 = sal->ss_family == AF_INET6;
+            bpfd->loc_addrs[0].if_index = get_path(path_0, AK_PATH_IF_INDEX_LOCAL, 0);
+            bpfd->nb_rem_addrs = 1;
+            struct sockaddr_storage *sar = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
+            my_memcpy(sar, (const void *) get_path(path_0, AK_PATH_PEER_ADDR, 0), get_path(path_0, AK_PATH_PEER_ADDR_LEN, 0));
+            bpfd->rem_addrs[0].id = 0;
+            bpfd->rem_addrs[0].sa = (struct sockaddr *) sar;
+            bpfd->rem_addrs[0].is_v6 = sar->ss_family == AF_INET6;
+
+            /* Prepare MP_NEW_CONNECTION_IDs */
             uint64_t max_sending_uniflow_id = N_RECEIVING_UNIFLOWS;
             /* If we negotiate the option, let's bound to the peer provided value */
             if (bpfd->tp_sent) {

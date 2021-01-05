@@ -27,8 +27,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     }
 
     picoquic_path_t *sending_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0); /* We should NEVER return NULL */
-    picoquic_path_t *path_0 = sending_path;
-    picoquic_path_t *path_c = NULL;
+    picoquic_path_t *path_c = sending_path;
     bpf_data *bpfd = get_bpf_data(cnx);
     bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
     uniflow_data_t *ud = NULL;
@@ -40,12 +39,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     picoquic_stream_head *stream = helper_find_ready_stream(cnx);
     int tls_ready = helper_is_tls_stream_ready(cnx);
 
-    int mtu_needed_path_0 = helper_is_mtu_probe_needed(cnx, path_0);
-    if (mtu_needed_path_0) {
-        path_reason = "MTU_DISCOVERY_PATH_0";
-    }
-
-    for (uint8_t i = 0; i < bpfd->nb_sending_proposed && !mtu_needed_path_0; i++) {
+    for (uint8_t i = 0; i < bpfd->nb_sending_proposed; i++) {
         ud = bpfd->sending_uniflows[i];
         /* Lowest RTT-based scheduler */
         if (ud->state == uniflow_active) {
@@ -72,15 +66,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
                 valid = 0;
                 path_reason = "MTU_DISCOVERY";
                 break;
-            }
-
-            /* At this point, this means path 0 should NEVER be reused anymore! */
-            if (challenge_verified_c && sending_path == path_0) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                smoothed_rtt_x = find_smooth_rtt(bpfd, bpftd, i);
-                valid = 0;
-                path_reason = "AVOID_PATH_0";
             }
 
             /* If we want another path, ask for it now */
@@ -128,44 +113,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             /* As ACKs are related to receive paths, no more logic here! */
 
             uint64_t smoothed_rtt_c = find_smooth_rtt(bpfd, bpftd, i);
-            if (path_c != path_0) {
-// TODO: Fix RTT probes
-#ifdef ENABLE_RTT_PROBE
-                uint64_t current_time = picoquic_current_time();
-                uint32_t send_mtu = (uint32_t) get_path(path_c, AK_PATH_SEND_MTU, 0);
-                /* ALWAYS AVOID PROBING A PATH IF ITS CWIN IS NEARLY FULL!!! */
-                if (bytes_in_transit_c * 2 <= cwin_c && pd->last_rtt_probe + smoothed_rtt_c + RTT_PROBE_INTERVAL < current_time && !pd->rtt_probe_ready) {  // Prepares a RTT probe
-                    pd->last_rtt_probe = current_time;
-                    pd->rtt_probe_tries = 0;
-                    reserve_frame_slot_t *slot = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
-                    if (slot == NULL) {
-                        continue;
-                    }
-                    my_memset(slot, 0, sizeof(reserve_frame_slot_t));
-                    slot->nb_bytes = send_mtu / 20;
-                    slot->frame_type = RTT_PROBE_TYPE;
-                    slot->frame_ctx = (void *)(uint64_t) i;
-                    size_t ret = reserve_frames(cnx, 1, slot);
-                }
-
-                if (pd->rtt_probe_ready) {  // Sends the RTT probe in the retry queue
-                    path_x = path_c;
-                    selected_uniflow_index = i;
-                    valid = 0;
-                    path_reason = "RTT_PROBE";
-                    break;
-                }
-#endif
-
-                /* Set the default path to be this one */
-                if (sending_path == path_0) {
-                    sending_path = path_c;
-                    selected_uniflow_index = i;
-                    smoothed_rtt_x = (uint64_t) get_path(path_c, AK_PATH_SMOOTHED_RTT, 0);
-                    valid = 0;
-                    continue;
-                }
-            }
             if (sending_path && valid && smoothed_rtt_x < smoothed_rtt_c) {
                 continue;
             }

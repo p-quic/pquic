@@ -14,19 +14,23 @@ protoop_arg_t process_uniflows_frame(picoquic_cnx_t *cnx) {
 
         if (new_uniflow) {
             PROTOOP_PRINTF(cnx, "UNIFLOWS frame contained a sending uniflow ID that doesn't match an existing receiving uniflow\n");
+            continue;
         }
 
-        ud->rem_addr_id = frame->sending_uniflow_infos[i].local_address_id;
-        if (ud->rem_addr_id > 0) {
-            size_t rem_addr_len = bpfd->rem_addrs[ud->rem_addr_id - 1].is_v6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
-            my_memcpy((void *) get_path(ud->path, AK_PATH_PEER_ADDR, 0), bpfd->rem_addrs[ud->rem_addr_id - 1].sa, rem_addr_len);
+        uint8_t addr_id = frame->sending_uniflow_infos[i].local_address_id;
+        if (bpfd->rem_addrs[addr_id].sa) {
+            ud->rem_addr_id = addr_id;
+            size_t rem_addr_len = bpfd->rem_addrs[ud->rem_addr_id].is_v6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+            my_memcpy((void *) get_path(ud->path, AK_PATH_PEER_ADDR, 0), bpfd->rem_addrs[ud->rem_addr_id].sa, rem_addr_len);
             set_path(ud->path, AK_PATH_PEER_ADDR_LEN, 0, rem_addr_len);
+        } else {
+            PROTOOP_PRINTF(cnx, "UNIFLOWS frame referenced unknown remote address id %d\n", addr_id);
         }
     }
 
     for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
         uniflow_data_t *ud = bpfd->receiving_uniflows[i];
-        if (ud && ud->rem_addr_id > 0 && bpfd->rem_addrs[ud->rem_addr_id - 1].sa) {
+        if (ud && ud->rem_addr_id > 0 && bpfd->rem_addrs[ud->rem_addr_id].sa) {
             struct sockaddr *t = (struct sockaddr *) get_path(ud->path, AK_PATH_PEER_ADDR, 0);
             size_t path_addr_len = (size_t) get_path(ud->path, AK_PATH_PEER_ADDR_LEN, 0);
             struct sockaddr_storage a;
@@ -47,7 +51,7 @@ protoop_arg_t process_uniflows_frame(picoquic_cnx_t *cnx) {
             }
 
             if (!known_addr) {
-                addr_data_t *addr = &bpfd->rem_addrs[ud->rem_addr_id - 1];
+                addr_data_t *addr = &bpfd->rem_addrs[ud->rem_addr_id];
                 char old[INET6_ADDRSTRLEN] = {0};
                 char new[INET6_ADDRSTRLEN] = {0};
                 inet_ntop(addr->sa->sa_family, addr->sa->sa_family == AF_INET
