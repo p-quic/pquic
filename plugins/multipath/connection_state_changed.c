@@ -6,7 +6,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
     picoquic_state_enum to_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_INPUT, 1);
 
     /* Check that nothing nasty is done */
-    if (from_state != to_state && (to_state == picoquic_state_client_ready ||
+    if (from_state != to_state && (to_state == picoquic_state_client_almost_ready ||
                                    to_state == picoquic_state_server_ready))
     {
         /* Again, still checking */
@@ -20,8 +20,8 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             ru0->state = uniflow_active;
             ru0->path = path_0;
             ru0->proposed_cid = true;
-            picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_REMOTE_CID, 0);
-            my_memcpy(&ru0->cnxid, remote_cnxid, sizeof(picoquic_connection_id_t));
+            picoquic_connection_id_t *local_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_LOCAL_CID, 0);
+            my_memcpy(&ru0->cnxid, local_cnxid, sizeof(picoquic_connection_id_t));
             uint8_t *reset_secret = (uint8_t *) get_path(path_0, AK_PATH_RESET_SECRET, 0);
             my_memcpy(ru0->reset_secret, reset_secret, 16);
 
@@ -29,7 +29,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             su0->path = path_0;
             su0->proposed_cid = true;
             su0->has_sent_uniflows_frame = true; /* No need to send UNIFLOWS after initiating the initial uniflow */
-            remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_REMOTE_CID, 0);
+            picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_REMOTE_CID, 0);
             my_memcpy(&su0->cnxid, remote_cnxid, sizeof(picoquic_connection_id_t));
             reset_secret = (uint8_t *) get_path(path_0, AK_PATH_RESET_SECRET, 0);
             my_memcpy(su0->reset_secret, reset_secret, 16);
@@ -51,7 +51,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             bpfd->rem_addrs[0].is_v6 = sar->ss_family == AF_INET6;
 
             /* Prepare MP_NEW_CONNECTION_IDs */
-            uint64_t max_sending_uniflow_id = N_RECEIVING_UNIFLOWS;
+            uint64_t max_sending_uniflow_id = N_RECEIVING_UNIFLOWS - 1;
             /* If we negotiate the option, let's bound to the peer provided value */
             if (bpfd->tp_sent) {
                 if (bpfd->received_max_sending_uniflow < max_sending_uniflow_id) {
