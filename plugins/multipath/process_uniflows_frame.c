@@ -30,7 +30,7 @@ protoop_arg_t process_uniflows_frame(picoquic_cnx_t *cnx) {
 
     for (int i = 0; i < bpfd->nb_receiving_proposed; i++) {
         uniflow_data_t *ud = bpfd->receiving_uniflows[i];
-        if (ud && ud->rem_addr_id > 0 && bpfd->rem_addrs[ud->rem_addr_id].sa) {
+        if (ud && ud->rem_addr_id && bpfd->rem_addrs[ud->rem_addr_id].sa) {
             struct sockaddr *t = (struct sockaddr *) get_path(ud->path, AK_PATH_PEER_ADDR, 0);
             size_t path_addr_len = (size_t) get_path(ud->path, AK_PATH_PEER_ADDR_LEN, 0);
             struct sockaddr_storage a;

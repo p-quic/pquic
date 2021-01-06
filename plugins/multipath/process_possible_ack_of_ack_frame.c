@@ -25,13 +25,13 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
     /* Here, we receive an ACK for an ACK of our receive path! */
 
     int uniflow_index = 0;
-    if (ret == 0 && uniflow_id != 0) {
+    if (ret == 0) {
         uniflow_index = mp_get_uniflow_index(cnx, bpfd, false, uniflow_id, NULL);
     }
 
     if (uniflow_index < 0) {
         ret = -1;
-    } else if (uniflow_id != 0) {
+    } else {
         path_x = bpfd->receiving_uniflows[uniflow_index]->path;
     }
 

@@ -20,10 +20,19 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             ru0->state = uniflow_active;
             ru0->path = path_0;
             ru0->proposed_cid = true;
+            picoquic_connection_id_t *remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_REMOTE_CID, 0);
+            my_memcpy(&ru0->cnxid, remote_cnxid, sizeof(picoquic_connection_id_t));
+            uint8_t *reset_secret = (uint8_t *) get_path(path_0, AK_PATH_RESET_SECRET, 0);
+            my_memcpy(ru0->reset_secret, reset_secret, 16);
+
             su0->state = uniflow_active;
             su0->path = path_0;
             su0->proposed_cid = true;
             su0->has_sent_uniflows_frame = true; /* No need to send UNIFLOWS after initiating the initial uniflow */
+            remote_cnxid = (picoquic_connection_id_t *) get_path(path_0, AK_PATH_REMOTE_CID, 0);
+            my_memcpy(&su0->cnxid, remote_cnxid, sizeof(picoquic_connection_id_t));
+            reset_secret = (uint8_t *) get_path(path_0, AK_PATH_RESET_SECRET, 0);
+            my_memcpy(su0->reset_secret, reset_secret, 16);
             bpfd->nb_sending_active = 1;
 
             /* Initialize initial addresses */

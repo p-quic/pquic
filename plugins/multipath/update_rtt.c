@@ -27,7 +27,7 @@ protoop_arg_t update_rtt(picoquic_cnx_t *cnx)
     /* Check whether this is a new acknowledgement */
     uint64_t highest_acknowledged = (uint64_t) get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED);
     picoquic_sack_item_t *first_sack = (picoquic_sack_item_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
-    if (highest_acknowledged || (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE) == (uint64_t)((int64_t)-1)) {
+    if (largest > highest_acknowledged || (uint64_t) get_sack_item(first_sack, AK_SACKITEM_START_RANGE) == (uint64_t)((int64_t)-1)) {
         set_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACKNOWLEDGED, largest);
         is_new_ack = 1;
 
