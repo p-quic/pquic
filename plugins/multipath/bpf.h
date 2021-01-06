@@ -21,6 +21,9 @@
 #ifndef MAX_ADDRS
 #define MAX_ADDRS 2
 #endif
+#ifndef MAX_ADDRS_STORAGE
+#define MAX_ADDRS_STORAGE 8
+#endif
 
 #define PREPARE_NEW_CONNECTION_ID_FRAME (PROTOOPID_SENDER + 0x48)
 #define PREPARE_MP_ACK_FRAME (PROTOOPID_SENDER + 0x49)
@@ -48,8 +51,8 @@ typedef struct {
 
 typedef struct {
     size_t nb_addrs;
-    struct sockaddr_storage sas[MAX_ADDRS];
-    uint32_t if_indexes[MAX_ADDRS];
+    struct sockaddr_storage sas[MAX_ADDRS_STORAGE];
+    uint32_t if_indexes[MAX_ADDRS_STORAGE];
     bool is_rtx;
 } add_address_ctx_t;
 
@@ -411,7 +414,7 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
     if (!aac) {
         return;
     }
-    aac->nb_addrs = (size_t) picoquic_getaddrs(aac->sas, aac->if_indexes, MAX_ADDRS);
+    aac->nb_addrs = (size_t) picoquic_getaddrs(aac->sas, aac->if_indexes, MAX_ADDRS_STORAGE);
     if (aac->nb_addrs == 0) {
         my_free(cnx, aac);
         return;
@@ -420,6 +423,8 @@ static void reserve_add_address_frame(picoquic_cnx_t *cnx)
     if (aac->nb_addrs == 0) {
         my_free(cnx, aac);
         return;
+    } else if (aac->nb_addrs > MAX_ADDRS) {
+        aac->nb_addrs = MAX_ADDRS;
     }
     int frame_size_v6 = 21;
     reserve_frame_slot_t *rfs = (reserve_frame_slot_t *) my_malloc(cnx, sizeof(reserve_frame_slot_t));
