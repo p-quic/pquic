@@ -15,7 +15,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
 
     int uniflow_index = mp_get_uniflow_index(cnx, bpfd, true, frame->uniflow_id, NULL);
     if (uniflow_index < 0) {
-        helper_protoop_printf(cnx, "No uniflow index found...", NULL, 0);
+        PROTOOP_PRINTF(cnx, "No uniflow index found...\n");
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     }
@@ -30,13 +30,8 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         helper_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION, MP_ACK_TYPE);
         return 1;
     } else if (frame->ack.largest_acknowledged >= send_sequence) {
-        protoop_arg_t args[5];
-        args[0] = (protoop_arg_t) frame->ack.largest_acknowledged;
-        args[1] = (protoop_arg_t) sending_path;
-        args[2] = (protoop_arg_t) send_sequence;
-        args[3] = (protoop_arg_t) pc;
-        args[4] = (protoop_arg_t) frame->uniflow_id;
-        helper_protoop_printf(cnx, "MP ACK frame largest is %" PRIu64 " for sending path %p but send_sequence is %" PRIu64 " with pc %" PRIu64 " (PID %" PRIu64 ")\n", args, 5);
+        PROTOOP_PRINTF(cnx, "MP ACK frame largest is %" PRIu64 " for sending path %p but send_sequence is %" PRIu64 " with pc %" PRIu64 " (PID %" PRIu64 ")\n",
+                       frame->ack.largest_acknowledged, (protoop_arg_t) sending_path, send_sequence, pc, frame->uniflow_id);
         /* FIXME Clearly, there is a bug, but don't deal with it now... */
         if (send_sequence == 0) {
             return 0;
@@ -95,11 +90,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
             block_to_block += range;
 
             if (largest < block_to_block) {
-                protoop_arg_t args[3];
-                args[0] = largest;
-                args[1] = range;
-                args[2] = block_to_block - range;
-                helper_protoop_printf(cnx, "ack gap error: largest=%" PRIx64 ", range=%" PRIx64 ", gap=%" PRIu64, args, 3);
+                PROTOOP_PRINTF(cnx, "ack gap error: largest=%" PRIx64 ", range=%" PRIx64 ", gap=%" PRIu64, largest, range, block_to_block - range);
                 helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, MP_ACK_TYPE);
                 return 1;
             }
@@ -126,7 +117,7 @@ protoop_arg_t process_mp_ack_frame(picoquic_cnx_t *cnx)
         }
 
         if (frame->ack.is_ack_ecn && frame->ack.ecn_block && helper_process_ecn_block(cnx, frame->ack.ecn_block, pkt_ctx, sending_path)) {
-            helper_protoop_printf(cnx, "ecn block error\n", NULL, 0);
+            PROTOOP_PRINTF(cnx, "ecn block error\n");
             helper_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR, MP_ACK_TYPE);
             return 1;
         }

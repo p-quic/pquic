@@ -250,7 +250,7 @@ static __attribute__((always_inline)) int mp_get_uniflow_index(picoquic_cnx_t *c
         uniflow_index = max_count;
         uniflows[uniflow_index] = my_malloc(cnx, sizeof(uniflow_data_t));
         if (!uniflows[uniflow_index]) {
-            helper_protoop_printf(cnx, "Cannot allocate uniflow_data...\n", NULL, 0);
+            PROTOOP_PRINTF(cnx, "Cannot allocate uniflow_data...\n");
             return -1;
         }
         my_memset(uniflows[uniflow_index], 0, sizeof(uniflow_data_t));

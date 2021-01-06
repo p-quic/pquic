@@ -14,7 +14,7 @@ protoop_arg_t parse_add_address_frame(picoquic_cnx_t* cnx)
     add_address_frame_t *frame = (add_address_frame_t *) my_malloc(cnx, sizeof(add_address_frame_t));
 
     if (!frame) {
-        helper_protoop_printf(cnx, "Failed to allocate memory for add_address_frame_t\n", NULL, 0);
+        PROTOOP_PRINTF(cnx, "Failed to allocate memory for add_address_frame_t\n");
         set_cnx(cnx, AK_CNX_OUTPUT, 0, (protoop_arg_t) frame);
         set_cnx(cnx, AK_CNX_OUTPUT, 1, (protoop_arg_t) ack_needed);
         set_cnx(cnx, AK_CNX_OUTPUT, 2, (protoop_arg_t) is_retransmittable);
