@@ -20,37 +20,34 @@ static int process_ack_of_ack_frame(picoquic_cnx_t* cnx, picoquic_packet_context
         ret = parse_mp_ack_header(bytes, bytes_max,
             &num_block, &uniflow_id,
             &largest, &ack_delay, consumed, 0);
+        int uniflow_index = 0;
+        if (ret == 0) {
+            uniflow_index = mp_get_uniflow_index(cnx, bpfd, false, uniflow_id, NULL);
+        }
+
+        if (uniflow_index < 0) {
+            ret = -1;
+        } else {
+            path_x = bpfd->receiving_uniflows[uniflow_index]->path;
+        }
     }
 
     /* Here, we receive an ACK for an ACK of our receive path! */
 
-    int uniflow_index = 0;
     if (ret == 0) {
-        uniflow_index = mp_get_uniflow_index(cnx, bpfd, false, uniflow_id, NULL);
-    }
-
-    if (uniflow_index < 0) {
-        ret = -1;
-    } else {
-        path_x = bpfd->receiving_uniflows[uniflow_index]->path;
-    }
-
-    /* Find the oldest ACK range, in order to calibrate the
-     * extension of the largest number to 64 bits */
-
-    picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
-    picoquic_sack_item_t* first_sack = (picoquic_sack_item_t*) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
-    picoquic_sack_item_t* target_sack = first_sack;
-    picoquic_sack_item_t* next_sack = NULL;
-    if (first_sack != NULL) {
-        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
-    }
-    while (first_sack != NULL && next_sack != NULL) {
-        target_sack = next_sack;
-        next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
-    }
-
-    if (ret == 0) {
+        /* Find the oldest ACK range, in order to calibrate the
+         * extension of the largest number to 64 bits */
+        picoquic_packet_context_t *pkt_ctx = (picoquic_packet_context_t *) get_path(path_x, AK_PATH_PKT_CTX, pc);
+        picoquic_sack_item_t* first_sack = (picoquic_sack_item_t*) get_pkt_ctx(pkt_ctx, AK_PKTCTX_FIRST_SACK_ITEM);
+        picoquic_sack_item_t* target_sack = first_sack;
+        picoquic_sack_item_t* next_sack = NULL;
+        if (first_sack != NULL) {
+            next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
+        }
+        while (first_sack != NULL && next_sack != NULL) {
+            target_sack = next_sack;
+            next_sack = (picoquic_sack_item_t *) get_sack_item(target_sack, AK_SACKITEM_NEXT_SACK);
+        }
         size_t byte_index = *consumed;
 
         /* Process each successive range */
