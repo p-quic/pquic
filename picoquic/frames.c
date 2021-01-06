@@ -2782,6 +2782,10 @@ int picoquic_prepare_ack_frame_maybe_ecn(picoquic_cnx_t* cnx, uint64_t current_t
             pkt_ctx->highest_ack_sent = pkt_ctx->first_sack_item.end_of_sack_range;
             pkt_ctx->highest_ack_time = current_time;
 
+            if (num_block > 10 && byte_index < bytes_max) {  /* Request an ACK to prune ACK ranges if more than 10 blocks are used*/
+                bytes[byte_index++] = picoquic_frame_type_ping;
+            }
+
             *consumed = byte_index;
         }
     }

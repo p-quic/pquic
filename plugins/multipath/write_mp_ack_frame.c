@@ -148,6 +148,11 @@ protoop_arg_t write_mp_ack_frame(picoquic_cnx_t *cnx)
 
     if (ret == 0) {
         set_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_NEEDED, 0);
+        if (num_block > 10 && bytes_max - bytes > byte_index) {
+            /* Request an ACK to prune ACK ranges if more than 10 blocks are used*/
+            my_memset(bytes + byte_index++, picoquic_frame_type_ping, 1);
+            consumed++;
+        }
     }
 
     my_free(cnx, mac);
