@@ -43,41 +43,41 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
         struct sockaddr_storage *sa;
 
         for (int i = 0; i < aac->nb_addrs; i++) {
-            /* First record the address */
+            sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
+            if (!sa) {
+                ret = PICOQUIC_ERROR_MEMORY;
+                break;
+            }
+            my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_storage));
+            /* Take the port from the current path 0 */
+            if (sa->ss_family == AF_INET) {
+                my_memcpy(&((struct sockaddr_in *) sa)->sin_port, &port, 2);
+            } else if (sa->ss_family == AF_INET6) {
+                my_memcpy(&((struct sockaddr_in6 *) sa)->sin6_port, &port, 2);
+            }
+            addr_index = -1;
+            for (int a = 0; a < bpfd->nb_loc_addrs && addr_index == -1; a++) {
+                if (picoquic_compare_addr((struct sockaddr *) sa, bpfd->loc_addrs[a].sa) == 0) {
+                    addr_index = a;
+                }
+            }
 
-            if (!aac->is_rtx) {
+            if (addr_index == -1) { /* It's a new address, store it */
                 addr_index = bpfd->nb_loc_addrs;
                 addr_id = addr_index;
-                sa = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
-                if (!sa) {
-                    ret = PICOQUIC_ERROR_MEMORY;
-                    break;
-                }
-                my_memcpy(sa, &aac->sas[i], sizeof(struct sockaddr_storage));
-                /* Take the port from the current path 0 */
-                if (sa->ss_family == AF_INET) {
-                    my_memcpy(&((struct sockaddr_in *) sa)->sin_port, &port, 2);
-                } else if (sa->ss_family == AF_INET6) {
-                    my_memcpy(&((struct sockaddr_in6 *) sa)->sin6_port, &port, 2);
-                }
-                int already_exists = 0;
-                for (int a = 0; a < addr_index && !already_exists; a++) {
-                    if (picoquic_compare_addr((struct sockaddr *) sa, bpfd->loc_addrs[a].sa) == 0) {
-                        already_exists = 1;
-                    }
-                }
-                if (already_exists) {
-                    continue;
-                }
+
                 bpfd->loc_addrs[addr_index].id = addr_id;
                 bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
                 bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
                 bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
                 bpfd->nb_loc_addrs++;
-            } else {
-                addr_index = i;
-                addr_id = addr_index + 1;
-                sa = (struct sockaddr_storage *) bpfd->loc_addrs[addr_index].sa;
+            } else if (aac->is_rtx) { /* It's a retransmission */
+                addr_id = bpfd->loc_addrs[addr_index].id;
+                if (addr_id == 0) { /* No need to retransmit address 0 */
+                    continue;
+                }
+            } else { /* The address was already transmitted */
+                continue;
             }
 
             /* Encode the frame ID */
