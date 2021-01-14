@@ -1297,12 +1297,11 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
     pluglet_type_enum old_anchor = cnx->current_anchor;
     int caller_inputc = cnx->protoop_inputc;
     int caller_outputc = cnx->protoop_outputc_callee;
-    uint64_t caller_inputv[caller_inputc];
-    uint64_t caller_outputv[caller_outputc];
-    memcpy(caller_inputv, cnx->protoop_inputv, sizeof(uint64_t) * caller_inputc);
-    memcpy(caller_outputv, cnx->protoop_outputv, sizeof(uint64_t) * caller_outputc);
-    memcpy(cnx->protoop_inputv, pp->inputv, sizeof(uint64_t) * pp->inputc);
+    protoop_arg_t *caller_inputv = cnx->protoop_inputv;
+    protoop_arg_t *caller_outputv = cnx->protoop_outputv;
+    cnx->protoop_inputv = pp->inputv;
     cnx->protoop_inputc = pp->inputc;
+    cnx->protoop_outputv = pp->outputv;
 
 #ifdef DBG_PLUGIN_PRINTF
     for (int i = 0; i < pp->inputc; i++) {
@@ -1415,7 +1414,6 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
     /* Copy the output of the caller to the provided output pointer (if any)... */
     if (pp->outputv) {
-        memcpy(pp->outputv, cnx->protoop_outputv, sizeof(uint64_t) * outputc);
 #ifdef DBG_PLUGIN_PRINTF
         for (int i = 0; i < outputc; i++) {
             DBG_PLUGIN_PRINTF("Out %d: 0x%" PRIx64, i, pp->outputv[i]);
@@ -1428,8 +1426,8 @@ protoop_arg_t plugin_run_protoop_internal(picoquic_cnx_t *cnx, const protoop_par
 
 cleanup:
     /* ... and restore ALL the previous inputs and outputs */
-    memcpy(cnx->protoop_inputv, caller_inputv, sizeof(uint64_t) * caller_inputc);
-    memcpy(cnx->protoop_outputv, caller_outputv, sizeof(uint64_t) * caller_outputc);
+    cnx->protoop_inputv = caller_inputv;
+    cnx->protoop_outputv = caller_outputv;
     cnx->protoop_inputc = caller_inputc;
 
     /* Remove the protocol operation from the call stack */

@@ -782,8 +782,8 @@ typedef struct st_picoquic_cnx_t {
      * Fortunately, if arguments are either integers or pointers, this is simple.
      */
     int protoop_inputc;
-    protoop_arg_t protoop_inputv[PROTOOPARGS_MAX];
-    protoop_arg_t protoop_outputv[PROTOOPARGS_MAX];
+    protoop_arg_t *protoop_inputv;  /*An array that cannot exceed PROTOOPARGS_MAX elements*/
+    protoop_arg_t *protoop_outputv;  /*An array that cannot exceed PROTOOPARGS_MAX elements*/
 
     int protoop_outputc_callee; /* Modified by the callee */
     protoop_arg_t protoop_output; /* Only available for post calls */
