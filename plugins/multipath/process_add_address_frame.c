@@ -18,6 +18,11 @@ protoop_arg_t process_add_address_frame(picoquic_cnx_t *cnx)
         }
     }
 
+    if (addr_index >= sizeof(bpfd->rem_addrs) / sizeof(addr_data_t)) {
+        /* No more place to store the address*/
+        return 0;
+    }
+
     /* Create a copy of the sockaddr for the rem_addrs array, as the frame will be freed */
     bpfd->rem_addrs[addr_index].id = frame->address_id;
     if (frame->ip_vers == 4) {

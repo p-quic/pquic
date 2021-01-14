@@ -116,7 +116,7 @@ typedef struct {
     uniflow_data_t *sending_uniflows[MAX_SENDING_UNIFLOWS];
     uniflow_data_t *receiving_uniflows[MAX_RECEIVING_UNIFLOWS];
     addr_data_t loc_addrs[MAX_ADDRS];
-    addr_data_t rem_addrs[MAX_ADDRS];
+    addr_data_t rem_addrs[MAX_ADDRS_STORAGE];
 
     // uint8_t pkt_seen_non_ack;
     uint64_t uniflows_sequence;

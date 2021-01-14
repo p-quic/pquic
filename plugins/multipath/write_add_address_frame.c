@@ -64,6 +64,9 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
 
             if (addr_index == -1) { /* It's a new address, store it */
                 addr_index = bpfd->nb_loc_addrs;
+                if (addr_index >= sizeof(bpfd->loc_addrs) / sizeof(addr_data_t)) {
+                    continue; /* No more place to handle it */
+                }
                 addr_id = addr_index;
 
                 bpfd->loc_addrs[addr_index].id = addr_id;
