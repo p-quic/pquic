@@ -168,7 +168,7 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
                 /* FIXME I know Multipath somewhat bypass the reservation rules, but it is required here and easier like this... */
                 if (bpfd->nb_sending_proposed > 0 && bpfd->nb_receiving_proposed > 0 && (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) &&
-                    sending_uniflow && !sending_uniflow->has_sent_uniflows_frame) {
+                    sending_uniflow && !sending_uniflow->has_sent_uniflows_frame && get_path(sending_uniflow->path, AK_PATH_CHALLENGE_VERIFIED, 0)) {
                     reserve_uniflows_frame(cnx, sending_uniflow);
                     sending_uniflow->has_sent_uniflows_frame = 1;
                 }
