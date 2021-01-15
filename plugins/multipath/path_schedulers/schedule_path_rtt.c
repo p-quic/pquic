@@ -60,7 +60,7 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
 
             /* Because of asymmetry, no more need to decide the path on which the response should be sent */
             int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (stream == NULL && tls_ready == 0 && mtu_needed) {
+            if (stream == NULL && tls_ready == 0 && mtu_needed && ud->has_sent_uniflows_frame) {
                 sending_path = path_c;
                 selected_uniflow_index = i;
                 valid = 0;

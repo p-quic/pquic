@@ -35,7 +35,7 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
 
             /* Because of asymmetry, no more need to decide the path on which the response should be sent */
             int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (mtu_needed) {
+            if (mtu_needed && ud->has_sent_uniflows_frame) {
                 sending_path = path_c;
                 selected_uniflow_index = i;
                 path_reason = "MTU_DISCOVERY";
