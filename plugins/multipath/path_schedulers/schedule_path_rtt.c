@@ -32,12 +32,8 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
     bpf_tuple_data *bpftd = get_bpf_tuple_data(cnx);
     uniflow_data_t *ud = NULL;
     uint8_t selected_uniflow_index = 255;
-    manage_paths(cnx);
     uint64_t smoothed_rtt_x = 0;
-    uint64_t now = picoquic_current_time();
     int valid = 0;
-    picoquic_stream_head *stream = helper_find_ready_stream(cnx);
-    int tls_ready = helper_is_tls_stream_ready(cnx);
 
     for (uint8_t i = 0; i < bpfd->nb_sending_proposed; i++) {
         ud = bpfd->sending_uniflows[i];
@@ -45,28 +41,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
         if (ud->state == uniflow_active) {
             path_c = ud->path;
             int challenge_verified_c = (int) get_path(path_c, AK_PATH_CHALLENGE_VERIFIED, 0);
-            uint64_t challenge_time_c = (uint64_t) get_path(path_c, AK_PATH_CHALLENGE_TIME, 0);
-            uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, AK_PATH_RETRANSMIT_TIMER, 0);
-            uint8_t challenge_repeat_count_c = (uint8_t) get_path(path_c, AK_PATH_CHALLENGE_REPEAT_COUNT, 0);
-
-            if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < now && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
-                /* Start the challenge! */
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                path_reason = "CHALLENGE_REQUEST";
-                break;
-            }
-
-            /* Because of asymmetry, no more need to decide the path on which the response should be sent */
-            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (stream == NULL && tls_ready == 0 && mtu_needed && ud->has_sent_uniflows_frame) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                path_reason = "MTU_DISCOVERY";
-                break;
-            }
 
             /* If we want another path, ask for it now */
             if (change_path && i != bpfd->last_uniflow_index_sent) {
@@ -85,16 +59,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
                 continue;
             }
 
-            int ping_received_c = (int) get_path(path_c, AK_PATH_PING_RECEIVED, 0);
-            if (ping_received_c) {
-                /* We need some action from the path! */
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                valid = 0;
-                path_reason = "PONG";
-                break;
-            }
-
             /* Stupid heuristic, but needed: we require to retransmit the packet from the given path */
             /* FIXME */
             if (path_c == from_path) {
@@ -109,8 +73,6 @@ protoop_arg_t schedule_path_rtt(picoquic_cnx_t *cnx) {
             if (!challenge_verified_c) {
                 continue;
             }
-
-            /* As ACKs are related to receive paths, no more logic here! */
 
             uint64_t smoothed_rtt_c = find_smooth_rtt(bpfd, bpftd, i);
             if (sending_path && valid && smoothed_rtt_x < smoothed_rtt_c) {

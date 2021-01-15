@@ -120,6 +120,9 @@ typedef struct {
 
     // uint8_t pkt_seen_non_ack;
     uint64_t uniflows_sequence;
+
+    /* The uniflow selected by set_next_wake_time */
+    uniflow_data_t *next_sending_uniflow;
 } bpf_data;
 
 typedef struct {

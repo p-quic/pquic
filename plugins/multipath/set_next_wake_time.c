@@ -1,7 +1,6 @@
 #include "bpf.h"
 
 /* Special wake up decision logic in initial state */
-/* TODO: tie with per path scheduling */
 static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_time)
 {
     uint64_t start_time = (uint64_t) get_cnx(cnx, AK_CNX_START_TIME, 0);
@@ -9,7 +8,7 @@ static void cnx_set_next_wake_time_init(picoquic_cnx_t* cnx, uint64_t current_ti
     int timer_based = 0;
     int blocked = 1;
     int pacing = 0;
-    picoquic_path_t * path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
+    picoquic_path_t *path_x = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_packet_context_t *pkt_ctx;
     int pc_ready_flag = 1 << picoquic_packet_context_initial;
     bpf_data *bpfd = get_bpf_data(cnx);
@@ -196,26 +195,31 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
     uint64_t client_mode = (int) get_cnx(cnx, AK_CNX_CLIENT_MODE, 0);
     uint64_t next_time = latest_progress_time + PICOQUIC_MICROSEC_SILENCE_MAX * (2 - client_mode);
     picoquic_stream_head* stream = NULL;
+    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_STATE, 0);
     int timer_based = 0;
     int blocked = 1;
     int pacing = 0;
     int ret = 0;
+
     bpf_data *bpfd = get_bpf_data(cnx);
     uniflow_data_t *ud = NULL;
-    picoquic_state_enum cnx_state = (picoquic_state_enum) get_cnx(cnx, AK_CNX_STATE, 0);
+
+    char *reason = NULL;
 
 
     if (cnx_state < picoquic_state_client_ready)
     {
         cnx_set_next_wake_time_init(cnx, current_time);
+        bpfd->next_sending_uniflow = NULL;
         return 0;
     }
 
-    int wake_now = get_cnx(cnx, AK_CNX_WAKE_NOW, 0);
+    manage_paths(cnx);
 
     if (cnx_state == picoquic_state_disconnecting || cnx_state == picoquic_state_handshake_failure || cnx_state == picoquic_state_closing_received) {
-        PROTOOP_PRINTF(cnx, "%s", (protoop_arg_t) "Not blocked due to state\n");
         blocked = 0;
+        bpfd->next_sending_uniflow = bpfd->sending_uniflows[0];
+        reason = "Special state";
     }
 
     int nb_snd_uniflows = get_nb_uniflows(bpfd, true);
@@ -228,17 +232,30 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         if (ud != NULL && ud->state != uniflow_active) continue;
         if (get_path(path_x, AK_PATH_CHALLENGE_RESPONSE_TO_SEND, 0) != 0) {
             blocked = 0;
+            bpfd->next_sending_uniflow = NULL;
+            reason = "Path response to send";
         }
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context && (i == 0 || pc == picoquic_packet_context_application); pc++) {
             if (helper_is_ack_needed(cnx, current_time, pc, path_x)) {
                 blocked = 0;
-                //PROTOOP_PRINTF(cnx, "%s", (protoop_arg_t) "Ack needed on path index %d\n", i);
+                bpfd->next_sending_uniflow = NULL;
+                reason = "Ack needed";
+            } else if (get_path(path_x, AK_PATH_PING_RECEIVED, 0)) {
+                blocked = 0;
+                bpfd->next_sending_uniflow = NULL;
+                reason = "Ping received";
             }
         }
     }
 
     picoquic_packet_context_t *pkt_ctx;
     if (blocked != 0) {
+        bpf_duplicate_data *bpfdd = get_bpf_duplicate_data(cnx);
+        bool should_send_max_data = helper_should_send_max_data(cnx);
+        bool is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
+        bool has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
+        bool handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
+
         for (int i = 0; blocked != 0 && pacing == 0 && i < nb_snd_uniflows; i++) {
             path_x = get_sending_path(cnx, bpfd, i, &ud);
             /* If the path is not active, don't expect anything! */
@@ -250,8 +267,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 picoquic_packet_t* p = (picoquic_packet_t *) get_pkt_ctx(pkt_ctx, AK_PKTCTX_RETRANSMIT_OLDEST);
 
                 if (p != NULL && ret == 0 && helper_retransmit_needed_by_packet(cnx, p, current_time, &timer_based, NULL, NULL)) {
-                    PROTOOP_PRINTF(cnx, "Should retransmit on path index %d pointer %p\n", i, (protoop_arg_t) path_x);
                     blocked = 0;
+                    bpfd->next_sending_uniflow = NULL;
+                    reason = "Retransmit needed";
                 }
                 if (get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && (get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) || get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_ACKED, 0))) {
                     break;
@@ -263,24 +281,21 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
                 int is_validated = get_path(path_x, AK_PATH_CHALLENGE_VERIFIED, 0);
                 if (is_validated) {
-                    int should_send_max_data = helper_should_send_max_data(cnx);
-                    int is_tls_stream_ready = helper_is_tls_stream_ready(cnx);
-                    int has_cc_to_send = run_noparam(cnx, PROTOOPID_NOPARAM_HAS_CONGESTION_CONTROLLED_PLUGIN_FRAMEMS_TO_SEND, 0, NULL, NULL);
-                    int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
-                    if (should_send_max_data ||
+                   if (should_send_max_data ||
                         is_tls_stream_ready ||
                         handshake_done_to_send ||
                         ((cnx_state == picoquic_state_client_ready || cnx_state == picoquic_state_server_ready) &&
-                        ((stream = helper_find_ready_stream(cnx)) != NULL || has_cc_to_send))) {
+                        ((stream = helper_find_ready_stream(cnx)) != NULL || helper_find_ready_plugin_stream(cnx) || has_cc_to_send || bpfdd->requires_duplication))) {
                         if (cwin_x > bytes_in_transit_x) {
 #ifdef PACING
                             if (picoquic_is_sending_authorized_by_pacing(path_x, current_time, &next_time)) {
 #endif
-                            PROTOOP_PRINTF(cnx, "Not blocked because path %p has should max data %d tls ready %d cnx_state %d stream %p has_cc %d cwin %d BIF %d\n", (protoop_arg_t) path_x, should_send_max_data, is_tls_stream_ready, cnx_state, (protoop_arg_t) stream, has_cc_to_send, cwin_x, bytes_in_transit_x);
+                            //PROTOOP_PRINTF(cnx, "Not blocked because path %p has should max data %d tls ready %d cnx_state %d stream %p has_cc %d cwin %d BIF %d\n", (protoop_arg_t) path_x, should_send_max_data, is_tls_stream_ready, cnx_state, (protoop_arg_t) stream, has_cc_to_send, cwin_x, bytes_in_transit_x);
                             blocked = 0;
+                            bpfd->next_sending_uniflow = NULL;
+                            reason = "App data can be sent";
 #ifdef PACING
-                            }
-                            else {
+                            } else {
                                  pacing = 1;
                             }
 #endif
@@ -293,6 +308,7 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
+    bool has_booked_frames = picoquic_has_booked_plugin_frames(cnx);
     for (int i = 0; blocked != 0 && pacing == 0 && i < nb_snd_uniflows; i++) {
         path_x = get_sending_path(cnx, bpfd, i, &ud);
         /* If the path is not active, don't expect anything! */
@@ -303,15 +319,18 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
         uint64_t bytes_in_transit_x = (uint64_t) get_path(path_x, AK_PATH_BYTES_IN_TRANSIT, 0);
         if (helper_is_mtu_probe_needed(cnx, path_x) && ud->has_sent_uniflows_frame) {
             blocked = 0;
+            bpfd->next_sending_uniflow = ud;
+            reason = "MTU probe needed";
         }
-        if (cwin_x > bytes_in_transit_x && picoquic_has_booked_plugin_frames(cnx)) {
+        if (cwin_x > bytes_in_transit_x && has_booked_frames) {
             blocked = 0;
+            bpfd->next_sending_uniflow = NULL;
+            reason = "Plugin frames can be sent";
         }
     }
 
-    if (blocked == 0 || (wake_now && pacing == 0)) {
+    if (blocked == 0) {
         next_time = current_time;
-        PROTOOP_PRINTF(cnx, "%s", (protoop_arg_t) "I wake now\n");
     } else if (pacing == 0) {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
             /* First consider receive paths */
@@ -328,8 +347,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     uint64_t ack_time = get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL);
 
                     if (ack_time < next_time) {
-                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, ack_time);
                         next_time = ack_time;
+                        bpfd->next_sending_uniflow = NULL;
+                        reason = "Delayed ACK for receive uniflow";
                     }
                 }
             }
@@ -348,8 +368,9 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                     uint64_t ack_time = get_pkt_ctx(pkt_ctx, AK_PKTCTX_HIGHEST_ACK_TIME) + get_pkt_ctx(pkt_ctx, AK_PKTCTX_ACK_DELAY_LOCAL);
 
                     if (ack_time < next_time) {
-                        PROTOOP_PRINTF(cnx, "ACK time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, ack_time);
                         next_time = ack_time;
+                        bpfd->next_sending_uniflow = NULL;
+                        reason = "Delayed ACK for sending uniflow";
                     }
                 }
 
@@ -361,6 +382,8 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
 
                     if (retransmit_time < next_time) {
                         next_time = retransmit_time;
+                        bpfd->next_sending_uniflow = NULL;
+                        reason = "Next retransmit time";
                     }
                 }
             }
@@ -385,24 +408,26 @@ protoop_arg_t set_nxt_wake_time(picoquic_cnx_t *cnx)
                 uint64_t next_challenge_time = challenge_time_x + retransmit_timer_x;
                 if (next_challenge_time <= current_time) {
                     next_time = current_time;
-                    PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
+                    bpfd->next_sending_uniflow = ud;
+                    reason = "Path challenge to send now";
                 } else if (next_challenge_time < next_time) {
                     next_time = next_challenge_time;
-                    PROTOOP_PRINTF(cnx, "Challenge time for path %p is %" PRIu64 "\n", (protoop_arg_t) path_x, next_time);
+                    bpfd->next_sending_uniflow = ud;
+                    reason = "Next path challenge time";
                 }
             }
+        }
 
-            /* Consider keep alive */
-            uint64_t keep_alive_interval = (uint64_t) get_cnx(cnx, AK_CNX_KEEP_ALIVE_INTERVAL, 0);
-            if (keep_alive_interval != 0 && next_time > (latest_progress_time + keep_alive_interval)) {
-                next_time = latest_progress_time + keep_alive_interval;
-                //PROTOOP_PRINTF(cnx, "Keep alive for path %p is %" PRIu64 "\n", path_x, next_time);
-            }
+        /* Consider keep alive */
+        uint64_t keep_alive_interval = (uint64_t) get_cnx(cnx, AK_CNX_KEEP_ALIVE_INTERVAL, 0);
+        if (keep_alive_interval != 0 && next_time > (latest_progress_time + keep_alive_interval)) {
+            next_time = latest_progress_time + keep_alive_interval;
+            bpfd->next_sending_uniflow = NULL;
+            reason = "Next keep alive";
         }
     }
 
-    PROTOOP_PRINTF(cnx, "Current time %" PRIu64 ", wake at %" PRIu64 "\n", current_time, next_time);
-    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 0);
+    PROTOOP_PRINTF(cnx, "Current time %" PRIu64 ", wake at %" PRIu64 " on uniflow: %p, reason: %s\n", current_time, next_time, (protoop_arg_t) bpfd->next_sending_uniflow, reason);
 
     /* reset the connection at its new logical position */
     picoquic_reinsert_cnx_by_wake_time(cnx, next_time);

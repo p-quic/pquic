@@ -1,13 +1,22 @@
 #include "../bpf.h"
 
 protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
+    picoquic_packet_t *retransmit_p  = (picoquic_packet_t *) get_cnx(cnx, AK_CNX_INPUT, 0);
+    picoquic_path_t *from_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_INPUT, 1);
+    char *reason = (char *) get_cnx(cnx, AK_CNX_INPUT, 2);
+
+    if (retransmit_p && from_path && reason) {
+        if (strncmp(PROTOOPID_NOPARAM_RETRANSMISSION_TIMEOUT, reason, 23) != 0) {
+            /* Fast retransmit or TLP, stay on the same path! */
+            return (protoop_arg_t) from_path;
+        }
+    }
+
     picoquic_path_t *sending_path = (picoquic_path_t *) get_cnx(cnx, AK_CNX_PATH, 0);
     picoquic_path_t *path_c = sending_path;
     bpf_data *bpfd = get_bpf_data(cnx);
     uniflow_data_t *ud = NULL;
     uint8_t selected_uniflow_index = 255;
-    manage_paths(cnx);
-    uint64_t now = picoquic_current_time();
     uint64_t selected_sent_pkt = get_path(sending_path, AK_PATH_NB_PKT_SENT, 0);
     uint64_t cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);
     uint64_t bytes_in_transit_c = (uint64_t) get_path(path_c, AK_PATH_BYTES_IN_TRANSIT, 0);
@@ -21,26 +30,6 @@ protoop_arg_t schedule_path_rr(picoquic_cnx_t *cnx) {
         if (ud->state == uniflow_active) {
             path_c = ud->path;
             int challenge_verified_c = (int) get_path(path_c, AK_PATH_CHALLENGE_VERIFIED, 0);
-            uint64_t challenge_time_c = (uint64_t) get_path(path_c, AK_PATH_CHALLENGE_TIME, 0);
-            uint64_t retransmit_timer_c = (uint64_t) get_path(path_c, AK_PATH_RETRANSMIT_TIMER, 0);
-            uint8_t challenge_repeat_count_c = (uint8_t) get_path(path_c, AK_PATH_CHALLENGE_REPEAT_COUNT, 0);
-
-            if (!challenge_verified_c && challenge_time_c + retransmit_timer_c < now && challenge_repeat_count_c < PICOQUIC_CHALLENGE_REPEAT_MAX) {
-                /* Start the challenge! */
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                path_reason = "CHALLENGE_REQUEST";
-                break;
-            }
-
-            /* Because of asymmetry, no more need to decide the path on which the response should be sent */
-            int mtu_needed = (int) helper_is_mtu_probe_needed(cnx, path_c);
-            if (mtu_needed && ud->has_sent_uniflows_frame) {
-                sending_path = path_c;
-                selected_uniflow_index = i;
-                path_reason = "MTU_DISCOVERY";
-                break;
-            }
 
             /* Very important: don't go further if the cwin is exceeded! */
             cwin_c = (uint64_t) get_path(path_c, AK_PATH_CWIN, 0);

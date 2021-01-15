@@ -191,8 +191,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         return 0;
     }
 
-    int wake_now = get_cnx(cnx, AK_CNX_WAKE_NOW, 0);
-
     if (cnx_state == picoquic_state_disconnecting || cnx_state == picoquic_state_handshake_failure || cnx_state == picoquic_state_closing_received) {
         blocked = 0;
     }
@@ -246,7 +244,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    if (blocked == 0 || (wake_now && pacing == 0)) {
+    if (blocked == 0) {
         next_time = current_time;
     } else if (pacing == 0) {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
@@ -301,8 +299,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             }
         }
     }
-
-    set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 0);
 
     /* reset the connection at its new logical position */
     picoquic_reinsert_cnx_by_wake_time(cnx, next_time);

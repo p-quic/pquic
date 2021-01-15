@@ -2020,7 +2020,7 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
         }
     }
 
-    if (blocked == 0 || (cnx->wake_now && pacing == 0)) {
+    if (blocked == 0) {
         next_time = current_time;
     } else if (pacing == 0) {
         for (picoquic_packet_context_enum pc = 0; pc < picoquic_nb_packet_context; pc++) {
@@ -2068,7 +2068,6 @@ protoop_arg_t set_next_wake_time(picoquic_cnx_t *cnx)
             }
         }
     }
-    cnx->wake_now = 0;
     /* reset the connection at its new logical position */
     picoquic_reinsert_by_wake_time(cnx->quic, cnx, next_time);
 
@@ -2938,9 +2937,7 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
     }
     */
 
-    bool should_wake_now = false;
     size_t queued_bytes = 0;
-
     p = cnx->first_drr;
 
     /* First pass: consider only under-rated plugins with CC */
@@ -2951,7 +2948,6 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
                    !(stream != NULL && (!p->params.rate_unlimited && plugin_use >= max_plugin_cwin)) &&
                    (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
             {
-                should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
                 block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_cc);
                 for (int i = 0; i < block->nb_frames; i++) {
                     /* Not the most efficient way, but will do the trick */
@@ -2981,7 +2977,6 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
                 queued_bytes + block->total_bytes < frame_mss &&
                 (!block->is_congestion_controlled || path_x->bytes_in_transit < path_x->cwin))
         {
-            should_wake_now |= !block->low_priority;    // we should wake now as soon as there is a high priority block
             block = (reserve_frames_block_t *) queue_dequeue(p->block_queue_non_cc);
             for (int i = 0; i < block->nb_frames; i++) {
                 /* Not the most efficient way, but will do the trick */
@@ -3005,15 +3000,6 @@ size_t picoquic_frame_fair_reserve(picoquic_cnx_t *cnx, picoquic_path_t *path_x,
     } while ((p = get_next_plugin(cnx, p)) != cnx->first_drr);
     /* Now we put all we could */
     cnx->first_drr = get_next_plugin(cnx, p);
-    cnx->wake_now = 0;
-
-    /* Finally, put the first pointer to the next one */
-    if (should_wake_now) {
-        /* If we scheduled a frame but no app data and we have congestion allowance, let's wake again */
-        if (stream == NULL || total_plugin_bytes_in_flight < max_plugin_cwin) {
-            cnx->wake_now = 1;
-        }
-    }
 
     return queued_bytes;
 }

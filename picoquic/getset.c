@@ -148,8 +148,6 @@ protoop_arg_t get_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param)
         return cnx->protoop_outputv[param];
     case AK_CNX_RETRY_TOKEN_LENGTH:
         return cnx->retry_token_length;
-    case AK_CNX_WAKE_NOW:
-        return cnx->wake_now;
     case AK_CNX_RETURN_VALUE:
         return cnx->protoop_output;
     case AK_CNX_RESERVED_FRAMES:
@@ -381,9 +379,6 @@ void set_cnx(picoquic_cnx_t *cnx, access_key_t ak, uint16_t param, protoop_arg_t
         break;
     case AK_CNX_RETRY_TOKEN_LENGTH:
         cnx->retry_token_length = (uint32_t) val;
-        break;
-    case AK_CNX_WAKE_NOW:
-        cnx->wake_now = (uint8_t) val;
         break;
     case AK_CNX_RETURN_VALUE:
         printf("ERROR: trying to modify return value...\n");

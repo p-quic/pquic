@@ -9,9 +9,6 @@
         bpfdd->data_length += data_bytes;   \
         set_pkt(packet, AK_PKT_IS_PURE_ACK, get_pkt(packet, AK_PKT_IS_PURE_ACK) && pure_ack);   \
         set_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED, get_pkt(packet, AK_PKT_IS_CONGESTION_CONTROLLED) || cong_controlled);   \
-        \
-        /* And requires waking now */   \
-        set_cnx(cnx, AK_CNX_WAKE_NOW, 0, 1);   \
     } \
 }
 
@@ -28,10 +25,16 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
     int is_cleartext_mode = 0;
     uint32_t checksum_overhead = helper_get_checksum_length(cnx, is_cleartext_mode);
 
+    bpf_data *bpfd = get_bpf_data(cnx);
     bpf_duplicate_data *bpfdd = get_bpf_duplicate_data(cnx);
 
-    /* FIXME cope with different path MTUs */
-    picoquic_path_t *sending_path = schedule_path(cnx, retransmit_p, from_path, reason, bpfdd->requires_duplication);
+    /* FIXME cope with different ath MTUs */
+    picoquic_path_t *sending_path;
+    if (bpfd->next_sending_uniflow == NULL) { /* Has set_next_wake_time already recommended a path ? */
+        sending_path = schedule_path(cnx, retransmit_p, from_path, reason, bpfdd->requires_duplication);
+    } else {
+        sending_path = bpfd->next_sending_uniflow->path;
+    }
     PUSH_LOG_CTX(cnx, "\"sending path\": \"%p\"", (protoop_arg_t) sending_path);
     uint32_t sending_path_mtu = (uint32_t) get_path(sending_path, AK_PATH_SEND_MTU, 0);
 
@@ -93,7 +96,6 @@ protoop_arg_t schedule_frames(picoquic_cnx_t *cnx) {
 
         int mtu_needed = helper_is_mtu_probe_needed(cnx, sending_path);
         int handshake_done_to_send = !get_cnx(cnx, AK_CNX_CLIENT_MODE, 0) && get_cnx(cnx, AK_CNX_HANDSHAKE_DONE, 0) && !get_cnx(cnx, AK_CNX_HANDSHAKE_DONE_SENT, 0);
-        bpf_data *bpfd = get_bpf_data(cnx);
         uniflow_data_t *sending_uniflow = mp_get_sending_uniflow_data(bpfd, sending_path);
 
         /* We first need to check if there is ANY receive path that requires acknowledgement, and also no path response to send */

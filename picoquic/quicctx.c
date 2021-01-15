@@ -2733,7 +2733,6 @@ size_t reserve_frames(picoquic_cnx_t* cnx, uint8_t nb_frames, reserve_frame_slot
         LOG_EVENT(cnx, "plugins", "reserve_frames", "", "{\"nb_frames\": %d, \"total_bytes\": %" PRIu64 ", \"is_cc\": %d, \"frames\": [%s]}", block->nb_frames, block->total_bytes, block->is_congestion_controlled, ftypes_str);
     }
     POP_LOG_CTX(cnx);
-    cnx->wake_now = 1;
     return block->total_bytes;
 }
 
@@ -2767,9 +2766,24 @@ reserve_frame_slot_t* cancel_head_reservation(picoquic_cnx_t* cnx, uint8_t *nb_f
     POP_LOG_CTX(cnx);
     return slots;
 }
+/* Indicates whether there exist non-low priority frames booked. */
 bool picoquic_has_booked_plugin_frames(picoquic_cnx_t *cnx)
 {
-    return (queue_peek(cnx->reserved_frames) != NULL || queue_peek(cnx->retry_frames) != NULL);
+    queue_node_t *n = cnx->reserved_frames->head;
+    while(n) {
+        reserve_frame_slot_t *s = n->data;
+        if (!s->low_priority)
+            return true;
+        n = n->next;
+    }
+    n = cnx->retry_frames->head;
+    while(n) {
+        reserve_frame_slot_t *s = n->data;
+        if (!s->low_priority)
+            return true;
+        n = n->next;
+    }
+    return false;
 }
 
 void quicctx_register_noparam_protoops(picoquic_cnx_t *cnx)
