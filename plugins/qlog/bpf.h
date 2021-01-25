@@ -166,25 +166,22 @@ static void write_trailer(picoquic_cnx_t *cnx, qlog_t *q) {
 
 
 static char *ptype(picoquic_packet_type_enum ptype) {
-    switch (ptype) {
-        case picoquic_packet_error:
-            return "error";
-        case picoquic_packet_initial:
-            return "initial";
-        case picoquic_packet_retry:
-            return "retry";
-        case picoquic_packet_handshake:
-            return "handshake";
-        case picoquic_packet_0rtt_protected:
-            return "0RTT";
-        case picoquic_packet_1rtt_protected_phi0:
-        case picoquic_packet_1rtt_protected_phi1:
-            return "1RTT";
-        case picoquic_packet_version_negotiation:
-            return "version_negotiation";
-        default:
-            return "unknown";
+    char *onertt = "1RTT";
+    char *error = "error";
+    char *ptypes[picoquic_packet_type_max] = {
+            error,
+            "version_negotiation",
+            "initial",
+            "retry",
+            "handshake",
+            "0RTT",
+            onertt,
+            onertt,
+    };
+    if (ptype >= picoquic_packet_type_max) {
+        return error;
     }
+    return ptypes[ptype];
 }
 
 static __attribute__((always_inline)) char *sprint_header(picoquic_cnx_t *cnx, qlog_t *qlog) {
