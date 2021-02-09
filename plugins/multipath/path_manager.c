@@ -29,7 +29,7 @@ protoop_arg_t path_manager(picoquic_cnx_t* cnx) {
         for (int rem = 0; adl->sa && rem < bpfd->nb_rem_addrs; rem++) {
             addr_data_t *adr = &bpfd->rem_addrs[rem];
 
-            if (adl->is_v6 != adr->is_v6) {
+            if (adl->is_v6 != adr->is_v6 || adl->is_v4_mapped_in_v6 != adr->is_v4_mapped_in_v6) {
                 continue; // Keep it simple, don't mix v4 and v6
             }
 

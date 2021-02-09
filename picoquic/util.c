@@ -283,7 +283,7 @@ void picoquic_set64_connection_id(picoquic_connection_id_t * cnx_id, uint64_t va
     cnx_id->id_len = 8;
 }
 
-static int is_v4_mapped_in_v6(struct sockaddr_in6 *a, struct in_addr *ret) {
+int picoquic_is_v4_mapped_in_v6(struct sockaddr_in6 *a, struct in_addr *ret) {
     uint8_t mapped_header[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
     if (memcmp(mapped_header, &a->sin6_addr, sizeof(mapped_header)) == 0) {
         memcpy(ret, ((uint8_t *)&a->sin6_addr) + 12, sizeof(struct in_addr));
@@ -315,13 +315,13 @@ int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual)
                 ret = 0;
             }
         }
-    } else if (expected->sa_family == AF_INET6 && actual->sa_family == AF_INET && is_v4_mapped_in_v6((struct sockaddr_in6 *) expected, &v4)) {
+    } else if (expected->sa_family == AF_INET6 && actual->sa_family == AF_INET && picoquic_is_v4_mapped_in_v6((struct sockaddr_in6 *) expected, &v4)) {
         struct sockaddr_in6 *ex = (struct sockaddr_in6 *) expected;
         struct sockaddr_in *ac = (struct sockaddr_in *) actual;
         if (ex->sin6_port == ac->sin_port && v4.s_addr == ac->sin_addr.s_addr) {
             ret = 0;
         }
-    } else if (actual->sa_family == AF_INET6 && expected->sa_family == AF_INET && is_v4_mapped_in_v6((struct sockaddr_in6 *) actual, &v4)) {
+    } else if (actual->sa_family == AF_INET6 && expected->sa_family == AF_INET && picoquic_is_v4_mapped_in_v6((struct sockaddr_in6 *) actual, &v4)) {
         struct sockaddr_in *ex = (struct sockaddr_in *) expected;
         struct sockaddr_in6 *ac = (struct sockaddr_in6 *) actual;
         if (ex->sin_port == ac->sin6_port && ex->sin_addr.s_addr == v4.s_addr) {

@@ -41,6 +41,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             bpfd->loc_addrs[0].id = 0;
             bpfd->loc_addrs[0].sa = (struct sockaddr *) sal;
             bpfd->loc_addrs[0].is_v6 = sal->ss_family == AF_INET6;
+            bpfd->loc_addrs[0].is_v4_mapped_in_v6 = is_v4_mapped_in_v6((struct sockaddr *) sal);
             bpfd->loc_addrs[0].if_index = get_path(path_0, AK_PATH_IF_INDEX_LOCAL, 0);
             bpfd->nb_rem_addrs = 1;
             struct sockaddr_storage *sar = (struct sockaddr_storage *) my_malloc_ex(cnx, sizeof(struct sockaddr_storage));
@@ -48,6 +49,7 @@ protoop_arg_t connection_state_changed(picoquic_cnx_t* cnx)
             bpfd->rem_addrs[0].id = 0;
             bpfd->rem_addrs[0].sa = (struct sockaddr *) sar;
             bpfd->rem_addrs[0].is_v6 = sar->ss_family == AF_INET6;
+            bpfd->rem_addrs[0].is_v4_mapped_in_v6 = is_v4_mapped_in_v6((struct sockaddr *) sar);
 
             /* Prepare MP_NEW_CONNECTION_IDs */
             uint64_t max_sending_uniflow_id = N_RECEIVING_UNIFLOWS - 1;

@@ -40,6 +40,7 @@ protoop_arg_t peer_address_changed(picoquic_cnx_t *cnx)
         LOG_EVENT(cnx, "multipath", "address_updated", "peer_address_changed", "{\"remote_address_id\": %d, \"old_address\": \"%s\", \"new_address\": \"%s\"}", ud->uniflow_id, (protoop_arg_t) old, (protoop_arg_t) new);
         my_memcpy(addr->sa, new_addr, new_addr_len);
         addr->is_v6 = new_addr->sa_family == AF_INET6;
+        addr->is_v4_mapped_in_v6 = is_v4_mapped_in_v6(new_addr);
 
         for (int i = 0; i < bpfd->nb_sending_proposed; i++) {
             uniflow_data_t *tud = bpfd->sending_uniflows[i];

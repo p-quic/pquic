@@ -65,6 +65,7 @@ protoop_arg_t process_uniflows_frame(picoquic_cnx_t *cnx) {
                 LOG_EVENT(cnx, "multipath", "address_updated", "uniflows_processed", "{\"remote_address_id\": %d, \"old_address\": \"%s\", \"new_address\": \"%s\"}", ud->uniflow_id, (protoop_arg_t) old, (protoop_arg_t) new);
                 my_memcpy(addr->sa, path_addr, path_addr_len);
                 addr->is_v6 = path_addr->sa_family == AF_INET6;
+                addr->is_v4_mapped_in_v6 = is_v4_mapped_in_v6(path_addr);
 
                 for (int j = 0; j < bpfd->nb_sending_proposed; j++) {
                     uniflow_data_t *tud = bpfd->sending_uniflows[j];

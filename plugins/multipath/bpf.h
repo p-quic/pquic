@@ -88,6 +88,7 @@ typedef struct {
     uint32_t if_index;
     struct sockaddr *sa;
     bool is_v6;
+    bool is_v4_mapped_in_v6;
 } addr_data_t;
 
 typedef struct {
@@ -388,12 +389,25 @@ static bool accept_addr(picoquic_cnx_t *cnx, struct sockaddr_storage *sa, uint32
     return (bool) run_noparam(cnx, pid.id, 2, args, NULL);
 }
 
+static __attribute__((always_inline)) int is_v4_mapped_in_v6(struct sockaddr *sa) {
+    if (sa->sa_family == AF_INET6) {
+        uint8_t mapped_header[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
+        struct in6_addr *in6 = &((struct sockaddr_in6 *)sa)->sin6_addr;
+        for (int i = 0; i < sizeof(mapped_header); i++) {
+            if (mapped_header[i] != in6->s6_addr[i])
+                return 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
 static size_t filter_addrs(picoquic_cnx_t *cnx, struct sockaddr_storage *sas, uint32_t *if_indexes, int addrs) {
     int i = 0;
     while (i < addrs) {
         struct sockaddr_storage *sa = sas + i;
-        char dst[INET_ADDRSTRLEN];
-        PROTOOP_PRINTF(cnx, "Address %s ", (protoop_arg_t) inet_ntop(AF_INET, &((struct sockaddr_in *) sa)->sin_addr, dst, sizeof(dst)));
+        char dst[INET6_ADDRSTRLEN];
+        PROTOOP_PRINTF(cnx, "Address %s ", (protoop_arg_t) inet_ntop(sa->ss_family, (sa->ss_family == AF_INET ? (struct sockaddr *) &((struct sockaddr_in *) sa)->sin_addr : (struct sockaddr *)  &((struct sockaddr_in6 *) sa)->sin6_addr), dst, sizeof(dst)));
         if (!accept_addr(cnx, sa, *(if_indexes + i))) {
             struct sockaddr_storage *end = sas + (addrs - 1);
             if (end != sa) {

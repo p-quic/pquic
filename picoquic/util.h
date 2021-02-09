@@ -61,6 +61,7 @@ void picoquic_parse_packet_header_cnxid_lengths(uint8_t l_byte, uint8_t *dest_le
 int picoquic_split_stream_frame(uint8_t *bytes, size_t bytes_max, uint8_t *buf1, size_t *buf1_len, uint8_t *buf2, size_t *buf2_len);
 
 int picoquic_compare_addr(struct sockaddr * expected, struct sockaddr * actual);
+int picoquic_is_v4_mapped_in_v6(struct sockaddr_in6 *a, struct in_addr *ret);
 int picoquic_check_or_create_directory(const char* path);
 char *picoquic_string_join_path_and_fname(char* dir_path, const char* fname);
 int picoquic_string_ends_with(const char *str, const char *suffix);

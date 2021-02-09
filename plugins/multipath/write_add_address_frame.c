@@ -72,6 +72,7 @@ protoop_arg_t write_add_address_frame(picoquic_cnx_t* cnx)
                 bpfd->loc_addrs[addr_index].id = addr_id;
                 bpfd->loc_addrs[addr_index].sa = (struct sockaddr *) sa;
                 bpfd->loc_addrs[addr_index].is_v6 = sa->ss_family == AF_INET6;
+                bpfd->loc_addrs[addr_index].is_v4_mapped_in_v6 = is_v4_mapped_in_v6((struct sockaddr *) sa);
                 bpfd->loc_addrs[addr_index].if_index = aac->if_indexes[i];
                 bpfd->nb_loc_addrs++;
             } else if (aac->is_rtx) { /* It's a retransmission */
