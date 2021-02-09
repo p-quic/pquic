@@ -219,6 +219,8 @@ int prepare_plugin_transport_extensions(picoquic_cnx_t* cnx, uint8_t* bytes, siz
             /* FIXME this is a little hacky here, but this is also a special case */
             if (current_popst->replace) {
                 cnx->protoop_inputc = 2;
+                protoop_arg_t args[2];
+                cnx->protoop_inputv = args;
                 cnx->protoop_inputv[0] = (protoop_arg_t) &value;
                 cnx->protoop_inputv[1] = (protoop_arg_t) max_length;
                 cnx->current_plugin = current_popst->replace->p;
@@ -230,6 +232,7 @@ int prepare_plugin_transport_extensions(picoquic_cnx_t* cnx, uint8_t* bytes, siz
                 }
                 cnx->current_plugin = NULL;
                 cnx->protoop_inputc = 0;
+                cnx->protoop_inputv = NULL;
 
                 if (status > 0 && status <= max_length) {
                     byte_index += tp_data_encode(bytes + byte_index, bytes_max - byte_index,
