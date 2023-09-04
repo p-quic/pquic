@@ -692,6 +692,7 @@ typedef struct st_picoquic_cnx_t {
     uint64_t offending_frame_type;
     uint32_t retry_token_length;
     uint8_t * retry_token;
+    unsigned int active_connection_id_count;
     unsigned int handshake_done : 1;
     unsigned int handshake_done_sent : 1;
     unsigned int handshake_done_acked : 1;

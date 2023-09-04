@@ -575,10 +575,12 @@ protoop_arg_t get_checksum_length(picoquic_cnx_t *cnx)
     int is_cleartext_mode = (int) cnx->protoop_inputv[0];
     uint32_t ret = 16;
 
-    if (is_cleartext_mode || cnx->crypto_context[2].aead_encrypt == NULL) {
+    if (is_cleartext_mode && cnx->crypto_context[2].aead_encrypt == NULL && cnx->crypto_context[0].aead_encrypt != NULL) {
         ret = picoquic_aead_get_checksum_length(cnx->crypto_context[0].aead_encrypt);
-    } else {
+    } else if (cnx->crypto_context[2].aead_encrypt != NULL) {
         ret = picoquic_aead_get_checksum_length(cnx->crypto_context[2].aead_encrypt);
+    } else if(cnx->crypto_context[3].aead_encrypt != NULL) {
+        ret = picoquic_aead_get_checksum_length(cnx->crypto_context[3].aead_encrypt);
     }
 
     return (protoop_arg_t) ret;
@@ -608,7 +610,13 @@ uint32_t picoquic_protect_packet(picoquic_cnx_t* cnx,
     uint32_t pn_offset = 0;
     size_t sample_offset = 0;
     uint32_t pn_length = 0;
-    uint32_t aead_checksum_length = (uint32_t)picoquic_aead_get_checksum_length(aead_context);
+    uint32_t aead_checksum_length;
+    
+    if(aead_context != NULL){
+        aead_checksum_length = (uint32_t)picoquic_aead_get_checksum_length(aead_context);
+    }else{
+        return 0;
+    }
 
     /* Create the packet header just before encrypting the content */
     h_length = picoquic_create_packet_header(cnx, ptype, path_x,
@@ -962,7 +970,7 @@ void picoquic_implicit_handshake_ack(picoquic_cnx_t* cnx, picoquic_path_t *path,
 
     /* Remove packets from the retransmit queue */
     while (p != NULL) {
-        picoquic_packet_t* p_next = p->next_packet;
+        picoquic_packet_t* p_next = p->previous_packet;
         picoquic_path_t * old_path = p->send_path;
 
         /* Update the congestion control state for the path */
@@ -2546,7 +2554,7 @@ int picoquic_prepare_packet_server_init(picoquic_cnx_t* cnx, picoquic_path_t ** 
 
     /* If context is handshake, verify first that there is no need for retransmit or ack
     * on initial context */
-    if (ret == 0 && pc == picoquic_packet_context_handshake) {
+    if (ret == 0 && pc == picoquic_packet_context_handshake && cnx->crypto_context[0].aead_encrypt != NULL) {
         length = picoquic_prepare_packet_old_context(cnx, picoquic_packet_context_initial,
             path_x, packet, send_buffer_max, current_time, &header_length);
     }
@@ -3171,6 +3179,7 @@ protoop_arg_t schedule_frames_on_path(picoquic_cnx_t *cnx)
                                 length += (uint32_t) data_bytes;
                                 packet->has_handshake_done = 1;
                                 packet->is_pure_ack = 0;
+                                picoquic_crypto_context_free(&cnx->crypto_context[2]);
                             }
                         }
 

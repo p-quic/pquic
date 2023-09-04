@@ -485,11 +485,13 @@ int picoquic_parse_header_and_decrypt(
                 /* Packet is not encrypted */
                 break;
             case picoquic_packet_initial:
-                decoded_length = picoquic_decrypt_packet(*pcnx, bytes, packet_length, ph,
-                    (*pcnx)->crypto_context[0].hp_dec,
-                    (*pcnx)->crypto_context[0].aead_decrypt, &already_received, path_from);
-                length = ph->offset + ph->payload_length;
-                *consumed = length;
+                if((*pcnx)->crypto_context[0].aead_decrypt != NULL){
+                    decoded_length = picoquic_decrypt_packet(*pcnx, bytes, packet_length, ph,
+                        (*pcnx)->crypto_context[0].hp_dec,
+                        (*pcnx)->crypto_context[0].aead_decrypt, &already_received, path_from);
+                    length = ph->offset + ph->payload_length;
+                    *consumed = length;
+                }
                 break;
             case picoquic_packet_retry:
                 /* packet is not encrypted, no sequence number. */
@@ -1345,7 +1347,10 @@ int picoquic_incoming_segment(
                     if (ret == 0) {
                         if (cnx->client_mode == 0) {
                             /* TODO: finish processing initial connection packet */
-                            cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
+                            if(cnx->local_parameters.original_destination_connection_id.id_len == 0){
+                                cnx->local_parameters.original_destination_connection_id = ph.dest_cnx_id;
+                            }
+
                             ret = picoquic_incoming_initial(&cnx, bytes,
                                 addr_from, addr_to, if_index_to, &ph, current_time, *new_context_created);
                         }
@@ -1372,6 +1377,12 @@ int picoquic_incoming_segment(
                 else
                 {
                     ret = picoquic_incoming_client_cleartext(cnx, bytes, &ph, current_time);
+                    
+                    if (ret == 0 && cnx->crypto_context[2].aead_decrypt != NULL && cnx->crypto_context[2].aead_encrypt != NULL)
+                    {
+                        picoquic_implicit_handshake_ack(cnx, cnx->path[0], picoquic_packet_context_initial, current_time);
+                        picoquic_crypto_context_free(&cnx->crypto_context[0]);
+                    }
                 }
                 break;
             case picoquic_packet_0rtt_protected:
