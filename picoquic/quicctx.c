@@ -1352,6 +1352,7 @@ picoquic_cnx_t* picoquic_create_cnx(picoquic_quic_t* quic,
             cnx->cnx_state = picoquic_state_server_init;
             cnx->initial_cnxid = initial_cnx_id;
             cnx->path[0]->remote_cnxid = remote_cnx_id;
+            cnx->active_connection_id_count = 1;
 
             if (quic->cnx_id_callback_fn)
                 quic->cnx_id_callback_fn(cnx->path[0]->local_cnxid, cnx->initial_cnxid,

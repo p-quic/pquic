@@ -501,7 +501,11 @@ protoop_arg_t parse_new_connection_id_frame(picoquic_cnx_t* cnx)
         return (protoop_arg_t) NULL;
     }
 
-    if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->sequence)) == NULL ||
+    if (cnx->active_connection_id_count >= cnx->local_parameters.active_connection_id_limit) {
+        picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_CONNECTION_ID_LIMIT_ERROR, picoquic_frame_type_new_connection_id);
+        picoquic_reinsert_by_wake_time(cnx->quic, cnx, picoquic_current_time());
+        return (protoop_arg_t) NULL;
+    } else if ((bytes = picoquic_frames_varint_decode(bytes + picoquic_varint_skip(bytes), bytes_max, &frame->sequence)) == NULL ||
         (bytes = picoquic_frames_varint_decode(bytes, bytes_max, &frame->retire_prior_to)) == NULL ||
         (bytes = picoquic_frames_uint8_decode(bytes, bytes_max, &frame->connection_id.id_len)) == NULL ||
         (frame->connection_id.id_len > PICOQUIC_CONNECTION_ID_MAX_SIZE) ||
@@ -520,6 +524,7 @@ protoop_arg_t parse_new_connection_id_frame(picoquic_cnx_t* cnx)
         bytes += frame->connection_id.id_len;
         memcpy(&frame->stateless_reset_token, bytes, 16);
         bytes += 16;
+        cnx->active_connection_id_count++;
     }
 
     protoop_save_outputs(cnx, frame, ack_needed, is_retransmittable);
