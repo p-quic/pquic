@@ -905,7 +905,7 @@ void usage()
     fprintf(stderr, "  -C directory          directory containing the cached plugins requiring support from both peers (default: NULL). Only for client.\n");
     fprintf(stderr, "  -Q file               plugin file to be injected at both side (default: NULL). Can be used several times to require several plugins. Only for server.\n");
     fprintf(stderr, "  -p port               server port (default: %d)\n", default_server_port);
-    fprintf(stderr, "  -n sni                sni (default: server name)\n");
+    fprintf(stderr, "  -n sni                sni (default: %s)\n", default_server_name);
     fprintf(stderr, "  -a alpn               alpn (default function of version)\n");
     fprintf(stderr, "  -t file               root trust file\n");
     fprintf(stderr, "  -R                    enforce 1RTT\n");
