@@ -56,6 +56,10 @@ int picoquic_parse_packet_header(
     /* Initialize the PH structure to zero, but version index to -1 (error) */
     memset(ph, 0, sizeof(picoquic_packet_header));
     ph->version_index = -1;
+    
+    if (length == 0) {
+        return -1;
+    }
 
     if ((bytes[0] & 0x40) != 0x40) {
         ph->ptype = picoquic_packet_error;
